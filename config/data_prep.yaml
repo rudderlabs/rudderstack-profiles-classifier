@@ -1,0 +1,90 @@
+preprocessing:
+  categorical_columns: &categorical_columns [RUDDER_ID, VALID_AT, STATE, COUNTRY, FIRST_NAME, LAST_NAME, CURRENCY, DEVICE_TYPE, DEVICE_NAME, DEVICE_MANUFACTURER, LAST_CART_STATUS
+  ]
+  timestamp_columns: [first_seen_date,last_seen_date
+  ]
+    # Following columns get a datediff function applied with the timestamp_column to get days_since_<timestamp_column> features
+
+  ignore_features:
+    # Following columns are ignored if they are present in the final feature table
+    - identity_group_id
+    - churn_cohort_label
+    - customer_status
+    - customer_last_seen_at
+    - customer_active_at
+    - customer_deleted_at
+    - behavioural_cohort_label
+    - is_kid_account
+    - is_parent_account
+    - is_active
+    - is_kid_account_at_time
+    - is_in_signup
+    - is_parent_account_at_time # Frm below, all features have a _at_time version; 
+    - age
+    - country
+    - region_name
+    - country_at_time
+    - region_name_at_time
+    - jurisdiction
+    - is_deleted_for_nature_and_purpose
+    - CAMPAIGN_SOURCES
+    - PRODUCTS_ADDED_IN_PAST_1_DAYS
+    - PRODUCTS_ADDED_IN_PAST_7_DAYS
+    - PRODUCTS_ADDED_IN_PAST_365_DAYS
+    - ITEMS_PURCHASED_EVER
+    - TOTAL_PRODUCTS_ADDED
+
+
+  numeric_pipeline:
+    columns: all
+    pipeline:
+      - name: SimpleImputer
+        # strategy can be any acceptable value of sklearn simpleimputer strategy
+        missing_values: np.nan
+        strategy: constant
+        # fill_value: 0
+        copy: True
+        add_indicator: False
+        # keep_empty_features: False
+
+  categorical_pipeline:
+    columns: *categorical_columns
+    pipeline:
+      - name: SimpleImputer
+        strategy: constant
+        # if strategy is constant, it expects a fill_value. If that is not returned, it defaults to `unknown`
+        fill_value: unknown
+        copy: True
+        add_indicator: False
+      - name: OneHotEncoder
+        handle_unknown: ignore
+        sparse: False
+  feature_selectors:
+    # Feature selectors that get applied after normalizing is done. Has to be from `VarianceThreshold`, `GenericUnivariateSelect`, `chi2`, `f_classif`
+    # ToDo: This section is not implemented in the notebook.
+    - name: VarianceThreshold
+      threshold: 0
+
+# Data loader and preparation
+data:
+  # Key columns in the dataset. 
+  label_column: is_churned_7_days
+  label_value: 1
+  entity_column: user_main_id
+  model_name: 'shopify_user_features'
+  model_name_prefix: 'shopify_churn_test'
+  index_timestamp: valid_at
+  eligible_users: ''
+  train_start_dt: '2023-03-24'
+  train_end_dt: '2023-04-06'
+  prediction_horizon_days: 7
+  sample_data: 1. # Keep 1 if all data during train_start_dt, train_end_dt and eligible_users should be selected; Else, give the percent as the number between 0 and 1; Ex, 0.25 indicates 25% data gets sampled
+
+  # Train, test, val split ratios. They must be each between 0 and 1, and sum to 1
+  train_size: 0.6
+  val_size: 0.2
+  test_size: 0.2
+
+output_files:
+  data_pipeline_file: data_pipeline.pkl
+  final_column_names_file: output_column_names.pkl

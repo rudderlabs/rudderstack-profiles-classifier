@@ -1,0 +1,131 @@
+data_path:
+  train_file: train.csv
+  test_file: test.csv
+  val_file: val.csv
+  label_col_name: label
+model_params:
+  #Available models are XGBClassifier, RandomForestClassifier and MLPClassifier
+  models:
+    # Acceptable models: xgboost, random_forest, neural_nets
+    # Each model consists of  name (req), hyperparams (opt), and tune_hyperparams (opt) blocks.
+    - name: XGBClassifier
+      # metric used to evaluate the model possible options
+      #   average_precision_score
+      #   precision_recall_fscore_support
+      evaluation_metric: average_precision_score
+      # model related configuration parameters which are constant (do not need hyper parameter tunning)
+      modelparams:
+        objective: binary:logistic
+        subsample: 0.7
+        use_label_encoder: False
+        eval_metric: logloss
+        early_stopping_rounds: 10
+      fitparams:
+        verbose: False
+      # Configuration for hyperopt minimization function (fmin)
+      hyperopts_config:
+        max_evals: 10
+      hyperopts:
+        # parameters on which hyperparam search should run
+        # type can be
+        #   1. choice
+        #     - params
+        #       1. options
+        #         can be a list or tuple (OR)
+        #         low, high, step(optional) to form list
+        #   2. quniform ( Returns a value like round(uniform(low, high) / q) * q)
+        #     - params
+        #       1. low
+        #       2. high
+        #       3. q
+        #   3. uniform (Returns a value uniformly between low and high.)
+        #     - params
+        #       1. low
+        #       2. high
+        #   4. loguniform (Returns a value drawn according to exp(uniform(low, high)) so that the logarithm of the return value is uniformly distributed.)
+        #     - params
+        #       1. low
+        #       2. high
+        - name: max_depth
+          type: choice
+          options: [3, 4, 5, 6, 7]
+        - name: eta
+          type: quniform
+          low: 0.05
+          high: 0.5
+          q: 0.05
+        - name: gamma
+          type: quniform
+          low: 0.25
+          high: 1
+          q: 0.05
+        - name: colsample_bytree
+          type: uniform
+          low: 0.5
+          high: 1
+        - name: min_child_weight
+          type: choice
+          options: [1, 3, 5, 7, 9]
+        - name: n_estimators
+          type: choice
+          options:
+            low: 50
+            high: 500
+            step: 50
+    - name: RandomForestClassifier
+      evaluation_metric: average_precision_score
+      # model related configuration parameters which are constant (do not need hyper parameter tunning)
+      modelparams: #https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html
+        n_jobs: 4
+        random_state: 42
+        criterion: entropy
+      hyperopts_config:
+        max_evals: 10
+      hyperopts:
+        - name: max_depth
+          type: choice
+          options: [3, 4, 5, 6, 7]
+        - name: n_estimators
+          type: choice
+          options:
+            low: 50
+            high: 500
+            step: 50
+    - name: MLPClassifier
+      evaluation_metric: average_precision_score
+      modelparams: # https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPClassifier.html
+        activation: 'relu'
+        solver: 'adam'
+        alpha: 0.0001
+        batch_size: 'auto'
+        learning_rate: 'constant'
+        learning_rate_init: 0.001
+        power_t: 0.5
+        max_iter: 200
+        shuffle: True
+        random_state: 42
+        tol: 0.0001
+        verbose: False
+        warm_start: False
+        momentum: 0.9
+        nesterovs_momentum: True
+        early_stopping: False
+        validation_fraction: 0.1
+        beta_1: 0.9
+        beta_2: 0.999
+        n_iter_no_change: 10
+        max_fun: 15000
+      hyperopts_config:
+        max_evals: 10
+      hyperopts:
+        - name: hidden_layer_sizes
+          type: choice
+          options:
+            - [64, 32]
+            - [16, 32, 64]
+            - [64, 32, 16, 4]
+  validation_on: f1_score
+  evaluation_metrics:
+    - average_precision
+    - recall
+    - accuracy

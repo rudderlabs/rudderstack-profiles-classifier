@@ -1,0 +1,4 @@
+.DS_Store
+churn.log
+__pycache__/*
+config/.ipynb_checkpoints/*

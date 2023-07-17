@@ -1,0 +1,12 @@
+model:
+  evaluation_metrics:
+    - average_precision
+    - recall
+    - accuracy
+  acceptance_criteria:
+    # Dev/Stagging model will get accepted if it meets the following criteria
+    # Ex.
+    #   - average_precision(Dev) > 0.9 * average_precision(Production)
+    #   - When above criteria is met, then dev model will be promoted to production
+    metric_name: average_precision
+    threshold: 0.9

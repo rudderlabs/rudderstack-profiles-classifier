@@ -1,1 +1,1 @@
-# rudderstack-profiles-classifier
+Churn classification model built on top of profiles feature tables. 

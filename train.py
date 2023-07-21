@@ -36,7 +36,7 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, List
 
-from utils import load_yaml, remap_credentials, combine_config, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics
+from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics
 import constants as constants
 import yaml
 import json
@@ -306,10 +306,14 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     model_name = merged_config['data']['model_name']
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
 
-    model_hash = get_latest_material_hash(session, material_table, model_name)
+    model_hash, creation_ts = get_latest_material_hash(session, material_table, model_name)
+
+    if start_date == None or end_date == None:
+        start_date, end_date = get_date_range(creation_ts, prediction_horizon_days)
+
     material_names = get_material_names(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
     if len(material_names) == 0:
-        raise Exception(f"No materialised data found in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+        raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
     
     entity_column = merged_config['data']['entity_column']
     index_timestamp = merged_config['data']['index_timestamp']
@@ -380,8 +384,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                "input_model_name":model_name}
     
     json.dump(results, open(output_filename,"w"))
-
-    
     
 if __name__ == "__main__":
     with open("/Users/ambuj/.pb/siteconfig.yaml", "r") as f:

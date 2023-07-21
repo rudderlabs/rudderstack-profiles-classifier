@@ -12,6 +12,7 @@ from xgboost import XGBClassifier
 import joblib
 import os
 from snowflake.snowpark.session import Session
+from snowflake.snowpark.window import Window
 import snowflake.snowpark.functions as F
 import snowflake.snowpark.types as T
 from typing import List
@@ -198,7 +199,9 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
              .withColumn("current_timestamp", F.lit(current_ts))
              .withColumn("material_hash", F.lit(model_hash))
              .withColumn("model_id", F.lit(model_id)))
-    preds.write.mode("overwrite").save_as_table(output_tablename)
+
+    preds_with_percentile = preds.withColumn("percentile_score", F.percent_rank().over(Window.order_by(F.col("score"))))
+    preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)
     
 
 if __name__ == "__main__":

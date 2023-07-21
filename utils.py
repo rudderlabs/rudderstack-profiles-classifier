@@ -10,6 +10,7 @@ from snowflake.snowpark.functions import col
 
 import yaml
 from copy import deepcopy
+from datetime import datetime, timedelta
 
 def remap_credentials(credentials: dict) -> dict:
     """Remaps credentials from profiles siteconfig to the expected format from snowflake session
@@ -57,9 +58,24 @@ def combine_config(notebook_config: dict, profiles_config:dict= None) -> dict:
             merged_config['data'][key] = profiles_data[key]
     return merged_config
 
+def get_date_range(creation_ts: datetime, 
+                   prediction_horizon_days: int) -> Tuple:
+    """This function will return the start_date and end_date on basis of latest hash
+
+    Args:
+        end_date (datetime): creation timestamp of latest hash
+        prediction_horizon_days (int): period of days
+
+    Returns:
+        Tuple: start_date and end_date on basis of latest hash and period of days
+    """
+    start_date = creation_ts - timedelta(days = 2*prediction_horizon_days)
+    end_date = creation_ts - timedelta(days = prediction_horizon_days)
+    return str(start_date), str(end_date)
+
 def get_latest_material_hash(session: snowflake.snowpark.Session,
                        material_table: str,
-                       model_name:str) -> str:
+                       model_name:str) -> Tuple:
     """This function will return the model hash that is latest for given model name in material table
 
     Args:
@@ -68,11 +84,13 @@ def get_latest_material_hash(session: snowflake.snowpark.Session,
         model_name (str): model_name from data_prep file
 
     Returns:
-        str: latest model hash
+        Tuple: latest model hash and it's creation timestamp
     """
     snowpark_df = session.table(material_table)
-    model_hash = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).limit(1).select(col("model_hash")).collect()[0].MODEL_HASH
-    return model_hash
+    temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).limit(1).select(col("model_hash"), col("creation_ts")).collect()[0]
+    model_hash = temp_hash_vector.MODEL_HASH
+    creation_ts = temp_hash_vector.CREATION_TS
+    return model_hash, creation_ts
 
 def get_material_names(session: snowflake.snowpark.Session,
                        material_table: str, 

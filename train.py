@@ -36,10 +36,23 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, List
 
-from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics
+from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref
 import constants as constants
 import yaml
 import json
+import subprocess
+from datetime import datetime, timezone
+
+
+def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str):
+    path_components = output_path.split(os.path.sep)
+    output_index = path_components.index('output')
+    pb_proj_dir = os.path.sep.join(path_components[:output_index])
+    features_valid_time_unix = int(datetime.strptime(features_valid_time, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
+    args = ["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--end_time", str(features_valid_time_unix)]
+    logger.info(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
+    #subprocess.run(["pb", "run", "-m", "packages/feature_table/models/shopify_user_features", "--end_time", str(features_valid_time_unix)])
+    subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
 def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     """Trains the model and saves the model with given output_filename.
@@ -304,6 +317,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     end_date = merged_config['data']['train_end_dt']
     prediction_horizon_days = merged_config['data']['prediction_horizon_days']
     model_name = merged_config['data']['model_name']
+    package_name = merged_config['data']['package_name']
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
 
     model_hash, creation_ts = get_latest_material_hash(session, material_table, model_name)
@@ -313,7 +327,19 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     material_names = get_material_names(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
     if len(material_names) == 0:
-        raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+        try:
+            logger.info("No materialised data found in the given date range. So materialising feature data and label data")
+            feature_package_path = f"packages/{package_name}/models/{model_name}"
+            materialise_past_data(start_date, feature_package_path, output_filename)
+            start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
+            materialise_past_data(start_date_label, feature_package_path, output_filename)
+            material_names = get_material_names(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+            if len(material_names) == 0:
+                raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+        except Exception as e:
+            logger.exception(e)
+            print("Exception occured while materialising data. Please check the logs for more details")
+            raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
     
     entity_column = merged_config['data']['entity_column']
     index_timestamp = merged_config['data']['index_timestamp']
@@ -386,9 +412,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     json.dump(results, open(output_filename,"w"))
     
 if __name__ == "__main__":
-    with open("/Users/ambuj/.pb/siteconfig.yaml", "r") as f:
+    with open("/Users/dileep/.pb/siteconfig.yaml", "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
     inputs = None
     output_file_name = "train_output.json"
        
     train(creds, inputs, output_file_name, None)
+    #materialise_past_data('2022-')

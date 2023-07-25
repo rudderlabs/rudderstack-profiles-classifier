@@ -2,3 +2,6 @@
 churn.log
 __pycache__/*
 config/.ipynb_checkpoints/*
+classifier.log
+logs/logfile.log
+*.pyc

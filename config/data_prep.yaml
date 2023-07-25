@@ -71,14 +71,15 @@ data:
   label_column: is_churned_7_days
   label_value: 1
   entity_column: user_main_id
+  package_name: feature_table
   model_name: 'shopify_user_features'
   model_name_prefix: 'shopify_churn_test'
   index_timestamp: valid_at
   eligible_users: ''
-  # train_start_dt: '2023-03-24'
-  train_start_dt:
-  # train_end_dt: '2023-04-06'
-  train_end_dt:
+  train_start_dt: '2023-04-24'
+  # train_start_dt:
+  train_end_dt: '2023-05-01'
+  # train_end_dt:
   prediction_horizon_days: 7
   sample_data: 1. # Keep 1 if all data during train_start_dt, train_end_dt and eligible_users should be selected; Else, give the percent as the number between 0 and 1; Ex, 0.25 indicates 25% data gets sampled
 

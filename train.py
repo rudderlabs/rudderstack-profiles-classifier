@@ -4,13 +4,15 @@
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.metrics import average_precision_score
+from sklearn.metrics import average_precision_score, precision_recall_curve, roc_curve
 from sklearn.compose import ColumnTransformer
 from xgboost import XGBClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
 import joblib
 import os
+import gzip
+import shutil
 from snowflake.snowpark.session import Session
 import snowflake.snowpark.functions as F
 import snowflake.snowpark.types as T
@@ -42,6 +44,8 @@ import yaml
 import json
 import subprocess
 from datetime import datetime, timezone
+import matplotlib.pyplot as plt
+import scikitplot as skplt
 
 
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str):
@@ -78,6 +82,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     constants_path = os.path.join(current_dir, 'constants.py')
     config_path = os.path.join(current_dir, 'config', 'data_prep.yaml')
     train_path = os.path.join(current_dir, 'config', 'train.yaml')
+    folder_path = os.path.dirname(output_filename)
 
     hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}
     evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
@@ -216,8 +221,31 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         clf = model_class(**best_hyperparams, **model_config["modelparams"])
         return clf, trials
 
+    def build_pr_auc_curve(precision, recall, folder_path):
+        for i in ['train', 'val', 'test']:
+            plt.plot(recall[i], precision[i], color='g', label='pr-auc')
+            plt.ylabel("Precision")
+            plt.xlabel("Recall")
+            plt.title(f"{i} Precision-Recall curve")
+            plt.legend()
+            # plt.show()
+            plt.savefig(os.path.join(folder_path, i+"-pr-auc.png"))
+            plt.clf()
+
+    def build_roc_auc_curve(fpr, tpr, folder_path):
+        for i in ['train', 'val', 'test']:
+            plt.plot(fpr[i], tpr[i], color='g', label='roc')
+            plt.plot([0, 1], [0, 1], color='r', label='baseline')
+            plt.ylabel("TPR")
+            plt.xlabel("FPR")
+            plt.title(f"{i} ROC-AUC curve")
+            plt.legend()
+            # plt.show()
+            plt.savefig(os.path.join(folder_path, i+"-roc-auc.png"))
+            plt.clf()
+
     @sproc(name="train_sproc", is_permanent=True, stage_location="@ml_models", replace=True, imports=[current_dir, utils_path, constants_path, train_path], 
-        packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy", "pandas", "hyperopt"])
+        packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy", "pandas", "hyperopt", "matplotlib==3.7.1", "scikit-plot==0.3.7"])
     def train_sp(session: snowflake.snowpark.Session,
                 feature_table_name: str,
                 entity_column: str,
@@ -227,7 +255,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                 categorical_pipeline_config: list,
                 train_size: float, 
                 val_size: float,
-                test_size: float) -> str:
+                test_size: float,
+                folder_path: str) -> list:
         """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
 
         Args:
@@ -243,7 +272,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             test_size (float): partition fraction for test data
 
         Returns:
-            str: returns the model_id which is basically the time converted to key at which results were generated.
+            list: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
         """
         feature_table = session.table(feature_table_name)
         train_x, train_y, test_x, test_y, val_x, val_y = split_train_test(feature_table, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
@@ -288,7 +317,23 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         preprocessor_pipe_optimized = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
         pipe = get_model_pipeline(preprocessor_pipe_optimized, final_clf)
         pipe.fit(train_x, train_y)
-        metrics, _, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y)
+        metrics, predictions, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y)
+
+        model_file_name = constants.MODEL_FILE_NAME
+        stage_name = constants.STAGE_NAME
+
+        for i in ["train", "val", "test"]:
+            predicted_probas = pipe.predict_proba(locals()[i+'_x'])
+            skplt.metrics.plot_cumulative_gain(locals()[i+'_y'], predicted_probas)
+            figure_file = os.path.join('/tmp', i+"-lift-chart.png")
+            plt.savefig(figure_file)
+            session.file.put(figure_file, stage_name,overwrite=True)
+            plt.clf()
+
+        precision = dict(); recall = dict(); fpr = dict(); tpr = dict()
+        for i in ["train", "val", "test"]:
+            precision[i], recall[i], _ = precision_recall_curve(np.array(locals()[i+'_y']["IS_CHURNED_7_DAYS"]), np.array(predictions[i]), pos_label=1)
+            fpr[i], tpr[i], _ = roc_curve(np.array(locals()[i+'_y']["IS_CHURNED_7_DAYS"]), np.array(predictions[i]), pos_label=1)
 
         model_id = str(int(time.time()))
         result_dict = {"model_id": model_id,
@@ -300,14 +345,17 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
         metrics_table = constants.METRICS_TABLE
         session.write_pandas(metrics_df, table_name=f"{metrics_table}", auto_create_table=True, overwrite=False)
-        
-        model_file_name = constants.MODEL_FILE_NAME
-        stage_name = constants.STAGE_NAME
 
         model_file = os.path.join('/tmp', model_file_name)
         joblib.dump(pipe, model_file)
         session.file.put(model_file, stage_name,overwrite=True)
-        return model_id
+
+        precision = {key: value.tolist() for key, value in precision.items()}
+        recall = {key: value.tolist() for key, value in recall.items()}
+        fpr = {key: value.tolist() for key, value in fpr.items()}
+        tpr = {key: value.tolist() for key, value in tpr.items()}
+
+        return [model_id, precision, recall, fpr, tpr]
 
     notebook_config = load_yaml(config_path)
     merged_config = combine_config(notebook_config, config)
@@ -388,7 +436,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     feature_table_name_remote = f"{model_name_prefix}_features"
     feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
 
-    model_id = session.call("train_sproc", 
+    model_eval_data = session.call("train_sproc", 
                     feature_table_name_remote,
                     entity_column,
                     label_column,
@@ -397,8 +445,17 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                     categorical_pipeline_config,
                     train_size,
                     val_size,
-                    test_size
+                    test_size,
+                    folder_path
                     )
+
+    model_eval_data = json.loads(model_eval_data)
+    model_id = model_eval_data[0]
+    precision = model_eval_data[1]
+    recall = model_eval_data[2]
+    fpr = model_eval_data[3]
+    tpr = model_eval_data[4]
+
     model_file_name = constants.MODEL_FILE_NAME
     stage_name = constants.STAGE_NAME
 
@@ -410,6 +467,19 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                "input_model_name":model_name}
     
     json.dump(results, open(output_filename,"w"))
+    build_pr_auc_curve(precision, recall, folder_path)
+    build_roc_auc_curve(fpr, tpr, folder_path)
+
+    for i in ["train", "val", "test"]:
+        file_stage_path = os.path.join(stage_name, i+"-lift-chart.png")
+        _ = session.file.get(file_stage_path, folder_path)
+        input_file_path = os.path.join(folder_path, i+'-lift-chart.png.gz')
+        output_file_path = os.path.join(folder_path, i+"-gain-chart.png")
+
+        with gzip.open(input_file_path, 'rb') as gz_file:
+            with open(output_file_path, 'wb') as png_file:
+                shutil.copyfileobj(gz_file, png_file)
+        os.remove(input_file_path)
     
 if __name__ == "__main__":
     with open("/Users/dileep/.pb/siteconfig.yaml", "r") as f:

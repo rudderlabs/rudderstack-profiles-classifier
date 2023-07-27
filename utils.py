@@ -73,6 +73,13 @@ def get_date_range(creation_ts: datetime,
     end_date = creation_ts - timedelta(days = prediction_horizon_days)
     return str(start_date), str(end_date)
 
+def get_label_date_ref(feature_date: str, horizon_days: int) -> str:
+    """This function adds the horizon days to the feature date and returns the label date as a string
+    """
+    label_timestamp = datetime.strptime(feature_date, "%Y-%m-%d") + timedelta(days=horizon_days)
+    label_date = label_timestamp.strftime("%Y-%m-%d")
+    return label_date
+
 def get_latest_material_hash(session: snowflake.snowpark.Session,
                        material_table: str,
                        model_name:str) -> Tuple:

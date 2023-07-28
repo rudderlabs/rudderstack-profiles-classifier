@@ -4,7 +4,7 @@
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.metrics import average_precision_score, precision_recall_curve, roc_curve
+from sklearn.metrics import average_precision_score, precision_recall_curve, PrecisionRecallDisplay, roc_curve, RocCurveDisplay, auc
 from sklearn.compose import ColumnTransformer
 from xgboost import XGBClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -222,27 +222,33 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         return clf, trials
 
     def build_pr_auc_curve(precision, recall, folder_path):
-        for i in ['train', 'val', 'test']:
-            plt.plot(recall[i], precision[i], color='g', label='pr-auc')
-            plt.ylabel("Precision")
-            plt.xlabel("Recall")
-            plt.title(f"{i} Precision-Recall curve")
-            plt.legend()
-            # plt.show()
-            plt.savefig(os.path.join(folder_path, i+"-pr-auc.png"))
-            plt.clf()
+        for subset in ['train', 'val', 'test']:
+            plt = PrecisionRecallDisplay(precision=precision[subset], recall=recall[subset]).plot(color='g', label='pr-auc')
+            plt.ax_.set_title(f"{subset} Precision-Recall curve")
+            plt.ax_.grid()
+            plt.figure_.savefig(os.path.join(folder_path, f"{subset}-pr-auc.png"))
+            plt.figure_.clf()
 
     def build_roc_auc_curve(fpr, tpr, folder_path):
-        for i in ['train', 'val', 'test']:
-            plt.plot(fpr[i], tpr[i], color='g', label='roc')
-            plt.plot([0, 1], [0, 1], color='r', label='baseline')
-            plt.ylabel("TPR")
-            plt.xlabel("FPR")
-            plt.title(f"{i} ROC-AUC curve")
-            plt.legend()
-            # plt.show()
-            plt.savefig(os.path.join(folder_path, i+"-roc-auc.png"))
-            plt.clf()
+        for subset in ['train', 'val', 'test']:
+            roc_auc = auc(fpr[subset], tpr[subset])
+            plt = RocCurveDisplay(fpr=fpr[subset], tpr=tpr[subset], roc_auc=roc_auc, estimator_name='example estimator').plot(color='g', label='roc')
+            plt.ax_.set_title(f"{subset} ROC-AUC curve")
+            plt.ax_.grid()
+            plt.figure_.savefig(os.path.join(folder_path, f"{subset}-roc-auc.png"))
+            plt.figure_.clf()
+
+    def unpack_LIFT_chart(session, stage_name, folder_path):
+        for subset in ["train", "val", "test"]:
+            file_stage_path = os.path.join(stage_name, f"{subset}-lift-chart.png")
+            _ = session.file.get(file_stage_path, folder_path)
+            input_file_path = os.path.join(folder_path, f"{subset}-lift-chart.png.gz")
+            output_file_path = os.path.join(folder_path, f"{subset}-gain-chart.png")
+
+            with gzip.open(input_file_path, 'rb') as gz_file:
+                with open(output_file_path, 'wb') as png_file:
+                    shutil.copyfileobj(gz_file, png_file)
+            os.remove(input_file_path)
 
     @sproc(name="train_sproc", is_permanent=True, stage_location="@ml_models", replace=True, imports=[current_dir, utils_path, constants_path, train_path], 
         packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy", "pandas", "hyperopt", "matplotlib==3.7.1", "scikit-plot==0.3.7"])
@@ -322,18 +328,18 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         model_file_name = constants.MODEL_FILE_NAME
         stage_name = constants.STAGE_NAME
 
-        for i in ["train", "val", "test"]:
-            predicted_probas = pipe.predict_proba(locals()[i+'_x'])
-            skplt.metrics.plot_cumulative_gain(locals()[i+'_y'], predicted_probas)
-            figure_file = os.path.join('/tmp', i+"-lift-chart.png")
+        for subset in ["train", "val", "test"]:
+            predicted_probas = pipe.predict_proba(locals()[f"{subset}_x"])
+            skplt.metrics.plot_cumulative_gain(locals()[f"{subset}_y"], predicted_probas)
+            figure_file = os.path.join('/tmp', f"{subset}-lift-chart.png")
             plt.savefig(figure_file)
             session.file.put(figure_file, stage_name,overwrite=True)
             plt.clf()
 
         precision = dict(); recall = dict(); fpr = dict(); tpr = dict()
-        for i in ["train", "val", "test"]:
-            precision[i], recall[i], _ = precision_recall_curve(np.array(locals()[i+'_y']["IS_CHURNED_7_DAYS"]), np.array(predictions[i]), pos_label=1)
-            fpr[i], tpr[i], _ = roc_curve(np.array(locals()[i+'_y']["IS_CHURNED_7_DAYS"]), np.array(predictions[i]), pos_label=1)
+        for subset in ["train", "val", "test"]:
+            precision[subset], recall[subset], _ = precision_recall_curve(np.array(locals()[f"{subset}_y"]["IS_CHURNED_7_DAYS"]), np.array(predictions[subset]), pos_label=1)
+            fpr[subset], tpr[subset], _ = roc_curve(np.array(locals()[f"{subset}_y"]["IS_CHURNED_7_DAYS"]), np.array(predictions[subset]), pos_label=1)
 
         model_id = str(int(time.time()))
         result_dict = {"model_id": model_id,
@@ -449,12 +455,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                     folder_path
                     )
 
-    model_eval_data = json.loads(model_eval_data)
-    model_id = model_eval_data[0]
-    precision = model_eval_data[1]
-    recall = model_eval_data[2]
-    fpr = model_eval_data[3]
-    tpr = model_eval_data[4]
+    (model_id, precision, recall, fpr, tpr) = json.loads(model_eval_data)
 
     model_file_name = constants.MODEL_FILE_NAME
     stage_name = constants.STAGE_NAME
@@ -469,20 +470,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     json.dump(results, open(output_filename,"w"))
     build_pr_auc_curve(precision, recall, folder_path)
     build_roc_auc_curve(fpr, tpr, folder_path)
-
-    for i in ["train", "val", "test"]:
-        file_stage_path = os.path.join(stage_name, i+"-lift-chart.png")
-        _ = session.file.get(file_stage_path, folder_path)
-        input_file_path = os.path.join(folder_path, i+'-lift-chart.png.gz')
-        output_file_path = os.path.join(folder_path, i+"-gain-chart.png")
-
-        with gzip.open(input_file_path, 'rb') as gz_file:
-            with open(output_file_path, 'wb') as png_file:
-                shutil.copyfileobj(gz_file, png_file)
-        os.remove(input_file_path)
+    unpack_LIFT_chart(session, stage_name, folder_path)
     
 if __name__ == "__main__":
-    with open("/Users/dileep/.pb/siteconfig.yaml", "r") as f:
+    with open("/Users/ambuj/.pb/siteconfig.yaml", "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
     inputs = None
     output_file_name = "train_output.json"

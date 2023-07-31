@@ -8,4 +8,5 @@ snowflake_connector_python==3.0.1
 snowflake-snowpark-python[pandas]==0.10.0
 scikit_learn==1.1.1
 scikit_plot==0.3.7
+pandas==1.4.3
 xgboost==1.5.0

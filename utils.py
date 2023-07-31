@@ -1,4 +1,4 @@
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, average_precision_score
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc
 import numpy as np 
 import pandas as pd
 from typing import Tuple, List, Union
@@ -11,6 +11,10 @@ from snowflake.snowpark.functions import col
 import yaml
 from copy import deepcopy
 from datetime import datetime, timedelta
+
+import os
+import gzip
+import shutil
 
 def remap_credentials(credentials: dict) -> dict:
     """Remaps credentials from profiles siteconfig to the expected format from snowflake session
@@ -307,3 +311,40 @@ def get_metrics(clf,
     predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
     
     return metrics, predictions, prob_threshold
+
+def build_pr_auc_curve(precision: dict, 
+                        recall: dict, 
+                        target_file: str, 
+                        target_folder :str, 
+                        graph_title: str)-> None:
+    plt = PrecisionRecallDisplay(precision=precision, recall=recall).plot(color='g', label='pr-auc')
+    plt.ax_.set_title(graph_title)
+    plt.ax_.grid()
+    plt.figure_.savefig(os.path.join(target_folder, target_file))
+    plt.figure_.clf()
+
+def build_roc_auc_curve(fpr: dict, 
+                        tpr: dict, 
+                        target_file: str, 
+                        target_folder: str, 
+                        graph_title: str)-> None:
+    roc_auc = auc(fpr, tpr)
+    plt = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name='example estimator').plot(color='g', label='roc')
+    plt.ax_.set_title(graph_title)
+    plt.ax_.grid()
+    plt.figure_.savefig(os.path.join(target_folder, target_file))
+    plt.figure_.clf()
+
+def fetch_staged_file(session: snowflake.snowpark.Session, 
+                        stage_name: str, 
+                        file_name: str, 
+                        target_folder: str)-> None:
+    file_stage_path = os.path.join(stage_name, file_name)
+    _ = session.file.get(file_stage_path, target_folder)
+    input_file_path = os.path.join(target_folder, f"{file_name}.gz")
+    output_file_path = os.path.join(target_folder, file_name)
+
+    with gzip.open(input_file_path, 'rb') as gz_file:
+        with open(output_file_path, 'wb') as target_file:
+            shutil.copyfileobj(gz_file, target_file)
+    os.remove(input_file_path)

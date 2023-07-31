@@ -38,7 +38,7 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, List
 
-from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref
+from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, build_pr_auc_curve, build_roc_auc_curve, fetch_staged_file
 import constants as constants
 import yaml
 import json
@@ -220,35 +220,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
         clf = model_class(**best_hyperparams, **model_config["modelparams"])
         return clf, trials
-
-    def build_pr_auc_curve(precision, recall, folder_path):
-        for subset in ['train', 'val', 'test']:
-            plt = PrecisionRecallDisplay(precision=precision[subset], recall=recall[subset]).plot(color='g', label='pr-auc')
-            plt.ax_.set_title(f"{subset} Precision-Recall curve")
-            plt.ax_.grid()
-            plt.figure_.savefig(os.path.join(folder_path, f"{subset}-pr-auc.png"))
-            plt.figure_.clf()
-
-    def build_roc_auc_curve(fpr, tpr, folder_path):
-        for subset in ['train', 'val', 'test']:
-            roc_auc = auc(fpr[subset], tpr[subset])
-            plt = RocCurveDisplay(fpr=fpr[subset], tpr=tpr[subset], roc_auc=roc_auc, estimator_name='example estimator').plot(color='g', label='roc')
-            plt.ax_.set_title(f"{subset} ROC-AUC curve")
-            plt.ax_.grid()
-            plt.figure_.savefig(os.path.join(folder_path, f"{subset}-roc-auc.png"))
-            plt.figure_.clf()
-
-    def unpack_LIFT_chart(session, stage_name, folder_path):
-        for subset in ["train", "val", "test"]:
-            file_stage_path = os.path.join(stage_name, f"{subset}-lift-chart.png")
-            _ = session.file.get(file_stage_path, folder_path)
-            input_file_path = os.path.join(folder_path, f"{subset}-lift-chart.png.gz")
-            output_file_path = os.path.join(folder_path, f"{subset}-gain-chart.png")
-
-            with gzip.open(input_file_path, 'rb') as gz_file:
-                with open(output_file_path, 'wb') as png_file:
-                    shutil.copyfileobj(gz_file, png_file)
-            os.remove(input_file_path)
 
     @sproc(name="train_sproc", is_permanent=True, stage_location="@ml_models", replace=True, imports=[current_dir, utils_path, constants_path, train_path], 
         packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy", "pandas", "hyperopt", "matplotlib==3.7.1", "scikit-plot==0.3.7"])
@@ -468,9 +439,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                "input_model_name":model_name}
     
     json.dump(results, open(output_filename,"w"))
-    build_pr_auc_curve(precision, recall, folder_path)
-    build_roc_auc_curve(fpr, tpr, folder_path)
-    unpack_LIFT_chart(session, stage_name, folder_path)
+
+    for subset in ['train', 'val', 'test']:
+        build_pr_auc_curve(precision[subset], recall[subset], f"{subset}-pr-auc.png", folder_path, f"{subset.capitalize()} Precision-Recall Curve")
+        build_roc_auc_curve(fpr[subset], tpr[subset], f"{subset}-roc-auc.png", folder_path, f"{subset.capitalize()} ROC-AUC Curve")
+        fetch_staged_file(session, stage_name, f"{subset}-lift-chart.png", folder_path)
     
 if __name__ == "__main__":
     with open("/Users/ambuj/.pb/siteconfig.yaml", "r") as f:

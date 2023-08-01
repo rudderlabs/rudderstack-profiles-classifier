@@ -84,6 +84,15 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     train_path = os.path.join(current_dir, 'config', 'train.yaml')
     folder_path = os.path.dirname(output_filename)
 
+    file_list = [file for file in os.listdir(folder_path) if file.endswith('.py')]
+    if len(file_list) != 1:
+        raise Exception("There are multiple python files in the folder. Please keep only one python file in the folder")
+
+    materialized_folder = os.path.splitext(file_list[0])[0]
+    target_path = os.path.join(folder_path, materialized_folder)
+    if not os.path.exists(target_path):
+        os.makedirs(target_path)
+
     hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}
     evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
 
@@ -441,9 +450,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     json.dump(results, open(output_filename,"w"))
 
     for subset in ['train', 'val', 'test']:
-        build_pr_auc_curve(precision[subset], recall[subset], f"{subset}-pr-auc.png", folder_path, f"{subset.capitalize()} Precision-Recall Curve")
-        build_roc_auc_curve(fpr[subset], tpr[subset], f"{subset}-roc-auc.png", folder_path, f"{subset.capitalize()} ROC-AUC Curve")
-        fetch_staged_file(session, stage_name, f"{subset}-lift-chart.png", folder_path)
+        build_pr_auc_curve(precision[subset], recall[subset], f"{subset}-pr-auc.png", target_path, f"{subset.capitalize()} Precision-Recall Curve")
+        build_roc_auc_curve(fpr[subset], tpr[subset], f"{subset}-roc-auc.png", target_path, f"{subset.capitalize()} ROC-AUC Curve")
+        fetch_staged_file(session, stage_name, f"{subset}-lift-chart.png", target_path)
     
 if __name__ == "__main__":
     with open("/Users/ambuj/.pb/siteconfig.yaml", "r") as f:

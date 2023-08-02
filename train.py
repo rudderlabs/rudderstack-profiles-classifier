@@ -38,7 +38,7 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, List
 
-from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, build_pr_auc_curve, build_roc_auc_curve, fetch_staged_file
+from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, build_pr_auc_curve, build_roc_auc_curve, fetch_staged_file, get_output_directory
 import constants as constants
 import yaml
 import json
@@ -83,15 +83,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     config_path = os.path.join(current_dir, 'config', 'data_prep.yaml')
     train_path = os.path.join(current_dir, 'config', 'train.yaml')
     folder_path = os.path.dirname(output_filename)
-
-    file_list = [file for file in os.listdir(folder_path) if file.endswith('.py')]
-    if len(file_list) != 1:
-        raise Exception("There are multiple python files in the folder. Please keep only one python file in the folder")
-
-    materialized_folder = os.path.splitext(file_list[0])[0]
-    target_path = os.path.join(folder_path, materialized_folder)
-    if not os.path.exists(target_path):
-        os.makedirs(target_path)
+    target_path = get_output_directory(folder_path)
 
     hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}
     evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}

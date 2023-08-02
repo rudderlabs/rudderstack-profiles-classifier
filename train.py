@@ -38,7 +38,7 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, List
 
-from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, build_pr_auc_curve, build_roc_auc_curve, fetch_staged_file
+from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, build_pr_auc_curve, build_roc_auc_curve, fetch_staged_file, get_output_directory
 import constants as constants
 import yaml
 import json
@@ -83,6 +83,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     config_path = os.path.join(current_dir, 'config', 'data_prep.yaml')
     train_path = os.path.join(current_dir, 'config', 'train.yaml')
     folder_path = os.path.dirname(output_filename)
+    target_path = get_output_directory(folder_path)
 
     hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}
     evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
@@ -441,9 +442,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     json.dump(results, open(output_filename,"w"))
 
     for subset in ['train', 'val', 'test']:
-        build_pr_auc_curve(precision[subset], recall[subset], f"{subset}-pr-auc.png", folder_path, f"{subset.capitalize()} Precision-Recall Curve")
-        build_roc_auc_curve(fpr[subset], tpr[subset], f"{subset}-roc-auc.png", folder_path, f"{subset.capitalize()} ROC-AUC Curve")
-        fetch_staged_file(session, stage_name, f"{subset}-lift-chart.png", folder_path)
+        build_pr_auc_curve(precision[subset], recall[subset], f"{subset}-pr-auc.png", target_path, f"{subset.capitalize()} Precision-Recall Curve")
+        build_roc_auc_curve(fpr[subset], tpr[subset], f"{subset}-roc-auc.png", target_path, f"{subset.capitalize()} ROC-AUC Curve")
+        fetch_staged_file(session, stage_name, f"{subset}-lift-chart.png", target_path)
     
 if __name__ == "__main__":
     with open("/Users/ambuj/.pb/siteconfig.yaml", "r") as f:

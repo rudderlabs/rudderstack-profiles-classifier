@@ -15,6 +15,7 @@ from datetime import datetime, timedelta
 import os
 import gzip
 import shutil
+from pathlib import Path
 
 def remap_credentials(credentials: dict) -> dict:
     """Remaps credentials from profiles siteconfig to the expected format from snowflake session
@@ -61,6 +62,25 @@ def combine_config(notebook_config: dict, profiles_config:dict= None) -> dict:
         if key in merged_config['data'].keys():
             merged_config['data'][key] = profiles_data[key]
     return merged_config
+
+def get_output_directory(folder_path: str)-> str:
+    """This function will return the output directory path
+
+    Args:
+        folder_path (str): path of the folder where output directory will be created
+
+    Returns:
+        str: output directory path
+    """
+
+    file_list = [file for file in os.listdir(folder_path) if file.endswith('.py')]
+    if len(file_list) != 1:
+        raise Exception("There are zero or multiple python files in the folder. Please keep only one python file in the folder")
+
+    materialized_folder = os.path.splitext(file_list[0])[0]
+    target_path = Path(os.path.join(folder_path, materialized_folder))
+    target_path.mkdir(parents=True, exist_ok=True)
+    return str(target_path)
 
 def get_date_range(creation_ts: datetime, 
                    prediction_horizon_days: int) -> Tuple:

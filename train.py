@@ -27,7 +27,7 @@ from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 import pickle
 import sys
 from copy import deepcopy
-from logger import logger
+# from logger import logger
 
 import numpy as np
 import pandas as pd
@@ -48,13 +48,155 @@ import matplotlib.pyplot as plt
 import scikitplot as skplt
 
 
+# logger.info("Start")
+
+def get_preprocessing_pipeline(numeric_columns: list, 
+                                categorical_columns: list, 
+                                numerical_pipeline_config: list, 
+                                categorical_pipeline_config: list):        
+    """Returns a preprocessing pipeline for given numeric and categorical columns and pipeline config
+
+    Args:
+        numeric_columns (list): name of the columns that are numeric in nature
+        categorical_columns (list): name of the columns that are categorical in nature
+        numerical_pipeline_config (list): configs for numeric pipeline from data_prep file
+        categorical_pipeline_config (list): configs for categorical pipeline from data_prep file
+
+    Raises:
+        ValueError: If num_params_name is invalid for numeric pipeline
+        ValueError: If cat_params_name is invalid for catagorical pipeline
+
+    Returns:
+        _type_: preprocessing pipeline
+    """
+    numerical_pipeline_config_ = deepcopy(numerical_pipeline_config)
+    categorical_pipeline_config_ = deepcopy(categorical_pipeline_config)
+    for numerical_params in numerical_pipeline_config_:
+        num_params_name = numerical_params.pop('name')
+        if num_params_name == 'SimpleImputer':
+            missing_values = numerical_params.get('missing_values')
+            if missing_values == 'np.nan':
+                numerical_params['missing_values'] = np.nan
+            num_imputer_params = numerical_params
+        else:
+            error_message = f"Invalid num_params_name: {num_params_name} for numeric pipeline."
+            # logger.error(error_message)
+            raise ValueError(error_message)
+
+    num_pipeline = Pipeline([
+        ('imputer', SimpleImputer(**num_imputer_params)),
+    ])
+
+    for categorical_params in categorical_pipeline_config_:
+        cat_params_name = categorical_params.pop('name')
+        if cat_params_name == 'SimpleImputer':
+            cat_imputer_params = categorical_params
+        elif cat_params_name == 'OneHotEncoder':
+            cat_encoder_params = categorical_params
+        else:
+            error_message = f"Invalid cat_params_name: {num_params_name} for catagorical pipeline."
+            # logger.error(error_message)
+            raise ValueError(error_message)
+
+    cat_pipeline = Pipeline([('imputer', SimpleImputer(**cat_imputer_params)),
+                            ('encoder', OneHotEncoder(**cat_encoder_params))])
+
+    preprocessor = ColumnTransformer(
+        transformers=[('num', num_pipeline, numeric_columns),
+                    ('cat', cat_pipeline, categorical_columns)])
+    return preprocessor
+
+
+hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}
+evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
+
+def get_model_pipeline(preprocessor, clf):           
+    pipe = Pipeline([('preprocessor', preprocessor), 
+                    ('model', clf)])
+    return pipe
+
+#Generate hyper parameter space for given options
+def generate_hyperparameter_space(hyperopts: List[dict]) -> dict:
+    """Returns a dict of hyper-parameters expression map
+
+    Args:
+        hyperopts (List[dict]): list of all the hyper-parameter that are needed to be optimized
+
+    Returns:
+        dict: hyper-parameters expression map
+    """
+    space = {}
+    for expression in hyperopts:
+        expression_ = expression.copy()
+        exp_type = expression_.pop("type")
+        name = expression_.pop("name")
+
+        # Handle expression for explicit choices and 
+        # implicit choices using "low", "high" and optinal "step" values
+        if exp_type == "choice":
+            options = expression_["options"]
+            if not isinstance(options, list):
+                expression_["options"] = list(range( options["low"], options["high"], options.get("step", 1)))
+                
+        space[name] = hyperopts_expressions_map[f"hp_{exp_type}"](name, **expression_)
+    return space
+
+
+def build_model(X_train:pd.DataFrame, 
+                y_train:pd.DataFrame,
+                X_val:pd.DataFrame, 
+                y_val:pd.DataFrame,
+                model_class: Union[XGBClassifier, RandomForestClassifier, MLPClassifier],
+                model_config: dict) -> Tuple:
+    """Returns the classifier with best hyper-parameters after performing hyper-parameter tuning.
+
+    Args:
+        X_train (pd.DataFrame): X_train dataframe
+        y_train (pd.DataFrame): y_train dataframe
+        X_val (pd.DataFrame): X_val dataframe
+        y_val (pd.DataFrame): y_val dataframe
+        model_class (Union[XGBClassifier, RandomForestClassifier, MLPClassifier]): classifier to build model
+        model_config (dict): configurations for the given model
+
+    Returns:
+        Tuple: classifier with best hyper-parameters found out using val_data along with trials info
+    """
+    hyperopt_space = generate_hyperparameter_space(model_config["hyperopts"])
+
+    #We can set evaluation set for xgboost model which we cannot directly configure from configuration file
+    fit_params = model_config.get("fitparams", {}).copy()
+    if model_class.__name__ == "XGBClassifier":                         
+        fit_params["eval_set"] = [( X_train, y_train), ( X_val, y_val)]
+
+    #Objective method to run for different hyper-parameter space
+    def objective(space):
+        clf = model_class(**model_config["modelparams"], **space)
+        clf.fit(X_train, y_train, **fit_params)
+        pred = clf.predict_proba(X_val)
+        eval_metric_name = model_config["evaluation_metric"]
+        pr_auc = evalution_metrics_map[eval_metric_name](y_val, pred[:, 1])
+        
+        return {'loss': (0  - pr_auc), 'status': STATUS_OK , "config": space}
+
+    trials = Trials()
+    best_hyperparams = fmin(fn = objective,
+                            space = hyperopt_space,
+                            algo = tpe.suggest,
+                            max_evals = model_config["hyperopts_config"]["max_evals"],
+                            return_argmin=False,
+                            trials = trials)
+
+    clf = model_class(**best_hyperparams, **model_config["modelparams"])
+    return clf, trials
+
+
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str):
     path_components = output_path.split(os.path.sep)
     output_index = path_components.index('output')
     pb_proj_dir = os.path.sep.join(path_components[:output_index])
     features_valid_time_unix = int(datetime.strptime(features_valid_time, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
     args = ["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--end_time", str(features_valid_time_unix)]
-    logger.info(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
+    # logger.info(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
     #subprocess.run(["pb", "run", "-m", "packages/feature_table/models/shopify_user_features", "--end_time", str(features_valid_time_unix)])
     subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
@@ -85,142 +227,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     folder_path = os.path.dirname(output_filename)
     target_path = get_output_directory(folder_path)
 
-    hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}
-    evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
-
-    def get_preprocessing_pipeline(numeric_columns: list, 
-                                   categorical_columns: list, 
-                                   numerical_pipeline_config: list, 
-                                   categorical_pipeline_config: list):        
-        """Returns a preprocessing pipeline for given numeric and categorical columns and pipeline config
-
-        Args:
-            numeric_columns (list): name of the columns that are numeric in nature
-            categorical_columns (list): name of the columns that are categorical in nature
-            numerical_pipeline_config (list): configs for numeric pipeline from data_prep file
-            categorical_pipeline_config (list): configs for categorical pipeline from data_prep file
-
-        Raises:
-            ValueError: If num_params_name is invalid for numeric pipeline
-            ValueError: If cat_params_name is invalid for catagorical pipeline
-
-        Returns:
-            _type_: preprocessing pipeline
-        """
-        numerical_pipeline_config_ = deepcopy(numerical_pipeline_config)
-        categorical_pipeline_config_ = deepcopy(categorical_pipeline_config)
-        for numerical_params in numerical_pipeline_config_:
-            num_params_name = numerical_params.pop('name')
-            if num_params_name == 'SimpleImputer':
-                missing_values = numerical_params.get('missing_values')
-                if missing_values == 'np.nan':
-                    numerical_params['missing_values'] = np.nan
-                num_imputer_params = numerical_params
-            else:
-                error_message = f"Invalid num_params_name: {num_params_name} for numeric pipeline."
-                logger.error(error_message)
-                raise ValueError(error_message)
-
-        num_pipeline = Pipeline([
-            ('imputer', SimpleImputer(**num_imputer_params)),
-        ])
-
-        for categorical_params in categorical_pipeline_config_:
-            cat_params_name = categorical_params.pop('name')
-            if cat_params_name == 'SimpleImputer':
-                cat_imputer_params = categorical_params
-            elif cat_params_name == 'OneHotEncoder':
-                cat_encoder_params = categorical_params
-            else:
-                error_message = f"Invalid cat_params_name: {num_params_name} for catagorical pipeline."
-                logger.error(error_message)
-                raise ValueError(error_message)
-
-        cat_pipeline = Pipeline([('imputer', SimpleImputer(**cat_imputer_params)),
-                                ('encoder', OneHotEncoder(**cat_encoder_params))])
-
-        preprocessor = ColumnTransformer(
-            transformers=[('num', num_pipeline, numeric_columns),
-                        ('cat', cat_pipeline, categorical_columns)])
-        return preprocessor
-
-    def get_model_pipeline(preprocessor, clf):           
-        pipe = Pipeline([('preprocessor', preprocessor), 
-                        ('model', clf)])
-        return pipe
-
-    #Generate hyper parameter space for given options
-    def generate_hyperparameter_space(hyperopts: List[dict]) -> dict:
-        """Returns a dict of hyper-parameters expression map
-
-        Args:
-            hyperopts (List[dict]): list of all the hyper-parameter that are needed to be optimized
-
-        Returns:
-            dict: hyper-parameters expression map
-        """
-        space = {}
-        for expression in hyperopts:
-            expression_ = expression.copy()
-            exp_type = expression_.pop("type")
-            name = expression_.pop("name")
-
-            # Handle expression for explicit choices and 
-            # implicit choices using "low", "high" and optinal "step" values
-            if exp_type == "choice":
-                options = expression_["options"]
-                if not isinstance(options, list):
-                    expression_["options"] = list(range( options["low"], options["high"], options.get("step", 1)))
-                    
-            space[name] = hyperopts_expressions_map[f"hp_{exp_type}"](name, **expression_)
-        return space
-
-    def build_model(X_train:pd.DataFrame, 
-                    y_train:pd.DataFrame,
-                    X_val:pd.DataFrame, 
-                    y_val:pd.DataFrame,
-                    model_class: Union[XGBClassifier, RandomForestClassifier, MLPClassifier],
-                    model_config: dict) -> Tuple:
-        """Returns the classifier with best hyper-parameters after performing hyper-parameter tuning.
-
-        Args:
-            X_train (pd.DataFrame): X_train dataframe
-            y_train (pd.DataFrame): y_train dataframe
-            X_val (pd.DataFrame): X_val dataframe
-            y_val (pd.DataFrame): y_val dataframe
-            model_class (Union[XGBClassifier, RandomForestClassifier, MLPClassifier]): classifier to build model
-            model_config (dict): configurations for the given model
-
-        Returns:
-            Tuple: classifier with best hyper-parameters found out using val_data along with trials info
-        """
-        hyperopt_space = generate_hyperparameter_space(model_config["hyperopts"])
-
-        #We can set evaluation set for xgboost model which we cannot directly configure from configuration file
-        fit_params = model_config.get("fitparams", {}).copy()
-        if model_class.__name__ == "XGBClassifier":                         
-            fit_params["eval_set"] = [( X_train, y_train), ( X_val, y_val)]
-
-        #Objective method to run for different hyper-parameter space
-        def objective(space):
-            clf = model_class(**model_config["modelparams"], **space)
-            clf.fit(X_train, y_train, **fit_params)
-            pred = clf.predict_proba(X_val)
-            eval_metric_name = model_config["evaluation_metric"]
-            pr_auc = evalution_metrics_map[eval_metric_name](y_val, pred[:, 1])
-            
-            return {'loss': (0  - pr_auc), 'status': STATUS_OK , "config": space}
-
-        trials = Trials()
-        best_hyperparams = fmin(fn = objective,
-                                space = hyperopt_space,
-                                algo = tpe.suggest,
-                                max_evals = model_config["hyperopts_config"]["max_evals"],
-                                return_argmin=False,
-                                trials = trials)
-
-        clf = model_class(**best_hyperparams, **model_config["modelparams"])
-        return clf, trials
 
     @sproc(name="train_sproc", is_permanent=True, stage_location="@ml_models", replace=True, imports=[current_dir, utils_path, constants_path, train_path], 
         packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy", "pandas", "hyperopt", "matplotlib==3.7.1", "scikit-plot==0.3.7"])
@@ -267,9 +273,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         train_x[numeric_columns] = train_x[numeric_columns].replace({pd.NA: np.nan})
         train_x[categorical_columns] = train_x[categorical_columns].replace({pd.NA: None})
 
-        logger.debug("Training data shape: %s", train_x.shape)
-        logger.debug("Training data types:\n%s", train_x.dtypes)
-        logger.debug("Training data head:\n%s", train_x.head())
+        # logger.debug("Training data shape: %s", train_x.shape)
+        # logger.debug("Training data types:\n%s", train_x.dtypes)
+        # logger.debug("Training data head:\n%s", train_x.head())
 
         import_dir = sys._xoptions.get("snowflake_import_directory")
         train_config = load_yaml(os.path.join(import_dir, 'train.yaml'))
@@ -299,6 +305,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
         model_file_name = constants.MODEL_FILE_NAME
         stage_name = constants.STAGE_NAME
+        
+        session.sql(f"create stage if not exists {stage_name.replace('@', '')}").collect()
 
         for subset in ["train", "val", "test"]:
             predicted_probas = pipe.predict_proba(locals()[f"{subset}_x"])
@@ -354,7 +362,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     material_names = get_material_names(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
     if len(material_names) == 0:
         try:
-            logger.info("No materialised data found in the given date range. So materialising feature data and label data")
+            # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
             feature_package_path = f"packages/{package_name}/models/{model_name}"
             materialise_past_data(start_date, feature_package_path, output_filename)
             start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
@@ -363,7 +371,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             if len(material_names) == 0:
                 raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
         except Exception as e:
-            logger.exception(e)
+            # logger.exception(e)
             print("Exception occured while materialising data. Please check the logs for more details")
             raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
     
@@ -446,11 +454,18 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         build_roc_auc_curve(fpr[subset], tpr[subset], f"{subset}-roc-auc.png", target_path, f"{subset.capitalize()} ROC-AUC Curve")
         fetch_staged_file(session, stage_name, f"{subset}-lift-chart.png", target_path)
     
+
+
 if __name__ == "__main__":
-    with open("/Users/ambuj/.pb/siteconfig.yaml", "r") as f:
+    with open("/Users/dileep/.pb/siteconfig.yaml", "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
     inputs = None
-    output_file_name = "train_output.json"
+    output_folder = 'output/dev/seq_no/2'
+    output_file_name = f"{output_folder}/train_output.json"
+    from pathlib import Path
+    path = Path(output_folder)
+    path.mkdir(parents=True, exist_ok=True)
        
     train(creds, inputs, output_file_name, None)
-    #materialise_past_data('2022-')
+    # logger.info("Training completed")
+    # materialise_past_data('2022-')

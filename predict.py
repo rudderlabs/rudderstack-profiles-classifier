@@ -175,8 +175,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     f = open(model_path, "r")
     results = json.load(f)
-    model_hash = results["material_hash"]
-    model_id = results["model_id"]
+    model_hash = results["config"]["material_hash"]
+    model_id = results["model_info"]["model_id"]
     current_ts = datetime.datetime.now()
 
     material_table = constants.MATERIAL_TABLE

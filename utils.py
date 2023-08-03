@@ -130,8 +130,8 @@ def get_material_names(session: snowflake.snowpark.Session,
                        model_name:str,
                        model_hash: str,
                        material_table_prefix:str,
-                       prediction_horizon_days: int) -> List[Tuple[str, str]]:
-    """Generates material names as list of tuple of feature table name and label table name required to create the training model.
+                       prediction_horizon_days: int) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+    """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
 
     Args:
         session (snowflake.snowpark.Session): Snowpark session for data warehouse access
@@ -144,11 +144,11 @@ def get_material_names(session: snowflake.snowpark.Session,
         prediction_horizon_days (int): period of days
 
     Returns:
-        List[Tuple[str, str]]: List of tuples of feature table names and label table names
-        ex: [(material_shopify_user_features_94b5f59c_274, material_shopify_user_features_94b5f59c_275),
-        (material_shopify_user_features_94b5f59c_276, material_shopify_user_features_94b5f59c_277)]
+        Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
+        ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
     """
     material_names = list()
+    training_dates = list()
 
     snowpark_df = session.table(material_table)
 
@@ -157,21 +157,22 @@ def get_material_names(session: snowflake.snowpark.Session,
                 .filter(col("model_hash") == model_hash)
                 .filter(f"end_ts between \'{start_time}\' and \'{end_time}\'")
                 .select("seq_no", "end_ts")
-                )
+                ).distinct()
     label_snowpark_df = (snowpark_df
                 .filter(col("model_name") == model_name)
                 .filter(col("model_hash") == model_hash)
                 .filter(f"end_ts between dateadd(day, {prediction_horizon_days}, \'{start_time}\') and dateadd(day, {prediction_horizon_days}, \'{end_time}\')")
                 .select("seq_no", "end_ts")
-                )
+                ).distinct()
     
     feature_label_snowpark_df = feature_snowpark_df.join(label_snowpark_df,
                                                             F.datediff("day", feature_snowpark_df.end_ts, label_snowpark_df.end_ts)==prediction_horizon_days
-                                                            ).select(feature_snowpark_df.seq_no.alias("feature_seq_no"),
-                                                                    label_snowpark_df.seq_no.alias("label_seq_no"))
+                                                            ).select(feature_snowpark_df.seq_no.alias("feature_seq_no"),feature_snowpark_df.end_ts.alias("feature_end_ts"),
+                                                                    label_snowpark_df.seq_no.alias("label_seq_no"), label_snowpark_df.end_ts.alias("label_end_ts"))
     for row in feature_label_snowpark_df.collect():
         material_names.append((material_table_prefix+model_name+"_"+model_hash+"_"+str(row.FEATURE_SEQ_NO), material_table_prefix+model_name+"_"+model_hash+"_"+str(row.LABEL_SEQ_NO)))
-    return material_names
+        training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
+    return material_names, training_dates
 
 
 def prepare_feature_table(session: snowflake.snowpark.Session,
@@ -272,7 +273,8 @@ def get_classification_metrics(y_true: pd.DataFrame,
     f1 = f1[1]
     roc_auc = roc_auc_score(y_true, y_pred_proba)
     pr_auc = average_precision_score(y_true, y_pred_proba)
-    metrics = {"precision": precision, "recall": recall, "f1_score": f1, "roc_auc": roc_auc, 'pr_auc': pr_auc}
+    user_count = y_true.shape[0]
+    metrics = {"precision": precision, "recall": recall, "f1_score": f1, "roc_auc": roc_auc, 'pr_auc': pr_auc, 'users': user_count}
     return metrics
     
 def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array) -> Tuple:

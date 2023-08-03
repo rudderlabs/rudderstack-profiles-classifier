@@ -301,7 +301,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         preprocessor_pipe_optimized = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
         pipe = get_model_pipeline(preprocessor_pipe_optimized, final_clf)
         pipe.fit(train_x, train_y)
-        metrics, predictions, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y)
+        model_metrics, predictions, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y)
 
         model_file_name = constants.MODEL_FILE_NAME
         stage_name = constants.STAGE_NAME
@@ -322,10 +322,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             fpr[subset], tpr[subset], _ = roc_curve(np.array(locals()[f"{subset}_y"]["IS_CHURNED_7_DAYS"]), np.array(predictions[subset]), pos_label=1)
 
         model_id = str(int(time.time()))
+
         result_dict = {"model_id": model_id,
                         "model_name_prefix": model_name_prefix,
                         "prob_th": prob_th,
-                        "metrics": metrics}
+                        "metrics": model_metrics}
         
         metrics_df = pd.DataFrame.from_dict(result_dict).reset_index()
 
@@ -341,7 +342,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         fpr = {key: value.tolist() for key, value in fpr.items()}
         tpr = {key: value.tolist() for key, value in tpr.items()}
 
-        return [model_id, precision, recall, fpr, tpr]
+        return [model_id, precision, recall, fpr, tpr, model_metrics, prob_th]
 
     notebook_config = load_yaml(config_path)
     merged_config = combine_config(notebook_config, config)
@@ -359,7 +360,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     if start_date == None or end_date == None:
         start_date, end_date = get_date_range(creation_ts, prediction_horizon_days)
 
-    material_names = get_material_names(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+    material_names, training_dates = get_material_names(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
     if len(material_names) == 0:
         try:
             # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
@@ -367,7 +368,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             materialise_past_data(start_date, feature_package_path, output_filename)
             start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
             materialise_past_data(start_date_label, feature_package_path, output_filename)
-            material_names = get_material_names(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+            material_names, training_dates = get_material_names(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
             if len(material_names) == 0:
                 raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
         except Exception as e:
@@ -435,29 +436,35 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                     folder_path
                     )
 
-    (model_id, precision, recall, fpr, tpr) = json.loads(model_eval_data)
+    (model_id, precision, recall, fpr, tpr, model_metrics, prob_th) = json.loads(model_eval_data)
 
     model_file_name = constants.MODEL_FILE_NAME
     stage_name = constants.STAGE_NAME
-
-    results = {"material_hash":model_hash,
-               "train_tables":material_names,
-               "trained_model_file":model_file_name,
-               "stage_name":stage_name,
-               "model_id":model_id,
-               "input_model_name":model_name}
-    
-    json.dump(results, open(output_filename,"w"))
 
     for subset in ['train', 'val', 'test']:
         build_pr_auc_curve(precision[subset], recall[subset], f"{subset}-pr-auc.png", target_path, f"{subset.capitalize()} Precision-Recall Curve")
         build_roc_auc_curve(fpr[subset], tpr[subset], f"{subset}-roc-auc.png", target_path, f"{subset.capitalize()} ROC-AUC Curve")
         fetch_staged_file(session, stage_name, f"{subset}-lift-chart.png", target_path)
-    
 
+    results = {"config": {'training_dates': training_dates,
+                        'material_names': material_names,
+                        'eligible_users': eligible_users,
+                        'prediction_horizon_days': prediction_horizon_days,
+                        'label_column': label_column,
+                        'label_value': label_value,
+                        'material_hash': model_hash},
+            "model_info": {'file_location': {'stage': stage_name, 'file_name': model_file_name}, 'model_id': model_id},
+            "input_model_name": model_name}
+    json.dump(results, open(output_filename,"w"))
+
+    model_timestamp = datetime.fromtimestamp(int(model_id)).strftime('%Y-%m-%d %H:%M:%S')
+    summary = {"timestamp": model_timestamp,
+               "data": model_metrics,
+               "threshold": prob_th}
+    json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))
 
 if __name__ == "__main__":
-    with open("/Users/dileep/.pb/siteconfig.yaml", "r") as f:
+    with open("/Users/ambuj/.pb/siteconfig.yaml", "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
     inputs = None
     output_folder = 'output/dev/seq_no/2'

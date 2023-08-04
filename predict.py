@@ -195,12 +195,10 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     input  = predict_data.drop(label_column, entity_column, index_timestamp)
     
-    preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias("score"))
-             .withColumn("current_timestamp", F.lit(current_ts))
-             .withColumn("material_hash", F.lit(model_hash))
+    preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias("churn_score_7_days"))
              .withColumn("model_id", F.lit(model_id)))
 
-    preds_with_percentile = preds.withColumn("percentile_score", F.percent_rank().over(Window.order_by(F.col("score"))))
+    preds_with_percentile = preds.withColumn("percentile_churn_score_7_days", F.percent_rank().over(Window.order_by(F.col("churn_score_7_days"))))
     preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)
     
 

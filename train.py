@@ -459,8 +459,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     model_timestamp = datetime.fromtimestamp(int(model_id)).strftime('%Y-%m-%d %H:%M:%S')
     summary = {"timestamp": model_timestamp,
-               "data": model_metrics,
-               "threshold": prob_th}
+               "data": {"metrics": model_metrics, "threshold": prob_th}}
     json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))
 
 if __name__ == "__main__":

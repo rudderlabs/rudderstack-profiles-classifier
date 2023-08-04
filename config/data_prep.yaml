@@ -87,7 +87,3 @@ data:
   train_size: 0.6
   val_size: 0.2
   test_size: 0.2
-
-output_files:
-  data_pipeline_file: data_pipeline.pkl
-  final_column_names_file: output_column_names.pkl

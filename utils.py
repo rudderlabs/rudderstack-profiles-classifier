@@ -54,13 +54,17 @@ def combine_config(notebook_config: dict, profiles_config:dict= None) -> dict:
     """
     if not isinstance(profiles_config, dict):
         return notebook_config
-    profiles_data = profiles_config.get('data', None)
-    if profiles_data is None or not isinstance(profiles_data, dict):
-        return notebook_config
     merged_config = deepcopy(notebook_config)
-    for key in profiles_data.keys():
-        if key in merged_config['data'].keys():
-            merged_config['data'][key] = profiles_data[key]
+    for key in profiles_config.keys():
+        if key != "data":
+            merged_config[key] = profiles_config[key]
+        else:
+            profiles_data = profiles_config.get('data', None)
+            if profiles_data is None or not isinstance(profiles_data, dict):
+                continue
+            for subkey in profiles_data.keys():
+                if subkey in merged_config['data'].keys():
+                    merged_config['data'][subkey] = profiles_data[subkey]
     return merged_config
 
 def get_output_directory(folder_path: str)-> str:

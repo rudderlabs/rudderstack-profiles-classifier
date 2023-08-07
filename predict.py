@@ -117,10 +117,12 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     model_file_name = constants.MODEL_FILE_NAME
     print(model_file_name)
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    
+
     notebook_config = load_yaml(os.path.join(current_dir, "config/data_prep.yaml"))
     merged_config = combine_config(notebook_config, config)
 
+    score_column_name = merged_config['outputs']['column_names']['score']
+    percentile_column_name = merged_config['outputs']['column_names']['percentile']
     model_name_prefix = merged_config["data"]["model_name_prefix"]
     label_column = merged_config["data"]["label_column"]
     index_timestamp = merged_config["data"]["index_timestamp"]
@@ -179,7 +181,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     model_id = results["model_info"]["model_id"]
     current_ts = datetime.datetime.now()
 
-    material_table = constants.MATERIAL_TABLE
+    material_table = merged_config['constants']['material_registry']
     latest_hash_df = session.table(material_table).filter(F.col("model_hash") == model_hash)
     
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
@@ -195,18 +197,19 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     input  = predict_data.drop(label_column, entity_column, index_timestamp)
     
-    preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias("churn_score_7_days"))
+    preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias(score_column_name))
              .withColumn("model_id", F.lit(model_id)))
 
-    preds_with_percentile = preds.withColumn("percentile_churn_score_7_days", F.percent_rank().over(Window.order_by(F.col("churn_score_7_days"))))
+    preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(entity_column, index_timestamp, score_column_name, percentile_column_name, "model_id")
     preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)
     
 
 if __name__ == "__main__":
-    with open("/Users/dileep/.pb/siteconfig.yaml", "r") as f:
+    with open("/Users/ambuj/.pb/siteconfig.yaml", "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None
-        model_path = "train_output.json"
+        output_folder = 'output/dev/seq_no/2'
+        model_path = f"{output_folder}/train_output.json"
         
     predict(creds, aws_config, model_path, None, "test_can_delet",None)

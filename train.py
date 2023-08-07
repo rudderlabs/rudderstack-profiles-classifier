@@ -347,7 +347,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     notebook_config = load_yaml(config_path)
     merged_config = combine_config(notebook_config, config)
 
-    material_table = constants.MATERIAL_TABLE
+    material_table = merged_config['constants']['material_registry']
     start_date = merged_config['data']['train_start_dt']
     end_date = merged_config['data']['train_end_dt']
     prediction_horizon_days = merged_config['data']['prediction_horizon_days']

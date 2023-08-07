@@ -181,7 +181,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     model_id = results["model_info"]["model_id"]
     current_ts = datetime.datetime.now()
 
-    material_table = constants.MATERIAL_TABLE
+    material_table = merged_config['constants']['material_registry']
     latest_hash_df = session.table(material_table).filter(F.col("model_hash") == model_hash)
     
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX

@@ -74,8 +74,11 @@ def get_output_directory(folder_path: str)-> str:
     """
 
     file_list = [file for file in os.listdir(folder_path) if file.endswith('.py')]
-    files_creation_ts = [os.path.getctime(os.path.join(folder_path, file)) for file in file_list]
-    latest_filename = file_list[int(np.array(files_creation_ts).argmax())]
+    if file_list == []:
+        latest_filename = "train"
+    else:
+        files_creation_ts = [os.path.getctime(os.path.join(folder_path, file)) for file in file_list]
+        latest_filename = file_list[int(np.array(files_creation_ts).argmax())]
 
     materialized_folder = os.path.splitext(latest_filename)[0]
     target_path = Path(os.path.join(folder_path, f"{materialized_folder}_reports"))

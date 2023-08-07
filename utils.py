@@ -74,11 +74,14 @@ def get_output_directory(folder_path: str)-> str:
     """
 
     file_list = [file for file in os.listdir(folder_path) if file.endswith('.py')]
-    if len(file_list) != 1:
-        raise Exception("There are zero or multiple python files in the folder. Please keep only one python file in the folder")
+    if file_list == []:
+        latest_filename = "train"
+    else:
+        files_creation_ts = [os.path.getctime(os.path.join(folder_path, file)) for file in file_list]
+        latest_filename = file_list[int(np.array(files_creation_ts).argmax())]
 
-    materialized_folder = os.path.splitext(file_list[0])[0]
-    target_path = Path(os.path.join(folder_path, materialized_folder))
+    materialized_folder = os.path.splitext(latest_filename)[0]
+    target_path = Path(os.path.join(folder_path, f"{materialized_folder}_reports"))
     target_path.mkdir(parents=True, exist_ok=True)
     return str(target_path)
 

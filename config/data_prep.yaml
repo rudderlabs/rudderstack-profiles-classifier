@@ -89,12 +89,12 @@ data:
   test_size: 0.2
 
 constants:
-  material_registry: &material_registry_table material_registry_4
+  material_registry: material_registry_4
 outputs:
   column_names:
     percentile: &percentile_name percentile_churn_score_7_days
     score: churn_score_7_days
-  feature_meta_data: &feature_meta_data
+  feature_meta_data: 
     features:
       - name: *percentile_name
         description: 'Percentile of churn score. Higher the percentile, higher the probability of churn'

@@ -97,7 +97,7 @@ def drop_fn_if_exists(session: snowflake.snowpark.Session,
     
 
 
-def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_tablename : str, config: dict=None) -> None:
+def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_tablename : str, config: dict) -> None:
     """Generates the prediction probabilities and save results for given model_path
 
     Args:

@@ -200,7 +200,7 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
     #subprocess.run(["pb", "run", "-m", "packages/feature_table/models/shopify_user_features", "--end_time", str(features_valid_time_unix)])
     subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
-def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
+def train(creds: dict, inputs: str, output_filename: str, config: dict=None) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:

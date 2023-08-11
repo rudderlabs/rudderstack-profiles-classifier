@@ -8,7 +8,7 @@ dependencies:
   - pip:
     # Snowpark
     - snowflake-snowpark-python[pandas]==0.10.0
-    - snowflake_connector_python==3.0.1
+    - snowflake_connector_python==3.0.2
     # Basics
     - pandas==1.4.3
     - numpy==1.22.3

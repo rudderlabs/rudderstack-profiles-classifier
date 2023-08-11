@@ -38,7 +38,7 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, List
 
-from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, build_pr_auc_curve, build_roc_auc_curve, fetch_staged_file, get_output_directory
+from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, build_pr_auc_curve, build_roc_auc_curve, plot_feature_importance, fetch_staged_file, get_output_directory
 import constants as constants
 import yaml
 import json
@@ -46,6 +46,7 @@ import subprocess
 from datetime import datetime, timezone
 import matplotlib.pyplot as plt
 import scikitplot as skplt
+import shap
 
 
 # logger.info("Start")
@@ -189,6 +190,23 @@ def build_model(X_train:pd.DataFrame,
     clf = model_class(**best_hyperparams, **model_config["modelparams"])
     return clf, trials
 
+def get_column_names(
+    onehot_encoder: OneHotEncoder, col_names: list
+) -> list:
+    """Assigning new column names for the one-hot encoded columns.
+
+    Args:
+        onehot_encoder: OneHotEncoder object.
+        col_names: List of column names
+
+    Returns:
+        list: List of category column names.
+    """
+    category_names = []
+    for col_id, col in enumerate(col_names):
+        for value in onehot_encoder.categories_[col_id]:
+            category_names.append(f"{col}_{value}")
+    return category_names
 
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str):
     path_components = output_path.split(os.path.sep)
@@ -229,7 +247,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
 
     @sproc(name="train_sproc", is_permanent=True, stage_location="@ml_models", replace=True, imports=[current_dir, utils_path, constants_path, train_path], 
-        packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy", "pandas", "hyperopt", "matplotlib==3.7.1", "scikit-plot==0.3.7"])
+        packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy", "pandas", "hyperopt", "shap==0.39.0", "matplotlib==3.7.1", "scikit-plot==0.3.7"])
     def train_sp(session: snowflake.snowpark.Session,
                 feature_table_name: str,
                 entity_column: str,
@@ -301,6 +319,25 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         preprocessor_pipe_optimized = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
         pipe = get_model_pipeline(preprocessor_pipe_optimized, final_clf)
         pipe.fit(train_x, train_y)
+
+        # shap value code starts
+        train_x_processed = preprocessor_pipe_optimized.transform(train_x)
+        train_x_processed = train_x_processed.astype(np.int_)
+        shap_values = shap.TreeExplainer(final_clf).shap_values(train_x_processed)
+
+        onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
+        col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(train_x) if col not in numeric_columns and col not in categorical_columns]
+
+        # Find col_names_ to define feature names
+        shap_df = pd.DataFrame(shap_values, columns=col_names_)
+        vals = np.abs(shap_df.values).mean(0)
+        feature_names = shap_df.columns
+        shap_importance = pd.DataFrame(list(zip(feature_names, vals)), columns=['col_name','feature_importance_vals'])
+        shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
+        session.write_pandas(shap_importance, table_name="feature_importance", auto_create_table=True, overwrite=True)
+        plot_feature_importance(session, stage_name, shap_importance['feature_importance_vals'][:5][::-1].to_numpy(), shap_importance['col_name'][:5][::-1].to_numpy())
+        # plot_feature_importance(shap_importance['feature_importance_vals'][:5][::-1].to_numpy(), shap_importance['col_name'][:5][::-1].to_numpy())
+
         model_metrics, predictions, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y)
 
         model_file_name = constants.MODEL_FILE_NAME
@@ -445,6 +482,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         build_pr_auc_curve(precision[subset], recall[subset], f"{subset}-pr-auc.png", target_path, f"{subset.capitalize()} Precision-Recall Curve")
         build_roc_auc_curve(fpr[subset], tpr[subset], f"{subset}-roc-auc.png", target_path, f"{subset.capitalize()} ROC-AUC Curve")
         fetch_staged_file(session, stage_name, f"{subset}-lift-chart.png", target_path)
+    fetch_staged_file(session, stage_name, "feature-importance-chart.png", target_path)
 
     results = {"config": {'training_dates': training_dates,
                         'material_names': material_names,

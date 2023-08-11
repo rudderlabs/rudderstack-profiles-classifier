@@ -16,6 +16,7 @@ import os
 import gzip
 import shutil
 from pathlib import Path
+import matplotlib.pyplot as plt
 
 def remap_credentials(credentials: dict) -> dict:
     """Remaps credentials from profiles siteconfig to the expected format from snowflake session
@@ -382,3 +383,13 @@ def fetch_staged_file(session: snowflake.snowpark.Session,
         with open(output_file_path, 'wb') as target_file:
             shutil.copyfileobj(gz_file, target_file)
     os.remove(input_file_path)
+
+def plot_feature_importance(session, stage_name, feature_importance_vals, col_name):
+    plt.barh(col_name, feature_importance_vals)
+    plt.title('Feature Importance')
+    plt.xlabel('Importance Score')
+    plt.ylabel('Feature')
+    figure_file = os.path.join('/tmp', "feature-importance-chart.png")
+    plt.savefig(figure_file)
+    session.file.put(figure_file, stage_name,overwrite=True)
+    plt.clf()

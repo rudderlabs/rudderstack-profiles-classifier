@@ -384,12 +384,12 @@ def fetch_staged_file(session: snowflake.snowpark.Session,
             shutil.copyfileobj(gz_file, target_file)
     os.remove(input_file_path)
 
-def plot_feature_importance(session, stage_name, feature_importance_vals, col_name):
-    plt.barh(col_name, feature_importance_vals)
-    plt.title('Feature Importance')
-    plt.xlabel('Importance Score')
-    plt.ylabel('Feature')
+def plot_feature_importance(session, stage_name, data):
+    ax = data[::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
+    ax.set_xlabel("Importance Score", labelpad=20, weight='bold', size=12)
+    ax.set_ylabel("Feature", labelpad=20, weight='bold', size=12)
+    plt.title("Feature Importance", weight='bold', size=12)
     figure_file = os.path.join('/tmp', "feature-importance-chart.png")
-    plt.savefig(figure_file)
+    plt.savefig(figure_file, bbox_inches="tight")
     session.file.put(figure_file, stage_name,overwrite=True)
     plt.clf()

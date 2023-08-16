@@ -247,7 +247,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
 
     @sproc(name="train_sproc", is_permanent=True, stage_location="@ml_models", replace=True, imports=[current_dir, utils_path, constants_path, train_path], 
-        packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy", "pandas", "hyperopt", "shap==0.39.0", "matplotlib==3.7.1", "scikit-plot==0.3.7"])
+        packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "scikit-plot==0.3.7"])
     def train_sp(session: snowflake.snowpark.Session,
                 feature_table_name: str,
                 entity_column: str,
@@ -320,24 +320,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         pipe = get_model_pipeline(preprocessor_pipe_optimized, final_clf)
         pipe.fit(train_x, train_y)
 
-        # shap value code starts
-        train_x_processed = preprocessor_pipe_optimized.transform(train_x)
-        train_x_processed = train_x_processed.astype(np.int_)
-        shap_values = shap.TreeExplainer(final_clf).shap_values(train_x_processed)
-
-        onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
-        col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(train_x) if col not in numeric_columns and col not in categorical_columns]
-
-        # Find col_names_ to define feature names
-        shap_df = pd.DataFrame(shap_values, columns=col_names_)
-        vals = np.abs(shap_df.values).mean(0)
-        feature_names = shap_df.columns
-        shap_importance = pd.DataFrame(list(zip(feature_names, vals)), columns=['col_name','feature_importance_vals'])
-        shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
-        session.write_pandas(shap_importance, table_name="feature_importance", auto_create_table=True, overwrite=True)
-        plot_feature_importance(session, stage_name, shap_importance['feature_importance_vals'][:5][::-1].to_numpy(), shap_importance['col_name'][:5][::-1].to_numpy())
-        # plot_feature_importance(shap_importance['feature_importance_vals'][:5][::-1].to_numpy(), shap_importance['col_name'][:5][::-1].to_numpy())
-
         model_metrics, predictions, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y)
 
         model_file_name = constants.MODEL_FILE_NAME
@@ -378,6 +360,23 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         recall = {key: value.tolist() for key, value in recall.items()}
         fpr = {key: value.tolist() for key, value in fpr.items()}
         tpr = {key: value.tolist() for key, value in tpr.items()}
+
+        train_x_processed = preprocessor_pipe_optimized.transform(train_x)
+        train_x_processed = train_x_processed.astype(np.int_)
+        shap_values = shap.TreeExplainer(final_clf).shap_values(train_x_processed)
+
+        onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
+        col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(train_x) if col not in numeric_columns and col not in categorical_columns]
+
+        shap_df = pd.DataFrame(shap_values, columns=col_names_)
+        vals = np.abs(shap_df.values).mean(0)
+        feature_names = shap_df.columns
+        shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
+        shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
+        session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
+        plot_feature_importance(session, stage_name, shap_importance[:5])
+
+        # plot_feature_importance(session, stage_name, shap_importance['feature_importance_vals'][:5][::-1].to_numpy(), shap_importance['col_name'][:5][::-1].to_numpy())
 
         return [model_id, precision, recall, fpr, tpr, model_metrics, prob_th]
 

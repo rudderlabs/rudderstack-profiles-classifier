@@ -384,8 +384,8 @@ def fetch_staged_file(session: snowflake.snowpark.Session,
             shutil.copyfileobj(gz_file, target_file)
     os.remove(input_file_path)
 
-def plot_feature_importance(session, stage_name, data):
-    ax = data[::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
+def plot_feature_importance(session, stage_name, data, sample_num=5):
+    ax = data[:sample_num][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
     ax.set_xlabel("Importance Score", labelpad=20, weight='bold', size=12)
     ax.set_ylabel("Feature", labelpad=20, weight='bold', size=12)
     plt.title("Feature Importance", weight='bold', size=12)

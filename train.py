@@ -236,6 +236,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     """
     connection_parameters = remap_credentials(creds)
     session = Session.builder.configs(connection_parameters).create()
+
+    model_file_name = constants.MODEL_FILE_NAME
+    stage_name = constants.STAGE_NAME
+    session.sql(f"create stage if not exists {stage_name.replace('@', '')}").collect()
     
     current_dir = os.path.dirname(os.path.abspath(__file__))
     utils_path = os.path.join(current_dir, 'utils.py')
@@ -324,8 +328,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
         model_file_name = constants.MODEL_FILE_NAME
         stage_name = constants.STAGE_NAME
-        
-        session.sql(f"create stage if not exists {stage_name.replace('@', '')}").collect()
 
         for subset in ["train", "val", "test"]:
             predicted_probas = pipe.predict_proba(locals()[f"{subset}_x"])
@@ -374,9 +376,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
         shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
         session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
-        plot_feature_importance(session, stage_name, shap_importance[:5])
-
-        # plot_feature_importance(session, stage_name, shap_importance['feature_importance_vals'][:5][::-1].to_numpy(), shap_importance['col_name'][:5][::-1].to_numpy())
+        plot_feature_importance(session, stage_name, shap_importance, 5)
 
         return [model_id, precision, recall, fpr, tpr, model_metrics, prob_th]
 
@@ -473,9 +473,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                     )
 
     (model_id, precision, recall, fpr, tpr, model_metrics, prob_th) = json.loads(model_eval_data)
-
-    model_file_name = constants.MODEL_FILE_NAME
-    stage_name = constants.STAGE_NAME
 
     for subset in ['train', 'val', 'test']:
         build_pr_auc_curve(precision[subset], recall[subset], f"{subset}-pr-auc.png", target_path, f"{subset.capitalize()} Precision-Recall Curve")

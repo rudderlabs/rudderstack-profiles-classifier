@@ -88,8 +88,6 @@ data:
   val_size: 0.2
   test_size: 0.2
 
-constants:
-  material_registry: material_registry_4
 outputs:
   column_names:
     percentile: &percentile_name percentile_churn_score_7_days

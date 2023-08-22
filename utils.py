@@ -417,12 +417,12 @@ def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name):
 
     sorted_indices = np.argsort(data["pred"].values, kind="heapsort")[::-1]
     cumulative_actual = np.cumsum(data["label"][sorted_indices].values)
-    cumulative_percentage = np.linspace(0, 1, len(cumulative_actual))
+    cumulative_percentage = np.linspace(0, 1, len(cumulative_actual)+1)
 
     sns.set(style="ticks", context='notebook')
     plt.figure(figsize=(8, 6))
     sns.lineplot(x=cumulative_percentage*100, 
-                y=100*cumulative_actual / cumulative_actual[-1], 
+                y=np.array([0] + list(100*cumulative_actual / cumulative_actual[-1])), 
                 linewidth=2, color="b", label="Model Lift curve")
     sns.despine()
     plt.plot([0, 100*data["label"].mean()], [0, 100], color="red", linestyle="--", label="Best Case", linewidth=1.5)
@@ -442,9 +442,9 @@ def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name):
 
 def plot_feature_importance(session, stage_name, data, top_k_features=5, chart_name=f"feature-importance-chart.png"):
     ax = data[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
-    ax.set_xlabel("Importance Score", labelpad=20, weight='bold', size=12)
-    ax.set_ylabel("Feature", labelpad=20, weight='bold', size=12)
-    plt.title("Feature Importance", weight='bold', size=12)
+    ax.set_xlabel("Importance Score")
+    ax.set_ylabel("Feature Name")
+    plt.title(f"Top {top_k_features} Important Features")
     figure_file = os.path.join('/tmp', f"{chart_name}")
     plt.savefig(figure_file, bbox_inches="tight")
     session.file.put(figure_file, stage_name, overwrite=True)

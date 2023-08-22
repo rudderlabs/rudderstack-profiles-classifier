@@ -1,4 +1,4 @@
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc, roc_curve, precision_recall_curve
 import numpy as np 
 import pandas as pd
 from typing import Tuple, List, Union
@@ -17,6 +17,7 @@ import gzip
 import shutil
 from pathlib import Path
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 def remap_credentials(credentials: dict) -> dict:
     """Remaps credentials from profiles siteconfig to the expected format from snowflake session
@@ -372,28 +373,82 @@ def get_metrics(clf,
     
     return metrics, predictions, prob_threshold
 
-def build_pr_auc_curve(precision: dict, 
-                        recall: dict, 
-                        target_file: str, 
-                        target_folder :str, 
-                        graph_title: str)-> None:
-    plt = PrecisionRecallDisplay(precision=precision, recall=recall).plot(color='g', label='pr-auc')
-    plt.ax_.set_title(graph_title)
-    plt.ax_.grid()
-    plt.figure_.savefig(os.path.join(target_folder, target_file))
-    plt.figure_.clf()
-
-def build_roc_auc_curve(fpr: dict, 
-                        tpr: dict, 
-                        target_file: str, 
-                        target_folder: str, 
-                        graph_title: str)-> None:
+def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name)-> None:
+    fpr, tpr, _ = roc_curve(test_y['IS_CHURNED_7_DAYS'].values, pipe.predict_proba(test_x)[:,1])
     roc_auc = auc(fpr, tpr)
-    plt = RocCurveDisplay(fpr=fpr, tpr=tpr, roc_auc=roc_auc, estimator_name='example estimator').plot(color='g', label='roc')
-    plt.ax_.set_title(graph_title)
-    plt.ax_.grid()
-    plt.figure_.savefig(os.path.join(target_folder, target_file))
-    plt.figure_.clf()
+    sns.set(style="ticks",  context='notebook')
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr, tpr, color="b", label=f"ROC AUC = {roc_auc:.2f}", linewidth=2)
+    plt.plot([0, 1], [0, 1], color="gray", linestyle="--", linewidth=2)
+    plt.title("ROC Curve (Test Data)")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend(loc="lower right")
+    sns.despine()
+    plt.grid(True)
+    figure_file = os.path.join('/tmp', f"{chart_name}")
+    plt.savefig(figure_file)
+    session.file.put(figure_file, stage_name, overwrite=True)
+    plt.clf()
+
+def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name)-> None:
+    precision, recall, _ = precision_recall_curve(test_y['IS_CHURNED_7_DAYS'].values, pipe.predict_proba(test_x)[:,1])
+    pr_auc = auc(recall, precision)
+    sns.set(style="ticks",  context='notebook')
+    plt.figure(figsize=(8, 6))
+    plt.plot(recall, precision, color="b", label=f"PR AUC = {pr_auc:.2f}", linewidth=2)
+    plt.ylim([int(min(precision)*20)/20, 1.0])
+    plt.xlim([int(min(recall)*20)/20, 1.0])
+    plt.title("Precision-Recall Curve (Test data)")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.legend(loc="lower left")
+    sns.despine()
+    plt.grid(True)
+    figure_file = os.path.join('/tmp', f"{chart_name}")
+    plt.savefig(figure_file)
+    session.file.put(figure_file, stage_name, overwrite=True)
+    plt.clf()
+
+def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name):
+    data = pd.DataFrame()
+    data['label'] = test_y['IS_CHURNED_7_DAYS'].values
+    data['pred'] = pipe.predict_proba(test_x)[:,1]
+
+    sorted_indices = np.argsort(data["pred"].values, kind="heapsort")[::-1]
+    cumulative_actual = np.cumsum(data["label"][sorted_indices].values)
+    cumulative_percentage = np.linspace(0, 1, len(cumulative_actual)+1)
+
+    sns.set(style="ticks", context='notebook')
+    plt.figure(figsize=(8, 6))
+    sns.lineplot(x=cumulative_percentage*100, 
+                y=np.array([0] + list(100*cumulative_actual / cumulative_actual[-1])), 
+                linewidth=2, color="b", label="Model Lift curve")
+    sns.despine()
+    plt.plot([0, 100*data["label"].mean()], [0, 100], color="red", linestyle="--", label="Best Case", linewidth=1.5)
+    plt.plot([0, 100], [0, 100], color="black", linestyle="--", label="Baseline", linewidth=1.5)
+
+    plt.title("Cumulative Gain Curve")
+    plt.xlabel("Percentage of Data Targeted")
+    plt.ylabel("Percent of target users covered")
+    plt.ylim([0, 100])
+    plt.xlim([0, 100])
+    plt.legend()
+    plt.grid(True)
+    figure_file = os.path.join('/tmp', f"{chart_name}")
+    plt.savefig(figure_file)
+    session.file.put(figure_file, stage_name, overwrite=True)
+    plt.clf()
+
+def plot_feature_importance(session, stage_name, data, top_k_features=5, chart_name=f"feature-importance-chart.png"):
+    ax = data[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
+    ax.set_xlabel("Importance Score")
+    ax.set_ylabel("Feature Name")
+    plt.title(f"Top {top_k_features} Important Features")
+    figure_file = os.path.join('/tmp', f"{chart_name}")
+    plt.savefig(figure_file, bbox_inches="tight")
+    session.file.put(figure_file, stage_name, overwrite=True)
+    plt.clf()
 
 def fetch_staged_file(session: snowflake.snowpark.Session, 
                         stage_name: str, 
@@ -408,13 +463,3 @@ def fetch_staged_file(session: snowflake.snowpark.Session,
         with open(output_file_path, 'wb') as target_file:
             shutil.copyfileobj(gz_file, target_file)
     os.remove(input_file_path)
-
-def plot_feature_importance(session, stage_name, data, top_k_features=5):
-    ax = data[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
-    ax.set_xlabel("Importance Score", labelpad=20, weight='bold', size=12)
-    ax.set_ylabel("Feature", labelpad=20, weight='bold', size=12)
-    plt.title("Feature Importance", weight='bold', size=12)
-    figure_file = os.path.join('/tmp', "feature-importance-chart.png")
-    plt.savefig(figure_file, bbox_inches="tight")
-    session.file.put(figure_file, stage_name,overwrite=True)
-    plt.clf()

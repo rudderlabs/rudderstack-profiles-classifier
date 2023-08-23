@@ -38,7 +38,8 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, List
 
-from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, build_pr_auc_curve, build_roc_auc_curve, plot_feature_importance, fetch_staged_file, get_output_directory
+
+from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_material_registry_name, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, plot_pr_auc_curve, plot_roc_auc_curve, plot_lift_chart, plot_feature_importance, fetch_staged_file, get_output_directory
 import constants as constants
 import yaml
 import json
@@ -213,10 +214,10 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
     output_index = path_components.index('output')
     pb_proj_dir = os.path.sep.join(path_components[:output_index])
     features_valid_time_unix = int(datetime.strptime(features_valid_time, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
-    args = ["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--end_time", str(features_valid_time_unix)]
+    args = ["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
     print(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
     #subprocess.run(["pb", "run", "-m", "packages/feature_table/models/shopify_user_features", "--end_time", str(features_valid_time_unix)])
-    subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
 
 def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     """Trains the model and saves the model with given output_filename.
@@ -251,7 +252,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
 
     @sproc(name="train_sproc", is_permanent=True, stage_location="@ml_models", replace=True, imports=[current_dir, utils_path, constants_path, train_path], 
-        packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "scikit-plot==0.3.7"])
+        packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
     def train_sp(session: snowflake.snowpark.Session,
                 feature_table_name: str,
                 entity_column: str,
@@ -324,26 +325,16 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         pipe = get_model_pipeline(preprocessor_pipe_optimized, final_clf)
         pipe.fit(train_x, train_y)
 
-        model_metrics, predictions, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y)
+        model_metrics, _, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y)
 
         model_file_name = constants.MODEL_FILE_NAME
         stage_name = constants.STAGE_NAME
 
-        for subset in ["train", "val", "test"]:
-            predicted_probas = pipe.predict_proba(locals()[f"{subset}_x"])
-            skplt.metrics.plot_cumulative_gain(locals()[f"{subset}_y"], predicted_probas)
-            figure_file = os.path.join('/tmp', f"{subset}-lift-chart.png")
-            plt.savefig(figure_file)
-            session.file.put(figure_file, stage_name,overwrite=True)
-            plt.clf()
-
-        precision = dict(); recall = dict(); fpr = dict(); tpr = dict()
-        for subset in ["train", "val", "test"]:
-            precision[subset], recall[subset], _ = precision_recall_curve(np.array(locals()[f"{subset}_y"]["IS_CHURNED_7_DAYS"]), np.array(predictions[subset]), pos_label=1)
-            fpr[subset], tpr[subset], _ = roc_curve(np.array(locals()[f"{subset}_y"]["IS_CHURNED_7_DAYS"]), np.array(predictions[subset]), pos_label=1)
+        plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, f"01-test-roc-auc.png")
+        plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, f"02-test-pr-auc.png")
+        plot_lift_chart(session, pipe, stage_name, test_x, test_y, f"03-test-lift-chart.png")
 
         model_id = str(int(time.time()))
-
         result_dict = {"model_id": model_id,
                         "model_name_prefix": model_name_prefix,
                         "prob_th": prob_th,
@@ -358,11 +349,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         joblib.dump(pipe, model_file)
         session.file.put(model_file, stage_name,overwrite=True)
 
-        precision = {key: value.tolist() for key, value in precision.items()}
-        recall = {key: value.tolist() for key, value in recall.items()}
-        fpr = {key: value.tolist() for key, value in fpr.items()}
-        tpr = {key: value.tolist() for key, value in tpr.items()}
-
         train_x_processed = preprocessor_pipe_optimized.transform(train_x)
         train_x_processed = train_x_processed.astype(np.int_)
         shap_values = shap.TreeExplainer(final_clf).shap_values(train_x_processed)
@@ -376,14 +362,15 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
         shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
         session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
-        plot_feature_importance(session, stage_name, shap_importance, 5)
+        plot_feature_importance(session, stage_name, shap_importance, 5, f"04-feature-importance-chart.png")
 
-        return [model_id, precision, recall, fpr, tpr, model_metrics, prob_th]
+        return [model_id, model_metrics, prob_th]
 
     notebook_config = load_yaml(config_path)
     merged_config = combine_config(notebook_config, config)
 
-    material_table = merged_config['constants']['material_registry']
+    material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
+    material_table = get_material_registry_name(session, material_registry_table_prefix)
     start_date = merged_config['data']['train_start_dt']
     end_date = merged_config['data']['train_end_dt']
     prediction_horizon_days = merged_config['data']['prediction_horizon_days']
@@ -472,13 +459,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                     folder_path
                     )
 
-    (model_id, precision, recall, fpr, tpr, model_metrics, prob_th) = json.loads(model_eval_data)
+    (model_id, model_metrics, prob_th) = json.loads(model_eval_data)
 
-    for subset in ['train', 'val', 'test']:
-        build_pr_auc_curve(precision[subset], recall[subset], f"{subset}-pr-auc.png", target_path, f"{subset.capitalize()} Precision-Recall Curve")
-        build_roc_auc_curve(fpr[subset], tpr[subset], f"{subset}-roc-auc.png", target_path, f"{subset.capitalize()} ROC-AUC Curve")
-        fetch_staged_file(session, stage_name, f"{subset}-lift-chart.png", target_path)
-    fetch_staged_file(session, stage_name, "feature-importance-chart.png", target_path)
+    for output_image in [f"01-test-roc-auc.png", f"02-test-pr-auc.png", f"03-test-lift-chart.png", f"04-feature-importance-chart.png"]:
+        fetch_staged_file(session, stage_name, output_image, target_path)
 
     results = {"config": {'training_dates': training_dates,
                         'material_names': material_names,
@@ -491,7 +475,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             "input_model_name": model_name}
     json.dump(results, open(output_filename,"w"))
 
-    model_timestamp = datetime.fromtimestamp(int(model_id)).strftime('%Y-%m-%d %H:%M:%S')
+    model_timestamp = datetime.utcfromtimestamp(int(model_id)).strftime('%Y-%m-%dT%H:%M:%SZ')
     summary = {"timestamp": model_timestamp,
                "data": {"metrics": model_metrics, "threshold": prob_th}}
     json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))

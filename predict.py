@@ -24,7 +24,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils import get_metrics, load_yaml, remap_credentials, combine_config
+from utils import get_metrics, load_yaml, remap_credentials, combine_config, get_material_registry_name
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
 import constants
 from logger import logger
@@ -181,7 +181,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     model_id = results["model_info"]["model_id"]
     current_ts = datetime.datetime.now()
 
-    material_table = merged_config['constants']['material_registry']
+    material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
+    material_table = get_material_registry_name(session, material_registry_table_prefix)
     latest_hash_df = session.table(material_table).filter(F.col("model_hash") == model_hash)
     
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX

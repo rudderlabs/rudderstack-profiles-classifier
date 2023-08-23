@@ -483,7 +483,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))
 
 if __name__ == "__main__":
-    with open("/Users/ambuj/.pb/siteconfig.yaml", "r") as f:
+    homedir = os.path.expanduser("~")
+    with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
     inputs = None
     output_folder = 'output/dev/seq_no/2'

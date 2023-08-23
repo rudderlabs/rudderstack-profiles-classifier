@@ -74,6 +74,13 @@ def combine_config(notebook_config: dict, profiles_config:dict= None) -> dict:
             merged_config[key] = notebook_config[key]
     return merged_config
 
+def delete_import_files(session, stage_name, import_paths: List[str]) -> None:
+    import_files = [element.split('/')[-1] for element in import_paths]
+    files = session.sql(f"list {stage_name}").collect()
+    for row in files:
+        if any(substring in row.name for substring in import_files):
+            session.sql(f"remove @{row.name}").collect()
+
 def get_material_registry_name(session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:
     """This function will return the latest material registry table name
 

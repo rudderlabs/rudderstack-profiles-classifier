@@ -24,7 +24,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils import get_metrics, load_yaml, remap_credentials, combine_config, get_material_registry_name
+from utils import get_metrics, load_yaml, remap_credentials, combine_config, delete_import_files, get_material_registry_name
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
 import constants
 from logger import logger
@@ -139,6 +139,9 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     predict_path = os.path.join(current_dir, 'predict.py')
     utils_path = os.path.join(current_dir, 'utils.py')
     constants_path = os.path.join(current_dir, 'constants.py')
+
+    import_paths = [utils_path, constants_path]
+    delete_import_files(session, stage_name, import_paths)
     
     print("Caching")
     
@@ -163,7 +166,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     drop_fn_if_exists(session, udf_name)
     @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
               stage_location=stage_name, name=udf_name, 
-              imports=[predict_path, utils_path, constants_path, f"{stage_name}/{model_file_name}"],
+              imports= import_paths+[f"{stage_name}/{model_file_name}"],
               packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML"])
     def predict_scores(df: types) -> T.PandasSeries[float]:
         trained_model = load_model(model_file_name)

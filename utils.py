@@ -84,9 +84,12 @@ def delete_import_files(session, stage_name, import_paths: List[str]) -> None:
 def delete_procedures(session, train_procedure) -> None:
     procedures = session.sql(f"show procedures like '{train_procedure}%'").collect()
     for row in procedures:
-        words = row.arguments.split(' ')[:-2]
-        procedure_arguments = ' '.join(words)
-        session.sql(f"drop procedure if exists {procedure_arguments}").collect()
+        try:
+            words = row.arguments.split(' ')[:-2]
+            procedure_arguments = ' '.join(words)
+            session.sql(f"drop procedure if exists {procedure_arguments}").collect()
+        except:
+            pass
 
 def get_material_registry_name(session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:
     """This function will return the latest material registry table name

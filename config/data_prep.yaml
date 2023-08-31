@@ -1,4 +1,27 @@
+data:
+  # Related to the data that is used to train the model
+  label_column: is_churned_7_days # Name of the entity_var that needs to be predicted in advance
+  label_value: 1 # Value of the label_column when the entity does the event
+  entity_column: user_main_id # Name of the entity defined in the profiles project. Ex: user_id, user_main_id, rudder_id etc
+  package_name: feature_table # Name of the package where the profiles feature table is defined (declared in pb_project.yaml packages)
+  model_name: 'shopify_user_features' # Name of the feature table model
+  model_name_prefix: 'shopify_churn_test'
+  index_timestamp: valid_at
+  eligible_users: '' # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'
+  # train_start_dt: '2023-04-24'
+  train_start_dt: # The start and end dates can be left empty. If not, the model uses these dates to get historic data for training. 
+  # train_end_dt: '2023-05-01'
+  train_end_dt:
+  prediction_horizon_days: 7 # Days in advance to predict the label_column. 
+  sample_data: 1. # Keep 1 if all data during train_start_dt, train_end_dt and eligible_users should be selected; Else, give the percent as the number between 0 and 1; Ex, 0.25 indicates 25% data gets sampled
+
+  # Train, test, val split ratios. They must be each between 0 and 1, and sum to 1
+  train_size: 0.6
+  val_size: 0.2
+  test_size: 0.2
+
 preprocessing:
+  # Related to various preprocessing steps of the data
   categorical_columns: &categorical_columns [RUDDER_ID, VALID_AT, STATE, COUNTRY, FIRST_NAME, LAST_NAME, CURRENCY, DEVICE_TYPE, DEVICE_NAME, DEVICE_MANUFACTURER, LAST_CART_STATUS
   ]
   timestamp_columns: [first_seen_date,last_seen_date
@@ -7,33 +30,11 @@ preprocessing:
 
   ignore_features:
     # Following columns are ignored if they are present in the final feature table
-    - identity_group_id
-    - churn_cohort_label
-    - customer_status
-    - customer_last_seen_at
-    - customer_active_at
-    - customer_deleted_at
-    - behavioural_cohort_label
-    - is_kid_account
-    - is_parent_account
-    - is_active
-    - is_kid_account_at_time
-    - is_in_signup
-    - is_parent_account_at_time # Frm below, all features have a _at_time version; 
-    - age
-    - country
-    - region_name
-    - country_at_time
-    - region_name_at_time
-    - jurisdiction
-    - is_deleted_for_nature_and_purpose
-    - CAMPAIGN_SOURCES
     - PRODUCTS_ADDED_IN_PAST_1_DAYS
     - PRODUCTS_ADDED_IN_PAST_7_DAYS
     - PRODUCTS_ADDED_IN_PAST_365_DAYS
     - ITEMS_PURCHASED_EVER
     - TOTAL_PRODUCTS_ADDED
-
 
   numeric_pipeline:
     columns: all
@@ -65,30 +66,8 @@ preprocessing:
     - name: VarianceThreshold
       threshold: 0
 
-# Data loader and preparation
-data:
-  # Key columns in the dataset. 
-  label_column: is_churned_7_days
-  label_value: 1
-  entity_column: user_main_id
-  package_name: feature_table
-  model_name: 'shopify_user_features'
-  model_name_prefix: 'shopify_churn_test'
-  index_timestamp: valid_at
-  eligible_users: ''
-  train_start_dt: '2023-04-24'
-  # train_start_dt:
-  train_end_dt: '2023-05-01'
-  # train_end_dt:
-  prediction_horizon_days: 7
-  sample_data: 1. # Keep 1 if all data during train_start_dt, train_end_dt and eligible_users should be selected; Else, give the percent as the number between 0 and 1; Ex, 0.25 indicates 25% data gets sampled
-
-  # Train, test, val split ratios. They must be each between 0 and 1, and sum to 1
-  train_size: 0.6
-  val_size: 0.2
-  test_size: 0.2
-
 outputs:
+  # Related to the output of the data prep step
   column_names:
     percentile: &percentile_name percentile_churn_score_7_days
     score: churn_score_7_days

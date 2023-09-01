@@ -96,7 +96,7 @@ def delete_procedures(session, train_procedure) -> None:
             procedure_arguments = ' '.join(words)
             session.sql(f"drop procedure if exists {procedure_arguments}").collect()
         except:
-            print("error occured")
+            pass
 
 def get_column_names(
     onehot_encoder: OneHotEncoder, col_names: list

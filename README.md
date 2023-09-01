@@ -10,9 +10,9 @@ The expected way to run this repo is through a RudderStack profiles project, lin
 
 Once this repo is linked in a `python_model` inside a profiles project, you can run that project just like any other project, by firing the command `pb run`. But before that, you need to perform two steps (you can skip them if you want to run the models directly through RudderStack webapp and not locally):
 
-### 1. Building the virtual environment
+### 1. Building a virtual environment
 
-#### 1.1 Conda Environment
+#### 1.1 Building the conda environment
 
 ```bash
 conda create -n pysnowpark --override-channels -c https://repo.anaconda.com/pkgs/snowflake python=3.8

@@ -12,6 +12,8 @@ Once this repo is linked in a `python_model` inside a profiles project, you can 
 
 ### 1. Building a virtual environment
 
+You can create a virtual environment either through Conda or through the venv module that comes by default with Python. Both the approaches are outlined below. 
+
 #### 1.1 Building the conda environment
 
 ```bash

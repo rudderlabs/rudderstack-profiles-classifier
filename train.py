@@ -39,7 +39,7 @@ import pandas as pd
 from typing import Tuple, List
 
 
-from utils import load_yaml, remap_credentials, combine_config, get_date_range, delete_import_files, get_material_registry_name, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, plot_pr_auc_curve, plot_roc_auc_curve, plot_lift_chart, plot_feature_importance, fetch_staged_file, get_output_directory
+from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_column_names, delete_import_files, delete_procedures, get_material_registry_name, get_latest_material_hash, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, plot_pr_auc_curve, plot_roc_auc_curve, plot_lift_chart, plot_feature_importance, fetch_staged_file, get_output_directory
 import constants as constants
 import yaml
 import json
@@ -191,24 +191,6 @@ def build_model(X_train:pd.DataFrame,
     clf = model_class(**best_hyperparams, **model_config["modelparams"])
     return clf, trials
 
-def get_column_names(
-    onehot_encoder: OneHotEncoder, col_names: list
-) -> list:
-    """Assigning new column names for the one-hot encoded columns.
-
-    Args:
-        onehot_encoder: OneHotEncoder object.
-        col_names: List of column names
-
-    Returns:
-        list: List of category column names.
-    """
-    category_names = []
-    for col_id, col in enumerate(col_names):
-        for value in onehot_encoder.categories_[col_id]:
-            category_names.append(f"{col}_{value}")
-    return category_names
-
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str):
     path_components = output_path.split(os.path.sep)
     output_index = path_components.index('output')
@@ -252,8 +234,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     import_paths = [utils_path, constants_path, train_path]
     delete_import_files(session, stage_name, import_paths)
+    train_procedure = 'train_sproc'
+    delete_procedures(session, train_procedure)
 
-    @sproc(name="train_sproc", is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
+    @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
         packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
     def train_sp(session: snowflake.snowpark.Session,
                 feature_table_name: str,
@@ -350,6 +334,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         model_file = os.path.join('/tmp', model_file_name)
         joblib.dump(pipe, model_file)
         session.file.put(model_file, stage_name,overwrite=True)
+
+        column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
+        column_name_file = os.path.join('/tmp', f"{model_name_prefix}_{model_id}_column_names.json")
+        json.dump(column_dict, open(column_name_file,"w"))
+        session.file.put(column_name_file, stage_name,overwrite=True)
 
         train_x_processed = preprocessor_pipe_optimized.transform(train_x)
         train_x_processed = train_x_processed.astype(np.int_)
@@ -448,7 +437,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     feature_table_name_remote = f"{model_name_prefix}_features"
     feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
 
-    model_eval_data = session.call("train_sproc", 
+    model_eval_data = session.call(train_procedure, 
                     feature_table_name_remote,
                     entity_column,
                     label_column,

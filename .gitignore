@@ -8,3 +8,4 @@ logs/logfile.log
 output/*
 train_output.json
 *.ipynb
+pysnowpark/*

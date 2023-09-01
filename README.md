@@ -20,7 +20,7 @@ source pysnowpark/bin/activate
 pip install -r requirements.txt
 ```
 
-NOTE- If you are running the code on, you need to install another dependency: libomp seperately using below lines -
+NOTE- You might need to install another dependency: libomp seperately using below lines -
 ```bash
 brew install libomp
 ```

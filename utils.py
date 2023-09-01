@@ -185,6 +185,13 @@ def get_label_date_ref(feature_date: str, horizon_days: int) -> str:
     label_date = label_timestamp.strftime("%Y-%m-%d")
     return label_date
 
+def get_timestamp_columns(session, table, index_timestamp):
+    timestamp_columns = []
+    for field in table.schema.fields:
+        if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
+            timestamp_columns.append(field.name)
+    return timestamp_columns
+
 def get_latest_material_hash(session: snowflake.snowpark.Session,
                        material_table: str,
                        model_name:str) -> Tuple:
@@ -290,6 +297,8 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
     if eligible_users:
         feature_table = feature_table.filter(eligible_users)
     feature_table = feature_table.drop([label_column])
+    if len(timestamp_columns) == 0:
+        timestamp_columns = get_timestamp_columns(session, feature_table, index_timestamp)
     for col in timestamp_columns:
         feature_table = feature_table.withColumn(col, F.datediff('day', F.col(col), F.col(index_timestamp)))
     label_table = (session.table(label_table_name)
@@ -516,6 +525,7 @@ def load_stage_file_from_local(session, stage_name, file_name, target_folder, fi
     os.remove(os.path.join(target_folder, file_name))
     return output_file
 
+####  Not being called currently. Functions for saving feature-importance score for top_k and bottom_k users as per their prediction scores. ####
 def explain_prediction(creds, user_main_id, predictions_table_name, feature_table_name, predict_config):
     """Function to be used in future to generate user-specific feature-importance data
 
@@ -554,6 +564,8 @@ def explain_prediction(creds, user_main_id, predictions_table_name, feature_tabl
 
     prediction_table = prediction_table.select(F.col(entity_column), F.col(score_column_name))
     feature_table = session.table(feature_table_name)
+    if len(timestamp_columns) == 0:
+        timestamp_columns = get_timestamp_columns(session, feature_table, index_timestamp)
     for col in timestamp_columns:
         feature_table = feature_table.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
     feature_table = feature_table.select([entity_column]+numeric_columns+categorical_columns)
@@ -580,13 +592,13 @@ def explain_prediction(creds, user_main_id, predictions_table_name, feature_tabl
 
 
 
-# ####  Functions for plotting feature importance score for single user. Might come in handy in future. ####
-# def plot_user_feature_importance(pipe, user_featues, numeric_columns, categorical_columns):
-#     onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
-#     col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(user_featues) if col not in numeric_columns and col not in categorical_columns]
+####  Not being called currently. Functions for plotting feature importance score for single user. ####
+def plot_user_feature_importance(pipe, user_featues, numeric_columns, categorical_columns):
+    onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
+    col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(user_featues) if col not in numeric_columns and col not in categorical_columns]
 
-#     explainer = shap.TreeExplainer(pipe['model'], feature_names=col_names_)
-#     shap_score = explainer(pipe['preprocessor'].transform(user_featues).astype(np.int_))
-#     user_feat_imp_dict = dict(zip(col_names_, shap_score.values[0]))
-#     figure = shap.plots.waterfall(shap_score[0], max_display=10, show=False)
-#     return figure, user_feat_imp_dict
+    explainer = shap.TreeExplainer(pipe['model'], feature_names=col_names_)
+    shap_score = explainer(pipe['preprocessor'].transform(user_featues).astype(np.int_))
+    user_feat_imp_dict = dict(zip(col_names_, shap_score.values[0]))
+    figure = shap.plots.waterfall(shap_score[0], max_display=10, show=False)
+    return figure, user_feat_imp_dict

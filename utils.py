@@ -151,6 +151,9 @@ def get_date_range(creation_ts: datetime,
     """
     start_date = creation_ts - timedelta(days = 2*prediction_horizon_days)
     end_date = creation_ts - timedelta(days = prediction_horizon_days)
+    if isinstance(start_date, datetime):
+        start_date = start_date.date()
+        end_date = end_date.date()
     return str(start_date), str(end_date)
 
 def get_label_date_ref(feature_date: str, horizon_days: int) -> str:

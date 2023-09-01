@@ -24,7 +24,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils import get_metrics, load_yaml, remap_credentials, combine_config, delete_import_files, get_material_registry_name
+from utils import get_metrics, load_yaml, remap_credentials, combine_config, delete_import_files, get_material_registry_name, get_timestamp_columns
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
 import constants
 from logger import logger
@@ -196,6 +196,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         raw_data = raw_data.filter(eligible_users)
 
     predict_data = drop_ignored_features(raw_data, ignore_feature)
+    if len(timestamp_columns) == 0:
+        timestamp_columns = get_timestamp_columns(session, predict_data, index_timestamp)
     for col in timestamp_columns:
         predict_data = predict_data.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
 

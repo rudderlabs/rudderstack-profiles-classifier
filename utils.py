@@ -176,6 +176,9 @@ def get_date_range(creation_ts: datetime,
     """
     start_date = creation_ts - timedelta(days = 2*prediction_horizon_days)
     end_date = creation_ts - timedelta(days = prediction_horizon_days)
+    if isinstance(start_date, datetime):
+        start_date = start_date.date()
+        end_date = end_date.date()
     return str(start_date), str(end_date)
 
 def get_label_date_ref(feature_date: str, horizon_days: int) -> str:
@@ -424,8 +427,8 @@ def get_metrics(clf,
     
     return metrics, predictions, prob_threshold
 
-def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name)-> None:
-    fpr, tpr, _ = roc_curve(test_y['IS_CHURNED_7_DAYS'].values, pipe.predict_proba(test_x)[:,1])
+def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+    fpr, tpr, _ = roc_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
     roc_auc = auc(fpr, tpr)
     sns.set(style="ticks",  context='notebook')
     plt.figure(figsize=(8, 6))
@@ -442,8 +445,8 @@ def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name)-> 
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
-def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name)-> None:
-    precision, recall, _ = precision_recall_curve(test_y['IS_CHURNED_7_DAYS'].values, pipe.predict_proba(test_x)[:,1])
+def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+    precision, recall, _ = precision_recall_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
     pr_auc = auc(recall, precision)
     sns.set(style="ticks",  context='notebook')
     plt.figure(figsize=(8, 6))
@@ -461,9 +464,9 @@ def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name)-> N
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
-def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name):
+def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label_column):
     data = pd.DataFrame()
-    data['label'] = test_y['IS_CHURNED_7_DAYS'].values
+    data['label'] = test_y[label_column.upper()].values
     data['pred'] = pipe.predict_proba(test_x)[:,1]
 
     sorted_indices = np.argsort(data["pred"].values, kind="heapsort")[::-1]

@@ -10,9 +10,12 @@ The expected way to run this repo is through a RudderStack profiles project, lin
 
 Once this repo is linked in a `python_model` inside a profiles project, you can run that project just like any other project, by firing the command `pb run`. But before that, you need to perform two steps (you can skip them if you want to run the models directly through RudderStack webapp and not locally):
 
-### 1. Building the conda environment
+### 1. Building a virtual environment
 
-First you need to create the proper conda environment. Follow below steps to build the environment-
+You can create a virtual environment either through Conda or through the venv module that comes by default with Python. Both the approaches are outlined below. 
+
+#### 1.1 Building the conda environment
+
 ```bash
 conda create -n pysnowpark --override-channels -c https://repo.anaconda.com/pkgs/snowflake python=3.8
 ```
@@ -32,6 +35,31 @@ NOTE- If you are running the code on Mac M1/M2, you need to install xgboost sepe
 brew install libomp
 conda install -c conda-forge py-xgboost==1.5.0
 ```
+
+#### 1.2 Virtual Environment using venv
+
+For MAC OS
+Install python 3.8 runtime 
+
+```bash
+brew install python@3.8
+```
+Run the following command to create the environment 
+```bash
+python3.8 -m venv pysnowpark 
+```
+
+Activate the environment and install the dependencies
+```bash
+source pysnowpark/bin/activate
+pip install -r requirements.txt
+```
+
+NOTE- You might need to install another dependency: libomp seperately using below lines -
+```bash
+brew install libomp
+```
+
 
 ### 2. Enabling python models in RudderStack profiles
 

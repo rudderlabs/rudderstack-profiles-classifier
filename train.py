@@ -316,9 +316,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         model_file_name = constants.MODEL_FILE_NAME
         stage_name = constants.STAGE_NAME
 
-        plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, f"01-test-roc-auc.png")
-        plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, f"02-test-pr-auc.png")
-        plot_lift_chart(session, pipe, stage_name, test_x, test_y, f"03-test-lift-chart.png")
+        plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, f"01-test-roc-auc.png", label_column)
+        plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, f"02-test-pr-auc.png", label_column)
+        plot_lift_chart(session, pipe, stage_name, test_x, test_y, f"03-test-lift-chart.png", label_column)
 
         model_id = str(int(time.time()))
         result_dict = {"model_id": model_id,
@@ -399,9 +399,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     ignore_features = merged_config['preprocessing']['ignore_features']
     model_name_prefix = merged_config['data']['model_name_prefix']
 
-    train_size = merged_config['data']['train_size']
-    val_size = merged_config['data']['val_size']
-    test_size = merged_config['data']['test_size']
+    train_size = merged_config['preprocessing']['train_size']
+    val_size = merged_config['preprocessing']['val_size']
+    test_size = merged_config['preprocessing']['test_size']
 
     numerical_pipeline_config = merged_config['preprocessing']['numeric_pipeline']['pipeline']
     categorical_pipeline_config = merged_config['preprocessing']['categorical_pipeline']['pipeline']

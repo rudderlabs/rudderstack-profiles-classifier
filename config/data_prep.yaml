@@ -15,11 +15,6 @@ data:
   prediction_horizon_days: 7 # Days in advance to predict the label_column. 
   sample_data: 1. # Keep 1 if all data during train_start_dt, train_end_dt and eligible_users should be selected; Else, give the percent as the number between 0 and 1; Ex, 0.25 indicates 25% data gets sampled
 
-  # Train, test, val split ratios. They must be each between 0 and 1, and sum to 1
-  train_size: 0.6
-  val_size: 0.2
-  test_size: 0.2
-
 preprocessing:
   # Related to various preprocessing steps of the data
   categorical_columns: &categorical_columns [RUDDER_ID, VALID_AT, STATE, COUNTRY, FIRST_NAME, LAST_NAME, CURRENCY, DEVICE_TYPE, DEVICE_NAME, DEVICE_MANUFACTURER, LAST_CART_STATUS
@@ -64,6 +59,11 @@ preprocessing:
     # ToDo: This section is not implemented in the notebook.
     - name: VarianceThreshold
       threshold: 0
+
+  # Train, test, val split ratios. They must be each between 0 and 1, and sum to 1
+  train_size: 0.6
+  val_size: 0.2
+  test_size: 0.2
 
 outputs:
   # Related to the output of the data prep step

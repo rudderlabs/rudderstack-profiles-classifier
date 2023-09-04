@@ -131,7 +131,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     entity_column = merged_config["data"]["entity_column"]
     model_name = merged_config["data"]["model_name"]
-    udf_name = "churn_predict"
+    udf_name = "prediction_score"
 
     x_train_sample = session.table(f"{model_name_prefix}_train")
     types = generate_type_hint(x_train_sample.drop(label_column, entity_column))

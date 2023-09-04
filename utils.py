@@ -6,6 +6,7 @@ from typing import Tuple, List, Union
 import snowflake.snowpark
 from snowflake.snowpark.session import Session
 import snowflake.snowpark.functions as F
+import snowflake.snowpark.types as T
 from snowflake.snowpark.functions import col
 
 import yaml
@@ -163,6 +164,13 @@ def get_label_date_ref(feature_date: str, horizon_days: int) -> str:
     label_date = label_timestamp.strftime("%Y-%m-%d")
     return label_date
 
+def get_timestamp_columns(session, table, index_timestamp):
+    timestamp_columns = []
+    for field in table.schema.fields:
+        if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
+            timestamp_columns.append(field.name)
+    return timestamp_columns
+
 def get_latest_material_hash(session: snowflake.snowpark.Session,
                        material_table: str,
                        model_name:str) -> Tuple:
@@ -268,6 +276,8 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
     if eligible_users:
         feature_table = feature_table.filter(eligible_users)
     feature_table = feature_table.drop([label_column])
+    if len(timestamp_columns) == 0:
+        timestamp_columns = get_timestamp_columns(session, feature_table, index_timestamp)
     for col in timestamp_columns:
         feature_table = feature_table.withColumn(col, F.datediff('day', F.col(col), F.col(index_timestamp)))
     label_table = (session.table(label_table_name)

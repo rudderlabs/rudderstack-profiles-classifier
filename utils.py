@@ -81,6 +81,7 @@ def combine_config(notebook_config: dict, profiles_config:dict= None) -> dict:
             merged_config[key] = notebook_config[key]
     return merged_config
 
+#TODO: Add Docstrings
 def delete_import_files(session, stage_name, import_paths: List[str]) -> None:
     import_files = [element.split('/')[-1] for element in import_paths]
     files = session.sql(f"list {stage_name}").collect()
@@ -88,6 +89,7 @@ def delete_import_files(session, stage_name, import_paths: List[str]) -> None:
         if any(substring in row.name for substring in import_files):
             session.sql(f"remove @{row.name}").collect()
 
+#TODO: Add Docstrings
 def delete_procedures(session, train_procedure) -> None:
     procedures = session.sql(f"show procedures like '{train_procedure}%'").collect()
     for row in procedures:
@@ -427,6 +429,7 @@ def get_metrics(clf,
     
     return metrics, predictions, prob_threshold
 
+#TODO: Add Docstrings
 def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
     fpr, tpr, _ = roc_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
     roc_auc = auc(fpr, tpr)
@@ -445,6 +448,7 @@ def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, la
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
+#TODO: Add Docstrings
 def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
     precision, recall, _ = precision_recall_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
     pr_auc = auc(recall, precision)
@@ -464,6 +468,7 @@ def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, lab
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
+#TODO: Add Docstrings
 def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label_column):
     data = pd.DataFrame()
     data['label'] = test_y[label_column.upper()].values
@@ -494,6 +499,7 @@ def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
+#TODO: Add Docstrings
 def plot_feature_importance(session, stage_name, data, top_k_features=5, chart_name=f"feature-importance-chart.png"):
     ax = data[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
     ax.set_xlabel("Importance Score")
@@ -504,6 +510,7 @@ def plot_feature_importance(session, stage_name, data, top_k_features=5, chart_n
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
+#TODO: Add Docstrings
 def fetch_staged_file(session: snowflake.snowpark.Session, 
                         stage_name: str, 
                         file_name: str, 
@@ -518,6 +525,7 @@ def fetch_staged_file(session: snowflake.snowpark.Session,
             shutil.copyfileobj(gz_file, target_file)
     os.remove(input_file_path)
 
+#TODO: Add Docstrings
 def load_stage_file_from_local(session, stage_name, file_name, target_folder, filetype):
     fetch_staged_file(session, stage_name, file_name, target_folder)
     if filetype == 'json':
@@ -528,6 +536,7 @@ def load_stage_file_from_local(session, stage_name, file_name, target_folder, fi
     os.remove(os.path.join(target_folder, file_name))
     return output_file
 
+#TODO: Add Docstrings
 ####  Not being called currently. Functions for saving feature-importance score for top_k and bottom_k users as per their prediction scores. ####
 def explain_prediction(creds, user_main_id, predictions_table_name, feature_table_name, predict_config):
     """Function to be used in future to generate user-specific feature-importance data
@@ -594,7 +603,7 @@ def explain_prediction(creds, user_main_id, predictions_table_name, feature_tabl
     session.write_pandas(shap_df, table_name=f"Material_shopify_feature_importance", auto_create_table=True, overwrite=True)
 
 
-
+#TODO: Add Docstrings
 ####  Not being called currently. Functions for plotting feature importance score for single user. ####
 def plot_user_feature_importance(pipe, user_featues, numeric_columns, categorical_columns):
     onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)

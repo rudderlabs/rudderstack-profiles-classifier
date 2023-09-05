@@ -219,7 +219,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     """
     connection_parameters = remap_credentials(creds)
     session = Session.builder.configs(connection_parameters).create()
-
+    # TODO: All variables from constants should be unpacked together. Currently they are called in different places
     model_file_name = constants.MODEL_FILE_NAME
     stage_name = constants.STAGE_NAME
     session.sql(f"create stage if not exists {stage_name.replace('@', '')}").collect()
@@ -263,12 +263,14 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             train_size (float): partition fraction for train data
             val_size (float): partition fraction for validation data
             test_size (float): partition fraction for test data
+            #TODO: Remove folder_path from arguments
 
         Returns:
             list: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
         """
         feature_table = session.table(feature_table_name)
         train_x, train_y, test_x, test_y, val_x, val_y = split_train_test(feature_table, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
+        #TODO: create a function to get categorical and numerical columns and use it here
         categorical_columns = []
         for field in feature_table.schema.fields:
             if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
@@ -281,11 +283,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                 
         train_x[numeric_columns] = train_x[numeric_columns].replace({pd.NA: np.nan})
         train_x[categorical_columns] = train_x[categorical_columns].replace({pd.NA: None})
-
-        # logger.debug("Training data shape: %s", train_x.shape)
-        # logger.debug("Training data types:\n%s", train_x.dtypes)
-        # logger.debug("Training data head:\n%s", train_x.head())
-
         import_dir = sys._xoptions.get("snowflake_import_directory")
         train_config = load_yaml(os.path.join(import_dir, 'train.yaml'))
 
@@ -296,7 +293,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         preprocessor_pipe_x = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
         train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
         val_x_processed = preprocessor_pipe_x.transform(val_x)
-
+        
+        #TODO: Below logic can be moved to an external function
         for model_config in models:
             name = model_config["name"]
             print(f"Training {name}")
@@ -316,6 +314,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         model_file_name = constants.MODEL_FILE_NAME
         stage_name = constants.STAGE_NAME
 
+        # TODO: Define the names of the plots in a dict with key being the plot name and value being the file name. Use the dict to pass the file name here, and also to fetch the file from stage
         plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, f"01-test-roc-auc.png", label_column)
         plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, f"02-test-pr-auc.png", label_column)
         plot_lift_chart(session, pipe, stage_name, test_x, test_y, f"03-test-lift-chart.png", label_column)
@@ -339,7 +338,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         column_name_file = os.path.join('/tmp', f"{model_name_prefix}_{model_id}_column_names.json")
         json.dump(column_dict, open(column_name_file,"w"))
         session.file.put(column_name_file, stage_name,overwrite=True)
-
+        
+        #TODO: move the whole feature importance logic to a separate function and call that. 
         train_x_processed = preprocessor_pipe_optimized.transform(train_x)
         train_x_processed = train_x_processed.astype(np.int_)
         shap_values = shap.TreeExplainer(final_clf).shap_values(train_x_processed)
@@ -371,10 +371,12 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     model_hash, creation_ts = get_latest_material_hash(session, material_table, model_name)
 
+    # TODO: Rescope the get_material_names method and move this logic within that method. rename the current get_material_names to get_material_names_ and call it from get_material_names 
     if start_date == None or end_date == None:
         start_date, end_date = get_date_range(creation_ts, prediction_horizon_days)
 
     material_names, training_dates = get_material_names(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+    
     if len(material_names) == 0:
         try:
             # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
@@ -390,6 +392,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             print("Exception occured while materialising data. Please check the logs for more details")
             raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
     
+    #TODO: move all merged config variables unpacking to a single location. Currently its scattered before and after get_material_names 
     entity_column = merged_config['data']['entity_column']
     index_timestamp = merged_config['data']['index_timestamp']
     label_column = merged_config['data']['label_column']
@@ -407,6 +410,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     categorical_pipeline_config = merged_config['preprocessing']['categorical_pipeline']['pipeline']
     
     flag = False
+    # TODO: make a single function call before the if-else condition, assign it to a temp variable and use that variable in the if-else condition to avoid duplicating function call code
     for row in material_names:
         feature_table_name, label_table_name = row
         if flag is False:

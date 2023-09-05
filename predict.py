@@ -33,7 +33,7 @@ import json
 import datetime
 
 
-
+#TODO: This can be moved to utils
 def generate_type_hint(sp_df: snowflake.snowpark.Table):        
     """Returns the type hints for given snowpark DataFrame's fields
 
@@ -53,6 +53,7 @@ def generate_type_hint(sp_df: snowflake.snowpark.Table):
     types = [type_map[d.datatype] for d in sp_df.schema.fields]
     return T.PandasDataFrame[tuple(types)]
         
+#TODO: This can be moved to utils, and renamed to - drop_columns_if_exists
 def drop_ignored_features(df: snowflake.snowpark.Table, 
                           ignore_features: list) -> snowflake.snowpark.Table:
     """Returns the snowpark DataFrame after dropping the features that are to be ignored.
@@ -144,7 +145,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     delete_import_files(session, stage_name, import_paths)
     
     print("Caching")
-    
+    #TODO: Can we call this outside the predict method? And shouldn't we uncomment the decorator part?
     #@cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location

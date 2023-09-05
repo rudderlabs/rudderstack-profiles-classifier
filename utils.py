@@ -20,6 +20,12 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+from sklearn.preprocessing import OneHotEncoder
+import shap
+import constants as constants
+import joblib
+import json
+
 def remap_credentials(credentials: dict) -> dict:
     """Remaps credentials from profiles siteconfig to the expected format from snowflake session
 
@@ -91,6 +97,24 @@ def delete_procedures(session, train_procedure) -> None:
             session.sql(f"drop procedure if exists {procedure_arguments}").collect()
         except:
             pass
+
+def get_column_names(
+    onehot_encoder: OneHotEncoder, col_names: list
+) -> list:
+    """Assigning new column names for the one-hot encoded columns.
+
+    Args:
+        onehot_encoder: OneHotEncoder object.
+        col_names: List of column names
+
+    Returns:
+        list: List of category column names.
+    """
+    category_names = []
+    for col_id, col in enumerate(col_names):
+        for value in onehot_encoder.categories_[col_id]:
+            category_names.append(f"{col}_{value}")
+    return category_names
 
 def get_material_registry_name(session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:
     """This function will return the latest material registry table name
@@ -493,3 +517,91 @@ def fetch_staged_file(session: snowflake.snowpark.Session,
         with open(output_file_path, 'wb') as target_file:
             shutil.copyfileobj(gz_file, target_file)
     os.remove(input_file_path)
+
+def load_stage_file_from_local(session, stage_name, file_name, target_folder, filetype):
+    fetch_staged_file(session, stage_name, file_name, target_folder)
+    if filetype == 'json':
+        f = open(os.path.join(target_folder, file_name), "r")
+        output_file = json.load(f)
+    elif filetype == 'joblib':
+        output_file = joblib.load(os.path.join(target_folder, file_name))
+    os.remove(os.path.join(target_folder, file_name))
+    return output_file
+
+####  Not being called currently. Functions for saving feature-importance score for top_k and bottom_k users as per their prediction scores. ####
+def explain_prediction(creds, user_main_id, predictions_table_name, feature_table_name, predict_config):
+    """Function to be used in future to generate user-specific feature-importance data
+
+    Args:
+        creds (_type_): _description_
+        user_main_id (_type_): _description_
+        predictions_table_name (_type_): _description_
+        feature_table_name (_type_): _description_
+        predict_config (_type_): _description_
+    """
+    connection_parameters = remap_credentials(creds)
+    session = Session.builder.configs(connection_parameters).create()
+
+    current_dir = os.getcwd()
+    constants_path = os.path.join(current_dir, 'constants.py')
+    config_path = os.path.join(current_dir, 'config', 'data_prep.yaml')
+    notebook_config = load_yaml(config_path)
+    merged_config = combine_config(notebook_config, predict_config)
+
+    stage_name = constants.STAGE_NAME
+    model_file_name = constants.MODEL_FILE_NAME
+
+    prediction_table = session.table(predictions_table_name)
+    model_id = prediction_table.select(F.col('model_id')).limit(1).collect()[0].MODEL_ID
+    model_name_prefix = merged_config['data']['model_name_prefix']
+    entity_column = merged_config['data']['entity_column']
+    timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
+    index_timestamp = merged_config['data']['index_timestamp']
+    score_column_name = merged_config['outputs']['column_names']['score']
+    top_k = merged_config['data']['top_k']
+    bottom_k = merged_config['data']['bottom_k']
+    
+    column_dict = load_stage_file_from_local(session, stage_name, f"{model_name_prefix}_{model_id}_column_names.json", '.', 'json')
+    numeric_columns = column_dict['numeric_columns']
+    categorical_columns = column_dict['categorical_columns']
+
+    prediction_table = prediction_table.select(F.col(entity_column), F.col(score_column_name))
+    feature_table = session.table(feature_table_name)
+    if len(timestamp_columns) == 0:
+        timestamp_columns = get_timestamp_columns(session, feature_table, index_timestamp)
+    for col in timestamp_columns:
+        feature_table = feature_table.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
+    feature_table = feature_table.select([entity_column]+numeric_columns+categorical_columns)
+
+    feature_df = feature_table.join(prediction_table, [entity_column], join_type="left").sort(F.col(score_column_name).desc()).to_pandas()
+    final_df = pd.concat([feature_df.head(int(top_k)), feature_df.tail(int(bottom_k))], axis=0)
+
+    final_df[numeric_columns] = final_df[numeric_columns].replace({pd.NA: np.nan})
+    final_df[categorical_columns] = final_df[categorical_columns].replace({pd.NA: None})
+
+    data_x = final_df.drop([entity_column.upper(), score_column_name.upper()], axis=1)
+    data_y = final_df[[entity_column.upper(), score_column_name.upper()]]
+
+    pipe = load_stage_file_from_local(session, stage_name, model_file_name, '.', 'joblib')
+    onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
+    col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(data_x) if col not in numeric_columns and col not in categorical_columns]
+
+    explainer = shap.TreeExplainer(pipe['model'], feature_names=col_names_)
+    shap_score = explainer(pipe['preprocessor'].transform(data_x).astype(np.int_))
+    shap_df = pd.DataFrame(shap_score.values, columns=col_names_)
+    shap_df.insert(0, entity_column.upper(), data_y[entity_column.upper()].values)
+    shap_df.insert(len(shap_df.columns), score_column_name.upper(), data_y[score_column_name.upper()].values)
+    session.write_pandas(shap_df, table_name=f"Material_shopify_feature_importance", auto_create_table=True, overwrite=True)
+
+
+
+####  Not being called currently. Functions for plotting feature importance score for single user. ####
+def plot_user_feature_importance(pipe, user_featues, numeric_columns, categorical_columns):
+    onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
+    col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(user_featues) if col not in numeric_columns and col not in categorical_columns]
+
+    explainer = shap.TreeExplainer(pipe['model'], feature_names=col_names_)
+    shap_score = explainer(pipe['preprocessor'].transform(user_featues).astype(np.int_))
+    user_feat_imp_dict = dict(zip(col_names_, shap_score.values[0]))
+    figure = shap.plots.waterfall(shap_score[0], max_display=10, show=False)
+    return figure, user_feat_imp_dict

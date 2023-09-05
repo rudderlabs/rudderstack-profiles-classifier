@@ -39,7 +39,7 @@ import pandas as pd
 from typing import Tuple, List
 
 
-from utils import load_yaml, remap_credentials, combine_config, get_date_range, delete_import_files, delete_procedures, get_material_registry_name, get_latest_material_hash, get_timestamp_columns, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, plot_pr_auc_curve, plot_roc_auc_curve, plot_lift_chart, plot_feature_importance, fetch_staged_file, get_output_directory
+from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_column_names, delete_import_files, delete_procedures, get_material_registry_name, get_latest_material_hash, get_timestamp_columns, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, plot_pr_auc_curve, plot_roc_auc_curve, plot_lift_chart, plot_feature_importance, fetch_staged_file, get_output_directory
 import constants as constants
 import yaml
 import json
@@ -191,24 +191,6 @@ def build_model(X_train:pd.DataFrame,
     clf = model_class(**best_hyperparams, **model_config["modelparams"])
     return clf, trials
 
-def get_column_names(
-    onehot_encoder: OneHotEncoder, col_names: list
-) -> list:
-    """Assigning new column names for the one-hot encoded columns.
-
-    Args:
-        onehot_encoder: OneHotEncoder object.
-        col_names: List of column names
-
-    Returns:
-        list: List of category column names.
-    """
-    category_names = []
-    for col_id, col in enumerate(col_names):
-        for value in onehot_encoder.categories_[col_id]:
-            category_names.append(f"{col}_{value}")
-    return category_names
-
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str):
     path_components = output_path.split(os.path.sep)
     output_index = path_components.index('output')
@@ -352,6 +334,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         model_file = os.path.join('/tmp', model_file_name)
         joblib.dump(pipe, model_file)
         session.file.put(model_file, stage_name,overwrite=True)
+
+        column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
+        column_name_file = os.path.join('/tmp', f"{model_name_prefix}_{model_id}_column_names.json")
+        json.dump(column_dict, open(column_name_file,"w"))
+        session.file.put(column_name_file, stage_name,overwrite=True)
 
         train_x_processed = preprocessor_pipe_optimized.transform(train_x)
         train_x_processed = train_x_processed.astype(np.int_)

@@ -15,6 +15,10 @@ data:
   prediction_horizon_days: 7 # Days in advance to predict the label_column. 
   sample_data: 1. # Keep 1 if all data during train_start_dt, train_end_dt and eligible_users should be selected; Else, give the percent as the number between 0 and 1; Ex, 0.25 indicates 25% data gets sampled
 
+  top_k: 5
+  bottom_k: 5
+
+
 preprocessing:
   # Related to various preprocessing steps of the data
   categorical_columns: &categorical_columns [RUDDER_ID, VALID_AT, STATE, COUNTRY, FIRST_NAME, LAST_NAME, CURRENCY, DEVICE_TYPE, DEVICE_NAME, DEVICE_MANUFACTURER, LAST_CART_STATUS

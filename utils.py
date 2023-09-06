@@ -508,7 +508,7 @@ def fetch_staged_file(session: snowflake.snowpark.Session,
                         stage_name: str, 
                         file_name: str, 
                         target_folder: str)-> None:
-    file_stage_path = os.path.join(stage_name, file_name)
+    file_stage_path = f"{stage_name}/{file_name}"
     _ = session.file.get(file_stage_path, target_folder)
     input_file_path = os.path.join(target_folder, f"{file_name}.gz")
     output_file_path = os.path.join(target_folder, file_name)

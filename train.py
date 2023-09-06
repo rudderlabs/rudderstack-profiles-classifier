@@ -286,7 +286,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             list: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
         """
         feature_table = session.table(feature_table_name)
-        train_x, train_y, test_x, test_y, val_x, val_y = split_train_test(feature_table, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
+        train_x, train_y, test_x, test_y, val_x, val_y = split_train_test(session, feature_table, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
         categorical_columns = []
         for field in feature_table.schema.fields:
             if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
@@ -448,7 +448,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                                                                                 prediction_horizon_days,
                                                                                 ignore_features))
     feature_table_name_remote = f"{model_name_prefix}_features"
-    feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
+    sorted_feature_table = feature_table.sort(col(entity_column).asc(), col(index_timestamp).desc()).drop([index_timestamp])
+    sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
 
     model_eval_data = session.call(train_procedure, 
                     feature_table_name_remote,

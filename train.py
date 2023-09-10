@@ -228,11 +228,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     utils_path = os.path.join(current_dir, 'utils.py')
     constants_path = os.path.join(current_dir, 'constants.py')
     config_path = os.path.join(current_dir, 'config', 'data_prep.yaml')
-    train_path = os.path.join(current_dir, 'config', 'train.yaml')
     folder_path = os.path.dirname(output_filename)
     target_path = get_output_directory(folder_path)
 
-    import_paths = [utils_path, constants_path, train_path]
+    import_paths = [utils_path, constants_path]
     delete_import_files(session, stage_name, import_paths)
     train_procedure = 'train_sproc'
     delete_procedures(session, train_procedure)
@@ -287,7 +286,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         # logger.debug("Training data head:\n%s", train_x.head())
 
         import_dir = sys._xoptions.get("snowflake_import_directory")
-        train_config = load_yaml(os.path.join(import_dir, 'train.yaml'))
+        all_config = load_yaml(os.path.join(import_dir, 'data_prep.yaml'))
+        train_config = all_config['train']
 
         models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
         models = train_config["model_params"]["models"]

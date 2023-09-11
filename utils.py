@@ -11,7 +11,7 @@ from snowflake.snowpark.functions import col
 
 import yaml
 from copy import deepcopy
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 import os
 import gzip
@@ -25,6 +25,7 @@ import shap
 import constants as constants
 import joblib
 import json
+import subprocess
 
 def remap_credentials(credentials: dict) -> dict:
     """Remaps credentials from profiles siteconfig to the expected format from snowflake session
@@ -81,16 +82,79 @@ def combine_config(notebook_config: dict, profiles_config:dict= None) -> dict:
             merged_config[key] = notebook_config[key]
     return merged_config
 
-#TODO: Add Docstrings
-def delete_import_files(session, stage_name, import_paths: List[str]) -> None:
+def generate_type_hint(sp_df: snowflake.snowpark.Table):        
+    """Returns the type hints for given snowpark DataFrame's fields
+
+    Args:
+        sp_df (snowflake.snowpark.Table): snowpark DataFrame
+
+    Returns:
+        _type_: Returns the type hints for given snowpark DataFrame's fields
+    """
+    type_map = {
+        T.BooleanType(): float,
+        T.DoubleType(): float,
+        T.DecimalType(36,6): float,
+        T.LongType(): float,
+        T.StringType(): str
+    }
+    types = [type_map[d.datatype] for d in sp_df.schema.fields]
+    return T.PandasDataFrame[tuple(types)]
+
+def drop_columns_if_exists(df: snowflake.snowpark.Table, 
+                          ignore_features: list) -> snowflake.snowpark.Table:
+    """Returns the snowpark DataFrame after dropping the features that are to be ignored.
+
+    Args:
+        df (snowflake.snowpark.Table): snowpark DataFrame
+        ignore_features (list): list of features that we want to drop from the dataframe
+
+    Returns:
+        snowflake.snowpark.Table: snowpark DataFrame after dropping the ignored features
+    """
+    ignore_features_upper = [col.upper() for col in ignore_features]
+    ignore_features_lower = [col.lower() for col in ignore_features]
+    ignore_features_ = [col for col in df.columns if col in ignore_features_upper or col in ignore_features_lower]
+    return df.drop(ignore_features_)
+
+def delete_import_files(session: snowflake.snowpark.Session, 
+                        stage_name: str, 
+                        import_paths: List[str]) -> None:
+    """
+    Deletes files from the specified Snowflake stage that match the filenames extracted from the import paths.
+
+    Args:
+        session (snowflake.snowpark.Session): A Snowflake session object.
+        stage_name (str): The name of the Snowflake stage.
+        import_paths (List[str]): The paths of the files to be deleted from the stage.
+
+    Returns:
+        None: The function does not return any value.
+    """
     import_files = [element.split('/')[-1] for element in import_paths]
     files = session.sql(f"list {stage_name}").collect()
     for row in files:
         if any(substring in row.name for substring in import_files):
             session.sql(f"remove @{row.name}").collect()
 
-#TODO: Add Docstrings
-def delete_procedures(session, train_procedure) -> None:
+def delete_procedures(session: snowflake.snowpark.Session, train_procedure: str) -> None:
+    """
+    Deletes Snowflake train procedures based on a given name pattern.
+
+    Args:
+        session (snowflake.snowpark.Session): A Snowflake session object.
+        train_procedure (str): The name pattern of the train procedures to be deleted.
+
+    Returns:
+        None
+
+    Example:
+        session = snowflake.snowpark.Session(...)
+        delete_procedures(session, 'train_model')
+
+    This function retrieves a list of procedures that match the given train procedure name pattern using a SQL query. 
+    It then iterates over each procedure and attempts to drop it using another SQL query. If an error occurs during the drop operation, it is ignored.
+    """
     procedures = session.sql(f"show procedures like '{train_procedure}%'").collect()
     for row in procedures:
         try:
@@ -100,14 +164,13 @@ def delete_procedures(session, train_procedure) -> None:
         except:
             pass
 
-def get_column_names(
-    onehot_encoder: OneHotEncoder, col_names: list
-) -> list:
+def get_column_names(onehot_encoder: OneHotEncoder, 
+                     col_names: list) -> list:
     """Assigning new column names for the one-hot encoded columns.
 
     Args:
-        onehot_encoder: OneHotEncoder object.
-        col_names: List of column names
+        onehot_encoder (OneHotEncoder): OneHotEncoder object.
+        col_names (list): List of column names
 
     Returns:
         list: List of category column names.
@@ -118,12 +181,64 @@ def get_column_names(
             category_names.append(f"{col}_{value}")
     return category_names
 
+def get_numeric_columns(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str) -> List[str]:
+    """
+    Returns a list of strings representing the names of the numeric columns in the feature table.
+
+    Args:
+        feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
+        label_column (str): A string representing the name of the label column.
+        entity_column (str): A string representing the name of the entity column.
+
+    Returns:
+        List[str]: A list of strings representing the names of the numeric columns in the feature table.
+    """
+    numeric_columns = []
+    for field in feature_table.schema.fields:
+        if field.datatype != T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
+            numeric_columns.append(field.name)
+    return numeric_columns
+
+def get_categorical_columns(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str)-> List[str]:
+    """
+    Extracts the names of categorical columns from a given feature table schema.
+
+    Args:
+        feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
+        label_column (string): The name of the label column.
+        entity_column (string): The name of the entity column.
+
+    Returns:
+        list: A list of categorical column names extracted from the feature table schema.
+    """
+    categorical_columns = []
+    for field in feature_table.schema.fields:
+        if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
+            categorical_columns.append(field.name)
+    return categorical_columns
+
+def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str])-> pd.DataFrame:
+    """
+    Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively.
+
+    Args:
+        df (pd.DataFrame): The pandas DataFrame.
+        numeric_columns (List[str]): A list of column names that contain numeric values.
+        categorical_columns (List[str]): A list of column names that contain categorical values.
+
+    Returns:
+        pd.DataFrame: The transformed DataFrame with pd.NA values replaced by np.nan in numeric columns and None in categorical columns.
+    """
+    df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+    df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+    return df
+
 def get_material_registry_name(session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:
     """This function will return the latest material registry table name
 
     Args:
         session (snowflake.snowpark.Session): snowpark session
-        table_name (str): name of the material registry table sample
+        table_name (str): name of the material registry table prefix
 
     Returns:
         str: latest material registry table name
@@ -152,7 +267,6 @@ def get_output_directory(folder_path: str)-> str:
     Returns:
         str: output directory path
     """
-
     file_list = [file for file in os.listdir(folder_path) if file.endswith('.py')]
     if file_list == []:
         latest_filename = "train"
@@ -184,13 +298,32 @@ def get_date_range(creation_ts: datetime,
     return str(start_date), str(end_date)
 
 def get_label_date_ref(feature_date: str, horizon_days: int) -> str:
-    """This function adds the horizon days to the feature date and returns the label date as a string
+    """
+    Adds the horizon days to the feature date and returns the label date as a string.
+
+    Args:
+        feature_date (str): The feature date in the format "YYYY-MM-DD".
+        horizon_days (int): The number of days to add to the feature date.
+
+    Returns:
+        str: The resulting label date after adding the horizon_days to the feature_date. The label date is returned as a string in the format "YYYY-MM-DD".
     """
     label_timestamp = datetime.strptime(feature_date, "%Y-%m-%d") + timedelta(days=horizon_days)
     label_date = label_timestamp.strftime("%Y-%m-%d")
     return label_date
 
-def get_timestamp_columns(session, table, index_timestamp):
+def get_timestamp_columns(session: snowflake.snowpark.Session, table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
+    """
+    Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+
+    Args:
+        session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
+        feature_table (snowflake.snowpark.Table): The feature table from which to retrieve the timestamp columns.
+        index_timestamp (str): The name of the column containing the index timestamp information.
+
+    Returns:
+        List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+    """
     timestamp_columns = []
     for field in table.schema.fields:
         if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
@@ -216,7 +349,31 @@ def get_latest_material_hash(session: snowflake.snowpark.Session,
     creation_ts = temp_hash_vector.CREATION_TS
     return model_hash, creation_ts
 
-def get_material_names(session: snowflake.snowpark.Session,
+def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str)-> None:
+    """
+    Materializes past data for a given date using the 'pb' command-line tool.
+
+    Args:
+        output_path (str): The path where the output will be stored.
+        features_valid_time (str): The date for which the past data needs to be materialized.
+        feature_package_path (str): The path to the feature package.
+
+    Returns:
+        str: The output of the 'pb' command executed within the function.
+
+    Example Usage:
+        materialise_past_data("output/path", "2022-01-01", "packages/feature_table/models/shopify_user_features")
+    """
+    path_components = output_path.split(os.path.sep)
+    output_index = path_components.index('output')
+    pb_proj_dir = os.path.sep.join(path_components[:output_index])
+    features_valid_time_unix = int(datetime.strptime(features_valid_time, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
+    args = ["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
+    print(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
+    #subprocess.run(["pb", "run", "-m", "packages/feature_table/models/shopify_user_features", "--end_time", str(features_valid_time_unix)])
+    subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+def get_material_names_(session: snowflake.snowpark.Session,
                        material_table: str, 
                        start_time: str, 
                        end_time: str, 
@@ -267,6 +424,48 @@ def get_material_names(session: snowflake.snowpark.Session,
         training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
     return material_names, training_dates
 
+def get_material_names(session: snowflake.snowpark.Session, material_table: str, start_date: str, end_date: str, 
+                       package_name: str, model_name: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
+                       output_filename: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+    """
+    Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
+    If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
+    If no materialized data is found even after materialization, an exception is raised.
+
+    Args:
+        session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
+        material_table (str): The name of the material table (present in constants.py file).
+        start_date (str): The start date for training data.
+        end_date (str): The end date for training data.
+        package_name (str): The name of the package.
+        model_name (str): The name of the model.
+        model_hash (str): The latest model hash.
+        material_table_prefix (str): A constant.
+        prediction_horizon_days (int): The period of days for prediction horizon.
+        output_filename (str): The name of the output file.
+
+    Returns:
+        Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
+            - material_names: A list of tuples containing the names of the feature and label tables.
+            - training_dates: A list of tuples containing the corresponding training dates.
+    """
+    material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+
+    if len(material_names) == 0:
+        try:
+            # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
+            feature_package_path = f"packages/{package_name}/models/{model_name}"
+            materialise_past_data(start_date, feature_package_path, output_filename)
+            start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
+            materialise_past_data(start_date_label, feature_package_path, output_filename)
+            material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+            if len(material_names) == 0:
+                raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+        except Exception as e:
+            # logger.exception(e)
+            print("Exception occured while materialising data. Please check the logs for more details")
+            raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+    return material_names, training_dates
 
 def prepare_feature_table(session: snowflake.snowpark.Session,
                           feature_table_name: str, 
@@ -429,8 +628,22 @@ def get_metrics(clf,
     
     return metrics, predictions, prob_threshold
 
-#TODO: Add Docstrings
 def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+    """
+    Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.
+
+    Parameters:
+    session (object): The session object that provides access to the file storage.
+    pipe (object): The trained pipeline model.
+    stage_name (str): The name of the stage.
+    test_x (array-like): The test data features.
+    test_y (array-like): The test data labels.
+    chart_name (str): The name of the chart.
+    label_column (str): The name of the label column in the test data.
+
+    Returns:
+    None. The function does not return any value. The generated ROC curve plot is saved as an image file and uploaded to the session's file storage.
+    """
     fpr, tpr, _ = roc_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
     roc_auc = auc(fpr, tpr)
     sns.set(style="ticks",  context='notebook')
@@ -448,8 +661,22 @@ def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, la
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
-#TODO: Add Docstrings
 def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+    """
+    Plots a precision-recall curve and saves it as a file.
+
+    Args:
+        session (object): A session object used to upload the plot file.
+        pipe (object): A pipeline object used to predict probabilities.
+        stage_name (str): The name of the stage where the plot file will be uploaded.
+        test_x (array-like): The test data features.
+        test_y (array-like): The test data labels.
+        chart_name (str): The name of the plot file.
+        label_column (str): The column name of the label in the test data.
+
+    Returns:
+        None. The function only saves the precision-recall curve plot as a file.
+    """
     precision, recall, _ = precision_recall_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
     pr_auc = auc(recall, precision)
     sns.set(style="ticks",  context='notebook')
@@ -468,8 +695,22 @@ def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, lab
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
-#TODO: Add Docstrings
-def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label_column):
+def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+    """
+    Generates a lift chart for a binary classification model.
+
+    Args:
+        session (object): The session object used to save the chart file.
+        pipe (object): The trained model pipeline.
+        stage_name (string): The name of the stage where the chart will be saved.
+        test_x (DataFrame): The test data features.
+        test_y (DataFrame): The test data labels.
+        chart_name (string): The name of the chart file.
+        label_column (string): The column name of the label in the test data.
+
+    Returns:
+        None. The function does not return any value, but it saves the lift chart as an image file in the specified location.
+    """
     data = pd.DataFrame()
     data['label'] = test_y[label_column.upper()].values
     data['pred'] = pipe.predict_proba(test_x)[:,1]
@@ -499,9 +740,38 @@ def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
-#TODO: Add Docstrings
-def plot_feature_importance(session, stage_name, data, top_k_features=5, chart_name=f"feature-importance-chart.png"):
-    ax = data[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
+def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, chart_name, top_k_features=5)-> None:
+    """
+    Generates a bar chart to visualize the top k important features in a machine learning model.
+
+    Args:
+        session (object): The session object used for writing the feature importance values and saving the chart image.
+        pipe (object): The pipeline object containing the preprocessor and model.
+        stage_name (str): The name of the stage where the chart image will be saved.
+        train_x (array-like): The input data used for calculating the feature importance values.
+        numeric_columns (list): The list of column names for numeric features.
+        categorical_columns (list): The list of column names for categorical features.
+        chart_name (str): The name of the chart image file.
+        top_k_features (int, optional): The number of top important features to display in the chart. Default is 5.
+
+    Returns:
+        None. The function generates a bar chart and writes the feature importance values to a table in the session.
+    """
+    train_x_processed = pipe['preprocessor'].transform(train_x)
+    train_x_processed = train_x_processed.astype(np.int_)
+    shap_values = shap.TreeExplainer(pipe['model']).shap_values(train_x_processed)
+
+    onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
+    col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(train_x) if col not in numeric_columns and col not in categorical_columns]
+
+    shap_df = pd.DataFrame(shap_values, columns=col_names_)
+    vals = np.abs(shap_df.values).mean(0)
+    feature_names = shap_df.columns
+    shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
+    shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
+    session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
+    
+    ax = shap_importance[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
     ax.set_xlabel("Importance Score")
     ax.set_ylabel("Feature Name")
     plt.title(f"Top {top_k_features} Important Features")
@@ -510,11 +780,22 @@ def plot_feature_importance(session, stage_name, data, top_k_features=5, chart_n
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
-#TODO: Add Docstrings
 def fetch_staged_file(session: snowflake.snowpark.Session, 
                         stage_name: str, 
                         file_name: str, 
                         target_folder: str)-> None:
+    """
+    Fetches a file from a Snowflake stage and saves it to a local target folder.
+
+    Args:
+        session (snowflake.snowpark.Session): The Snowflake session object used to connect to the Snowflake account.
+        stage_name (str): The name of the Snowflake stage where the file is located.
+        file_name (str): The name of the file to fetch from the stage.
+        target_folder (str): The local folder where the fetched file will be saved.
+
+    Returns:
+        None
+    """
     file_stage_path = os.path.join(stage_name, file_name)
     _ = session.file.get(file_stage_path, target_folder)
     input_file_path = os.path.join(target_folder, f"{file_name}.gz")
@@ -525,8 +806,21 @@ def fetch_staged_file(session: snowflake.snowpark.Session,
             shutil.copyfileobj(gz_file, target_file)
     os.remove(input_file_path)
 
-#TODO: Add Docstrings
-def load_stage_file_from_local(session, stage_name, file_name, target_folder, filetype):
+def load_stage_file_from_local(session: snowflake.snowpark.Session, stage_name: str, 
+                               file_name: str, target_folder: str, filetype: str):
+    """
+    Fetches a file from a Snowflake stage to local, loads it into memory and delete that file from local.
+
+    Args:
+        session (snowflake.snowpark.Session): The Snowflake session object used to connect to the Snowflake account.
+        stage_name (str): The name of the Snowflake stage where the file is located.
+        file_name (str): The name of the file to fetch from the stage.
+        target_folder (str): The local folder where the fetched file will be saved.
+        filetype (str): The type of the file to load ('json' or 'joblib').
+
+    Returns:
+        The loaded file object, either as a JSON object or a joblib object, depending on the `filetype`.
+    """
     fetch_staged_file(session, stage_name, file_name, target_folder)
     if filetype == 'json':
         f = open(os.path.join(target_folder, file_name), "r")
@@ -536,18 +830,22 @@ def load_stage_file_from_local(session, stage_name, file_name, target_folder, fi
     os.remove(os.path.join(target_folder, file_name))
     return output_file
 
-#TODO: Add Docstrings
 ####  Not being called currently. Functions for saving feature-importance score for top_k and bottom_k users as per their prediction scores. ####
-def explain_prediction(creds, user_main_id, predictions_table_name, feature_table_name, predict_config):
-    """Function to be used in future to generate user-specific feature-importance data
+def explain_prediction(creds: dict, user_main_id: str, predictions_table_name: str, feature_table_name: str, predict_config: dict)-> None:
+    """
+    Function to generate user-specific feature-importance data.
 
     Args:
-        creds (_type_): _description_
-        user_main_id (_type_): _description_
-        predictions_table_name (_type_): _description_
-        feature_table_name (_type_): _description_
-        predict_config (_type_): _description_
+        creds (dict): A dictionary containing the data warehouse credentials.
+        user_main_id (str): The main ID of the user for whom the feature importance data is generated.
+        predictions_table_name (str): The name of the table containing the prediction results.
+        feature_table_name (str): The name of the table containing the feature data.
+        predict_config (dict): A dictionary containing the configuration settings for the prediction.
+
+    Returns:
+        None
     """
+    # Existing code remains unchanged
     connection_parameters = remap_credentials(creds)
     session = Session.builder.configs(connection_parameters).create()
 
@@ -602,10 +900,20 @@ def explain_prediction(creds, user_main_id, predictions_table_name, feature_tabl
     shap_df.insert(len(shap_df.columns), score_column_name.upper(), data_y[score_column_name.upper()].values)
     session.write_pandas(shap_df, table_name=f"Material_shopify_feature_importance", auto_create_table=True, overwrite=True)
 
-
-#TODO: Add Docstrings
 ####  Not being called currently. Functions for plotting feature importance score for single user. ####
 def plot_user_feature_importance(pipe, user_featues, numeric_columns, categorical_columns):
+    """
+    Plot the feature importance score for a single user.
+
+    Parameters:
+    pipe (pipeline object): The pipeline object that includes the model and preprocessor.
+    user_features (array-like): The user features for which the feature importance scores will be calculated and plotted.
+    numeric_columns (list): The list of numeric columns in the user features.
+    categorical_columns (list): The list of categorical columns in the user features.
+
+    Returns:
+    figure object and a dictionary of feature importance scores for the user.
+    """
     onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
     col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(user_featues) if col not in numeric_columns and col not in categorical_columns]
 

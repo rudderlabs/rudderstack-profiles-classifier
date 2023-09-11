@@ -248,7 +248,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                 train_size: float, 
                 val_size: float,
                 test_size: float,
-                folder_path: str) -> list:
+                folder_path: str,
+                merged_config: dict) -> list:
         """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
 
         Args:
@@ -285,9 +286,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         # logger.debug("Training data types:\n%s", train_x.dtypes)
         # logger.debug("Training data head:\n%s", train_x.head())
 
-        import_dir = sys._xoptions.get("snowflake_import_directory")
-        all_config = load_yaml(os.path.join(import_dir, 'model_configs.yaml'))
-        train_config = all_config['train']
+        train_config = merged_config['train']
 
         models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
         models = train_config["model_params"]["models"]
@@ -447,7 +446,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                     train_size,
                     val_size,
                     test_size,
-                    folder_path
+                    folder_path,
+                    merged_config
                     )
 
     (model_id, model_metrics, prob_th) = json.loads(model_eval_data)

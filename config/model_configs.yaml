@@ -1,0 +1,226 @@
+data:
+  # Related to the data that is used to train the model
+  label_column: is_churned_7_days # Name of the entity_var that needs to be predicted in advance
+  label_value: 1 # Value of the label_column when the entity does the event
+  entity_column: user_main_id # Name of the entity defined in the profiles project. Ex: user_id, user_main_id, rudder_id etc
+  package_name: feature_table # Name of the package where the profiles feature table is defined (declared in pb_project.yaml packages)
+  model_name: 'shopify_user_features' # Name of the feature table model
+  model_name_prefix: 'shopify_churn_test'
+  index_timestamp: valid_at
+  eligible_users: '' # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'
+  # train_start_dt: '2023-04-24'
+  train_start_dt: # The start and end dates can be left empty. If not, the model uses these dates to get historic data for training. 
+  # train_end_dt: '2023-05-01'
+  train_end_dt:
+  prediction_horizon_days: 7 # Days in advance to predict the label_column. 
+  sample_data: 1. # Keep 1 if all data during train_start_dt, train_end_dt and eligible_users should be selected; Else, give the percent as the number between 0 and 1; Ex, 0.25 indicates 25% data gets sampled
+
+  top_k: 5
+  bottom_k: 5
+
+preprocessing:
+  # Related to various preprocessing steps of the data
+  categorical_columns: &categorical_columns [RUDDER_ID, VALID_AT, STATE, COUNTRY, FIRST_NAME, LAST_NAME, CURRENCY, DEVICE_TYPE, DEVICE_NAME, DEVICE_MANUFACTURER, LAST_CART_STATUS
+  ]
+  timestamp_columns: []
+    # Following columns get a datediff function applied with the timestamp_column to get days_since_<timestamp_column> features
+
+  ignore_features:
+    # Following columns are ignored if they are present in the final feature table
+    - PRODUCTS_ADDED_IN_PAST_1_DAYS
+    - PRODUCTS_ADDED_IN_PAST_7_DAYS
+    - PRODUCTS_ADDED_IN_PAST_365_DAYS
+    - ITEMS_PURCHASED_EVER
+    - TOTAL_PRODUCTS_ADDED
+
+  numeric_pipeline:
+    columns: all
+    pipeline:
+      - name: SimpleImputer
+        # strategy can be any acceptable value of sklearn simpleimputer strategy
+        missing_values: np.nan
+        strategy: constant
+        # fill_value: 0
+        copy: True
+        add_indicator: False
+        # keep_empty_features: False
+
+  categorical_pipeline:
+    columns: *categorical_columns
+    pipeline:
+      - name: SimpleImputer
+        strategy: constant
+        # if strategy is constant, it expects a fill_value. If that is not returned, it defaults to `unknown`
+        fill_value: unknown
+        copy: True
+        add_indicator: False
+      - name: OneHotEncoder
+        handle_unknown: ignore
+        sparse: False
+  feature_selectors:
+    # Feature selectors that get applied after normalizing is done. Has to be from `VarianceThreshold`, `GenericUnivariateSelect`, `chi2`, `f_classif`
+    # ToDo: This section is not implemented in the notebook.
+    - name: VarianceThreshold
+      threshold: 0
+
+  # Train, test, val split ratios. They must be each between 0 and 1, and sum to 1
+  train_size: 0.6
+  val_size: 0.2
+  test_size: 0.2
+
+train:
+  data_path:
+    train_file: train.csv
+    test_file: test.csv
+    val_file: val.csv
+    label_col_name: label
+  model_params:
+    #Available models are XGBClassifier, RandomForestClassifier and MLPClassifier
+    models:
+      # Acceptable models: xgboost, random_forest, neural_nets
+      # Each model consists of  name (req), hyperparams (opt), and tune_hyperparams (opt) blocks.
+      - name: XGBClassifier
+        # metric used to evaluate the model possible options
+        #   average_precision_score
+        #   precision_recall_fscore_support
+        evaluation_metric: average_precision_score
+        # model related configuration parameters which are constant (do not need hyper parameter tunning)
+        modelparams:
+          objective: binary:logistic
+          subsample: 0.7
+          use_label_encoder: False
+          eval_metric: logloss
+          early_stopping_rounds: 10
+        fitparams:
+          verbose: False
+        # Configuration for hyperopt minimization function (fmin)
+        hyperopts_config:
+          max_evals: 10
+        hyperopts:
+          # parameters on which hyperparam search should run
+          # type can be
+          #   1. choice
+          #     - params
+          #       1. options
+          #         can be a list or tuple (OR)
+          #         low, high, step(optional) to form list
+          #   2. quniform ( Returns a value like round(uniform(low, high) / q) * q)
+          #     - params
+          #       1. low
+          #       2. high
+          #       3. q
+          #   3. uniform (Returns a value uniformly between low and high.)
+          #     - params
+          #       1. low
+          #       2. high
+          #   4. loguniform (Returns a value drawn according to exp(uniform(low, high)) so that the logarithm of the return value is uniformly distributed.)
+          #     - params
+          #       1. low
+          #       2. high
+          - name: max_depth
+            type: choice
+            options: [3, 4, 5, 6, 7]
+          - name: eta
+            type: quniform
+            low: 0.05
+            high: 0.5
+            q: 0.05
+          - name: gamma
+            type: quniform
+            low: 0.25
+            high: 1
+            q: 0.05
+          - name: colsample_bytree
+            type: uniform
+            low: 0.5
+            high: 1
+          - name: min_child_weight
+            type: choice
+            options: [1, 3, 5, 7, 9]
+          - name: n_estimators
+            type: choice
+            options:
+              low: 50
+              high: 500
+              step: 50
+      - name: RandomForestClassifier
+        evaluation_metric: average_precision_score
+        # model related configuration parameters which are constant (do not need hyper parameter tunning)
+        modelparams: #https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html
+          n_jobs: 4
+          random_state: 42
+          criterion: entropy
+        hyperopts_config:
+          max_evals: 10
+        hyperopts:
+          - name: max_depth
+            type: choice
+            options: [3, 4, 5, 6, 7]
+          - name: n_estimators
+            type: choice
+            options:
+              low: 50
+              high: 500
+              step: 50
+      - name: MLPClassifier
+        evaluation_metric: average_precision_score
+        modelparams: # https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPClassifier.html
+          activation: 'relu'
+          solver: 'adam'
+          alpha: 0.0001
+          batch_size: 'auto'
+          learning_rate: 'constant'
+          learning_rate_init: 0.001
+          power_t: 0.5
+          max_iter: 200
+          shuffle: True
+          random_state: 42
+          tol: 0.0001
+          verbose: False
+          warm_start: False
+          momentum: 0.9
+          nesterovs_momentum: True
+          early_stopping: False
+          validation_fraction: 0.1
+          beta_1: 0.9
+          beta_2: 0.999
+          n_iter_no_change: 10
+          max_fun: 15000
+        hyperopts_config:
+          max_evals: 10
+        hyperopts:
+          - name: hidden_layer_sizes
+            type: choice
+            options:
+              - [64, 32]
+              - [16, 32, 64]
+              - [64, 32, 16, 4]
+    validation_on: f1_score
+    evaluation_metrics:
+      - average_precision
+      - recall
+      - accuracy
+
+outputs:
+  # Related to the output of the data prep step
+  column_names:
+    percentile: &percentile_name percentile_churn_score_7_days
+    score: churn_score_7_days
+  feature_meta_data: 
+    features:
+      - name: *percentile_name
+        description: 'Percentile of churn score. Higher the percentile, higher the probability of churn'
+
+validation:
+  model:
+    evaluation_metrics:
+      - average_precision
+      - recall
+      - accuracy
+    acceptance_criteria:
+      # Dev/Stagging model will get accepted if it meets the following criteria
+      # Ex.
+      #   - average_precision(Dev) > 0.9 * average_precision(Production)
+      #   - When above criteria is met, then dev model will be promoted to production
+      metric_name: average_precision
+      threshold: 0.9

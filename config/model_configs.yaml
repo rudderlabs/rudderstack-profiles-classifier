@@ -18,7 +18,6 @@ data:
   top_k: 5
   bottom_k: 5
 
-
 preprocessing:
   # Related to various preprocessing steps of the data
   categorical_columns: &categorical_columns [RUDDER_ID, VALID_AT, STATE, COUNTRY, FIRST_NAME, LAST_NAME, CURRENCY, DEVICE_TYPE, DEVICE_NAME, DEVICE_MANUFACTURER, LAST_CART_STATUS

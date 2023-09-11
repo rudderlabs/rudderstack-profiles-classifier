@@ -106,7 +106,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         model_path (str): path to the file where the model details including model id etc are present. Created in training step
         inputs (str): Not being used currently. Can pass a blank string. For future support
         output_tablename (str): name of output table where prediction results are written
-        config (dict): configs from profiles.yaml which should overwrite corresponding values from data_prep.yaml file
+        config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
 
     Returns:
         None: save the prediction results but returns nothing
@@ -118,7 +118,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     print(model_file_name)
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
-    notebook_config = load_yaml(os.path.join(current_dir, "config/data_prep.yaml"))
+    notebook_config = load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
     merged_config = combine_config(notebook_config, config)
 
     score_column_name = merged_config['outputs']['column_names']['score']

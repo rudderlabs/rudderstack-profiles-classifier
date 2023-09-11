@@ -52,10 +52,10 @@ def load_yaml(file_path: str) -> dict:
     return data
 
 def combine_config(notebook_config: dict, profiles_config:dict= None) -> dict:
-    """Combine the configs after overwriting values of profiles.yaml in data_prep.yaml
+    """Combine the configs after overwriting values of profiles.yaml in model_configs.yaml
 
     Args:
-        notebook_config (dict): configs from data_prep.yaml file
+        notebook_config (dict): configs from model_configs.yaml file
         profiles_config (dict, optional): configs from profiles.yaml file that should overwrite corresponding values from notebook_config. Defaults to None.
 
     Returns:
@@ -203,7 +203,7 @@ def get_latest_material_hash(session: snowflake.snowpark.Session,
     Args:
         session (snowflake.snowpark.Session): snowpark session
         material_table (str): name of material registry table
-        model_name (str): model_name from data_prep file
+        model_name (str): model_name from model_configs file
 
     Returns:
         Tuple: latest model hash and it's creation timestamp
@@ -229,7 +229,7 @@ def get_material_names(session: snowflake.snowpark.Session,
         material_table (str): Name of the material table(present in constants.py file)
         start_time (str): train_start_dt
         end_time (str): train_end_dt
-        model_name (str): Present in data_prep file
+        model_name (str): Present in model_configs file
         model_hash (str) : latest model hash
         material_table_prefix (str): constant
         prediction_horizon_days (int): period of days
@@ -283,12 +283,12 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
         session (snowflake.snowpark.Session): Snowpark session for data warehouse access
         feature_table_name (str): feature table from the retrieved material_names tuple
         label_table_name (str): label table from the retrieved material_names tuple
-        entity_column (str): name of entity column from data_prep file
-        index_timestamp (str): name of column containing timestamp info from data_prep file
+        entity_column (str): name of entity column from model_configs file
+        index_timestamp (str): name of column containing timestamp info from model_configs file
         timestamp_columns (List[str]): list of timestamp columns
-        eligible_users (str): query as a valid string to filter out eligible users as per need from data_prep file
-        label_column (str): name of label column from data_prep file
-        label_value (Union[str,int,float]): required label_value from data_prep file
+        eligible_users (str): query as a valid string to filter out eligible users as per need from model_configs file
+        label_column (str): name of label column from model_configs file
+        label_value (Union[str,int,float]): required label_value from model_configs file
         prediction_horizon_days (int): 
         ignore_features (List[str]): list of all features that are needed to be ignored(dropped)
 
@@ -326,7 +326,7 @@ def split_train_test(feature_table: snowflake.snowpark.Table,
         feature_table (snowflake.snowpark.Table): feature table from the retrieved material_names tuple
         label_column (str): name of label column from feature table
         entity_column (str): name of entity column from feature table
-        model_name_prefix (str): prefix for the model from data_prep file
+        model_name_prefix (str): prefix for the model from model_configs file
         train_size (float): partition fraction for train data
         val_size (float): partition fraction for validation data
         test_size (float): partition fraction for test data
@@ -544,7 +544,7 @@ def explain_prediction(creds, user_main_id, predictions_table_name, feature_tabl
 
     current_dir = os.getcwd()
     constants_path = os.path.join(current_dir, 'constants.py')
-    config_path = os.path.join(current_dir, 'config', 'data_prep.yaml')
+    config_path = os.path.join(current_dir, 'config', 'model_configs.yaml')
     notebook_config = load_yaml(config_path)
     merged_config = combine_config(notebook_config, predict_config)
 

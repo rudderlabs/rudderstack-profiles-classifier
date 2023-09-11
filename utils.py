@@ -1,4 +1,5 @@
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc, roc_curve, precision_recall_curve
+from sklearn.model_selection import train_test_split
 import numpy as np 
 import pandas as pd
 from typing import Tuple, List, Union
@@ -209,7 +210,7 @@ def get_latest_material_hash(session: snowflake.snowpark.Session,
         Tuple: latest model hash and it's creation timestamp
     """
     snowpark_df = session.table(material_table)
-    temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).limit(1).select(col("model_hash"), col("creation_ts")).collect()[0]
+    temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
     model_hash = temp_hash_vector.MODEL_HASH
     creation_ts = temp_hash_vector.CREATION_TS
     return model_hash, creation_ts
@@ -311,11 +312,12 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
     uppercase_list = lambda names: [name.upper() for name in names]
     lowercase_list = lambda names: [name.lower() for name in names]
     ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
-    return feature_table.join(label_table, [entity_column], join_type="left").drop([index_timestamp, label_ts_col]).drop(ignore_features_)
+    return feature_table.join(label_table, [entity_column], join_type="left").drop([label_ts_col]).drop(ignore_features_)
     
-def split_train_test(feature_table: snowflake.snowpark.Table, 
+def split_train_test(session: snowflake.snowpark.Session,
+                     feature_table: snowflake.snowpark.Table, 
                      label_column: str, 
-                     entity_column: str, 
+                     entity_column: str,
                      model_name_prefix: str, 
                      train_size:float, 
                      val_size: float, 
@@ -334,17 +336,21 @@ def split_train_test(feature_table: snowflake.snowpark.Table,
     Returns:
         Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
     """
-    X_train, X_test, X_val  = feature_table.random_split([train_size, val_size, test_size], seed=42)
+    feature_df = feature_table.to_pandas()
+    feature_df.columns = feature_df.columns.str.upper()
+    latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
+    X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
+    X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
     #ToDo: handle timestamp columns, remove customer_id from train_x
-    X_train.write.mode("overwrite").save_as_table(f"{model_name_prefix}_train")
-    X_test.write.mode("overwrite").save_as_table(f"{model_name_prefix}_test")
-    X_val.write.mode("overwrite").save_as_table(f"{model_name_prefix}_val")
-    train_x = X_train.drop(label_column, entity_column).to_pandas() # drop labels for training set
-    train_y = X_train.select(label_column).to_pandas()
-    test_x = X_test.drop(label_column, entity_column).to_pandas() # drop labels for training set
-    test_y = X_test.select(label_column).to_pandas()
-    val_x = X_val.drop(label_column, entity_column).to_pandas()
-    val_y = X_val.select(label_column).to_pandas()
+    session.write_pandas(X_train, table_name=f"{model_name_prefix}_train", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_val, table_name=f"{model_name_prefix}_val", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_test, table_name=f"{model_name_prefix}_test", auto_create_table=True, overwrite=True)
+    train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
+    train_y = X_train[[label_column.upper()]]
+    val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
+    val_y = X_val[[label_column.upper()]]
+    test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
+    test_y = X_test[[label_column.upper()]]
     return train_x, train_y, test_x, test_y, val_x, val_y
 
 def get_classification_metrics(y_true: pd.DataFrame, 

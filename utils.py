@@ -1,4 +1,5 @@
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc, roc_curve, precision_recall_curve
+from sklearn.model_selection import train_test_split
 import numpy as np 
 import pandas as pd
 from typing import Tuple, List, Union
@@ -53,10 +54,10 @@ def load_yaml(file_path: str) -> dict:
     return data
 
 def combine_config(notebook_config: dict, profiles_config:dict= None) -> dict:
-    """Combine the configs after overwriting values of profiles.yaml in data_prep.yaml
+    """Combine the configs after overwriting values of profiles.yaml in model_configs.yaml
 
     Args:
-        notebook_config (dict): configs from data_prep.yaml file
+        notebook_config (dict): configs from model_configs.yaml file
         profiles_config (dict, optional): configs from profiles.yaml file that should overwrite corresponding values from notebook_config. Defaults to None.
 
     Returns:
@@ -338,13 +339,13 @@ def get_latest_material_hash(session: snowflake.snowpark.Session,
     Args:
         session (snowflake.snowpark.Session): snowpark session
         material_table (str): name of material registry table
-        model_name (str): model_name from data_prep file
+        model_name (str): model_name from model_configs file
 
     Returns:
         Tuple: latest model hash and it's creation timestamp
     """
     snowpark_df = session.table(material_table)
-    temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).limit(1).select(col("model_hash"), col("creation_ts")).collect()[0]
+    temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
     model_hash = temp_hash_vector.MODEL_HASH
     creation_ts = temp_hash_vector.CREATION_TS
     return model_hash, creation_ts
@@ -388,7 +389,7 @@ def get_material_names_(session: snowflake.snowpark.Session,
         material_table (str): Name of the material table(present in constants.py file)
         start_time (str): train_start_dt
         end_time (str): train_end_dt
-        model_name (str): Present in data_prep file
+        model_name (str): Present in model_configs file
         model_hash (str) : latest model hash
         material_table_prefix (str): constant
         prediction_horizon_days (int): period of days
@@ -484,12 +485,12 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
         session (snowflake.snowpark.Session): Snowpark session for data warehouse access
         feature_table_name (str): feature table from the retrieved material_names tuple
         label_table_name (str): label table from the retrieved material_names tuple
-        entity_column (str): name of entity column from data_prep file
-        index_timestamp (str): name of column containing timestamp info from data_prep file
+        entity_column (str): name of entity column from model_configs file
+        index_timestamp (str): name of column containing timestamp info from model_configs file
         timestamp_columns (List[str]): list of timestamp columns
-        eligible_users (str): query as a valid string to filter out eligible users as per need from data_prep file
-        label_column (str): name of label column from data_prep file
-        label_value (Union[str,int,float]): required label_value from data_prep file
+        eligible_users (str): query as a valid string to filter out eligible users as per need from model_configs file
+        label_column (str): name of label column from model_configs file
+        label_value (Union[str,int,float]): required label_value from model_configs file
         prediction_horizon_days (int): 
         ignore_features (List[str]): list of all features that are needed to be ignored(dropped)
 
@@ -512,11 +513,12 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
     uppercase_list = lambda names: [name.upper() for name in names]
     lowercase_list = lambda names: [name.lower() for name in names]
     ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
-    return feature_table.join(label_table, [entity_column], join_type="left").drop([index_timestamp, label_ts_col]).drop(ignore_features_)
+    return feature_table.join(label_table, [entity_column], join_type="left").drop([label_ts_col]).drop(ignore_features_)
     
-def split_train_test(feature_table: snowflake.snowpark.Table, 
+def split_train_test(session: snowflake.snowpark.Session,
+                     feature_table: snowflake.snowpark.Table, 
                      label_column: str, 
-                     entity_column: str, 
+                     entity_column: str,
                      model_name_prefix: str, 
                      train_size:float, 
                      val_size: float, 
@@ -527,7 +529,7 @@ def split_train_test(feature_table: snowflake.snowpark.Table,
         feature_table (snowflake.snowpark.Table): feature table from the retrieved material_names tuple
         label_column (str): name of label column from feature table
         entity_column (str): name of entity column from feature table
-        model_name_prefix (str): prefix for the model from data_prep file
+        model_name_prefix (str): prefix for the model from model_configs file
         train_size (float): partition fraction for train data
         val_size (float): partition fraction for validation data
         test_size (float): partition fraction for test data
@@ -535,17 +537,21 @@ def split_train_test(feature_table: snowflake.snowpark.Table,
     Returns:
         Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
     """
-    X_train, X_test, X_val  = feature_table.random_split([train_size, val_size, test_size], seed=42)
+    feature_df = feature_table.to_pandas()
+    feature_df.columns = feature_df.columns.str.upper()
+    latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
+    X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
+    X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
     #ToDo: handle timestamp columns, remove customer_id from train_x
-    X_train.write.mode("overwrite").save_as_table(f"{model_name_prefix}_train")
-    X_test.write.mode("overwrite").save_as_table(f"{model_name_prefix}_test")
-    X_val.write.mode("overwrite").save_as_table(f"{model_name_prefix}_val")
-    train_x = X_train.drop(label_column, entity_column).to_pandas() # drop labels for training set
-    train_y = X_train.select(label_column).to_pandas()
-    test_x = X_test.drop(label_column, entity_column).to_pandas() # drop labels for training set
-    test_y = X_test.select(label_column).to_pandas()
-    val_x = X_val.drop(label_column, entity_column).to_pandas()
-    val_y = X_val.select(label_column).to_pandas()
+    session.write_pandas(X_train, table_name=f"{model_name_prefix}_train", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_val, table_name=f"{model_name_prefix}_val", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_test, table_name=f"{model_name_prefix}_test", auto_create_table=True, overwrite=True)
+    train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
+    train_y = X_train[[label_column.upper()]]
+    val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
+    val_y = X_val[[label_column.upper()]]
+    test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
+    test_y = X_test[[label_column.upper()]]
     return train_x, train_y, test_x, test_y, val_x, val_y
 
 def get_classification_metrics(y_true: pd.DataFrame, 
@@ -796,7 +802,7 @@ def fetch_staged_file(session: snowflake.snowpark.Session,
     Returns:
         None
     """
-    file_stage_path = os.path.join(stage_name, file_name)
+    file_stage_path = f"{stage_name}/{file_name}"
     _ = session.file.get(file_stage_path, target_folder)
     input_file_path = os.path.join(target_folder, f"{file_name}.gz")
     output_file_path = os.path.join(target_folder, file_name)
@@ -851,7 +857,7 @@ def explain_prediction(creds: dict, user_main_id: str, predictions_table_name: s
 
     current_dir = os.getcwd()
     constants_path = os.path.join(current_dir, 'constants.py')
-    config_path = os.path.join(current_dir, 'config', 'data_prep.yaml')
+    config_path = os.path.join(current_dir, 'config', 'model_configs.yaml')
     notebook_config = load_yaml(config_path)
     merged_config = combine_config(notebook_config, predict_config)
 

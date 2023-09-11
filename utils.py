@@ -303,6 +303,7 @@ def split_train_test(session: snowflake.snowpark.Session,
         Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
     """
     feature_df = feature_table.to_pandas()
+    feature_df.columns = feature_df.columns.str.upper()
     latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
     X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
     X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)

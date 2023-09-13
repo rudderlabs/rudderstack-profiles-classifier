@@ -191,13 +191,27 @@ def build_model(X_train:pd.DataFrame,
     clf = model_class(**best_hyperparams, **model_config["modelparams"])
     return clf, trials
 
-def select_best_clf(models, train_x_processed, train_y, val_x_processed, val_y, models_map):
+def select_best_clf(models, train_x, train_y, val_x, val_y, models_map):
+    """
+    Selects the best classifier model based on the given list of models and their configurations.
+
+    Args:
+        models (list): A list of dictionaries representing the models to be trained.
+        train_x (pd.DataFrame): The training data features.
+        train_y (pd.DataFrame): The training data labels.
+        val_x (pd.DataFrame): The validation data features.
+        val_y (pd.DataFrame): The validation data labels.
+        models_map (dict): A dictionary mapping model names to their corresponding classes.
+
+    Returns:
+        final_clf (object): The selected classifier model with the best hyperparameters.
+    """
     best_acc = 0
     for model_config in models:
         name = model_config["name"]
         print(f"Training {name}")
 
-        clf, trials = build_model(train_x_processed, train_y, val_x_processed, val_y, models_map[name], model_config)
+        clf, trials = build_model(train_x, train_y, val_x, val_y, models_map[name], model_config)
 
         if best_acc < max([ -1*loss for loss in trials.losses()]):
             final_clf = clf
@@ -296,21 +310,26 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             train_size (float): partition fraction for train data
             val_size (float): partition fraction for validation data
             test_size (float): partition fraction for test data
+            merged_config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
 
         Returns:
             list: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
         """
+        model_file_name = constants.MODEL_FILE_NAME
+        stage_name = constants.STAGE_NAME
+        metrics_table = constants.METRICS_TABLE
+
+        train_config = merged_config['train']
+
+        models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
+        models = train_config["model_params"]["models"]
+
         feature_table = session.table(feature_table_name)
         train_x, train_y, test_x, test_y, val_x, val_y = split_train_test(session, feature_table, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
 
         categorical_columns = get_categorical_columns(feature_table, label_column, entity_column)
         numeric_columns = get_numeric_columns(feature_table, label_column, entity_column)
         train_x = transform_null(train_x, numeric_columns, categorical_columns)
-
-        train_config = merged_config['train']
-
-        models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
-        models = train_config["model_params"]["models"]
 
         preprocessor_pipe_x = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
         train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
@@ -323,13 +342,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
         model_metrics, _, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y)
 
-        model_file_name = constants.MODEL_FILE_NAME
-        stage_name = constants.STAGE_NAME
-
-        plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['roc-auc-curve'], label_column)
-        plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['pr-auc-curve'], label_column)
-        plot_lift_chart(session, pipe, stage_name, test_x, test_y, figure_names['lift-chart'], label_column)
-
         model_id = str(int(time.time()))
         result_dict = {"model_id": model_id,
                         "model_name_prefix": model_name_prefix,
@@ -338,7 +350,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         
         metrics_df = pd.DataFrame.from_dict(result_dict).reset_index()
 
-        metrics_table = constants.METRICS_TABLE
         session.write_pandas(metrics_df, table_name=f"{metrics_table}", auto_create_table=True, overwrite=False)
 
         model_file = os.path.join('/tmp', model_file_name)
@@ -350,6 +361,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         json.dump(column_dict, open(column_name_file,"w"))
         session.file.put(column_name_file, stage_name,overwrite=True)
         
+        plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['roc-auc-curve'], label_column)
+        plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['pr-auc-curve'], label_column)
+        plot_lift_chart(session, pipe, stage_name, test_x, test_y, figure_names['lift-chart'], label_column)
         plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
         return [model_id, model_metrics, prob_th]
     
@@ -361,7 +375,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     material_names, training_dates = get_material_names(session, material_table, start_date, end_date, package_name, model_name, model_hash, material_table_prefix, prediction_horizon_days, output_filename)
  
-    flag = False
+    feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
         feature_table_instance = prepare_feature_table(session, 
@@ -375,9 +389,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                                     label_value, 
                                     prediction_horizon_days,
                                     ignore_features)
-        if flag is False:
+        if feature_table is None:
             feature_table = feature_table_instance
-            flag = True
         else:
             feature_table = feature_table.unionAllByName(feature_table_instance)
 
@@ -400,8 +413,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     (model_id, model_metrics, prob_th) = json.loads(model_eval_data)
 
-    for key in figure_names:
-        fetch_staged_file(session, stage_name, figure_names[key], target_path)
+    for figure_name in figure_names.values():
+        fetch_staged_file(session, stage_name, figure_name, target_path)
 
     results = {"config": {'training_dates': training_dates,
                         'material_names': material_names,

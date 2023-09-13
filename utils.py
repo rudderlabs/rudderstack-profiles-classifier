@@ -166,15 +166,15 @@ def delete_procedures(session: snowflake.snowpark.Session, train_procedure: str)
             pass
 
 def get_column_names(onehot_encoder: OneHotEncoder, 
-                     col_names: list) -> list:
+                     col_names: List[str]) -> List[str]:
     """Assigning new column names for the one-hot encoded columns.
 
     Args:
         onehot_encoder (OneHotEncoder): OneHotEncoder object.
-        col_names (list): List of column names
+        col_names (List[str]): List of categorical column names before applying onehot transformation
 
     Returns:
-        list: List of category column names.
+        List[str]: List of categorical column names of the output dataframe including categories after applying onehot transformation.
     """
     category_names = []
     for col_id, col in enumerate(col_names):
@@ -206,11 +206,11 @@ def get_categorical_columns(feature_table: snowflake.snowpark.Table, label_colum
 
     Args:
         feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
-        label_column (string): The name of the label column.
-        entity_column (string): The name of the entity column.
+        label_column (str): The name of the label column.
+        entity_column (str): The name of the entity column.
 
     Returns:
-        list: A list of categorical column names extracted from the feature table schema.
+        List[str]: A list of categorical column names extracted from the feature table schema.
     """
     categorical_columns = []
     for field in feature_table.schema.fields:
@@ -360,10 +360,10 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
         feature_package_path (str): The path to the feature package.
 
     Returns:
-        str: The output of the 'pb' command executed within the function.
+        None.
 
     Example Usage:
-        materialise_past_data("output/path", "2022-01-01", "packages/feature_table/models/shopify_user_features")
+        materialise_past_data("2022-01-01", "packages/feature_table/models/shopify_user_features", "output/path")
     """
     path_components = output_path.split(os.path.sep)
     output_index = path_components.index('output')

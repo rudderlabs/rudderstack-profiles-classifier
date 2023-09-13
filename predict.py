@@ -1,4 +1,3 @@
-
 import sys
 import pandas as pd
 import numpy as np
@@ -24,52 +23,13 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils import get_metrics, load_yaml, remap_credentials, combine_config, delete_import_files, get_material_registry_name, get_timestamp_columns
+from utils import get_metrics, load_yaml, remap_credentials, combine_config, generate_type_hint, drop_columns_if_exists, delete_import_files, get_material_registry_name, get_timestamp_columns
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
 import constants
 from logger import logger
 import yaml
 import json
 import datetime
-
-
-
-def generate_type_hint(sp_df: snowflake.snowpark.Table):        
-    """Returns the type hints for given snowpark DataFrame's fields
-
-    Args:
-        sp_df (snowflake.snowpark.Table): snowpark DataFrame
-
-    Returns:
-        _type_: Returns the type hints for given snowpark DataFrame's fields
-    """
-    type_map = {
-        T.BooleanType(): float,
-        T.DoubleType(): float,
-        T.DecimalType(36,6): float,
-        T.LongType(): float,
-        T.StringType(): str
-    }
-    types = [type_map[d.datatype] for d in sp_df.schema.fields]
-    return T.PandasDataFrame[tuple(types)]
-        
-def drop_ignored_features(df: snowflake.snowpark.Table, 
-                          ignore_features: list) -> snowflake.snowpark.Table:
-    """Returns the snowpark DataFrame after dropping the features that are to be ignored.
-
-    Args:
-        df (snowflake.snowpark.Table): snowpark DataFrame
-        ignore_features (list): list of features that we want to drop from the dataframe
-
-    Returns:
-        snowflake.snowpark.Table: snowpark DataFrame after dropping the ignored features
-    """
-    ignore_features_upper = [col.upper() for col in ignore_features]
-    ignore_features_lower = [col.lower() for col in ignore_features]
-    ignore_features_ = [col for col in df.columns if col in ignore_features_upper or col in ignore_features_lower]
-    return df.drop(ignore_features_)
-
-
 
 def drop_fn_if_exists(session: snowflake.snowpark.Session, 
                       fn_name: str) -> bool:
@@ -144,8 +104,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     delete_import_files(session, stage_name, import_paths)
     
     print("Caching")
-    
-    #@cachetools.cached(cache={})
+    @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location
 
@@ -195,7 +154,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     if eligible_users:
         raw_data = raw_data.filter(eligible_users)
 
-    predict_data = drop_ignored_features(raw_data, ignore_feature)
+    predict_data = drop_columns_if_exists(raw_data, ignore_feature)
     if len(timestamp_columns) == 0:
         timestamp_columns = get_timestamp_columns(session, predict_data, index_timestamp)
     for col in timestamp_columns:

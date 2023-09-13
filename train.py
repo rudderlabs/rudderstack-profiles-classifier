@@ -310,7 +310,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         pipe = get_model_pipeline(preprocessor_pipe_optimized, final_clf)
         pipe.fit(train_x, train_y)
 
-        model_metrics, _, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y)
+        model_metrics, _, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y,train_config)
 
         model_file_name = constants.MODEL_FILE_NAME
         stage_name = constants.STAGE_NAME

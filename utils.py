@@ -1,4 +1,4 @@
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc, roc_curve, precision_recall_curve
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, precision_score, recall_score, accuracy_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc, roc_curve, precision_recall_curve
 from sklearn.model_selection import train_test_split
 import numpy as np 
 import pandas as pd
@@ -14,6 +14,7 @@ import yaml
 from copy import deepcopy
 from datetime import datetime, timedelta
 
+import sys
 import os
 import gzip
 import shutil
@@ -376,7 +377,7 @@ def get_classification_metrics(y_true: pd.DataFrame,
     metrics = {"precision": precision, "recall": recall, "f1_score": f1, "roc_auc": roc_auc, 'pr_auc': pr_auc, 'users': user_count}
     return metrics
     
-def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array) -> Tuple:
+def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array,train_config: dict) -> Tuple:
     """This function calculates the thresold that maximizes f1 score based on y_true and y_pred_proba and classication metrics on basis of that.
 
     Args:
@@ -386,14 +387,29 @@ def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array) -> Tuple:
     Returns:
         Tuple: Returns the metrics at the threshold and that threshold that maximizes f1 score based on y_true and y_pred_proba
     """
-    best_f1 = 0.0
+
+    metric_to_optimize = train_config["model_params"]["validation_on"]
+
+    metric_functions = {
+        'f1_score': f1_score,
+        'precision': precision_score,
+        'recall': recall_score,
+        'accuracy': accuracy_score
+    }
+
+    if metric_to_optimize not in metric_functions:
+        raise ValueError(f"Unsupported metric: {metric_to_optimize}")
+
+    objective_function = metric_functions[metric_to_optimize]
+
+    best_metric_value = 0.0
     best_th = 0.0
 
-    for th in np.arange(0,1,0.01):
-        f1 = f1_score(y_true, np.where(y_pred_proba>th,1,0))
-        if f1 >= best_f1:
+    for th in np.arange(0, 1, 0.01):
+        metric_value = objective_function(y_true, np.where(y_pred_proba > th, 1, 0))
+        if metric_value >= best_metric_value:
             best_th = th
-            best_f1 = f1
+            best_metric_value = metric_value
             
     best_metrics = get_classification_metrics(y_true, y_pred_proba, best_th)
     return best_metrics, best_th
@@ -404,7 +420,8 @@ def get_metrics(clf,
                 X_test: pd.DataFrame, 
                 y_test: pd.DataFrame,
                 X_val: pd.DataFrame, 
-                y_val: pd.DataFrame) -> Tuple:
+                y_val: pd.DataFrame,
+                train_config: dict) -> Tuple:
     """Generates classification metrics and predictions for train, validation and test data along with the best probability thresold
 
     Args:
@@ -420,7 +437,7 @@ def get_metrics(clf,
         Tuple: Returns the classification metrics and predictions for train, validation and test data along with the best probability thresold.
     """
     train_preds = clf.predict_proba(X_train)[:,1]
-    train_metrics, prob_threshold = get_best_th(y_train, train_preds)
+    train_metrics, prob_threshold = get_best_th(y_train, train_preds,train_config)
 
     test_preds = clf.predict_proba(X_test)[:,1]
     test_metrics = get_classification_metrics(y_test, test_preds, prob_threshold)

@@ -6,8 +6,8 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import average_precision_score, precision_recall_curve, PrecisionRecallDisplay, roc_curve, RocCurveDisplay, auc
 from sklearn.compose import ColumnTransformer
-from xgboost import XGBClassifier
-from sklearn.ensemble import RandomForestClassifier
+from xgboost import XGBClassifier, XGBRegressor
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.neural_network import MLPClassifier
 import joblib
 import os
@@ -48,10 +48,66 @@ from datetime import datetime, timezone
 import matplotlib.pyplot as plt
 import scikitplot as skplt
 import shap
+#from abc import ABC, abstractmethod
 
 
 # logger.info("Start")
+"""
+class Task(ABC):
+    def __init__(self, model_classes):
+        self.model_classes = model_classes
 
+    @abstractmethod
+    def get_preprocessing_pipeline(self, numeric_columns: List[str], categorical_columns: List[str],
+                                   numerical_pipeline_config: List[Dict], categorical_pipeline_config: List[Dict]):
+        pass
+
+    @abstractmethod
+    def generate_hyperparameter_space(self, hyperopts: List[Dict]) -> Dict:
+        pass
+
+    @abstractmethod
+    def build_model(self, X_train: pd.DataFrame, y_train: pd.DataFrame, X_val: pd.DataFrame, y_val: pd.DataFrame,
+                    model_config: Dict) -> Tuple:
+        pass
+
+
+class ClassificationTask(Task):
+    def __init__(self):
+        super().__init__(XGBClassifier)  # Default model class for classification
+
+    def get_preprocessing_pipeline(self, numeric_columns: List[str], categorical_columns: List[str],
+                                   numerical_pipeline_config: List[Dict], categorical_pipeline_config: List[Dict]):
+        # Implementation for classification preprocessing pipeline
+        pass
+
+    def generate_hyperparameter_space(self, hyperopts: List[Dict]) -> Dict:
+        # Implementation for classification hyperparameter space
+        pass
+
+    def build_model(self, X_train: pd.DataFrame, y_train: pd.DataFrame, X_val: pd.DataFrame, y_val: pd.DataFrame,
+                    model_config: Dict) -> Tuple:
+        # Implementation for classification model building
+        pass
+
+class RegressionTask(Task):
+    def __init__(self):
+        super().__init__(RandomForestRegressor)  # Default model class for regression
+
+    def get_preprocessing_pipeline(self, numeric_columns: List[str], categorical_columns: List[str],
+                                   numerical_pipeline_config: List[Dict], categorical_pipeline_config: List[Dict]):
+        # Implementation for regression preprocessing pipeline
+        pass
+
+    def generate_hyperparameter_space(self, hyperopts: List[Dict]) -> Dict:
+        # Implementation for regression hyperparameter space
+        pass
+
+    def build_model(self, X_train: pd.DataFrame, y_train: pd.DataFrame, X_val: pd.DataFrame, y_val: pd.DataFrame,
+                    model_config: Dict) -> Tuple:
+        # Implementation for regression model building
+        pass
+"""        
 def get_preprocessing_pipeline(numeric_columns: list, 
                                 categorical_columns: list, 
                                 numerical_pipeline_config: list, 
@@ -257,7 +313,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     entity_column = merged_config['data']['entity_column']
     index_timestamp = merged_config['data']['index_timestamp']
     label_column = merged_config['data']['label_column']
-    label_value = merged_config['data']['label_value']
+    label_value = merged_config['data'].get('label_value')
+    prediction_task = merged_config['data'].get('task', 'classification') # Assuming default as classification
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     eligible_users = merged_config['data']['eligible_users']
     ignore_features = merged_config['preprocessing']['ignore_features']
@@ -282,6 +339,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     import_paths = [utils_path, constants_path]
     delete_import_files(session, stage_name, import_paths)
     delete_procedures(session, train_procedure)
+    
+    if prediction_task == 'classification':
+        task = ClassificationTask()
+    elif prediction_task == 'regression':
+        task = RegressionTask()
 
     @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
         packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
@@ -422,7 +484,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                         'prediction_horizon_days': prediction_horizon_days,
                         'label_column': label_column,
                         'label_value': label_value,
-                        'material_hash': model_hash},
+                        'material_hash': model_hash,
+                        'task': prediction_task,},
             "model_info": {'file_location': {'stage': stage_name, 'file_name': model_file_name}, 'model_id': model_id},
             "input_model_name": model_name}
     json.dump(results, open(output_filename,"w"))

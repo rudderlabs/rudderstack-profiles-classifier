@@ -1,53 +1,47 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import yaml
+import json
+from datetime import datetime
+import joblib
+import os
+import time
+from typing import Tuple, List, Union
+from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
+from copy import deepcopy
+
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
-from sklearn.metrics import average_precision_score, precision_recall_curve, PrecisionRecallDisplay, roc_curve, RocCurveDisplay, auc
 from sklearn.compose import ColumnTransformer
 from xgboost import XGBClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neural_network import MLPClassifier
-import joblib
-import os
-import gzip
-import shutil
+
 from snowflake.snowpark.session import Session
-import snowflake.snowpark.functions as F
-import snowflake.snowpark.types as T
-from typing import List
 from snowflake.snowpark.functions import sproc
 import snowflake.snowpark
 from snowflake.snowpark.functions import col
-import time
-from typing import Tuple, List, Union
-from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 
-import pickle
-import sys
-from copy import deepcopy
 # from logger import logger
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
-
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, average_precision_score
+from sklearn.metrics import precision_recall_fscore_support, average_precision_score
 import numpy as np 
 import pandas as pd
 from typing import Tuple, List
 
+import warnings
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
+warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
-from utils import load_yaml, remap_credentials, combine_config, get_date_range, get_column_names, get_numeric_columns, get_categorical_columns, transform_null, delete_import_files, delete_procedures, get_material_registry_name, get_latest_material_hash, get_timestamp_columns, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, plot_pr_auc_curve, plot_roc_auc_curve, plot_lift_chart, plot_top_k_feature_importance, fetch_staged_file, get_output_directory
+from utils import load_yaml, remap_credentials, combine_config, get_date_range,  get_numeric_columns, get_categorical_columns, transform_null, delete_import_files, delete_procedures, get_material_registry_name, get_latest_material_hash, get_timestamp_columns, get_material_names, prepare_feature_table, split_train_test, get_metrics, plot_pr_auc_curve, plot_roc_auc_curve, plot_lift_chart, plot_top_k_feature_importance, fetch_staged_file, get_output_directory
 import constants as constants
-import yaml
-import json
-import subprocess
-from datetime import datetime, timezone
-import matplotlib.pyplot as plt
-import scikitplot as skplt
-import shap
+
+
 
 
 # logger.info("Start")
@@ -360,11 +354,14 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         column_name_file = os.path.join('/tmp', f"{model_name_prefix}_{model_id}_column_names.json")
         json.dump(column_dict, open(column_name_file,"w"))
         session.file.put(column_name_file, stage_name,overwrite=True)
-        
-        plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['roc-auc-curve'], label_column)
-        plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['pr-auc-curve'], label_column)
-        plot_lift_chart(session, pipe, stage_name, test_x, test_y, figure_names['lift-chart'], label_column)
-        plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
+        try:
+            plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['roc-auc-curve'], label_column)
+            plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['pr-auc-curve'], label_column)
+            plot_lift_chart(session, pipe, stage_name, test_x, test_y, figure_names['lift-chart'], label_column)
+            plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
+        except Exception as e:
+            print(e)
+            print("Could not generate plots")
         return [model_id, model_metrics, prob_th]
     
     material_table = get_material_registry_name(session, material_registry_table_prefix)
@@ -414,7 +411,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     (model_id, model_metrics, prob_th) = json.loads(model_eval_data)
 
     for figure_name in figure_names.values():
-        fetch_staged_file(session, stage_name, figure_name, target_path)
+        try:
+            fetch_staged_file(session, stage_name, figure_name, target_path)
+        except:
+            print(f"Could not fetch {figure_name}")
+            
 
     results = {"config": {'training_dates': training_dates,
                         'material_names': material_names,
@@ -437,7 +438,7 @@ if __name__ == "__main__":
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
     inputs = None
-    output_folder = 'output/dev/seq_no/2'
+    output_folder = 'output/dev/seq_no/4'
     output_file_name = f"{output_folder}/train_output.json"
     from pathlib import Path
     path = Path(output_folder)

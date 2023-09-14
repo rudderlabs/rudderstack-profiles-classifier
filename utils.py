@@ -763,28 +763,36 @@ def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_co
     Returns:
         None. The function generates a bar chart and writes the feature importance values to a table in the session.
     """
-    train_x_processed = pipe['preprocessor'].transform(train_x)
-    train_x_processed = train_x_processed.astype(np.int_)
-    shap_values = shap.TreeExplainer(pipe['model']).shap_values(train_x_processed)
+    try:
+        train_x_processed = pipe['preprocessor'].transform(train_x)
+        train_x_processed = train_x_processed.astype(np.int_)
+        shap_values = shap.TreeExplainer(pipe['model']).shap_values(train_x_processed)
+        x_label = "Importance scores"
+        if isinstance(shap_values, list):
+            print("Got List output, suggesting that the model is a multi-output model. Using the second output for plotting feature importance")
+            x_label = "Importance scores of positive label"
+            shap_values = shap_values[1]
+        onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
+        col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(train_x) if col not in numeric_columns and col not in categorical_columns]
 
-    onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
-    col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(train_x) if col not in numeric_columns and col not in categorical_columns]
-
-    shap_df = pd.DataFrame(shap_values, columns=col_names_)
-    vals = np.abs(shap_df.values).mean(0)
-    feature_names = shap_df.columns
-    shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
-    shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
-    session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
-    
-    ax = shap_importance[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
-    ax.set_xlabel("Importance Score")
-    ax.set_ylabel("Feature Name")
-    plt.title(f"Top {top_k_features} Important Features")
-    figure_file = os.path.join('/tmp', f"{chart_name}")
-    plt.savefig(figure_file, bbox_inches="tight")
-    session.file.put(figure_file, stage_name, overwrite=True)
-    plt.clf()
+        shap_df = pd.DataFrame(shap_values, columns=col_names_)
+        vals = np.abs(shap_df.values).mean(0)
+        feature_names = shap_df.columns
+        shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
+        shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
+        session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
+        
+        ax = shap_importance[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel("Feature Name")
+        plt.title(f"Top {top_k_features} Important Features")
+        figure_file = os.path.join('/tmp', f"{chart_name}")
+        plt.savefig(figure_file, bbox_inches="tight")
+        session.file.put(figure_file, stage_name, overwrite=True)
+        plt.clf()
+    except Exception as e:
+        print("Exception occured while plotting feature importance")
+        print(e)
 
 def fetch_staged_file(session: snowflake.snowpark.Session, 
                         stage_name: str, 

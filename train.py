@@ -39,13 +39,9 @@ warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
 import utils
-import constants as constants
-
-
-
+import constants
 
 # logger.info("Start")
-
 def get_preprocessing_pipeline(numeric_columns: list, 
                                 categorical_columns: list, 
                                 numerical_pipeline_config: list, 

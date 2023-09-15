@@ -568,6 +568,43 @@ def split_train_test(session: snowflake.snowpark.Session,
     test_y = X_test[[label_column.upper()]]
     return train_x, train_y, test_x, test_y, val_x, val_y
 
+def local_split_train_test(feature_df: pd.DataFrame, 
+                     label_column: str, 
+                     entity_column: str,
+                     model_name_prefix: str, 
+                     train_size:float, 
+                     val_size: float, 
+                     test_size: float) -> Tuple:
+    """Splits the data in train test and validation according to the their given partition factions.
+
+    Args:
+        feature_table (snowflake.snowpark.Table): feature table from the retrieved material_names tuple
+        label_column (str): name of label column from feature table
+        entity_column (str): name of entity column from feature table
+        model_name_prefix (str): prefix for the model from model_configs file
+        train_size (float): partition fraction for train data
+        val_size (float): partition fraction for validation data
+        test_size (float): partition fraction for test data
+
+    Returns:
+        Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
+    """
+    feature_df.columns = feature_df.columns.str.upper()
+    latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
+    X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
+    X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
+    #ToDo: handle timestamp columns, remove customer_id from train_x
+    X_train.to_csv(f"tables/{model_name_prefix}_train.csv", index=False)
+    X_val.to_csv(f"tables/{model_name_prefix}_val.csv", index=False)
+    X_test.to_csv(f"tables/{model_name_prefix}_test.csv", index=False)
+    train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
+    train_y = X_train[[label_column.upper()]]
+    val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
+    val_y = X_val[[label_column.upper()]]
+    test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
+    test_y = X_test[[label_column.upper()]]
+    return train_x, train_y, test_x, test_y, val_x, val_y
+
 def get_classification_metrics(y_true: pd.DataFrame, 
                                y_pred_proba: np.array, 
                                th: float =0.5) -> dict:
@@ -693,6 +730,38 @@ def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, la
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
+def local_plot_roc_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> None:
+    """
+    Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.
+
+    Parameters:
+    session (object): The session object that provides access to the file storage.
+    pipe (object): The trained pipeline model.
+    stage_name (str): The name of the stage.
+    test_x (array-like): The test data features.
+    test_y (array-like): The test data labels.
+    chart_name (str): The name of the chart.
+    label_column (str): The name of the label column in the test data.
+
+    Returns:
+    None. The function does not return any value. The generated ROC curve plot is saved as an image file and uploaded to the session's file storage.
+    """
+    fpr, tpr, _ = roc_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
+    roc_auc = auc(fpr, tpr)
+    sns.set(style="ticks",  context='notebook')
+    plt.figure(figsize=(8, 6))
+    plt.plot(fpr, tpr, color="b", label=f"ROC AUC = {roc_auc:.2f}", linewidth=2)
+    plt.plot([0, 1], [0, 1], color="gray", linestyle="--", linewidth=2)
+    plt.title("ROC Curve (Test Data)")
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.legend(loc="lower right")
+    sns.despine()
+    plt.grid(True)
+    figure_file = os.path.join('tmp', f"{chart_name}").replace("\\", "/")
+    plt.savefig(figure_file)
+    plt.clf()
+
 def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
     """
     Plots a precision-recall curve and saves it as a file.
@@ -725,6 +794,39 @@ def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, lab
     figure_file = os.path.join('/tmp', f"{chart_name}")
     plt.savefig(figure_file)
     session.file.put(figure_file, stage_name, overwrite=True)
+    plt.clf()
+
+def local_plot_pr_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> None:
+    """
+    Plots a precision-recall curve and saves it as a file.
+
+    Args:
+        session (object): A session object used to upload the plot file.
+        pipe (object): A pipeline object used to predict probabilities.
+        stage_name (str): The name of the stage where the plot file will be uploaded.
+        test_x (array-like): The test data features.
+        test_y (array-like): The test data labels.
+        chart_name (str): The name of the plot file.
+        label_column (str): The column name of the label in the test data.
+
+    Returns:
+        None. The function only saves the precision-recall curve plot as a file.
+    """
+    precision, recall, _ = precision_recall_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
+    pr_auc = auc(recall, precision)
+    sns.set(style="ticks",  context='notebook')
+    plt.figure(figsize=(8, 6))
+    plt.plot(recall, precision, color="b", label=f"PR AUC = {pr_auc:.2f}", linewidth=2)
+    plt.ylim([int(min(precision)*20)/20, 1.0])
+    plt.xlim([int(min(recall)*20)/20, 1.0])
+    plt.title("Precision-Recall Curve (Test data)")
+    plt.xlabel("Recall")
+    plt.ylabel("Precision")
+    plt.legend(loc="lower left")
+    sns.despine()
+    plt.grid(True)
+    figure_file = os.path.join('tmp', f"{chart_name}").replace("\\", "/")
+    plt.savefig(figure_file)
     plt.clf()
 
 def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
@@ -772,6 +874,50 @@ def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label
     session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
 
+def local_plot_lift_chart(pipe, test_x, test_y, chart_name, label_column)-> None:
+    """
+    Generates a lift chart for a binary classification model.
+
+    Args:
+        session (object): The session object used to save the chart file.
+        pipe (object): The trained model pipeline.
+        stage_name (string): The name of the stage where the chart will be saved.
+        test_x (DataFrame): The test data features.
+        test_y (DataFrame): The test data labels.
+        chart_name (string): The name of the chart file.
+        label_column (string): The column name of the label in the test data.
+
+    Returns:
+        None. The function does not return any value, but it saves the lift chart as an image file in the specified location.
+    """
+    data = pd.DataFrame()
+    data['label'] = test_y[label_column.upper()].values
+    data['pred'] = pipe.predict_proba(test_x)[:,1]
+
+    sorted_indices = np.argsort(data["pred"].values, kind="heapsort")[::-1]
+    cumulative_actual = np.cumsum(data["label"][sorted_indices].values)
+    cumulative_percentage = np.linspace(0, 1, len(cumulative_actual)+1)
+
+    sns.set(style="ticks", context='notebook')
+    plt.figure(figsize=(8, 6))
+    sns.lineplot(x=cumulative_percentage*100, 
+                y=np.array([0] + list(100*cumulative_actual / cumulative_actual[-1])), 
+                linewidth=2, color="b", label="Model Lift curve")
+    sns.despine()
+    plt.plot([0, 100*data["label"].mean()], [0, 100], color="red", linestyle="--", label="Best Case", linewidth=1.5)
+    plt.plot([0, 100], [0, 100], color="black", linestyle="--", label="Baseline", linewidth=1.5)
+
+    plt.title("Cumulative Gain Curve")
+    plt.xlabel("Percentage of Data Targeted")
+    plt.ylabel("Percent of target users covered")
+    plt.ylim([0, 100])
+    plt.xlim([0, 100])
+    plt.legend()
+    plt.grid(True)
+    figure_file = os.path.join('tmp', f"{chart_name}").replace("\\", "/")
+    plt.savefig(figure_file)
+    plt.clf()
+
 def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, chart_name, top_k_features=5)-> None:
     """
     Generates a bar chart to visualize the top k important features in a machine learning model.
@@ -815,6 +961,55 @@ def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_co
         figure_file = os.path.join('/tmp', f"{chart_name}")
         plt.savefig(figure_file, bbox_inches="tight")
         session.file.put(figure_file, stage_name, overwrite=True)
+        plt.clf()
+    except Exception as e:
+        print("Exception occured while plotting feature importance")
+        print(e)
+
+def local_plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, chart_name, top_k_features=5)-> None:
+    """
+    Generates a bar chart to visualize the top k important features in a machine learning model.
+
+    Args:
+        session (object): The session object used for writing the feature importance values and saving the chart image.
+        pipe (object): The pipeline object containing the preprocessor and model.
+        stage_name (str): The name of the stage where the chart image will be saved.
+        train_x (array-like): The input data used for calculating the feature importance values.
+        numeric_columns (list): The list of column names for numeric features.
+        categorical_columns (list): The list of column names for categorical features.
+        chart_name (str): The name of the chart image file.
+        top_k_features (int, optional): The number of top important features to display in the chart. Default is 5.
+
+    Returns:
+        None. The function generates a bar chart and writes the feature importance values to a table in the session.
+    """
+    try:
+        train_x_processed = pipe['preprocessor'].transform(train_x)
+        train_x_processed = train_x_processed.astype(np.int_)
+        shap_values = shap.TreeExplainer(pipe['model']).shap_values(train_x_processed)
+        x_label = "Importance scores"
+        if isinstance(shap_values, list):
+            print("Got List output, suggesting that the model is a multi-output model. Using the second output for plotting feature importance")
+            x_label = "Importance scores of positive label"
+            shap_values = shap_values[1]
+        onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
+        col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(train_x) if col not in numeric_columns and col not in categorical_columns]
+
+        shap_df = pd.DataFrame(shap_values, columns=col_names_)
+        vals = np.abs(shap_df.values).mean(0)
+        feature_names = shap_df.columns
+        shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
+        shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
+        # session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
+        shap_importance.to_csv(f"tables/FEATURE_IMPORTANCE.csv", index=False)
+        
+        ax = shap_importance[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel("Feature Name")
+        plt.title(f"Top {top_k_features} Important Features")
+        figure_file = os.path.join('tmp', f"{chart_name}").replace("\\", "/")
+        plt.savefig(figure_file, bbox_inches="tight")
+        # session.file.put(figure_file, stage_name, overwrite=True)
         plt.clf()
     except Exception as e:
         print("Exception occured while plotting feature importance")

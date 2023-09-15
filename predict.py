@@ -23,7 +23,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils import get_metrics, load_yaml, remap_credentials, combine_config, generate_type_hint, drop_columns_if_exists, delete_import_files, get_material_registry_name, get_timestamp_columns
+import utils
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
 import constants
 from logger import logger
@@ -71,15 +71,15 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     Returns:
         None: save the prediction results but returns nothing
     """
-    connection_parameters = remap_credentials(creds)
+    connection_parameters = utils.remap_credentials(creds)
     session = Session.builder.configs(connection_parameters).create()
     stage_name = constants.STAGE_NAME
     model_file_name = constants.MODEL_FILE_NAME
     print(model_file_name)
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
-    notebook_config = load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
-    merged_config = combine_config(notebook_config, config)
+    notebook_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
+    merged_config = utils.combine_config(notebook_config, config)
 
     score_column_name = merged_config['outputs']['column_names']['score']
     percentile_column_name = merged_config['outputs']['column_names']['percentile']
@@ -94,14 +94,14 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     udf_name = "prediction_score"
 
     x_train_sample = session.table(f"{model_name_prefix}_train")
-    types = generate_type_hint(x_train_sample.drop(label_column, entity_column))
+    types = utils.generate_type_hint(x_train_sample.drop(label_column, entity_column))
     current_dir = os.path.dirname(os.path.abspath(__file__))
     predict_path = os.path.join(current_dir, 'predict.py')
     utils_path = os.path.join(current_dir, 'utils.py')
     constants_path = os.path.join(current_dir, 'constants.py')
 
     import_paths = [utils_path, constants_path]
-    delete_import_files(session, stage_name, import_paths)
+    utils.delete_import_files(session, stage_name, import_paths)
     
     print("Caching")
     @cachetools.cached(cache={})
@@ -144,7 +144,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     current_ts = datetime.datetime.now()
 
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
-    material_table = get_material_registry_name(session, material_registry_table_prefix)
+    material_table = utils.get_material_registry_name(session, material_registry_table_prefix)
     latest_hash_df = session.table(material_table).filter(F.col("model_hash") == model_hash)
     
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
@@ -154,9 +154,9 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     if eligible_users:
         raw_data = raw_data.filter(eligible_users)
 
-    predict_data = drop_columns_if_exists(raw_data, ignore_feature)
+    predict_data = utils.drop_columns_if_exists(raw_data, ignore_feature)
     if len(timestamp_columns) == 0:
-        timestamp_columns = get_timestamp_columns(session, predict_data, index_timestamp)
+        timestamp_columns = utils.get_timestamp_columns(session, predict_data, index_timestamp)
     for col in timestamp_columns:
         predict_data = predict_data.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
 

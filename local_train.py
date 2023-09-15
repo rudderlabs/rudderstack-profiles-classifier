@@ -1,59 +1,51 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.metrics import average_precision_score, precision_recall_curve, PrecisionRecallDisplay, roc_curve, RocCurveDisplay, auc
-from sklearn.compose import ColumnTransformer
-from sklearn.model_selection import train_test_split
-from xgboost import XGBClassifier
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neural_network import MLPClassifier
+import yaml
+import json
+from datetime import datetime
 import joblib
 import os
-import gzip
-import shutil
-from snowflake.snowpark.session import Session
-import snowflake.snowpark.functions as F
-import snowflake.snowpark.types as T
-from typing import List
-from snowflake.snowpark.functions import sproc
-import snowflake.snowpark
-from snowflake.snowpark.functions import col
 import time
 from typing import Tuple, List, Union
 from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
-
-import pickle
-import sys
 from copy import deepcopy
+
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
+from xgboost import XGBClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.neural_network import MLPClassifier
+
+from snowflake.snowpark.session import Session
+from snowflake.snowpark.functions import sproc
+import snowflake.snowpark
+from snowflake.snowpark.functions import col
+
 # from logger import logger
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
-
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, average_precision_score
+from sklearn.metrics import precision_recall_fscore_support, average_precision_score
 import numpy as np 
 import pandas as pd
 from typing import Tuple, List
 
+import warnings
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
+warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
-from utils import local_plot_feature_importance, local_plot_lift_chart, local_plot_pr_auc_curve, local_plot_roc_auc_curve, load_yaml, remap_credentials, combine_config, get_date_range, local_split_train_test, get_column_names, delete_import_files, delete_procedures, get_material_registry_name, get_latest_material_hash, get_timestamp_columns, get_material_names, prepare_feature_table, split_train_test, get_classification_metrics, get_best_th, get_metrics, get_label_date_ref, plot_pr_auc_curve, plot_roc_auc_curve, plot_lift_chart, plot_feature_importance, fetch_staged_file, get_output_directory
+from utils import local_plot_top_k_feature_importance, local_plot_lift_chart, local_plot_pr_auc_curve, local_plot_roc_auc_curve, local_split_train_test, load_yaml, remap_credentials, combine_config, get_date_range,  get_numeric_columns, get_categorical_columns, transform_null, delete_import_files, delete_procedures, get_material_registry_name, get_latest_material_hash, get_timestamp_columns, get_material_names, prepare_feature_table, split_train_test, get_metrics, plot_pr_auc_curve, plot_roc_auc_curve, plot_lift_chart, plot_top_k_feature_importance, fetch_staged_file, get_output_directory
 import constants as constants
-import yaml
-import json
-import subprocess
-from datetime import datetime, timezone
-import matplotlib.pyplot as plt
-import scikitplot as skplt
-import shap
+
+
 
 
 # logger.info("Start")
 
-# Used in train_sp
 def get_preprocessing_pipeline(numeric_columns: list, 
                                 categorical_columns: list, 
                                 numerical_pipeline_config: list, 
@@ -114,14 +106,12 @@ def get_preprocessing_pipeline(numeric_columns: list,
 hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}
 evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
 
-# Used in train_sp
 def get_model_pipeline(preprocessor, clf):           
     pipe = Pipeline([('preprocessor', preprocessor), 
                     ('model', clf)])
     return pipe
 
 #Generate hyper parameter space for given options
-# Used in build_model
 def generate_hyperparameter_space(hyperopts: List[dict]) -> dict:
     """Returns a dict of hyper-parameters expression map
 
@@ -195,16 +185,33 @@ def build_model(X_train:pd.DataFrame,
     clf = model_class(**best_hyperparams, **model_config["modelparams"])
     return clf, trials
 
-# Used in train func only
-def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str):
-    path_components = output_path.split(os.path.sep)
-    output_index = path_components.index('output')
-    pb_proj_dir = os.path.sep.join(path_components[:output_index])
-    features_valid_time_unix = int(datetime.strptime(features_valid_time, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
-    args = ["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
-    print(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
-    #subprocess.run(["pb", "run", "-m", "packages/feature_table/models/shopify_user_features", "--end_time", str(features_valid_time_unix)])
-    subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+def select_best_clf(models, train_x, train_y, val_x, val_y, models_map):
+    """
+    Selects the best classifier model based on the given list of models and their configurations.
+
+    Args:
+        models (list): A list of dictionaries representing the models to be trained.
+        train_x (pd.DataFrame): The training data features.
+        train_y (pd.DataFrame): The training data labels.
+        val_x (pd.DataFrame): The validation data features.
+        val_y (pd.DataFrame): The validation data labels.
+        models_map (dict): A dictionary mapping model names to their corresponding classes.
+
+    Returns:
+        final_clf (object): The selected classifier model with the best hyperparameters.
+    """
+    best_acc = 0
+    for model_config in models:
+        name = model_config["name"]
+        print(f"Training {name}")
+
+        clf, trials = build_model(train_x, train_y, val_x, val_y, models_map[name], model_config)
+
+        if best_acc < max([ -1*loss for loss in trials.losses()]):
+            final_clf = clf
+            best_acc = max([ -1*loss for loss in trials.losses()])
+
+    return final_clf
 
 def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     """Trains the model and saves the model with given output_filename.
@@ -227,8 +234,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     model_file_name = constants.MODEL_FILE_NAME
     stage_name = constants.STAGE_NAME
+    material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
+    material_table_prefix = constants.MATERIAL_TABLE_PREFIX
     session.sql(f"create stage if not exists {stage_name.replace('@', '')}").collect()
-    
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
     utils_path = os.path.join(current_dir, 'utils.py')
     constants_path = os.path.join(current_dir, 'constants.py')
@@ -236,24 +245,50 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     folder_path = os.path.dirname(output_filename)
     target_path = get_output_directory(folder_path)
 
+    notebook_config = load_yaml(config_path)
+    merged_config = combine_config(notebook_config, config)
+
+    entity_column = merged_config['data']['entity_column']
+    index_timestamp = merged_config['data']['index_timestamp']
+    label_column = merged_config['data']['label_column']
+    label_value = merged_config['data']['label_value']
+    timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
+    eligible_users = merged_config['data']['eligible_users']
+    ignore_features = merged_config['preprocessing']['ignore_features']
+    model_name_prefix = merged_config['data']['model_name_prefix']
+    start_date = merged_config['data']['train_start_dt']
+    end_date = merged_config['data']['train_end_dt']
+    prediction_horizon_days = merged_config['data']['prediction_horizon_days']
+    model_name = merged_config['data']['model_name']
+    package_name = merged_config['data']['package_name']
+    train_size = merged_config['preprocessing']['train_size']
+    val_size = merged_config['preprocessing']['val_size']
+    test_size = merged_config['preprocessing']['test_size']
+    numerical_pipeline_config = merged_config['preprocessing']['numeric_pipeline']['pipeline']
+    categorical_pipeline_config = merged_config['preprocessing']['categorical_pipeline']['pipeline']
+
+    figure_names = {"roc-auc-curve": f"01-test-roc-auc.png",
+                    "pr-auc-curve": f"02-test-pr-auc.png",
+                    "lift-chart": f"03-test-lift-chart.png",
+                    "feature-importance-chart": f"04-feature-importance-chart.png"}
+    train_procedure = 'train_sproc'
+
     import_paths = [utils_path, constants_path]
     delete_import_files(session, stage_name, import_paths)
-    train_procedure = 'train_sproc'
     delete_procedures(session, train_procedure)
 
-    @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
-        packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
-    def train_sp(session: snowflake.snowpark.Session,
-                feature_table_name: str,
+    # @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
+    #     packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
+    def local_train_sp(feature_table: snowflake.snowpark.Table,
                 entity_column: str,
                 label_column: str,
                 model_name_prefix: str,
                 numerical_pipeline_config: list,
                 categorical_pipeline_config: list,
+                figure_names: dict,
                 train_size: float, 
                 val_size: float,
                 test_size: float,
-                folder_path: str,
                 merged_config: dict) -> list:
         """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
 
@@ -268,62 +303,37 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             train_size (float): partition fraction for train data
             val_size (float): partition fraction for validation data
             test_size (float): partition fraction for test data
+            merged_config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
 
         Returns:
             list: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
         """
-        # creating dataframe and splitting the dataframe into train, val and test sets
-        sorted_feature_table = session.table(feature_table_name)
-        train_x, train_y, test_x, test_y, val_x, val_y = local_split_train_test(sorted_feature_table, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
-
-        categorical_columns = []
-        for field in sorted_feature_table.schema.fields:
-            if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-                categorical_columns.append(field.name)
-        
-        numeric_columns = []
-        for field in sorted_feature_table.schema.fields:
-            if field.datatype != T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-                numeric_columns.append(field.name)
-                
-        train_x[numeric_columns] = train_x[numeric_columns].replace({pd.NA: np.nan})
-        train_x[categorical_columns] = train_x[categorical_columns].replace({pd.NA: None})
-
-        # logger.debug("Training data shape: %s", train_x.shape)
-        # logger.debug("Training data types:\n%s", train_x.dtypes)
-        # logger.debug("Training data head:\n%s", train_x.head())
+        model_file_name = constants.MODEL_FILE_NAME
+        metrics_table = constants.METRICS_TABLE
 
         train_config = merged_config['train']
 
         models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
         models = train_config["model_params"]["models"]
-        best_acc = 0
+
+        feature_df = feature_table.to_pandas()
+        train_x, train_y, test_x, test_y, val_x, val_y = local_split_train_test(feature_df, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
+
+        categorical_columns = get_categorical_columns(feature_table, label_column, entity_column)
+        numeric_columns = get_numeric_columns(feature_table, label_column, entity_column)
+        train_x = transform_null(train_x, numeric_columns, categorical_columns)
+        val_x = transform_null(val_x, numeric_columns, categorical_columns)
 
         preprocessor_pipe_x = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
         train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
         val_x_processed = preprocessor_pipe_x.transform(val_x)
-
-        for model_config in models:
-            name = model_config["name"]
-            print(f"Training {name}")
-
-            clf, trials = build_model(train_x_processed, train_y, val_x_processed, val_y, models_map[name], model_config)
-
-            if best_acc < max([ -1*loss for loss in trials.losses()]):
-                final_clf = clf
-                best_acc = max([ -1*loss for loss in trials.losses()])
-
+        
+        final_clf = select_best_clf(models, train_x_processed, train_y, val_x_processed, val_y, models_map)
         preprocessor_pipe_optimized = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
         pipe = get_model_pipeline(preprocessor_pipe_optimized, final_clf)
         pipe.fit(train_x, train_y)
 
-        model_metrics, _, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y)
-
-        model_file_name = constants.MODEL_FILE_NAME
-
-        local_plot_roc_auc_curve(pipe, test_x, test_y, f"01-test-roc-auc.png", label_column)
-        local_plot_pr_auc_curve(pipe, test_x, test_y, f"02-test-pr-auc.png", label_column)
-        local_plot_lift_chart(pipe, test_x, test_y, f"03-test-lift-chart.png", label_column)
+        model_metrics, _, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y,train_config)
 
         model_id = str(int(time.time()))
         result_dict = {"model_id": model_id,
@@ -332,133 +342,91 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                         "metrics": model_metrics}
         
         metrics_df = pd.DataFrame.from_dict(result_dict).reset_index()
-        metrics_df.to_csv(f"{constants.METRICS_TABLE}.csv", index=False)
 
-        model_file = os.path.join('/tmp', model_file_name)
+        metrics_df.to_csv(f"tables/{metrics_table}", index=False)
+
+        model_file = os.path.join('tmp', model_file_name).replace("\\", "/")
         joblib.dump(pipe, model_file)
         # session.file.put(model_file, stage_name,overwrite=True)
 
         column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
-        column_name_file = os.path.join('/tmp', f"{model_name_prefix}_{model_id}_column_names.json")
+        column_name_file = os.path.join('tmp', f"{model_name_prefix}_{model_id}_column_names.json").replace("\\", "/")
         json.dump(column_dict, open(column_name_file,"w"))
         # session.file.put(column_name_file, stage_name,overwrite=True)
-
-        train_x_processed = preprocessor_pipe_optimized.transform(train_x)
-        train_x_processed = train_x_processed.astype(np.int_)
-        shap_values = shap.TreeExplainer(final_clf).shap_values(train_x_processed)
-
-        onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
-        col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(train_x) if col not in numeric_columns and col not in categorical_columns]
-
-        shap_df = pd.DataFrame(shap_values, columns=col_names_)
-        vals = np.abs(shap_df.values).mean(0)
-        feature_names = shap_df.columns
-        shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
-        shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
-        shap_importance.to_csv(f"FEATURE_IMPORTANCE.csv", index=False)
-        local_plot_feature_importance(shap_importance, 5, f"04-feature-importance-chart.png")
-
-        return [model_id, model_metrics, prob_th]
-
-    notebook_config = load_yaml(config_path)
-    merged_config = combine_config(notebook_config, config)
-
-    material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
+        try:
+            local_plot_roc_auc_curve(pipe, test_x, test_y, figure_names['roc-auc-curve'], label_column)
+            local_plot_pr_auc_curve(pipe, test_x, test_y, figure_names['pr-auc-curve'], label_column)
+            local_plot_lift_chart(pipe, test_x, test_y, figure_names['lift-chart'], label_column)
+            local_plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
+        except Exception as e:
+            print(e)
+            print("Could not generate plots")
+        return json.dumps([model_id, model_metrics, prob_th])
+    
     material_table = get_material_registry_name(session, material_registry_table_prefix)
-    start_date = merged_config['data']['train_start_dt']
-    end_date = merged_config['data']['train_end_dt']
-    prediction_horizon_days = merged_config['data']['prediction_horizon_days']
-    model_name = merged_config['data']['model_name']
-    package_name = merged_config['data']['package_name']
-    material_table_prefix = constants.MATERIAL_TABLE_PREFIX
-
     model_hash, creation_ts = get_latest_material_hash(session, material_table, model_name)
 
     if start_date == None or end_date == None:
         start_date, end_date = get_date_range(creation_ts, prediction_horizon_days)
 
-    material_names, training_dates = get_material_names(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
-    if len(material_names) == 0:
-        try:
-            # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
-            feature_package_path = f"packages/{package_name}/models/{model_name}"
-            materialise_past_data(start_date, feature_package_path, output_filename)
-            start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
-            materialise_past_data(start_date_label, feature_package_path, output_filename)
-            material_names, training_dates = get_material_names(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
-            if len(material_names) == 0:
-                raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
-        except Exception as e:
-            # logger.exception(e)
-            print("Exception occured while materialising data. Please check the logs for more details")
-            raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
-    
-    entity_column = merged_config['data']['entity_column']
-    index_timestamp = merged_config['data']['index_timestamp']
-    label_column = merged_config['data']['label_column']
-    label_value = merged_config['data']['label_value']
-    timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
-    eligible_users = merged_config['data']['eligible_users']
-    ignore_features = merged_config['preprocessing']['ignore_features']
-    model_name_prefix = merged_config['data']['model_name_prefix']
-
-    train_size = merged_config['preprocessing']['train_size']
-    val_size = merged_config['preprocessing']['val_size']
-    test_size = merged_config['preprocessing']['test_size']
-
-    numerical_pipeline_config = merged_config['preprocessing']['numeric_pipeline']['pipeline']
-    categorical_pipeline_config = merged_config['preprocessing']['categorical_pipeline']['pipeline']
-    
-    flag = False
+    material_names, training_dates = get_material_names(session, material_table, start_date, end_date, package_name, model_name, model_hash, material_table_prefix, prediction_horizon_days, output_filename)
+ 
+    feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
-        if flag is False:
-            feature_table = prepare_feature_table(session, 
-                                        feature_table_name, 
-                                        label_table_name,
-                                        entity_column, 
-                                        index_timestamp,
-                                        timestamp_columns, 
-                                        eligible_users, 
-                                        label_column,
-                                        label_value, 
-                                        prediction_horizon_days,
-                                        ignore_features)
-            flag = True
+        feature_table_instance = prepare_feature_table(session, 
+                                    feature_table_name, 
+                                    label_table_name,
+                                    entity_column, 
+                                    index_timestamp,
+                                    timestamp_columns, 
+                                    eligible_users, 
+                                    label_column,
+                                    label_value, 
+                                    prediction_horizon_days,
+                                    ignore_features)
+        if feature_table is None:
+            feature_table = feature_table_instance
         else:
-            feature_table = feature_table.unionAllByName(prepare_feature_table(session, 
-                                                                                feature_table_name, 
-                                                                                label_table_name,
-                                                                                entity_column, 
-                                                                                index_timestamp,
-                                                                                timestamp_columns, 
-                                                                                eligible_users, 
-                                                                                label_column,
-                                                                                label_value, 
-                                                                                prediction_horizon_days,
-                                                                                ignore_features))
-    feature_table_name_remote = f"{model_name_prefix}_features"
-    sorted_feature_table = feature_table.sort(col(entity_column).asc(), col(index_timestamp).desc()).drop([index_timestamp])
-    sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
+            feature_table = feature_table.unionAllByName(feature_table_instance)
 
-    model_eval_data = session.call(train_procedure, 
-                    feature_table_name_remote,
+    # feature_table_name_remote = f"{model_name_prefix}_features"
+    sorted_feature_table = feature_table.sort(col(entity_column).asc(), col(index_timestamp).desc()).drop([index_timestamp])
+    # sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
+
+    # model_eval_data = session.call(train_procedure, 
+    #                 feature_table_name_remote,
+    #                 entity_column,
+    #                 label_column,
+    #                 model_name_prefix,
+    #                 numerical_pipeline_config,
+    #                 categorical_pipeline_config,
+    #                 figure_names,
+    #                 train_size,
+    #                 val_size,
+    #                 test_size,
+    #                 merged_config)
+    
+    model_eval_data = local_train_sp(sorted_feature_table,
                     entity_column,
                     label_column,
                     model_name_prefix,
                     numerical_pipeline_config,
                     categorical_pipeline_config,
+                    figure_names,
                     train_size,
                     val_size,
                     test_size,
-                    folder_path,
-                    merged_config
-                    )
+                    merged_config)
 
     (model_id, model_metrics, prob_th) = json.loads(model_eval_data)
 
-    # for output_image in [f"01-test-roc-auc.png", f"02-test-pr-auc.png", f"03-test-lift-chart.png", f"04-feature-importance-chart.png"]:
-    #     fetch_staged_file(session, stage_name, output_image, target_path)
+    # for figure_name in figure_names.values():
+    #     try:
+    #         fetch_staged_file(session, stage_name, figure_name, target_path)
+    #     except:
+    #         print(f"Could not fetch {figure_name}")
+            
 
     results = {"config": {'training_dates': training_dates,
                         'material_names': material_names,
@@ -481,7 +449,7 @@ if __name__ == "__main__":
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
     inputs = None
-    output_folder = 'output/dev/seq_no/2'
+    output_folder = 'output/dev/seq_no/4'
     output_file_name = f"{output_folder}/train_output.json"
     from pathlib import Path
     path = Path(output_folder)

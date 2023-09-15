@@ -411,13 +411,13 @@ def get_material_names_(session: snowflake.snowpark.Session,
 
     feature_snowpark_df = (snowpark_df
                 .filter(col("model_name") == model_name)
-                .filter(col("model_hash") == model_hash)
+                #.filter(col("model_hash") == model_hash)
                 .filter(f"end_ts between \'{start_time}\' and \'{end_time}\'")
                 .select("seq_no", "end_ts")
                 ).distinct()
     label_snowpark_df = (snowpark_df
                 .filter(col("model_name") == model_name)
-                .filter(col("model_hash") == model_hash)
+                #.filter(col("model_hash") == model_hash) #TODO: Disabled model hash temporarily
                 .filter(f"end_ts between dateadd(day, {prediction_horizon_days}, \'{start_time}\') and dateadd(day, {prediction_horizon_days}, \'{end_time}\')")
                 .select("seq_no", "end_ts")
                 ).distinct()

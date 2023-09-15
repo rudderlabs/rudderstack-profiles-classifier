@@ -3,6 +3,7 @@ from sklearn.model_selection import train_test_split
 import numpy as np 
 import pandas as pd
 from typing import Tuple, List, Union
+from scipy.optimize import minimize_scalar
 
 import snowflake.snowpark
 from snowflake.snowpark.session import Session
@@ -606,15 +607,11 @@ def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array,train_config: dict)
         raise ValueError(f"Unsupported metric: {metric_to_optimize}")
 
     objective_function = metric_functions[metric_to_optimize]
+    objective = lambda th: -objective_function(y_true, np.where(y_pred_proba > th, 1, 0))
 
-    best_metric_value = 0.0
-    best_th = 0.0
-
-    for th in np.arange(0, 1, 0.01):
-        metric_value = objective_function(y_true, np.where(y_pred_proba > th, 1, 0))
-        if metric_value >= best_metric_value:
-            best_th = th
-            best_metric_value = metric_value
+    result = minimize_scalar(objective, bounds=(0, 1), method='bounded')
+    best_th = result.x
+    best_metric_value = -result.fun  
             
     best_metrics = get_classification_metrics(y_true, y_pred_proba, best_th)
     return best_metrics, best_th

@@ -367,14 +367,18 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
     Example Usage:
         materialise_past_data("2022-01-01", "packages/feature_table/models/shopify_user_features", "output/path")
     """
-    path_components = output_path.split(os.path.sep)
-    output_index = path_components.index('output')
-    pb_proj_dir = os.path.sep.join(path_components[:output_index])
-    features_valid_time_unix = int(datetime.strptime(features_valid_time, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
-    args = ["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
-    print(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
-    #subprocess.run(["pb", "run", "-m", "packages/feature_table/models/shopify_user_features", "--end_time", str(features_valid_time_unix)])
-    subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        path_components = output_path.split(os.path.sep)
+        output_index = path_components.index('output')
+        pb_proj_dir = os.path.sep.join(path_components[:output_index])
+        features_valid_time_unix = int(datetime.strptime(features_valid_time, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
+        args = ["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
+        print(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
+        #subprocess.run(["pb", "run", "-m", "packages/feature_table/models/shopify_user_features", "--end_time", str(features_valid_time_unix)])
+        subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    except Exception as e:
+        print(f"Exception occured while materialising data for date {features_valid_time} ")
+        print(e)
 
 def get_material_names_(session: snowflake.snowpark.Session,
                        material_table: str, 
@@ -407,13 +411,13 @@ def get_material_names_(session: snowflake.snowpark.Session,
 
     feature_snowpark_df = (snowpark_df
                 .filter(col("model_name") == model_name)
-                .filter(col("model_hash") == model_hash)
+                #.filter(col("model_hash") == model_hash)
                 .filter(f"end_ts between \'{start_time}\' and \'{end_time}\'")
                 .select("seq_no", "end_ts")
                 ).distinct()
     label_snowpark_df = (snowpark_df
                 .filter(col("model_name") == model_name)
-                .filter(col("model_hash") == model_hash)
+                #.filter(col("model_hash") == model_hash) #TODO: Disabled model hash temporarily
                 .filter(f"end_ts between dateadd(day, {prediction_horizon_days}, \'{start_time}\') and dateadd(day, {prediction_horizon_days}, \'{end_time}\')")
                 .select("seq_no", "end_ts")
                 ).distinct()

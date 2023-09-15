@@ -758,7 +758,7 @@ def local_plot_roc_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> N
     plt.legend(loc="lower right")
     sns.despine()
     plt.grid(True)
-    figure_file = os.path.join('tmp', f"{chart_name}").replace("\\", "/")
+    figure_file = f"tmp/{chart_name}"
     plt.savefig(figure_file)
     plt.clf()
 
@@ -825,7 +825,7 @@ def local_plot_pr_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> No
     plt.legend(loc="lower left")
     sns.despine()
     plt.grid(True)
-    figure_file = os.path.join('tmp', f"{chart_name}").replace("\\", "/")
+    figure_file = f"tmp/{chart_name}"
     plt.savefig(figure_file)
     plt.clf()
 
@@ -914,7 +914,7 @@ def local_plot_lift_chart(pipe, test_x, test_y, chart_name, label_column)-> None
     plt.xlim([0, 100])
     plt.legend()
     plt.grid(True)
-    figure_file = os.path.join('tmp', f"{chart_name}").replace("\\", "/")
+    figure_file = f"tmp/{chart_name}"
     plt.savefig(figure_file)
     plt.clf()
 
@@ -1007,7 +1007,7 @@ def local_plot_top_k_feature_importance(pipe, train_x, numeric_columns, categori
         ax.set_xlabel(x_label)
         ax.set_ylabel("Feature Name")
         plt.title(f"Top {top_k_features} Important Features")
-        figure_file = os.path.join('tmp', f"{chart_name}").replace("\\", "/")
+        figure_file = f"tmp/{chart_name}"
         plt.savefig(figure_file, bbox_inches="tight")
         # session.file.put(figure_file, stage_name, overwrite=True)
         plt.clf()

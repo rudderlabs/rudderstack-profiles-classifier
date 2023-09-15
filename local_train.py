@@ -345,12 +345,12 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
         metrics_df.to_csv(f"tables/{metrics_table}", index=False)
 
-        model_file = os.path.join('tmp', model_file_name).replace("\\", "/")
+        model_file = f"tmp/{model_file_name}"
         joblib.dump(pipe, model_file)
         # session.file.put(model_file, stage_name,overwrite=True)
 
         column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
-        column_name_file = os.path.join('tmp', f"{model_name_prefix}_{model_id}_column_names.json").replace("\\", "/")
+        column_name_file = f"tmp/{model_name_prefix}_{model_id}_column_names.json"
         json.dump(column_dict, open(column_name_file,"w"))
         # session.file.put(column_name_file, stage_name,overwrite=True)
         try:

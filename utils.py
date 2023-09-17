@@ -411,13 +411,13 @@ def get_material_names_(session: snowflake.snowpark.Session,
 
     feature_snowpark_df = (snowpark_df
                 .filter(col("model_name") == model_name)
-                #.filter(col("model_hash") == model_hash)
+                .filter(col("model_hash") == model_hash)
                 .filter(f"end_ts between \'{start_time}\' and \'{end_time}\'")
                 .select("seq_no", "end_ts")
                 ).distinct()
     label_snowpark_df = (snowpark_df
                 .filter(col("model_name") == model_name)
-                #.filter(col("model_hash") == model_hash) #TODO: Disabled model hash temporarily
+                .filter(col("model_hash") == model_hash) 
                 .filter(f"end_ts between dateadd(day, {prediction_horizon_days}, \'{start_time}\') and dateadd(day, {prediction_horizon_days}, \'{end_time}\')")
                 .select("seq_no", "end_ts")
                 ).distinct()
@@ -456,23 +456,27 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
             - material_names: A list of tuples containing the names of the feature and label tables.
             - training_dates: A list of tuples containing the corresponding training dates.
     """
-    material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+    try:
+        material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
 
-    if len(material_names) == 0:
-        try:
-            # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
-            feature_package_path = f"packages/{package_name}/models/{model_name}"
-            materialise_past_data(start_date, feature_package_path, output_filename)
-            start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
-            materialise_past_data(start_date_label, feature_package_path, output_filename)
-            material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
-            if len(material_names) == 0:
+        if len(material_names) == 0:
+            try:
+                # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
+                feature_package_path = f"packages/{package_name}/models/{model_name}"
+                materialise_past_data(start_date, feature_package_path, output_filename)
+                start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
+                materialise_past_data(start_date_label, feature_package_path, output_filename)
+                material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+                if len(material_names) == 0:
+                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+            except Exception as e:
+                # logger.exception(e)
+                print("Exception occured while materialising data. Please check the logs for more details")
                 raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
-        except Exception as e:
-            # logger.exception(e)
-            print("Exception occured while materialising data. Please check the logs for more details")
-            raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
-    return material_names, training_dates
+        return material_names, training_dates
+    except Exception as e:
+        print("Exception occured while retrieving material names. Please check the logs for more details")
+        raise e
 
 def prepare_feature_table(session: snowflake.snowpark.Session,
                           feature_table_name: str, 
@@ -503,23 +507,27 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
     Returns:
         snowflake.snowpark.Table: feature table made using given instance from material names
     """
-    label_ts_col = f"{index_timestamp}_label_ts"
-    feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
-    if eligible_users:
-        feature_table = feature_table.filter(eligible_users)
-    feature_table = feature_table.drop([label_column])
-    if len(timestamp_columns) == 0:
-        timestamp_columns = get_timestamp_columns(session, feature_table, index_timestamp)
-    for col in timestamp_columns:
-        feature_table = feature_table.withColumn(col, F.datediff('day', F.col(col), F.col(index_timestamp)))
-    label_table = (session.table(label_table_name)
-                   .withColumn(label_column, F.when(F.col(label_column)==label_value, F.lit(1)).otherwise(F.lit(0)))
-                   .select(entity_column, label_column, index_timestamp)
-                   .withColumnRenamed(F.col(index_timestamp), label_ts_col))
-    uppercase_list = lambda names: [name.upper() for name in names]
-    lowercase_list = lambda names: [name.lower() for name in names]
-    ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
-    return feature_table.join(label_table, [entity_column], join_type="left").drop([label_ts_col]).drop(ignore_features_)
+    try:
+        label_ts_col = f"{index_timestamp}_label_ts"
+        feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
+        if eligible_users:
+            feature_table = feature_table.filter(eligible_users)
+        feature_table = feature_table.drop([label_column])
+        if len(timestamp_columns) == 0:
+            timestamp_columns = get_timestamp_columns(session, feature_table, index_timestamp)
+        for col in timestamp_columns:
+            feature_table = feature_table.withColumn(col, F.datediff('day', F.col(col), F.col(index_timestamp)))
+        label_table = (session.table(label_table_name)
+                    .withColumn(label_column, F.when(F.col(label_column)==label_value, F.lit(1)).otherwise(F.lit(0)))
+                    .select(entity_column, label_column, index_timestamp)
+                    .withColumnRenamed(F.col(index_timestamp), label_ts_col))
+        uppercase_list = lambda names: [name.upper() for name in names]
+        lowercase_list = lambda names: [name.lower() for name in names]
+        ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
+        return feature_table.join(label_table, [entity_column], join_type="left").drop([label_ts_col]).drop(ignore_features_)
+    except Exception as e:
+        print("Exception occured while preparing feature table. Please check the logs for more details")
+        raise e
     
 def split_train_test(session: snowflake.snowpark.Session,
                      feature_table: snowflake.snowpark.Table, 
@@ -549,9 +557,9 @@ def split_train_test(session: snowflake.snowpark.Session,
     X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
     X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
     #ToDo: handle timestamp columns, remove customer_id from train_x
-    session.write_pandas(X_train, table_name=f"{model_name_prefix}_train", auto_create_table=True, overwrite=True)
-    session.write_pandas(X_val, table_name=f"{model_name_prefix}_val", auto_create_table=True, overwrite=True)
-    session.write_pandas(X_test, table_name=f"{model_name_prefix}_test", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_train, table_name=f"{model_name_prefix.upper()}_TRAIN", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_val, table_name=f"{model_name_prefix.upper()}_VAL", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_test, table_name=f"{model_name_prefix.upper()}_TEST", auto_create_table=True, overwrite=True)
     train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
     train_y = X_train[[label_column.upper()]]
     val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)

@@ -23,7 +23,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from utils import get_metrics, load_yaml, remap_credentials, combine_config, generate_type_hint, drop_columns_if_exists, delete_import_files, get_material_registry_name, get_timestamp_columns
+from utils import get_metrics, load_yaml, remap_credentials, combine_config, generate_type_hint, drop_columns_if_exists, delete_import_files, get_ignore_features, get_material_registry_name, get_timestamp_columns
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
 import constants
 from logger import logger
@@ -87,7 +87,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     label_column = merged_config["data"]["label_column"]
     index_timestamp = merged_config["data"]["index_timestamp"]
     eligible_users = merged_config["data"]["eligible_users"]
-    ignore_feature = merged_config["preprocessing"]["ignore_features"]
+    ignore_features = merged_config["preprocessing"]["ignore_features"]
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     entity_column = merged_config["data"]["entity_column"]
     model_name = merged_config["data"]["model_name"]
@@ -153,8 +153,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     if eligible_users:
         raw_data = raw_data.filter(eligible_users)
-
-    predict_data = drop_columns_if_exists(raw_data, ignore_feature)
+    ignore_features = get_ignore_features(raw_data, ignore_features)
+    predict_data = drop_columns_if_exists(raw_data, ignore_features)
     if len(timestamp_columns) == 0:
         timestamp_columns = get_timestamp_columns(session, predict_data, index_timestamp)
     for col in timestamp_columns:

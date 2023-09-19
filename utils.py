@@ -352,6 +352,20 @@ def get_latest_material_hash(session: snowflake.snowpark.Session,
     creation_ts = temp_hash_vector.CREATION_TS
     return model_hash, creation_ts
 
+def get_ignore_features(table: snowflake.snowpark.Table, ignore_features: list)-> list:
+    """Returns the list of features to be ignored from the feature table.
+
+    Args:
+        table (snowflake.snowpark.Table): snowpark table.
+        ignore_features (list): The list of features to be ignored from model_config file.
+
+    Returns:
+        list: The list of features to be ignored based column datatypes as ArrayType.
+    """
+    additional_ignored_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType() and row.name not in ignore_features]
+    ignore_features.extend(additional_ignored_features)
+    return ignore_features
+
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str)-> None:
     """
     Materializes past data for a given date using the 'pb' command-line tool.
@@ -510,6 +524,7 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
     try:
         label_ts_col = f"{index_timestamp}_label_ts"
         feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
+        ignore_features = get_ignore_features(feature_table, ignore_features)
         if eligible_users:
             feature_table = feature_table.filter(eligible_users)
         feature_table = feature_table.drop([label_column])

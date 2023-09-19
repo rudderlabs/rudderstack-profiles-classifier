@@ -170,7 +170,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     
 
 if __name__ == "__main__":
-    with open("/Users/ambuj/.pb/siteconfig.yaml", "r") as f:
+    homedir = os.path.expanduser("~")
+    with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None

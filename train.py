@@ -38,14 +38,10 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
-from utils import load_yaml, remap_credentials, combine_config, get_date_range,  get_numeric_columns, get_categorical_columns, transform_null, delete_import_files, delete_procedures, get_material_registry_name, get_latest_material_hash, get_timestamp_columns, get_material_names, prepare_feature_table, split_train_test, get_metrics, plot_pr_auc_curve, plot_roc_auc_curve, plot_lift_chart, plot_top_k_feature_importance, fetch_staged_file, get_output_directory
-import constants as constants
-
-
-
+import utils
+import constants
 
 # logger.info("Start")
-
 def get_preprocessing_pipeline(numeric_columns: list, 
                                 categorical_columns: list, 
                                 numerical_pipeline_config: list, 
@@ -229,7 +225,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     Returns:
         None: saves the model but returns nothing
     """
-    connection_parameters = remap_credentials(creds)
+    connection_parameters = utils.remap_credentials(creds)
     session = Session.builder.configs(connection_parameters).create()
 
     model_file_name = constants.MODEL_FILE_NAME
@@ -243,10 +239,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     constants_path = os.path.join(current_dir, 'constants.py')
     config_path = os.path.join(current_dir, 'config', 'model_configs.yaml')
     folder_path = os.path.dirname(output_filename)
-    target_path = get_output_directory(folder_path)
+    target_path = utils.get_output_directory(folder_path)
 
-    notebook_config = load_yaml(config_path)
-    merged_config = combine_config(notebook_config, config)
+    notebook_config = utils.load_yaml(config_path)
+    merged_config = utils.combine_config(notebook_config, config)
 
     entity_column = merged_config['data']['entity_column']
     index_timestamp = merged_config['data']['index_timestamp']
@@ -274,8 +270,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     train_procedure = 'train_sproc'
 
     import_paths = [utils_path, constants_path]
-    delete_import_files(session, stage_name, import_paths)
-    delete_procedures(session, train_procedure)
+    utils.delete_import_files(session, stage_name, import_paths)
+    utils.delete_procedures(session, train_procedure)
 
     @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
         packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
@@ -319,11 +315,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         models = train_config["model_params"]["models"]
 
         feature_table = session.table(feature_table_name)
-        train_x, train_y, test_x, test_y, val_x, val_y = split_train_test(session, feature_table, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
+        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(session, feature_table, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
 
-        categorical_columns = get_categorical_columns(feature_table, label_column, entity_column)
-        numeric_columns = get_numeric_columns(feature_table, label_column, entity_column)
-        train_x = transform_null(train_x, numeric_columns, categorical_columns)
+        categorical_columns = utils.get_categorical_columns(feature_table, label_column, entity_column)
+        numeric_columns = utils.get_numeric_columns(feature_table, label_column, entity_column)
+        train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
 
         preprocessor_pipe_x = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
         train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
@@ -334,7 +330,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         pipe = get_model_pipeline(preprocessor_pipe_optimized, final_clf)
         pipe.fit(train_x, train_y)
 
-        model_metrics, _, prob_th = get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y,train_config)
+        model_metrics, _, prob_th = utils.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y,train_config)
 
         model_id = str(int(time.time()))
         result_dict = {"model_id": model_id,
@@ -355,27 +351,27 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         json.dump(column_dict, open(column_name_file,"w"))
         session.file.put(column_name_file, stage_name,overwrite=True)
         try:
-            plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['roc-auc-curve'], label_column)
-            plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['pr-auc-curve'], label_column)
-            plot_lift_chart(session, pipe, stage_name, test_x, test_y, figure_names['lift-chart'], label_column)
-            plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
+            utils.plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['roc-auc-curve'], label_column)
+            utils.plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['pr-auc-curve'], label_column)
+            utils.plot_lift_chart(session, pipe, stage_name, test_x, test_y, figure_names['lift-chart'], label_column)
+            utils.plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
         except Exception as e:
             print(e)
             print("Could not generate plots")
         return [model_id, model_metrics, prob_th]
     
-    material_table = get_material_registry_name(session, material_registry_table_prefix)
-    model_hash, creation_ts = get_latest_material_hash(session, material_table, model_name)
+    material_table = utils.get_material_registry_name(session, material_registry_table_prefix)
+    model_hash, creation_ts = utils.get_latest_material_hash(session, material_table, model_name)
 
     if start_date == None or end_date == None:
-        start_date, end_date = get_date_range(creation_ts, prediction_horizon_days)
+        start_date, end_date = utils.get_date_range(creation_ts, prediction_horizon_days)
 
-    material_names, training_dates = get_material_names(session, material_table, start_date, end_date, package_name, model_name, model_hash, material_table_prefix, prediction_horizon_days, output_filename)
+    material_names, training_dates = utils.get_material_names(session, material_table, start_date, end_date, package_name, model_name, model_hash, material_table_prefix, prediction_horizon_days, output_filename)
  
     feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
-        feature_table_instance = prepare_feature_table(session, 
+        feature_table_instance = utils.prepare_feature_table(session, 
                                     feature_table_name, 
                                     label_table_name,
                                     entity_column, 
@@ -412,7 +408,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     for figure_name in figure_names.values():
         try:
-            fetch_staged_file(session, stage_name, figure_name, target_path)
+            utils.fetch_staged_file(session, stage_name, figure_name, target_path)
         except:
             print(f"Could not fetch {figure_name}")
             

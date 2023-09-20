@@ -352,19 +352,29 @@ def get_latest_material_hash(session: snowflake.snowpark.Session,
     creation_ts = temp_hash_vector.CREATION_TS
     return model_hash, creation_ts
 
-def get_ignore_features(table: snowflake.snowpark.Table, ignore_features: list)-> list:
+def get_ignore_features(table: snowflake.snowpark.Table)-> list:
     """Returns the list of features to be ignored from the feature table.
 
     Args:
         table (snowflake.snowpark.Table): snowpark table.
-        ignore_features (list): The list of features to be ignored from model_config file.
 
     Returns:
         list: The list of features to be ignored based column datatypes as ArrayType.
     """
-    additional_ignored_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType() and row.name not in ignore_features]
-    ignore_features.extend(additional_ignored_features)
+    ignore_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
     return ignore_features
+
+def merge_lists_to_unique(l1: list, l2: list)-> list:
+    """Merges two lists and returns a unique list of elements.
+
+    Args:
+        l1 (list): The first list.
+        l2 (list): The second list.
+
+    Returns:
+        list: A unique list of elements from both the lists.
+    """
+    return list(set(l1 + l2))
 
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str)-> None:
     """
@@ -524,7 +534,8 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
     try:
         label_ts_col = f"{index_timestamp}_label_ts"
         feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
-        ignore_features = get_ignore_features(feature_table, ignore_features)
+        ignore_features_ = get_ignore_features(feature_table)
+        ignore_features = merge_lists_to_unique(ignore_features, ignore_features_)
         if eligible_users:
             feature_table = feature_table.filter(eligible_users)
         feature_table = feature_table.drop([label_column])

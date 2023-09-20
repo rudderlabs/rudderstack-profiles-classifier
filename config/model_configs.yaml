@@ -25,13 +25,7 @@ preprocessing:
   timestamp_columns: []
     # Following columns get a datediff function applied with the timestamp_column to get days_since_<timestamp_column> features
 
-  ignore_features:
-    # Following columns are ignored if they are present in the final feature table
-    - PRODUCTS_ADDED_IN_PAST_1_DAYS
-    - PRODUCTS_ADDED_IN_PAST_7_DAYS
-    - PRODUCTS_ADDED_IN_PAST_365_DAYS
-    - ITEMS_PURCHASED_EVER
-    - TOTAL_PRODUCTS_ADDED
+  ignore_features: []
 
   numeric_pipeline:
     columns: all
@@ -46,7 +40,7 @@ preprocessing:
         # keep_empty_features: False
 
   categorical_pipeline:
-    columns: *categorical_columns
+    categorical_columns: *categorical_columns
     pipeline:
       - name: SimpleImputer
         strategy: constant

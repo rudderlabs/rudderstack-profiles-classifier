@@ -473,33 +473,35 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     sorted_feature_table = feature_table.sort(col(entity_column).asc(), col(index_timestamp).desc()).drop([index_timestamp])
     sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
 
-    # model_eval_data = session.call(train_procedure, 
-    #                 feature_table_name_remote,
-    #                 entity_column,
-    #                 label_column,
-    #                 model_name_prefix,
-    #                 numerical_pipeline_config,
-    #                 categorical_pipeline_config,
-    #                 figure_names,
-    #                 train_size,
-    #                 val_size,
-    #                 test_size,
-    #                 merged_config)
-
-    local_model_eval_data = local_train_sp(sorted_feature_table,
-                    entity_column,
-                    label_column,
-                    model_name_prefix,
-                    numerical_pipeline_config,
-                    categorical_pipeline_config,
-                    figure_names,
-                    train_size,
-                    val_size,
-                    test_size,
-                    merged_config)
-
-    # (model_id, model_metrics, prob_th) = json.loads(model_eval_data)
-    (model_id, model_metrics, prob_th) = json.loads(local_model_eval_data)
+    if creds['type'] == 'snowflake':
+        print("Training on Snowflake")
+        model_eval_data = session.call(train_procedure,
+                                       feature_table_name_remote,
+                                       entity_column,
+                                       label_column,
+                                       model_name_prefix,
+                                       numerical_pipeline_config,
+                                       categorical_pipeline_config,
+                                       figure_names,
+                                       train_size,
+                                       val_size,
+                                       test_size,
+                                       merged_config)
+        (model_id, model_metrics, prob_th) = json.loads(model_eval_data)
+    else:
+        print("Training Locally")
+        local_model_eval_data = local_train_sp(sorted_feature_table,
+                                               entity_column,
+                                               label_column,
+                                               model_name_prefix,
+                                               numerical_pipeline_config,
+                                               categorical_pipeline_config,
+                                               figure_names,
+                                               train_size,
+                                               val_size,
+                                               test_size,
+                                               merged_config)
+        (model_id, model_metrics, prob_th) = json.loads(local_model_eval_data)
 
     for figure_name in figure_names.values():
         try:

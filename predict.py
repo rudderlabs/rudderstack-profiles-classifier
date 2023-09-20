@@ -120,6 +120,11 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
               with open(os.path.join(import_dir, filename), 'rb') as file:
                      m = joblib.load(file)
                      return m
+    
+    def load_local_model(filename: str):
+        with open(f"tmp/{filename}", 'rb') as file:
+            m = joblib.load(file)
+            return m
                  
     features = x_train_sample.drop(label_column, entity_column).columns
     drop_fn_if_exists(session, udf_name)
@@ -130,6 +135,16 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     def predict_scores(df: types) -> T.PandasSeries[float]:
         trained_model = load_model(model_file_name)
         df.columns = features
+        categorical_columns = list(df.select_dtypes(include='object'))
+        numeric_columns = list(df.select_dtypes(exclude='object'))
+        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
+        return trained_model.predict_proba(df)[:,1]
+    
+    def local_predict_scores(df: types) -> T.PandasSeries[float]:
+        trained_model = load_local_model(model_file_name)
+        df = df[features]
+        df = df.to_pandas()
         categorical_columns = list(df.select_dtypes(include='object'))
         numeric_columns = list(df.select_dtypes(exclude='object'))
         df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
@@ -162,11 +177,14 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     input  = predict_data.drop(label_column, entity_column, index_timestamp)
     
-    preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias(score_column_name))
-             .withColumn("model_id", F.lit(model_id)))
+    # preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias(score_column_name))
+    #          .withColumn("model_id", F.lit(model_id)))
+    local_preds = local_predict_scores(input)
 
-    preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(entity_column, index_timestamp, score_column_name, percentile_column_name, "model_id")
-    preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)
+    # preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(entity_column, index_timestamp, score_column_name, percentile_column_name, "model_id")
+    local_preds_with_percentile = pd.DataFrame(local_preds).rank(pct=True).rename(columns={0:percentile_column_name})
+    # preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)
+    local_preds_with_percentile.to_csv(f"preds/{output_tablename}.csv", index=False)
     
 
 if __name__ == "__main__":

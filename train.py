@@ -7,7 +7,7 @@ from datetime import datetime
 import joblib
 import os
 import time
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Any
 from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 from copy import deepcopy
 
@@ -228,6 +228,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     connection_parameters = utils.remap_credentials(creds)
     session = Session.builder.configs(connection_parameters).create()
 
+    metrics_table = constants.METRICS_TABLE
     model_file_name = constants.MODEL_FILE_NAME
     stage_name = constants.STAGE_NAME
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
@@ -243,7 +244,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
-
     entity_column = merged_config['data']['entity_column']
     index_timestamp = merged_config['data']['index_timestamp']
     label_column = merged_config['data']['label_column']
@@ -272,6 +272,66 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     import_paths = [utils_path, constants_path]
     utils.delete_import_files(session, stage_name, import_paths)
     utils.delete_procedures(session, train_procedure)
+
+    def train_model(feature_df: pd.DataFrame,
+                    entity_column: str,
+                    label_column: str,
+                    model_name_prefix: str,
+                    numerical_pipeline_config: list,
+                    categorical_pipeline_config: list,
+                    train_size: float, 
+                    val_size: float,
+                    test_size: float,
+                    merged_config: dict,
+                    env_typ: str) -> Any:
+        """Creates and saves the trained model pipeline after performing preprocessing and classification and
+        returns the model id attached with the results generated."""
+
+        train_config = merged_config['train']
+
+        models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
+        models = train_config["model_params"]["models"]
+
+        train_x, train_y, test_x, test_y, val_x, val_y, X_train, X_val, X_test = utils.split_train_test(feature_df, label_column, entity_column, train_size, val_size, test_size)
+
+        categorical_columns = utils.get_categorical_columns(feature_df, label_column, entity_column)
+        numeric_columns = utils.get_numeric_columns(feature_df, label_column, entity_column)
+        train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
+        val_x = utils.transform_null(val_x, numeric_columns, categorical_columns)
+
+        preprocessor_pipe_x = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
+        train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
+        val_x_processed = preprocessor_pipe_x.transform(val_x)
+        
+        final_clf = select_best_clf(models, train_x_processed, train_y, val_x_processed, val_y, models_map)
+        preprocessor_pipe_optimized = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
+        pipe = get_model_pipeline(preprocessor_pipe_optimized, final_clf)
+        pipe.fit(train_x, train_y)
+
+        model_metrics, _, prob_th = utils.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y,train_config)
+
+        model_id = str(int(time.time()))
+        result_dict = {"model_id": model_id,
+                        "model_name_prefix": model_name_prefix,
+                        "prob_th": prob_th,
+                        "metrics": model_metrics}
+        
+        metrics_df = pd.DataFrame.from_dict(result_dict).reset_index()
+
+        if env_typ == 'snowflake':
+            model_file = os.path.join('/tmp', model_file_name)
+        else:
+            model_file = os.path.join('tmp', f"{model_file_name}").replace('\\', '/')
+        
+        joblib.dump(pipe, model_file)
+
+        column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
+        if env_typ == 'snowflake':
+            column_name_file = os.path.join('/tmp', f"{model_name_prefix}_{model_id}_column_names.json")
+        else:
+            column_name_file = os.path.join('tmp', f"{model_name_prefix}_{model_id}_column_names.json").replace('\\', '/')
+        json.dump(column_dict, open(column_name_file,"w"))
+        return train_x, test_x, test_y, X_train, X_val, X_test, categorical_columns, numeric_columns, model_id, model_metrics, prob_th, metrics_df, pipe, model_file, column_name_file
 
     @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
         packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
@@ -305,51 +365,21 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         Returns:
             list: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
         """
-        model_file_name = constants.MODEL_FILE_NAME
-        stage_name = constants.STAGE_NAME
-        metrics_table = constants.METRICS_TABLE
-
-        train_config = merged_config['train']
-
-        models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
-        models = train_config["model_params"]["models"]
+        
 
         feature_table = session.table(feature_table_name)
-        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(session, feature_table, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
+        feature_df = feature_table.to_pandas()
+        feature_df.columns = feature_df.columns.str.upper()
 
-        categorical_columns = utils.get_categorical_columns(feature_table, label_column, entity_column)
-        numeric_columns = utils.get_numeric_columns(feature_table, label_column, entity_column)
-        train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
+        train_x, test_x, test_y, X_train, X_val, X_test, categorical_columns, numeric_columns, model_id, model_metrics, prob_th, metrics_df, pipe, model_file, column_name_file = train_model(feature_df, entity_column, label_column, model_name_prefix, numerical_pipeline_config, categorical_pipeline_config, train_size, val_size, test_size, merged_config, 'snowflake')
 
-        preprocessor_pipe_x = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
-        train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
-        val_x_processed = preprocessor_pipe_x.transform(val_x)
-        
-        final_clf = select_best_clf(models, train_x_processed, train_y, val_x_processed, val_y, models_map)
-        preprocessor_pipe_optimized = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
-        pipe = get_model_pipeline(preprocessor_pipe_optimized, final_clf)
-        pipe.fit(train_x, train_y)
-
-        model_metrics, _, prob_th = utils.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y,train_config)
-
-        model_id = str(int(time.time()))
-        result_dict = {"model_id": model_id,
-                        "model_name_prefix": model_name_prefix,
-                        "prob_th": prob_th,
-                        "metrics": model_metrics}
-        
-        metrics_df = pd.DataFrame.from_dict(result_dict).reset_index()
-
+        session.write_pandas(X_train, table_name=f"{model_name_prefix.upper()}_TRAIN", auto_create_table=True, overwrite=True)
+        session.write_pandas(X_val, table_name=f"{model_name_prefix.upper()}_VAL", auto_create_table=True, overwrite=True)
+        session.write_pandas(X_test, table_name=f"{model_name_prefix.upper()}_TEST", auto_create_table=True, overwrite=True)
         session.write_pandas(metrics_df, table_name=f"{metrics_table}", auto_create_table=True, overwrite=False)
-
-        model_file = os.path.join('/tmp', model_file_name)
-        joblib.dump(pipe, model_file)
         session.file.put(model_file, stage_name,overwrite=True)
-
-        column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
-        column_name_file = os.path.join('/tmp', f"{model_name_prefix}_{model_id}_column_names.json")
-        json.dump(column_dict, open(column_name_file,"w"))
         session.file.put(column_name_file, stage_name,overwrite=True)
+        # arg_list = [session, pipe]
         try:
             utils.plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['roc-auc-curve'], label_column)
             utils.plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['pr-auc-curve'], label_column)
@@ -389,55 +419,22 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         Returns:
             list: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
         """
-        model_file_name = constants.MODEL_FILE_NAME
-        metrics_table = constants.METRICS_TABLE
-
-        train_config = merged_config['train']
-
-        models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
-        models = train_config["model_params"]["models"]
-
         feature_df = feature_table.to_pandas()
         feature_df.columns = feature_df.columns.str.upper()
-        train_x, train_y, test_x, test_y, val_x, val_y = utils.local_split_train_test(feature_df, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
-
-        categorical_columns = utils.get_categorical_columns(feature_table, label_column, entity_column)
-        numeric_columns = utils.get_numeric_columns(feature_table, label_column, entity_column)
-        train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
-        val_x = utils.transform_null(val_x, numeric_columns, categorical_columns)
-
-        preprocessor_pipe_x = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
-        train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
-        val_x_processed = preprocessor_pipe_x.transform(val_x)
         
-        final_clf = select_best_clf(models, train_x_processed, train_y, val_x_processed, val_y, models_map)
-        preprocessor_pipe_optimized = get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
-        pipe = get_model_pipeline(preprocessor_pipe_optimized, final_clf)
-        pipe.fit(train_x, train_y)
-
-        model_metrics, _, prob_th = utils.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y,train_config)
-
-        model_id = str(int(time.time()))
-        result_dict = {"model_id": model_id,
-                        "model_name_prefix": model_name_prefix,
-                        "prob_th": prob_th,
-                        "metrics": model_metrics}
+        train_x, test_x, test_y, X_train, X_val, X_test, categorical_columns, numeric_columns, model_id, model_metrics, prob_th, metrics_df, pipe, model_file, column_name_file = train_model(feature_df, entity_column, label_column, model_name_prefix, numerical_pipeline_config, categorical_pipeline_config, train_size, val_size, test_size, merged_config, creds['type'])
         
-        metrics_df = pd.DataFrame.from_dict(result_dict).reset_index()
+        X_train.to_csv(f"tables/{model_name_prefix}_train.csv", index=False)
+        X_val.to_csv(f"tables/{model_name_prefix}_val.csv", index=False)
+        X_test.to_csv(f"tables/{model_name_prefix}_test.csv", index=False)
         metrics_table_path = os.path.join('tables', f"{metrics_table}.csv").replace('\\', '/')
         metrics_df.to_csv(metrics_table_path, index=False)
 
-        model_file = os.path.join('tmp', f"{model_file_name}").replace('\\', '/')
-        joblib.dump(pipe, model_file)
-
-        column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
-        column_name_file = os.path.join('tmp', f"{model_name_prefix}_{model_id}_column_names.json").replace('\\', '/')
-        json.dump(column_dict, open(column_name_file,"w"))
         try:
-            utils.local_plot_roc_auc_curve(pipe, test_x, test_y, figure_names['roc-auc-curve'], label_column)
-            utils.local_plot_pr_auc_curve(pipe, test_x, test_y, figure_names['pr-auc-curve'], label_column)
-            utils.local_plot_lift_chart(pipe, test_x, test_y, figure_names['lift-chart'], label_column)
-            utils.local_plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
+            utils.local_plot_roc_auc_curve(pipe, test_x, test_y, figure_names['roc-auc-curve'], label_column, target_path)
+            utils.local_plot_pr_auc_curve(pipe, test_x, test_y, figure_names['pr-auc-curve'], label_column, target_path)
+            utils.local_plot_lift_chart(pipe, test_x, test_y, figure_names['lift-chart'], label_column, target_path)
+            utils.local_plot_top_k_feature_importance(pipe, train_x, target_path, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
         except Exception as e:
             print(e)
             print("Could not generate plots")
@@ -475,40 +472,41 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
 
     if creds['type'] == 'snowflake':
-        print("Training on Snowflake")
-        model_eval_data = session.call(train_procedure,
-                                       feature_table_name_remote,
-                                       entity_column,
-                                       label_column,
-                                       model_name_prefix,
-                                       numerical_pipeline_config,
-                                       categorical_pipeline_config,
-                                       figure_names,
-                                       train_size,
-                                       val_size,
-                                       test_size,
-                                       merged_config)
-        (model_id, model_metrics, prob_th) = json.loads(model_eval_data)
+        print("Training on snowpark")
+        model_eval_data = session.call(train_procedure, 
+                        feature_table_name_remote,
+                        entity_column,
+                        label_column,
+                        model_name_prefix,
+                        numerical_pipeline_config,
+                        categorical_pipeline_config,
+                        figure_names,
+                        train_size,
+                        val_size,
+                        test_size,
+                        merged_config)
     else:
-        print("Training Locally")
-        local_model_eval_data = local_train_sp(sorted_feature_table,
-                                               entity_column,
-                                               label_column,
-                                               model_name_prefix,
-                                               numerical_pipeline_config,
-                                               categorical_pipeline_config,
-                                               figure_names,
-                                               train_size,
-                                               val_size,
-                                               test_size,
-                                               merged_config)
-        (model_id, model_metrics, prob_th) = json.loads(local_model_eval_data)
+        print("Training locally")
+        model_eval_data = local_train_sp(sorted_feature_table,
+                        entity_column,
+                        label_column,
+                        model_name_prefix,
+                        numerical_pipeline_config,
+                        categorical_pipeline_config,
+                        figure_names,
+                        train_size,
+                        val_size,
+                        test_size,
+                        merged_config)
 
-    for figure_name in figure_names.values():
-        try:
-            utils.fetch_staged_file(session, stage_name, figure_name, target_path)
-        except:
-            print(f"Could not fetch {figure_name}")
+    (model_id, model_metrics, prob_th) = json.loads(model_eval_data)
+
+    if creds['type'] == 'snowflake':
+        for figure_name in figure_names.values():
+            try:
+                utils.fetch_staged_file(session, stage_name, figure_name, target_path)
+            except:
+                print(f"Could not fetch {figure_name}")
             
 
     results = {"config": {'training_dates': training_dates,
@@ -537,6 +535,7 @@ if __name__ == "__main__":
     from pathlib import Path
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
+    creds['type'] = 'redshift'
        
     train(creds, inputs, output_file_name, None)
     # logger.info("Training completed")

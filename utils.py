@@ -1,8 +1,9 @@
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc, roc_curve, precision_recall_curve
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, precision_score, recall_score, accuracy_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc, roc_curve, precision_recall_curve
 from sklearn.model_selection import train_test_split
 import numpy as np 
 import pandas as pd
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Dict
+from scipy.optimize import minimize_scalar
 
 import snowflake.snowpark
 from snowflake.snowpark.session import Session
@@ -14,6 +15,7 @@ import yaml
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
+import sys
 import os
 import gzip
 import shutil
@@ -27,6 +29,48 @@ import constants as constants
 import joblib
 import json
 import subprocess
+
+from dataclasses import dataclass
+from abc import ABC, abstractmethod
+
+@dataclass
+class DataConfig(ABC):
+    """DataConfig class is used to store the data configuration parameters
+    """
+    label_column: str
+    entity_column: str
+    package_name: str
+    model_name: str
+    model_name_prefix: str
+    task: str
+    index_timestamp: str
+    eligible_users: str
+    train_start_dt: str
+    train_end_dt: str
+    prediction_horizon_days: int
+    sample_data: float
+    top_k: int
+    bottom_k: int
+    
+@dataclass
+class ClassifierDataConfig(DataConfig):    
+    label_value: Union[str,int,float]
+
+@dataclass
+class PreprocessorConfig:
+    """PreprocessorConfig class is used to store the preprocessor configuration parameters
+    """
+    categorical_columns: List[str]
+    timestamp_columns: List[str]
+    ignore_features: List[str]
+    numeric_pipeline: dict
+    categorical_pipeline: dict
+    feature_selectors: dict
+    train_size: float
+    test_size: float
+    val_size: float
+    
+
 
 def remap_credentials(credentials: dict) -> dict:
     """Remaps credentials from profiles siteconfig to the expected format from snowflake session
@@ -365,14 +409,18 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
     Example Usage:
         materialise_past_data("2022-01-01", "packages/feature_table/models/shopify_user_features", "output/path")
     """
-    path_components = output_path.split(os.path.sep)
-    output_index = path_components.index('output')
-    pb_proj_dir = os.path.sep.join(path_components[:output_index])
-    features_valid_time_unix = int(datetime.strptime(features_valid_time, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
-    args = ["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
-    print(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
-    #subprocess.run(["pb", "run", "-m", "packages/feature_table/models/shopify_user_features", "--end_time", str(features_valid_time_unix)])
-    subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        path_components = output_path.split(os.path.sep)
+        output_index = path_components.index('output')
+        pb_proj_dir = os.path.sep.join(path_components[:output_index])
+        features_valid_time_unix = int(datetime.strptime(features_valid_time, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
+        args = ["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
+        print(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
+        #subprocess.run(["pb", "run", "-m", "packages/feature_table/models/shopify_user_features", "--end_time", str(features_valid_time_unix)])
+        subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    except Exception as e:
+        print(f"Exception occured while materialising data for date {features_valid_time} ")
+        print(e)
 
 def get_material_names_(session: snowflake.snowpark.Session,
                        material_table: str, 
@@ -411,7 +459,7 @@ def get_material_names_(session: snowflake.snowpark.Session,
                 ).distinct()
     label_snowpark_df = (snowpark_df
                 .filter(col("model_name") == model_name)
-                .filter(col("model_hash") == model_hash)
+                .filter(col("model_hash") == model_hash) 
                 .filter(f"end_ts between dateadd(day, {prediction_horizon_days}, \'{start_time}\') and dateadd(day, {prediction_horizon_days}, \'{end_time}\')")
                 .select("seq_no", "end_ts")
                 ).distinct()
@@ -450,35 +498,33 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
             - material_names: A list of tuples containing the names of the feature and label tables.
             - training_dates: A list of tuples containing the corresponding training dates.
     """
-    material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+    try:
+        material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
 
-    if len(material_names) == 0:
-        try:
-            # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
-            feature_package_path = f"packages/{package_name}/models/{model_name}"
-            materialise_past_data(start_date, feature_package_path, output_filename)
-            start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
-            materialise_past_data(start_date_label, feature_package_path, output_filename)
-            material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
-            if len(material_names) == 0:
+        if len(material_names) == 0:
+            try:
+                # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
+                feature_package_path = f"packages/{package_name}/models/{model_name}"
+                materialise_past_data(start_date, feature_package_path, output_filename)
+                start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
+                materialise_past_data(start_date_label, feature_package_path, output_filename)
+                material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+                if len(material_names) == 0:
+                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+            except Exception as e:
+                # logger.exception(e)
+                print("Exception occured while materialising data. Please check the logs for more details")
                 raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
-        except Exception as e:
-            # logger.exception(e)
-            print("Exception occured while materialising data. Please check the logs for more details")
-            raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
-    return material_names, training_dates
+        return material_names, training_dates
+    except Exception as e:
+        print("Exception occured while retrieving material names. Please check the logs for more details")
+        raise e
 
 def prepare_feature_table(session: snowflake.snowpark.Session,
                           feature_table_name: str, 
                           label_table_name: str,
-                          entity_column: str, 
-                          index_timestamp: str,
-                          timestamp_columns: List[str], 
-                          eligible_users: str, 
-                          label_column: str,
-                          label_value: Union[str,int,float], 
-                          prediction_horizon_days: int,
-                          ignore_features: List[str]) -> snowflake.snowpark.Table:
+                          data: DataConfig,
+                          prep: PreprocessorConfig) -> snowflake.snowpark.Table:
     """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
 
     Args:
@@ -497,23 +543,28 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
     Returns:
         snowflake.snowpark.Table: feature table made using given instance from material names
     """
-    label_ts_col = f"{index_timestamp}_label_ts"
-    feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
-    if eligible_users:
-        feature_table = feature_table.filter(eligible_users)
-    feature_table = feature_table.drop([label_column])
-    if len(timestamp_columns) == 0:
-        timestamp_columns = get_timestamp_columns(session, feature_table, index_timestamp)
-    for col in timestamp_columns:
-        feature_table = feature_table.withColumn(col, F.datediff('day', F.col(col), F.col(index_timestamp)))
-    label_table = (session.table(label_table_name)
-                   .withColumn(label_column, F.when(F.col(label_column)==label_value, F.lit(1)).otherwise(F.lit(0)))
-                   .select(entity_column, label_column, index_timestamp)
-                   .withColumnRenamed(F.col(index_timestamp), label_ts_col))
-    uppercase_list = lambda names: [name.upper() for name in names]
-    lowercase_list = lambda names: [name.lower() for name in names]
-    ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
-    return feature_table.join(label_table, [entity_column], join_type="left").drop([label_ts_col]).drop(ignore_features_)
+    try:
+        label_ts_col = f"{data.index_timestamp}_label_ts"
+        feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
+        if data.eligible_users:
+            feature_table = feature_table.filter(data.eligible_users)
+        feature_table = feature_table.drop([data.label_column])
+        timestamp_columns = prep.timestamp_columns
+        if len(timestamp_columns) == 0:
+            timestamp_columns = get_timestamp_columns(session, feature_table, data.index_timestamp)
+        for col in timestamp_columns:
+            feature_table = feature_table.withColumn(col, F.datediff('day', F.col(col), F.col(data.index_timestamp)))
+        label_table = (session.table(label_table_name)
+                    .withColumn(data.label_column, F.when(F.col(data.label_column)==data.label_value, F.lit(1)).otherwise(F.lit(0)))
+                    .select(data.entity_column, data.label_column, data.index_timestamp)
+                    .withColumnRenamed(F.col(data.index_timestamp), label_ts_col))
+        uppercase_list = lambda names: [name.upper() for name in names]
+        lowercase_list = lambda names: [name.lower() for name in names]
+        ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(prep.ignore_features) or col in lowercase_list(prep.ignore_features)]
+        return feature_table.join(label_table, [data.entity_column], join_type="inner").drop([label_ts_col]).drop(ignore_features_)
+    except Exception as e:
+        print("Exception occured while preparing feature table. Please check the logs for more details")
+        raise e
     
 def split_train_test(session: snowflake.snowpark.Session,
                      feature_table: snowflake.snowpark.Table, 
@@ -543,9 +594,9 @@ def split_train_test(session: snowflake.snowpark.Session,
     X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
     X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
     #ToDo: handle timestamp columns, remove customer_id from train_x
-    session.write_pandas(X_train, table_name=f"{model_name_prefix}_train", auto_create_table=True, overwrite=True)
-    session.write_pandas(X_val, table_name=f"{model_name_prefix}_val", auto_create_table=True, overwrite=True)
-    session.write_pandas(X_test, table_name=f"{model_name_prefix}_test", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_train, table_name=f"{model_name_prefix.upper()}_TRAIN", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_val, table_name=f"{model_name_prefix.upper()}_VAL", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_test, table_name=f"{model_name_prefix.upper()}_TEST", auto_create_table=True, overwrite=True)
     train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
     train_y = X_train[[label_column.upper()]]
     val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
@@ -577,7 +628,7 @@ def get_classification_metrics(y_true: pd.DataFrame,
     metrics = {"precision": precision, "recall": recall, "f1_score": f1, "roc_auc": roc_auc, 'pr_auc': pr_auc, 'users': user_count}
     return metrics
     
-def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array) -> Tuple:
+def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array,train_config: dict) -> Tuple:
     """This function calculates the thresold that maximizes f1 score based on y_true and y_pred_proba and classication metrics on basis of that.
 
     Args:
@@ -587,14 +638,25 @@ def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array) -> Tuple:
     Returns:
         Tuple: Returns the metrics at the threshold and that threshold that maximizes f1 score based on y_true and y_pred_proba
     """
-    best_f1 = 0.0
-    best_th = 0.0
 
-    for th in np.arange(0,1,0.01):
-        f1 = f1_score(y_true, np.where(y_pred_proba>th,1,0))
-        if f1 >= best_f1:
-            best_th = th
-            best_f1 = f1
+    metric_to_optimize = train_config["model_params"]["validation_on"]
+
+    metric_functions = {
+        'f1_score': f1_score,
+        'precision': precision_score,
+        'recall': recall_score,
+        'accuracy': accuracy_score
+    }
+
+    if metric_to_optimize not in metric_functions:
+        raise ValueError(f"Unsupported metric: {metric_to_optimize}")
+
+    objective_function = metric_functions[metric_to_optimize]
+    objective = lambda th: -objective_function(y_true, np.where(y_pred_proba > th, 1, 0))
+
+    result = minimize_scalar(objective, bounds=(0, 1), method='bounded')
+    best_th = result.x
+    best_metric_value = -result.fun  
             
     best_metrics = get_classification_metrics(y_true, y_pred_proba, best_th)
     return best_metrics, best_th
@@ -605,7 +667,8 @@ def get_metrics(clf,
                 X_test: pd.DataFrame, 
                 y_test: pd.DataFrame,
                 X_val: pd.DataFrame, 
-                y_val: pd.DataFrame) -> Tuple:
+                y_val: pd.DataFrame,
+                train_config: dict) -> Tuple:
     """Generates classification metrics and predictions for train, validation and test data along with the best probability thresold
 
     Args:
@@ -621,7 +684,7 @@ def get_metrics(clf,
         Tuple: Returns the classification metrics and predictions for train, validation and test data along with the best probability thresold.
     """
     train_preds = clf.predict_proba(X_train)[:,1]
-    train_metrics, prob_threshold = get_best_th(y_train, train_preds)
+    train_metrics, prob_threshold = get_best_th(y_train, train_preds,train_config)
 
     test_preds = clf.predict_proba(X_test)[:,1]
     test_metrics = get_classification_metrics(y_test, test_preds, prob_threshold)
@@ -763,28 +826,36 @@ def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_co
     Returns:
         None. The function generates a bar chart and writes the feature importance values to a table in the session.
     """
-    train_x_processed = pipe['preprocessor'].transform(train_x)
-    train_x_processed = train_x_processed.astype(np.int_)
-    shap_values = shap.TreeExplainer(pipe['model']).shap_values(train_x_processed)
+    try:
+        train_x_processed = pipe['preprocessor'].transform(train_x)
+        train_x_processed = train_x_processed.astype(np.int_)
+        shap_values = shap.TreeExplainer(pipe['model']).shap_values(train_x_processed)
+        x_label = "Importance scores"
+        if isinstance(shap_values, list):
+            print("Got List output, suggesting that the model is a multi-output model. Using the second output for plotting feature importance")
+            x_label = "Importance scores of positive label"
+            shap_values = shap_values[1]
+        onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
+        col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(train_x) if col not in numeric_columns and col not in categorical_columns]
 
-    onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
-    col_names_ = numeric_columns + onehot_encoder_columns + [col for col in list(train_x) if col not in numeric_columns and col not in categorical_columns]
-
-    shap_df = pd.DataFrame(shap_values, columns=col_names_)
-    vals = np.abs(shap_df.values).mean(0)
-    feature_names = shap_df.columns
-    shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
-    shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
-    session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
-    
-    ax = shap_importance[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
-    ax.set_xlabel("Importance Score")
-    ax.set_ylabel("Feature Name")
-    plt.title(f"Top {top_k_features} Important Features")
-    figure_file = os.path.join('/tmp', f"{chart_name}")
-    plt.savefig(figure_file, bbox_inches="tight")
-    session.file.put(figure_file, stage_name, overwrite=True)
-    plt.clf()
+        shap_df = pd.DataFrame(shap_values, columns=col_names_)
+        vals = np.abs(shap_df.values).mean(0)
+        feature_names = shap_df.columns
+        shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
+        shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
+        session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
+        
+        ax = shap_importance[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
+        ax.set_xlabel(x_label)
+        ax.set_ylabel("Feature Name")
+        plt.title(f"Top {top_k_features} Important Features")
+        figure_file = os.path.join('/tmp', f"{chart_name}")
+        plt.savefig(figure_file, bbox_inches="tight")
+        session.file.put(figure_file, stage_name, overwrite=True)
+        plt.clf()
+    except Exception as e:
+        print("Exception occured while plotting feature importance")
+        print(e)
 
 def fetch_staged_file(session: snowflake.snowpark.Session, 
                         stage_name: str, 

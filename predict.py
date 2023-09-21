@@ -143,7 +143,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         predict_proba = predict(df)
         return predict_proba
     
-    def local_predict_scores(df: types) -> T.PandasSeries[float]:
+    def local_predict_scores(df: types) -> pd.Series:
         df = df[features]
         df = df.to_pandas()
         predict_proba = predict(df)

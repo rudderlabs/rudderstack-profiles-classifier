@@ -536,7 +536,7 @@ if __name__ == "__main__":
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
     # creds['type'] = 'redshift'
-       
+
     train(creds, inputs, output_file_name, None)
     # logger.info("Training completed")
     # materialise_past_data('2022-')

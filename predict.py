@@ -114,18 +114,24 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         Returns:
             _type_: return the trained model after loading it
         """
-        import_dir = sys._xoptions.get("snowflake_import_directory")     
-        assert import_dir.startswith('/home/udf/')
+        import_dir = sys._xoptions.get("snowflake_import_directory")
         if import_dir:
-              with open(os.path.join(import_dir, filename), 'rb') as file:
-                     m = joblib.load(file)
-                     return m
-    
-    def load_local_model(filename: str):
-        with open(f"tmp/{filename}", 'rb') as file:
+            assert import_dir.startswith('/home/udf/')
+            filename = os.path.join(import_dir, filename)
+        else:
+            filename = os.path.join("tmp", filename).replace("\\", "/")
+        with open(filename, 'rb') as file:
             m = joblib.load(file)
             return m
-                 
+
+    def predict(df):
+        trained_model = load_model(model_file_name)
+        categorical_columns = list(df.select_dtypes(include='object'))
+        numeric_columns = list(df.select_dtypes(exclude='object'))
+        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
+        return trained_model.predict_proba(df)[:,1]
+    
     features = x_train_sample.drop(label_column, entity_column).columns
     drop_fn_if_exists(session, udf_name)
     @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
@@ -133,23 +139,15 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
               imports= import_paths+[f"{stage_name}/{model_file_name}"],
               packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML"])
     def predict_scores(df: types) -> T.PandasSeries[float]:
-        trained_model = load_model(model_file_name)
         df.columns = features
-        categorical_columns = list(df.select_dtypes(include='object'))
-        numeric_columns = list(df.select_dtypes(exclude='object'))
-        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
-        return trained_model.predict_proba(df)[:,1]
+        predict_proba = predict(df)
+        return predict_proba
     
     def local_predict_scores(df: types) -> T.PandasSeries[float]:
-        trained_model = load_local_model(model_file_name)
         df = df[features]
         df = df.to_pandas()
-        categorical_columns = list(df.select_dtypes(include='object'))
-        numeric_columns = list(df.select_dtypes(exclude='object'))
-        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
-        return trained_model.predict_proba(df)[:,1]
+        predict_proba = predict(df)
+        return predict_proba
 
     f = open(model_path, "r")
     results = json.load(f)
@@ -177,16 +175,15 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     input  = predict_data.drop(label_column, entity_column, index_timestamp)
     
     if creds['type'] == 'snowflake':
-        print("Predicting on snowflake")
         preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias(score_column_name))
                 .withColumn("model_id", F.lit(model_id)))
         preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(entity_column, index_timestamp, score_column_name, percentile_column_name, "model_id")
         preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)
     else:
-        print("Predicting locally")
-        local_preds = local_predict_scores(input)
-        local_preds_with_percentile = pd.DataFrame(local_preds).rank(pct=True).rename(columns={0:percentile_column_name})    
-        local_preds_with_percentile.to_csv(f"preds/{output_tablename}.csv", index=False)
+        preds = local_predict_scores(input)
+        preds_with_percentile = pd.DataFrame(preds).rank(pct=True).rename(columns={0:percentile_column_name})
+        preds_with_percentile.to_csv(f"preds/{output_tablename}.csv", index=False)
+    
 
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")
@@ -194,7 +191,7 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None
-        output_folder = 'output/dev/seq_no/2'
+        output_folder = 'output/dev/seq_no/4'
         model_path = f"{output_folder}/train_output.json"
-        
+    # creds['type'] = 'redshift'
     predict(creds, aws_config, model_path, None, "test_can_delet",None)

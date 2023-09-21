@@ -10,6 +10,7 @@ import time
 from typing import Tuple, List, Union, Any
 from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 from copy import deepcopy
+from pathlib import Path
 
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
@@ -292,7 +293,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
         models = train_config["model_params"]["models"]
 
-        train_x, train_y, test_x, test_y, val_x, val_y, X_train, X_val, X_test = utils.split_train_test(feature_df, label_column, entity_column, train_size, val_size, test_size)
+        X_train, X_val, X_test = utils.split_train_test(feature_df, label_column, entity_column, train_size, val_size, test_size)
+        train_x, train_y = utils.split_label_from_features(X_train, label_column, entity_column)
+        val_x, val_y = utils.split_label_from_features(X_val, label_column, entity_column)
+        test_x, test_y = utils.split_label_from_features(X_test, label_column, entity_column)
 
         categorical_columns = utils.get_categorical_columns(feature_df, label_column, entity_column)
         numeric_columns = utils.get_numeric_columns(feature_df, label_column, entity_column)
@@ -317,11 +321,12 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                         "metrics": model_metrics}
         
         metrics_df = pd.DataFrame.from_dict(result_dict).reset_index()
-
+        
+        Path("data").mkdir(parents=True, exist_ok=True)
         if env_typ == 'snowflake':
             model_file = os.path.join('/tmp', model_file_name)
         else:
-            model_file = os.path.join('tmp', f"{model_file_name}").replace('\\', '/')
+            model_file = os.path.join('data', f"{model_file_name}")
         
         joblib.dump(pipe, model_file)
 
@@ -329,7 +334,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         if env_typ == 'snowflake':
             column_name_file = os.path.join('/tmp', f"{model_name_prefix}_{model_id}_column_names.json")
         else:
-            column_name_file = os.path.join('tmp', f"{model_name_prefix}_{model_id}_column_names.json").replace('\\', '/')
+            column_name_file = os.path.join('data', f"{model_name_prefix}_{model_id}_column_names.json")
         json.dump(column_dict, open(column_name_file,"w"))
         return train_x, test_x, test_y, X_train, X_val, X_test, categorical_columns, numeric_columns, model_id, model_metrics, prob_th, metrics_df, pipe, model_file, column_name_file
 
@@ -381,10 +386,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         session.file.put(column_name_file, stage_name,overwrite=True)
         # arg_list = [session, pipe]
         try:
-            utils.plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['roc-auc-curve'], label_column)
-            utils.plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['pr-auc-curve'], label_column)
-            utils.plot_lift_chart(session, pipe, stage_name, test_x, test_y, figure_names['lift-chart'], label_column)
-            utils.plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
+            utils.plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['roc-auc-curve'], label_column, target_path)
+            utils.plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['pr-auc-curve'], label_column, target_path)
+            utils.plot_lift_chart(session, pipe, stage_name, test_x, test_y, figure_names['lift-chart'], label_column, target_path)
+            utils.plot_top_k_feature_importance(session, pipe, stage_name, target_path, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
         except Exception as e:
             print(e)
             print("Could not generate plots")
@@ -424,17 +429,20 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         
         train_x, test_x, test_y, X_train, X_val, X_test, categorical_columns, numeric_columns, model_id, model_metrics, prob_th, metrics_df, pipe, model_file, column_name_file = train_model(feature_df, entity_column, label_column, model_name_prefix, numerical_pipeline_config, categorical_pipeline_config, train_size, val_size, test_size, merged_config, creds['type'])
         
-        X_train.to_csv(f"tables/{model_name_prefix}_train.csv", index=False)
-        X_val.to_csv(f"tables/{model_name_prefix}_val.csv", index=False)
-        X_test.to_csv(f"tables/{model_name_prefix}_test.csv", index=False)
-        metrics_table_path = os.path.join('tables', f"{metrics_table}.csv").replace('\\', '/')
+        X_train_path = os.path.join('data', f"{model_name_prefix}_train.csv")
+        X_train.to_csv(X_train_path, index=False)
+        X_val_path = os.path.join('data', f"{model_name_prefix}_val.csv")
+        X_val.to_csv(X_val_path, index=False)
+        X_test_path = os.path.join('data', f"{model_name_prefix}_test.csv")
+        X_test.to_csv(X_test_path, index=False)
+        metrics_table_path = os.path.join('data', f"{metrics_table}.csv")
         metrics_df.to_csv(metrics_table_path, index=False)
 
         try:
-            utils.local_plot_roc_auc_curve(pipe, test_x, test_y, figure_names['roc-auc-curve'], label_column, target_path)
-            utils.local_plot_pr_auc_curve(pipe, test_x, test_y, figure_names['pr-auc-curve'], label_column, target_path)
-            utils.local_plot_lift_chart(pipe, test_x, test_y, figure_names['lift-chart'], label_column, target_path)
-            utils.local_plot_top_k_feature_importance(pipe, train_x, target_path, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
+            utils.plot_roc_auc_curve("no_session", pipe, "no_stage", test_x, test_y, figure_names['roc-auc-curve'], label_column, target_path)
+            utils.plot_pr_auc_curve("no_session", pipe, "no_stage", test_x, test_y, figure_names['pr-auc-curve'], label_column, target_path)
+            utils.plot_lift_chart("no_session", pipe, "no_stage", test_x, test_y, figure_names['lift-chart'], label_column, target_path)
+            utils.plot_top_k_feature_importance("no_session", pipe, "no_stage", target_path, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
         except Exception as e:
             print(e)
             print("Could not generate plots")

@@ -119,12 +119,12 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
             assert import_dir.startswith('/home/udf/')
             filename = os.path.join(import_dir, filename)
         else:
-            filename = os.path.join("tmp", filename).replace("\\", "/")
+            filename = os.path.join("data", filename)
         with open(filename, 'rb') as file:
             m = joblib.load(file)
             return m
 
-    def predict(df):
+    def get_predict_proba(df):
         trained_model = load_model(model_file_name)
         categorical_columns = list(df.select_dtypes(include='object'))
         numeric_columns = list(df.select_dtypes(exclude='object'))
@@ -134,20 +134,21 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     
     features = x_train_sample.drop(label_column, entity_column).columns
     drop_fn_if_exists(session, udf_name)
-    @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
-              stage_location=stage_name, name=udf_name, 
-              imports= import_paths+[f"{stage_name}/{model_file_name}"],
-              packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML"])
-    def predict_scores(df: types) -> T.PandasSeries[float]:
-        df.columns = features
-        predict_proba = predict(df)
-        return predict_proba
-    
-    def local_predict_scores(df: types) -> pd.Series:
-        df = df[features]
-        df = df.to_pandas()
-        predict_proba = predict(df)
-        return predict_proba
+    if creds['type'] == 'snowflake':
+        @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
+                stage_location=stage_name, name=udf_name, 
+                imports= import_paths+[f"{stage_name}/{model_file_name}"],
+                packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML"])
+        def predict_scores(df: types) -> T.PandasSeries[float]:
+            df.columns = features
+            predict_proba = get_predict_proba(df)
+            return predict_proba
+    else:
+        def predict_scores(df: types) -> pd.Series:
+            df = df[features]
+            df = df.to_pandas()
+            predict_proba = get_predict_proba(df)
+            return predict_proba
 
     f = open(model_path, "r")
     results = json.load(f)
@@ -180,9 +181,10 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(entity_column, index_timestamp, score_column_name, percentile_column_name, "model_id")
         preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)
     else:
-        preds = local_predict_scores(input)
+        preds = predict_scores(input)
         preds_with_percentile = pd.DataFrame(preds).rank(pct=True).rename(columns={0:percentile_column_name})
-        preds_with_percentile.to_csv(f"preds/{output_tablename}.csv", index=False)
+        preds_with_percentile_path = os.path.join("data", f"{output_tablename}.csv")
+        preds_with_percentile.to_csv(preds_with_percentile_path, index=False)
     
 
 if __name__ == "__main__":

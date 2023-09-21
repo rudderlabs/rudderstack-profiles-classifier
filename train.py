@@ -398,6 +398,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         models = train_config["model_params"]["models"]
 
         feature_df = feature_table.to_pandas()
+        feature_df.columns = feature_df.columns.str.upper()
         train_x, train_y, test_x, test_y, val_x, val_y = utils.local_split_train_test(feature_df, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
 
         categorical_columns = utils.get_categorical_columns(feature_table, label_column, entity_column)
@@ -423,14 +424,14 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                         "metrics": model_metrics}
         
         metrics_df = pd.DataFrame.from_dict(result_dict).reset_index()
+        metrics_table_path = os.path.join('tables', f"{metrics_table}.csv").replace('\\', '/')
+        metrics_df.to_csv(metrics_table_path, index=False)
 
-        metrics_df.to_csv(f"tables/{metrics_table}", index=False)
-
-        model_file = f"tmp/{model_file_name}"
+        model_file = os.path.join('tmp', f"{model_file_name}").replace('\\', '/')
         joblib.dump(pipe, model_file)
 
         column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
-        column_name_file = f"tmp/{model_name_prefix}_{model_id}_column_names.json"
+        column_name_file = os.path.join('tmp', f"{model_name_prefix}_{model_id}_column_names.json").replace('\\', '/')
         json.dump(column_dict, open(column_name_file,"w"))
         try:
             utils.local_plot_roc_auc_curve(pipe, test_x, test_y, figure_names['roc-auc-curve'], label_column)

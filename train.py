@@ -535,7 +535,7 @@ if __name__ == "__main__":
     from pathlib import Path
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
-    creds['type'] = 'redshift'
+    # creds['type'] = 'redshift'
        
     train(creds, inputs, output_file_name, None)
     # logger.info("Training completed")

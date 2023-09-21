@@ -589,7 +589,6 @@ def local_split_train_test(feature_df: pd.DataFrame,
     Returns:
         Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
     """
-    feature_df.columns = feature_df.columns.str.upper()
     latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
     X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
     X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
@@ -758,7 +757,7 @@ def local_plot_roc_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> N
     plt.legend(loc="lower right")
     sns.despine()
     plt.grid(True)
-    figure_file = f"tmp/{chart_name}"
+    figure_file = os.path.join('tmp', f"{chart_name}").replace('\\', '/')
     plt.savefig(figure_file)
     plt.clf()
 
@@ -825,7 +824,7 @@ def local_plot_pr_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> No
     plt.legend(loc="lower left")
     sns.despine()
     plt.grid(True)
-    figure_file = f"tmp/{chart_name}"
+    figure_file = os.path.join('tmp', f"{chart_name}").replace('\\', '/')
     plt.savefig(figure_file)
     plt.clf()
 
@@ -914,7 +913,7 @@ def local_plot_lift_chart(pipe, test_x, test_y, chart_name, label_column)-> None
     plt.xlim([0, 100])
     plt.legend()
     plt.grid(True)
-    figure_file = f"tmp/{chart_name}"
+    figure_file = os.path.join('tmp', f"{chart_name}").replace('\\', '/')
     plt.savefig(figure_file)
     plt.clf()
 
@@ -1000,16 +999,14 @@ def local_plot_top_k_feature_importance(pipe, train_x, numeric_columns, categori
         feature_names = shap_df.columns
         shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
         shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
-        # session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
         shap_importance.to_csv(f"tables/FEATURE_IMPORTANCE.csv", index=False)
         
         ax = shap_importance[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
         ax.set_xlabel(x_label)
         ax.set_ylabel("Feature Name")
         plt.title(f"Top {top_k_features} Important Features")
-        figure_file = f"tmp/{chart_name}"
+        figure_file = os.path.join('tmp', f"{chart_name}").replace('\\', '/')
         plt.savefig(figure_file, bbox_inches="tight")
-        # session.file.put(figure_file, stage_name, overwrite=True)
         plt.clf()
     except Exception as e:
         print("Exception occured while plotting feature importance")

@@ -43,7 +43,7 @@ import constants
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 logger.info("Start")
-@dataclass
+
 class MLTrainer(ABC):    
     hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}
     def __init__(self, data_config: utils.DataConfig, preprocessing_config: utils.PreprocessorConfig):
@@ -147,10 +147,26 @@ class MLTrainer(ABC):
     @abstractmethod
     def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
         pass
+    @abstractmethod
+    def plot_diagnotics(self, session: snowflake.snowpark.Session, 
+                        model, 
+                        stage_name: str, 
+                        x: pd.DataFrame, 
+                        y: pd.DataFrame, 
+                        figure_names: dict, 
+                        label_column: str):
+        pass
+    @abstractmethod
+    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
+        pass
+    @abstractmethod
+    def prepare_training_summary(self):
+        pass
 
-@dataclass
+
 class ClassificationTrainer(MLTrainer):
     evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
+    models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
     def __init__(self, data_config: utils.ClassifierDataConfig, preprocessing_config: utils.PreprocessorConfig):
         super().__init__(data_config, preprocessing_config)
         
@@ -200,7 +216,7 @@ class ClassificationTrainer(MLTrainer):
 
         clf = model_class(**best_hyperparams, **model_config["modelparams"])
         return clf, trials
-    def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
+    def select_best_model(self, models, train_x, train_y, val_x, val_y):
         """
         Selects the best classifier model based on the given list of models and their configurations.
 
@@ -210,8 +226,6 @@ class ClassificationTrainer(MLTrainer):
             train_y (pd.DataFrame): The training data labels.
             val_x (pd.DataFrame): The validation data features.
             val_y (pd.DataFrame): The validation data labels.
-            models_map (dict): A dictionary mapping model names to their corresponding classes.
-
         Returns:
             final_clf (object): The selected classifier model with the best hyperparameters.
         """
@@ -220,13 +234,52 @@ class ClassificationTrainer(MLTrainer):
             name = model_config["name"]
             print(f"Training {name}")
 
-            clf, trials = self.build_model(train_x, train_y, val_x, val_y, models_map[name], model_config)
+            clf, trials = self.build_model(train_x, train_y, val_x, val_y, self.models_map[name], model_config)
 
             if best_acc < max([ -1*loss for loss in trials.losses()]):
                 final_clf = clf
                 best_acc = max([ -1*loss for loss in trials.losses()])
 
         return final_clf
+    
+    def plot_diagnotics(self, session: snowflake.snowpark.Session, 
+                        model, 
+                        stage_name: str, 
+                        x: pd.DataFrame, 
+                        y: pd.DataFrame, 
+                        figure_names: dict, 
+                        label_column: str) -> None:
+        """Plots the diagnostics for the given model
+
+        Args:
+            session (snowflake.snowpark.Session): valid snowpark session to access data warehouse
+            model (object): trained model
+            stage_name (str): name of the stage
+            x (pd.DataFrame): test data features
+            y (pd.DataFrame): test data labels
+            figure_names (dict): dict of figure names
+            label_column (str): name of the label column
+        """
+        try:
+            utils.plot_roc_auc_curve(session, model, stage_name, x, y, figure_names['roc-auc-curve'], label_column)
+            utils.plot_pr_auc_curve(session, model, stage_name, x, y, figure_names['pr-auc-curve'], label_column)
+            utils.plot_lift_chart(session, model, stage_name, x, y, figure_names['lift-chart'], label_column)
+        except Exception as e:
+            print(e)
+            print("Could not generate plots")
+        pass
+    
+    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
+        model_metrics, _, prob_th = utils.get_metrics(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
+        result_dict = {"model_name_prefix": self.data.model_name_prefix,
+                       "prob_th": prob_th,
+                        "metrics": model_metrics}
+        pass
+    
+    def prepare_training_summary(self):
+        # Preare the training_summary.json as some contents (ex: prob_th) are model specific
+        pass
+            
 
 class RegressionTrainer(MLTrainer):
     # A different set of evaluation metrics. 
@@ -237,6 +290,23 @@ class RegressionTrainer(MLTrainer):
         pass
     def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
         # Implementation for regression model selection
+        pass
+    
+    def plot_diagnotics(self, session: snowflake.snowpark.Session, 
+                        model, 
+                        stage_name: str, 
+                        x: pd.DataFrame, 
+                        y: pd.DataFrame, 
+                        figure_names: dict, 
+                        label_column: str):
+        # To implemenet for regression - can be residual plot, binned lift chart adjusted to quantiles etc
+        pass
+    
+    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
+        # TODO: To implement get_metrics and return metrics
+        pass
+    
+    def prepare_training_summary(self):
         pass
 
 
@@ -274,7 +344,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
-
+    
     prediction_task = merged_config['data'].get('task', 'classification') # Assuming default as classification
 
     figure_names = {"roc-auc-curve": f"01-test-roc-auc.png",
@@ -299,29 +369,14 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
     def train_sp(session: snowflake.snowpark.Session,
                 feature_table_name: str,
-                entity_column: str,
-                label_column: str,
-                model_name_prefix: str,
-                numerical_pipeline_config: list,
-                categorical_pipeline_config: list,
                 figure_names: dict,
-                train_size: float, 
-                val_size: float,
-                test_size: float,
                 merged_config: dict) -> list:
         """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
 
         Args:
             session (snowflake.snowpark.Session): valid snowpark session to access data warehouse
             feature_table_name (str): name of the user feature table generated by profiles feature table model, and is input to training and prediction
-            entity_column (str): name of entity column from feature table
-            label_column (str): name of label column from feature table
-            model_name_prefix (str): prefix for the model from model_configs file
-            numerical_pipeline_config (list): configs for numeric pipeline from model_configs file
-            categorical_pipeline_config (list): configs for categorical pipeline from model_configs file
-            train_size (float): partition fraction for train data
-            val_size (float): partition fraction for validation data
-            test_size (float): partition fraction for test data
+            figure_names: A dict with the file names to be generated as its values, and the keys as the names of the figures.
             merged_config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
 
         Returns:
@@ -330,52 +385,56 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         model_file_name = constants.MODEL_FILE_NAME
         stage_name = constants.STAGE_NAME
         metrics_table = constants.METRICS_TABLE
-
         train_config = merged_config['train']
 
-        models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
         models = train_config["model_params"]["models"]
+        model_id = str(int(time.time()))
 
         feature_table = session.table(feature_table_name)
-        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(session, feature_table, label_column, entity_column, model_name_prefix, train_size, val_size, test_size)
+        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(session, feature_table, 
+                                                                                trainer.data.label_column, 
+                                                                                trainer.data.entity_column, 
+                                                                                trainer.data.model_name_prefix, 
+                                                                                trainer.prep.train_size, 
+                                                                                trainer.prep.val_size, 
+                                                                                trainer.prep.test_size)
 
-        categorical_columns = utils.get_categorical_columns(feature_table, label_column, entity_column)
-        numeric_columns = utils.get_numeric_columns(feature_table, label_column, entity_column)
+        categorical_columns = utils.get_categorical_columns(feature_table, trainer.data.label_column, trainer.data.entity_column)
+        numeric_columns = utils.get_numeric_columns(feature_table, trainer.data.label_column, trainer.data.entity_column)
         train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
 
-        preprocessor_pipe_x = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
+        preprocessor_pipe_x = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
         train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
         val_x_processed = preprocessor_pipe_x.transform(val_x)
         
-        final_model = trainer.select_best_model(models, train_x_processed, train_y, val_x_processed, val_y, models_map)
-        preprocessor_pipe_optimized = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, numerical_pipeline_config, categorical_pipeline_config)
+        final_model = trainer.select_best_model(models, train_x_processed, train_y, val_x_processed, val_y)
+        preprocessor_pipe_optimized = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
         pipe = trainer.get_model_pipeline(preprocessor_pipe_optimized, final_model)
         pipe.fit(train_x, train_y)
+        
+        model_file = os.path.join('/tmp', model_file_name)
+        joblib.dump(pipe, model_file)
+        session.file.put(model_file, stage_name,overwrite=True)
+        
+        column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
+        column_name_file = os.path.join('/tmp', f"{trainer.data.model_name_prefix}_{model_id}_column_names.json")
+        json.dump(column_dict, open(column_name_file,"w"))
+        session.file.put(column_name_file, stage_name,overwrite=True)
+        
+        #TODO: Add support for regression. no prob_th in that case
+        model_metrics, _, prob_th = utils.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
 
-        model_metrics, _, prob_th = utils.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y,train_config)
-
-        model_id = str(int(time.time()))
         result_dict = {"model_id": model_id,
-                        "model_name_prefix": model_name_prefix,
+                        "model_name_prefix": trainer.data.model_name_prefix,
                         "prob_th": prob_th,
                         "metrics": model_metrics}
         
         metrics_df = pd.DataFrame.from_dict(result_dict).reset_index()
 
         session.write_pandas(metrics_df, table_name=f"{metrics_table}", auto_create_table=True, overwrite=False)
-
-        model_file = os.path.join('/tmp', model_file_name)
-        joblib.dump(pipe, model_file)
-        session.file.put(model_file, stage_name,overwrite=True)
-
-        column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
-        column_name_file = os.path.join('/tmp', f"{model_name_prefix}_{model_id}_column_names.json")
-        json.dump(column_dict, open(column_name_file,"w"))
-        session.file.put(column_name_file, stage_name,overwrite=True)
+        
         try:
-            utils.plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['roc-auc-curve'], label_column)
-            utils.plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, figure_names['pr-auc-curve'], label_column)
-            utils.plot_lift_chart(session, pipe, stage_name, test_x, test_y, figure_names['lift-chart'], label_column)
+            trainer.plot_diagnotics(session, pipe, stage_name, test_x, test_y, figure_names, trainer.data.label_column)
             utils.plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
         except Exception as e:
             print(e)
@@ -417,15 +476,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     model_eval_data = session.call(train_procedure, 
                     feature_table_name_remote,
-                    trainer.data.entity_column,
-                    trainer.data.label_column,
-                    trainer.data.model_name_prefix,
-                    trainer.prep.numeric_pipeline.get("pipeline"),
-                    trainer.prep.categorical_pipeline.get("pipeline"),
                     figure_names,
-                    trainer.prep.train_size,
-                    trainer.prep.val_size,
-                    trainer.prep.test_size,
                     merged_config)
 
     (model_id, model_metrics, prob_th) = json.loads(model_eval_data)

@@ -34,7 +34,7 @@ from dataclasses import dataclass
 from abc import ABC, abstractmethod
 
 @dataclass
-class DataConfig(ABC):
+class DataConfig:
     """DataConfig class is used to store the data configuration parameters
     """
     label_column: str

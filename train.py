@@ -41,7 +41,7 @@ warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 import utils
 import constants
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import asdict
 logger.info("Start")
 
 class MLTrainer(ABC):    
@@ -160,7 +160,7 @@ class MLTrainer(ABC):
     def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
         pass
     @abstractmethod
-    def prepare_training_summary(self):
+    def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
         pass
 
 
@@ -265,20 +265,21 @@ class ClassificationTrainer(MLTrainer):
             utils.plot_pr_auc_curve(session, model, stage_name, x, y, figure_names['pr-auc-curve'], label_column)
             utils.plot_lift_chart(session, model, stage_name, x, y, figure_names['lift-chart'], label_column)
         except Exception as e:
-            print(e)
-            print("Could not generate plots")
+            logger.error(f"Could not generate plots. {e}")
         pass
     
-    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
+    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config) -> dict:
         model_metrics, _, prob_th = utils.get_metrics(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
         result_dict = {"model_name_prefix": self.data.model_name_prefix,
                        "prob_th": prob_th,
                         "metrics": model_metrics}
-        pass
+        return result_dict
     
-    def prepare_training_summary(self):
-        # Preare the training_summary.json as some contents (ex: prob_th) are model specific
-        pass
+    def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
+        training_summary ={"timestamp": model_timestamp,
+                           "data": {"metrics": model_results['metrics'], 
+                                    "threshold": model_results['prob_th']}}
+        return training_summary
             
 
 class RegressionTrainer(MLTrainer):
@@ -306,7 +307,7 @@ class RegressionTrainer(MLTrainer):
         # TODO: To implement get_metrics and return metrics
         pass
     
-    def prepare_training_summary(self):
+    def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
         pass
 
 
@@ -326,6 +327,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     Returns:
         None: saves the model but returns nothing
     """
+    logger.info("Creating a session and loading configs")
     connection_parameters = utils.remap_credentials(creds)
     session = Session.builder.configs(connection_parameters).create()
 
@@ -338,6 +340,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     utils_path = os.path.join(current_dir, 'utils.py')
     constants_path = os.path.join(current_dir, 'constants.py')
+    logger_path = os.path.join(current_dir, "logger.py")
     config_path = os.path.join(current_dir, 'config', 'model_configs.yaml')
     folder_path = os.path.dirname(output_filename)
     target_path = utils.get_output_directory(folder_path)
@@ -353,9 +356,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                     "feature-importance-chart": f"04-feature-importance-chart.png"}
     train_procedure = 'train_sproc'
 
-    import_paths = [utils_path, constants_path]
+    import_paths = [utils_path, constants_path, logger_path]
     utils.delete_import_files(session, stage_name, import_paths)
     utils.delete_procedures(session, train_procedure)
+    
+    logger.info("Initialising trainer")
     
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == 'classification':
@@ -370,7 +375,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     def train_sp(session: snowflake.snowpark.Session,
                 feature_table_name: str,
                 figure_names: dict,
-                merged_config: dict) -> list:
+                merged_config: dict) -> dict:
         """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
 
         Args:
@@ -420,27 +425,18 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         column_name_file = os.path.join('/tmp', f"{trainer.data.model_name_prefix}_{model_id}_column_names.json")
         json.dump(column_dict, open(column_name_file,"w"))
         session.file.put(column_name_file, stage_name,overwrite=True)
-        
-        #TODO: Add support for regression. no prob_th in that case
-        model_metrics, _, prob_th = utils.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
-
-        result_dict = {"model_id": model_id,
-                        "model_name_prefix": trainer.data.model_name_prefix,
-                        "prob_th": prob_th,
-                        "metrics": model_metrics}
-        
-        metrics_df = pd.DataFrame.from_dict(result_dict).reset_index()
-
-        session.write_pandas(metrics_df, table_name=f"{metrics_table}", auto_create_table=True, overwrite=False)
-        
-        try:
-            trainer.plot_diagnotics(session, pipe, stage_name, test_x, test_y, figure_names, trainer.data.label_column)
+        trainer.plot_diagnotics(session, pipe, stage_name, test_x, test_y, figure_names, trainer.data.label_column)
+        try:           
             utils.plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
         except Exception as e:
-            print(e)
-            print("Could not generate plots")
-        return [model_id, model_metrics, prob_th]
+            logger.error(f"Could not generate plots {e}")
+        results = trainer.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
+        results["model_id"] = model_id
+        metrics_df = pd.DataFrame.from_dict(results).reset_index()
+        session.write_pandas(metrics_df, table_name=f"{metrics_table}", auto_create_table=True, overwrite=False)
+        return results
     
+    logger.info("Getting past data for training")
     material_table = utils.get_material_registry_name(session, material_registry_table_prefix)
     model_hash, creation_ts = utils.get_latest_material_hash(session, material_table, trainer.data.model_name)
     start_date, end_date = trainer.data.train_start_dt, trainer.data.train_end_dt
@@ -465,57 +461,51 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                                     trainer.prep)
         if feature_table is None:
             feature_table = feature_table_instance
-            logger.info("Taking only one material for training. Remove the break point to train on all materials")
-            break
+            #logger.warning("Taking only one material for training. Remove the break point to train on all materials")
+            #break
         else:
             feature_table = feature_table.unionAllByName(feature_table_instance)
 
     feature_table_name_remote = f"{trainer.data.model_name_prefix}_features"
     sorted_feature_table = feature_table.sort(col(trainer.data.entity_column).asc(), col(trainer.data.index_timestamp).desc()).drop([trainer.data.index_timestamp])
     sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
-
-    model_eval_data = session.call(train_procedure, 
-                    feature_table_name_remote,
-                    figure_names,
-                    merged_config)
-
-    (model_id, model_metrics, prob_th) = json.loads(model_eval_data)
-
-    for figure_name in figure_names.values():
-        try:
-            utils.fetch_staged_file(session, stage_name, figure_name, target_path)
-        except:
-            print(f"Could not fetch {figure_name}")
-            
-
+    logger.info("Training and fetching the results")
+    
+    train_results_json = session.call(train_procedure, 
+                                        feature_table_name_remote,
+                                        figure_names,
+                                        merged_config)
+    logger.info("Saving train results to file")
+    train_results = json.loads(train_results_json)
+    model_id = train_results["model_id"]
+    
     results = {"config": {'training_dates': training_dates,
                         'material_names': material_names,
-                        'eligible_users': trainer.data.eligible_users,
-                        'prediction_horizon_days': trainer.data.prediction_horizon_days,
-                        'label_column': trainer.data.label_column,
-                        'label_value': trainer.data.label_value,
                         'material_hash': model_hash,
-                        'task': prediction_task,},
+                        **asdict(trainer.data)},
             "model_info": {'file_location': {'stage': stage_name, 'file_name': model_file_name}, 'model_id': model_id},
             "input_model_name": trainer.data.model_name}
     json.dump(results, open(output_filename,"w"))
 
     model_timestamp = datetime.utcfromtimestamp(int(model_id)).strftime('%Y-%m-%dT%H:%M:%SZ')
-    summary = {"timestamp": model_timestamp,
-               "data": {"metrics": model_metrics, "threshold": prob_th}}
+    summary = trainer.prepare_training_summary(train_results, model_timestamp)
     json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))
+    logger.info("Fetching visualisations to local")
+    for figure_name in figure_names.values():
+        try:
+            utils.fetch_staged_file(session, stage_name, figure_name, target_path)
+        except:
+            print(f"Could not fetch {figure_name}")
 
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
     inputs = None
-    output_folder = 'output/dev/seq_no/4'
+    output_folder = 'output/dev/seq_no/5'
     output_file_name = f"{output_folder}/train_output.json"
     from pathlib import Path
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
        
     train(creds, inputs, output_file_name, None)
-    # logger.info("Training completed")
-    # materialise_past_data('2022-')

@@ -220,7 +220,7 @@ def get_categorical_columns(feature_table: snowflake.snowpark.Table, label_colum
             categorical_columns.append(field.name)
     return categorical_columns
 
-def get_ArrayType_features(table: snowflake.snowpark.Table)-> list:
+def get_arraytype_features(table: snowflake.snowpark.Table)-> list:
     """Returns the list of features to be ignored from the feature table.
 
     Args:
@@ -229,8 +229,8 @@ def get_ArrayType_features(table: snowflake.snowpark.Table)-> list:
     Returns:
         list: The list of features to be ignored based column datatypes as ArrayType.
     """
-    ArrayType_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
-    return ArrayType_features
+    arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
+    return arraytype_features
 
 def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str])-> pd.DataFrame:
     """
@@ -534,8 +534,8 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
     try:
         label_ts_col = f"{index_timestamp}_label_ts"
         feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
-        ArrayType_features = get_ArrayType_features(feature_table)
-        ignore_features = merge_lists_to_unique(ignore_features, ArrayType_features)
+        arraytype_features = get_arraytype_features(feature_table)
+        ignore_features = merge_lists_to_unique(ignore_features, arraytype_features)
         if eligible_users:
             feature_table = feature_table.filter(eligible_users)
         feature_table = feature_table.drop([label_column])

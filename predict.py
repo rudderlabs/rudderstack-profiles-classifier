@@ -159,8 +159,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     if eligible_users:
         raw_data = raw_data.filter(eligible_users)
         
-    ArrayType_features = utils.get_ArrayType_features(raw_data)
-    ignore_features = utils.merge_lists_to_unique(ignore_features, ArrayType_features)
+    arraytype_features = utils.get_arraytype_features(raw_data)
+    ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_features)
     predict_data = utils.drop_columns_if_exists(raw_data, ignore_features)
     
     if len(timestamp_columns) == 0:

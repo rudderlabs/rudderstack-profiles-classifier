@@ -41,15 +41,26 @@ warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 import utils
 import constants
 from abc import ABC, abstractmethod
-from dataclasses import asdict
+from dataclasses import asdict, dataclass
 logger.info("Start")
 
-class MLTrainer(ABC):    
-    hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}
-    def __init__(self, data_config: utils.DataConfig, preprocessing_config: utils.PreprocessorConfig):
-        self.data = data_config
-        self.prep = preprocessing_config
-    
+@dataclass
+class MLTrainer(ABC):
+    label_column: str
+    entity_column: str
+    package_name: str
+    model_name: str
+    model_name_prefix: str
+    index_timestamp: str
+    eligible_users: str
+    train_start_dt: str
+    train_end_dt: str
+    prediction_horizon_days: int
+    # sample_data: float
+    # top_k: int
+    # bottom_k: int
+    prep: utils.PreprocessorConfig
+    hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}    
     def get_preprocessing_pipeline(self, numeric_columns: List[str], 
                                     categorical_columns: List[str], 
                                     numerical_pipeline_config: List[str], 
@@ -86,20 +97,20 @@ class MLTrainer(ABC):
         num_pipeline = Pipeline([
             ('imputer', SimpleImputer(**num_imputer_params)),
         ])
-
+        
+        pipeline_params_ = dict()
         for categorical_params in categorical_pipeline_config_:
             cat_params_name = categorical_params.pop('name')
-            if cat_params_name == 'SimpleImputer':
-                cat_imputer_params = categorical_params
-            elif cat_params_name == 'OneHotEncoder':
-                cat_encoder_params = categorical_params
-            else:
-                error_message = f"Invalid cat_params_name: {num_params_name} for catagorical pipeline."
-                # logger.error(error_message)
+            pipeline_params_[cat_params_name] = categorical_params
+            try:
+                assert cat_params_name in ['SimpleImputer', 'OneHotEncoder']
+            except AssertionError:
+                error_message = f"Invalid cat_params_name: {cat_params_name} for categorical pipeline."
+                logger.error(error_message)
                 raise ValueError(error_message)
-
-        cat_pipeline = Pipeline([('imputer', SimpleImputer(**cat_imputer_params)),
-                                ('encoder', OneHotEncoder(**cat_encoder_params))])
+            
+        cat_pipeline = Pipeline([('imputer', SimpleImputer(**pipeline_params_['SimpleImputer'])),
+                                ('encoder', OneHotEncoder(**pipeline_params_['OneHotEncoder']))])
 
         preprocessor = ColumnTransformer(
             transformers=[('num', num_pipeline, numeric_columns),
@@ -136,19 +147,10 @@ class MLTrainer(ABC):
         return space
 
     @abstractmethod
-    def build_model(self, 
-                    X_train: pd.DataFrame, 
-                    y_train: pd.DataFrame, 
-                    X_val: pd.DataFrame,
-                    y_val: pd.DataFrame,
-                    model_class: Union[XGBClassifier, RandomForestClassifier, MLPClassifier, XGBRegressor, RandomForestRegressor, MLPRegressor],
-                    model_config: Dict) -> Tuple:
-        pass
-    @abstractmethod
     def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
         pass
     @abstractmethod
-    def plot_diagnotics(self, session: snowflake.snowpark.Session, 
+    def plot_diagnostics(self, session: snowflake.snowpark.Session, 
                         model, 
                         stage_name: str, 
                         x: pd.DataFrame, 
@@ -162,13 +164,50 @@ class MLTrainer(ABC):
     @abstractmethod
     def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
         pass
+    @abstractmethod
+    def prepare_feature_table(self, session, feature_table_name, label_table_name):
+        pass
 
 
+@dataclass
 class ClassificationTrainer(MLTrainer):
+    label_value: Union[str,int,float]
     evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
-    models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}
-    def __init__(self, data_config: utils.ClassifierDataConfig, preprocessing_config: utils.PreprocessorConfig):
-        super().__init__(data_config, preprocessing_config)
+    models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}        
+    def prepare_feature_table(self, session: snowflake.snowpark.Session,
+                            feature_table_name: str, 
+                            label_table_name: str) -> snowflake.snowpark.Table:
+        """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
+
+        Args:
+            session (snowflake.snowpark.Session): Snowpark session for data warehouse access
+            feature_table_name (str): feature table from the retrieved material_names tuple
+            label_table_name (str): label table from the retrieved material_names tuple
+        Returns:
+            snowflake.snowpark.Table: feature table made using given instance from material names
+        """
+        try:
+            label_ts_col = f"{self.index_timestamp}_label_ts"
+            feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
+            if self.eligible_users:
+                feature_table = feature_table.filter(self.eligible_users)
+            feature_table = feature_table.drop([self.label_column])
+            timestamp_columns = self.prep.timestamp_columns
+            if len(timestamp_columns) == 0:
+                timestamp_columns = utils.get_timestamp_columns(session, feature_table, self.index_timestamp)
+            for col in timestamp_columns:
+                feature_table = feature_table.withColumn(col, utils.F.datediff('day', utils.F.col(col), utils.F.col(self.index_timestamp)))
+            label_table = (session.table(label_table_name)
+                        .withColumn(self.label_column, utils.F.when(utils.F.col(self.label_column)==self.label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
+                        .select(self.entity_column, self.label_column, self.index_timestamp)
+                        .withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col))
+            uppercase_list = lambda names: [name.upper() for name in names]
+            lowercase_list = lambda names: [name.lower() for name in names]
+            ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(self.prep.ignore_features) or col in lowercase_list(self.prep.ignore_features)]
+            return feature_table.join(label_table, [self.entity_column], join_type="inner").drop([label_ts_col]).drop(ignore_features_)
+        except Exception as e:
+            print("Exception occured while preparing feature table. Please check the logs for more details")
+            raise e
         
     def build_model(self, X_train:pd.DataFrame, 
                     y_train:pd.DataFrame,
@@ -242,7 +281,7 @@ class ClassificationTrainer(MLTrainer):
 
         return final_clf
     
-    def plot_diagnotics(self, session: snowflake.snowpark.Session, 
+    def plot_diagnostics(self, session: snowflake.snowpark.Session, 
                         model, 
                         stage_name: str, 
                         x: pd.DataFrame, 
@@ -270,7 +309,7 @@ class ClassificationTrainer(MLTrainer):
     
     def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config) -> dict:
         model_metrics, _, prob_th = utils.get_metrics(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
-        result_dict = {"model_name_prefix": self.data.model_name_prefix,
+        result_dict = {"model_name_prefix": self.model_name_prefix,
                        "prob_th": prob_th,
                         "metrics": model_metrics}
         return result_dict
@@ -293,7 +332,7 @@ class RegressionTrainer(MLTrainer):
         # Implementation for regression model selection
         pass
     
-    def plot_diagnotics(self, session: snowflake.snowpark.Session, 
+    def plot_diagnostics(self, session: snowflake.snowpark.Session, 
                         model, 
                         stage_name: str, 
                         x: pd.DataFrame, 
@@ -308,6 +347,10 @@ class RegressionTrainer(MLTrainer):
         pass
     
     def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
+        pass
+    def prepare_feature_table(self, session: snowflake.snowpark.Session,
+                                feature_table_name: str, 
+                                label_table_name: str) -> snowflake.snowpark.Table:
         pass
 
 
@@ -348,7 +391,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
     
-    prediction_task = merged_config['data'].get('task', 'classification') # Assuming default as classification
+    prediction_task = merged_config['data'].pop('task', 'classification') # Assuming default as classification
 
     figure_names = {"roc-auc-curve": f"01-test-roc-auc.png",
                     "pr-auc-curve": f"02-test-pr-auc.png",
@@ -364,11 +407,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == 'classification':
-        data_config = utils.ClassifierDataConfig(**merged_config["data"])
-        trainer = ClassificationTrainer(data_config, prep_config)
+        trainer = ClassificationTrainer(**merged_config["data"], **{"prep": prep_config})
     elif prediction_task == 'regression':
-        data_config = utils.DataConfig(**merged_config["data"])
-        trainer = RegressionTrainer(data_config, prep_config)
+        trainer = RegressionTrainer(**merged_config["data"], **{"prep": prep_config})
     
     @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
         packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
@@ -397,15 +438,15 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
         feature_table = session.table(feature_table_name)
         train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(session, feature_table, 
-                                                                                trainer.data.label_column, 
-                                                                                trainer.data.entity_column, 
-                                                                                trainer.data.model_name_prefix, 
+                                                                                trainer.label_column, 
+                                                                                trainer.entity_column, 
+                                                                                trainer.model_name_prefix, 
                                                                                 trainer.prep.train_size, 
                                                                                 trainer.prep.val_size, 
                                                                                 trainer.prep.test_size)
 
-        categorical_columns = utils.get_categorical_columns(feature_table, trainer.data.label_column, trainer.data.entity_column)
-        numeric_columns = utils.get_numeric_columns(feature_table, trainer.data.label_column, trainer.data.entity_column)
+        categorical_columns = utils.get_categorical_columns(feature_table, trainer.label_column, trainer.entity_column)
+        numeric_columns = utils.get_numeric_columns(feature_table, trainer.label_column, trainer.entity_column)
         train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
 
         preprocessor_pipe_x = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
@@ -422,10 +463,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         session.file.put(model_file, stage_name,overwrite=True)
         
         column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
-        column_name_file = os.path.join('/tmp', f"{trainer.data.model_name_prefix}_{model_id}_column_names.json")
+        column_name_file = os.path.join('/tmp', f"{trainer.model_name_prefix}_{model_id}_column_names.json")
         json.dump(column_dict, open(column_name_file,"w"))
         session.file.put(column_name_file, stage_name,overwrite=True)
-        trainer.plot_diagnotics(session, pipe, stage_name, test_x, test_y, figure_names, trainer.data.label_column)
+        trainer.plot_diagnostics(session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
         try:           
             utils.plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
         except Exception as e:
@@ -438,27 +479,25 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     
     logger.info("Getting past data for training")
     material_table = utils.get_material_registry_name(session, material_registry_table_prefix)
-    model_hash, creation_ts = utils.get_latest_material_hash(session, material_table, trainer.data.model_name)
-    start_date, end_date = trainer.data.train_start_dt, trainer.data.train_end_dt
+    model_hash, creation_ts = utils.get_latest_material_hash(session, material_table, trainer.model_name)
+    start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
     if start_date == None or end_date == None:
-        start_date, end_date = utils.get_date_range(creation_ts, trainer.data.prediction_horizon_days)
+        start_date, end_date = utils.get_date_range(creation_ts, trainer.prediction_horizon_days)
 
     material_names, training_dates = utils.get_material_names(session, material_table, start_date, end_date, 
-                                                              trainer.data.package_name, 
-                                                              trainer.data.model_name, 
+                                                              trainer.package_name, 
+                                                              trainer.model_name, 
                                                               model_hash, 
                                                               material_table_prefix, 
-                                                              trainer.data.prediction_horizon_days, 
+                                                              trainer.prediction_horizon_days, 
                                                               output_filename)
  
     feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
-        feature_table_instance = utils.prepare_feature_table(session, 
-                                    feature_table_name, 
-                                    label_table_name,
-                                    trainer.data, 
-                                    trainer.prep)
+        feature_table_instance = trainer.prepare_feature_table(session, 
+                                                               feature_table_name, 
+                                                               label_table_name)
         if feature_table is None:
             feature_table = feature_table_instance
             #logger.warning("Taking only one material for training. Remove the break point to train on all materials")
@@ -466,8 +505,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         else:
             feature_table = feature_table.unionAllByName(feature_table_instance)
 
-    feature_table_name_remote = f"{trainer.data.model_name_prefix}_features"
-    sorted_feature_table = feature_table.sort(col(trainer.data.entity_column).asc(), col(trainer.data.index_timestamp).desc()).drop([trainer.data.index_timestamp])
+    feature_table_name_remote = f"{trainer.model_name_prefix}_features"
+    sorted_feature_table = feature_table.sort(col(trainer.entity_column).asc(), col(trainer.index_timestamp).desc()).drop([trainer.index_timestamp])
     sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
     logger.info("Training and fetching the results")
     
@@ -482,9 +521,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     results = {"config": {'training_dates': training_dates,
                         'material_names': material_names,
                         'material_hash': model_hash,
-                        **asdict(trainer.data)},
+                        **asdict(trainer)},
             "model_info": {'file_location': {'stage': stage_name, 'file_name': model_file_name}, 'model_id': model_id},
-            "input_model_name": trainer.data.model_name}
+            "input_model_name": trainer.model_name}
     json.dump(results, open(output_filename,"w"))
 
     model_timestamp = datetime.utcfromtimestamp(int(model_id)).strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -498,11 +537,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             print(f"Could not fetch {figure_name}")
 
 if __name__ == "__main__":
-    homedir = os.path.expanduser("~")
+    homedir = os.path.expanduser("~") 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
     inputs = None
-    output_folder = 'output/dev/seq_no/5'
+    output_folder = 'output/dev/seq_no/6'
     output_file_name = f"{output_folder}/train_output.json"
     from pathlib import Path
     path = Path(output_folder)

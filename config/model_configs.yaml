@@ -20,15 +20,13 @@ data:
 
 preprocessing:
   # Related to various preprocessing steps of the data
-  categorical_columns: &categorical_columns [RUDDER_ID, VALID_AT, STATE, COUNTRY, FIRST_NAME, LAST_NAME, CURRENCY, DEVICE_TYPE, DEVICE_NAME, DEVICE_MANUFACTURER, LAST_CART_STATUS
-  ]
-  timestamp_columns: []
-    # Following columns get a datediff function applied with the timestamp_column to get days_since_<timestamp_column> features
+
+  timestamp_columns: [] # Timestamp columns get a datediff function applied with the index_timestamp to get days_since_<timestamp_column> features
 
   ignore_features: []
 
   numeric_pipeline:
-    columns: all
+    numeric_columns: all
     pipeline:
       - name: SimpleImputer
         # strategy can be any acceptable value of sklearn simpleimputer strategy
@@ -40,7 +38,7 @@ preprocessing:
         # keep_empty_features: False
 
   categorical_pipeline:
-    categorical_columns: *categorical_columns
+    categorical_columns: []
     pipeline:
       - name: SimpleImputer
         strategy: constant

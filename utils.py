@@ -220,6 +220,18 @@ def get_categorical_columns(feature_table: snowflake.snowpark.Table, label_colum
             categorical_columns.append(field.name)
     return categorical_columns
 
+def get_ArrayType_features(table: snowflake.snowpark.Table)-> list:
+    """Returns the list of features to be ignored from the feature table.
+
+    Args:
+        table (snowflake.snowpark.Table): snowpark table.
+
+    Returns:
+        list: The list of features to be ignored based column datatypes as ArrayType.
+    """
+    ArrayType_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
+    return ArrayType_features
+
 def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str])-> pd.DataFrame:
     """
     Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively.
@@ -351,18 +363,6 @@ def get_latest_material_hash(session: snowflake.snowpark.Session,
     model_hash = temp_hash_vector.MODEL_HASH
     creation_ts = temp_hash_vector.CREATION_TS
     return model_hash, creation_ts
-
-def get_ignore_features(table: snowflake.snowpark.Table)-> list:
-    """Returns the list of features to be ignored from the feature table.
-
-    Args:
-        table (snowflake.snowpark.Table): snowpark table.
-
-    Returns:
-        list: The list of features to be ignored based column datatypes as ArrayType.
-    """
-    ignore_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
-    return ignore_features
 
 def merge_lists_to_unique(l1: list, l2: list)-> list:
     """Merges two lists and returns a unique list of elements.
@@ -534,8 +534,8 @@ def prepare_feature_table(session: snowflake.snowpark.Session,
     try:
         label_ts_col = f"{index_timestamp}_label_ts"
         feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
-        ignore_features_ = get_ignore_features(feature_table)
-        ignore_features = merge_lists_to_unique(ignore_features, ignore_features_)
+        ArrayType_features = get_ArrayType_features(feature_table)
+        ignore_features = merge_lists_to_unique(ignore_features, ArrayType_features)
         if eligible_users:
             feature_table = feature_table.filter(eligible_users)
         feature_table = feature_table.drop([label_column])

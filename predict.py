@@ -31,6 +31,11 @@ import yaml
 import json
 import datetime
 
+import warnings
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
+warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
+
 def drop_fn_if_exists(session: snowflake.snowpark.Session, 
                       fn_name: str) -> bool:
     """Snowflake caches the functions and it reuses these next time. To avoid the caching, we manually search for the same function name and drop it before we create the udf.
@@ -87,7 +92,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     label_column = merged_config["data"]["label_column"]
     index_timestamp = merged_config["data"]["index_timestamp"]
     eligible_users = merged_config["data"]["eligible_users"]
-    ignore_feature = merged_config["preprocessing"]["ignore_features"]
+    ignore_features = merged_config["preprocessing"]["ignore_features"]
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     entity_column = merged_config["data"]["entity_column"]
     model_name = merged_config["data"]["model_name"]
@@ -153,8 +158,11 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     if eligible_users:
         raw_data = raw_data.filter(eligible_users)
-
-    predict_data = utils.drop_columns_if_exists(raw_data, ignore_feature)
+        
+    arraytype_features = utils.get_arraytype_features(raw_data)
+    ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_features)
+    predict_data = utils.drop_columns_if_exists(raw_data, ignore_features)
+    
     if len(timestamp_columns) == 0:
         timestamp_columns = utils.get_timestamp_columns(session, predict_data, index_timestamp)
     for col in timestamp_columns:
@@ -175,7 +183,7 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None
-        output_folder = 'output/dev/seq_no/2'
+        output_folder = 'output/dev/seq_no/4'
         model_path = f"{output_folder}/train_output.json"
         
     predict(creds, aws_config, model_path, None, "test_can_delet",None)

@@ -38,7 +38,6 @@ from abc import ABC, abstractmethod
 class PreprocessorConfig:
     """PreprocessorConfig class is used to store the preprocessor configuration parameters
     """
-    categorical_columns: List[str]
     timestamp_columns: List[str]
     ignore_features: List[str]
     numeric_pipeline: dict
@@ -405,6 +404,18 @@ def get_categorical_columns(feature_table: snowflake.snowpark.Table, label_colum
             categorical_columns.append(field.name)
     return categorical_columns
 
+def get_arraytype_features(table: snowflake.snowpark.Table)-> list:
+    """Returns the list of features to be ignored from the feature table.
+
+    Args:
+        table (snowflake.snowpark.Table): snowpark table.
+
+    Returns:
+        list: The list of features to be ignored based column datatypes as ArrayType.
+    """
+    arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
+    return arraytype_features
+
 def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str])-> pd.DataFrame:
     """
     Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively.
@@ -536,6 +547,18 @@ def get_latest_material_hash(session: snowflake.snowpark.Session,
     model_hash = temp_hash_vector.MODEL_HASH
     creation_ts = temp_hash_vector.CREATION_TS
     return model_hash, creation_ts
+
+def merge_lists_to_unique(l1: list, l2: list)-> list:
+    """Merges two lists and returns a unique list of elements.
+
+    Args:
+        l1 (list): The first list.
+        l2 (list): The second list.
+
+    Returns:
+        list: A unique list of elements from both the lists.
+    """
+    return list(set(l1 + l2))
 
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str)-> None:
     """

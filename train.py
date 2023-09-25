@@ -189,6 +189,8 @@ class ClassificationTrainer(MLTrainer):
         try:
             label_ts_col = f"{self.index_timestamp}_label_ts"
             feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
+            arraytype_features = utils.get_arraytype_features(feature_table)
+            ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
             if self.eligible_users:
                 feature_table = feature_table.filter(self.eligible_users)
             feature_table = feature_table.drop([self.label_column])
@@ -203,7 +205,9 @@ class ClassificationTrainer(MLTrainer):
                         .withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col))
             uppercase_list = lambda names: [name.upper() for name in names]
             lowercase_list = lambda names: [name.lower() for name in names]
-            ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(self.prep.ignore_features) or col in lowercase_list(self.prep.ignore_features)]
+            ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
+            self.prep.ignore_features = ignore_features_
+            self.prep.timestamp_columns = timestamp_columns
             return feature_table.join(label_table, [self.entity_column], join_type="inner").drop([label_ts_col]).drop(ignore_features_)
         except Exception as e:
             print("Exception occured while preparing feature table. Please check the logs for more details")
@@ -500,8 +504,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                                                                label_table_name)
         if feature_table is None:
             feature_table = feature_table_instance
-            #logger.warning("Taking only one material for training. Remove the break point to train on all materials")
-            #break
+            # logger.warning("Taking only one material for training. Remove the break point to train on all materials")
+            # break
         else:
             feature_table = feature_table.unionAllByName(feature_table_instance)
 
@@ -541,7 +545,7 @@ if __name__ == "__main__":
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
     inputs = None
-    output_folder = 'output/dev/seq_no/6'
+    output_folder = 'output/dev/seq_no/7'
     output_file_name = f"{output_folder}/train_output.json"
     from pathlib import Path
     path = Path(output_folder)

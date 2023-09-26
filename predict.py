@@ -75,7 +75,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     session = Session.builder.configs(connection_parameters).create()
     stage_name = constants.STAGE_NAME
     model_file_name = constants.MODEL_FILE_NAME
-    print(model_file_name)
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     notebook_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
@@ -102,8 +101,10 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     import_paths = [utils_path, constants_path]
     utils.delete_import_files(session, stage_name, import_paths)
-    
+
+    print(f"{output_profiles_ml_model}_{model_file_name}")
     print("Caching")
+    
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location

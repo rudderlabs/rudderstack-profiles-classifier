@@ -44,6 +44,105 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 logger.info("Start")
 
+class Connector(ABC):
+    def __init__(self, creds: dict) -> None:
+        self.connection_parameters = utils.remap_credentials(creds)
+
+    @abstractmethod
+    def build_session(self) -> snowflake.snowpark.Session:
+        pass
+
+    @abstractmethod
+    def run_query(self, query: str) -> None:
+        pass
+    
+    @abstractmethod
+    def get_table(self, table_name: str):
+        pass
+    
+    @abstractmethod
+    def get_table_as_dataframe(self, session: snowflake.snowpark.Session, table_name: str) -> pd.DataFrame:
+        pass
+
+    @abstractmethod
+    def write_table(self, table, table_name_remote: str) -> None:
+        pass
+
+    @abstractmethod
+    def label_table(self, session, label_table_name, label_column, entity_column, index_timestamp, label_value, label_ts_col):
+        pass
+
+    @abstractmethod
+    def gen_model_file_path(self, model_file_name: str) -> str:
+        pass
+
+    @abstractmethod
+    def gen_column_file_path(self, column_name_file: str) -> str:
+        pass
+
+    @abstractmethod
+    def save_file(self, file_name: str, stage_name: str, overwrite: bool) -> None:
+        pass
+
+    @abstractmethod
+    def write_pandas(self, df: pd.DataFrame, table_name: str, auto_create_table: bool, overwrite: bool) -> None:
+        pass
+
+    @abstractmethod
+    def call_procedure(self, train_procedure, remote_table_name: str, figure_names: dict, merged_config: dict):
+        pass
+
+class SnowflakeConnector(Connector):
+    def __init__(self, creds: dict) -> None:
+        super().__init__(creds)
+
+    def build_session(self) -> snowflake.snowpark.Session:
+        session = Session.builder.configs(self.connection_parameters).create()
+        logger.info("Session created")
+        return session
+    
+    def run_query(self, session: snowflake.snowpark.Session, query: str) -> None:
+        session.sql(query).collect()
+        return
+
+    def get_table(self, session: snowflake.snowpark.Session, table_name: str) -> snowflake.snowpark.Table:
+        return session.table(table_name)
+
+    def get_table_as_dataframe(self, session: snowflake.snowpark.Session, table_name: str) -> pd.DataFrame:
+        feature_table = session.table(table_name)
+        return feature_table.toPandas()
+    
+    def write_table(self, table: snowflake.snowpark.Table, table_name_remote: str, mode: str) -> None:
+        table.write.mode(mode).save_as_table(table_name_remote)
+        return
+    
+    def label_table(self, session: snowflake.snowpark.Session, label_table_name: str, label_column: str, entity_column: str, index_timestamp: str, label_value: Union[str,int,float], label_ts_col: str ):
+        table = (session.table(label_table_name)
+                        .withColumn(label_column, utils.F.when(utils.F.col(label_column)==label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
+                        .select(entity_column, label_column, index_timestamp)
+                        .withColumnRenamed(utils.F.col(index_timestamp), label_ts_col))
+        return table
+    
+    def gen_model_file_path(self, model_file_name: str) -> str:
+        return os.path.join('/tmp', model_file_name)
+
+    def gen_column_file_path(self, column_name_file: str) -> str:
+        return os.path.join('/tmp', column_name_file)
+
+    def save_file(self, session: snowflake.snowpark.Session, file_name: str, stage_name: str, overwrite: bool) -> None:
+        session.file.put(file_name, stage_name, overwrite=overwrite)
+        return
+    
+    def write_pandas(self, session: snowflake.snowpark.Session, df: pd.DataFrame, table_name: str, auto_create_table: bool, overwrite: bool) -> None:
+        session.write_pandas(df, table_name=f"{table_name}", auto_create_table=auto_create_table, overwrite=overwrite)
+        return
+    
+    def call_procedure(self, session: snowflake.snowpark.Session, train_procedure, remote_table_name: str, figure_names: dict, merged_config: dict):
+        return session.call(train_procedure, remote_table_name, figure_names, merged_config)
+
+class RedshiftConnector(Connector):
+    pass
+
 @dataclass
 class MLTrainer(ABC):
     label_column: str
@@ -150,7 +249,8 @@ class MLTrainer(ABC):
     def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
         pass
     @abstractmethod
-    def plot_diagnostics(self, session: snowflake.snowpark.Session, 
+    def plot_diagnostics(self, connector: Connector,
+                        session,
                         model, 
                         stage_name: str, 
                         x: pd.DataFrame, 
@@ -168,13 +268,13 @@ class MLTrainer(ABC):
     def prepare_feature_table(self, session, feature_table_name, label_table_name):
         pass
 
-
 @dataclass
 class ClassificationTrainer(MLTrainer):
     label_value: Union[str,int,float]
     evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
     models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}        
-    def prepare_feature_table(self, session: snowflake.snowpark.Session,
+    def prepare_feature_table(self, connector: Connector,
+                            session: snowflake.snowpark.Session,
                             feature_table_name: str, 
                             label_table_name: str) -> snowflake.snowpark.Table:
         """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
@@ -188,7 +288,7 @@ class ClassificationTrainer(MLTrainer):
         """
         try:
             label_ts_col = f"{self.index_timestamp}_label_ts"
-            feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
+            feature_table = connector.get_table(session, feature_table_name) #.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
             arraytype_features = utils.get_arraytype_features(feature_table)
             ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
             if self.eligible_users:
@@ -199,10 +299,11 @@ class ClassificationTrainer(MLTrainer):
                 timestamp_columns = utils.get_timestamp_columns(session, feature_table, self.index_timestamp)
             for col in timestamp_columns:
                 feature_table = feature_table.withColumn(col, utils.F.datediff('day', utils.F.col(col), utils.F.col(self.index_timestamp)))
-            label_table = (session.table(label_table_name)
-                        .withColumn(self.label_column, utils.F.when(utils.F.col(self.label_column)==self.label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
-                        .select(self.entity_column, self.label_column, self.index_timestamp)
-                        .withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col))
+            # label_table = (session.table(label_table_name)
+            #             .withColumn(self.label_column, utils.F.when(utils.F.col(self.label_column)==self.label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
+            #             .select(self.entity_column, self.label_column, self.index_timestamp)
+            #             .withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col))
+            label_table = connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, self.label_value, label_ts_col)
             uppercase_list = lambda names: [name.upper() for name in names]
             lowercase_list = lambda names: [name.lower() for name in names]
             ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
@@ -285,7 +386,8 @@ class ClassificationTrainer(MLTrainer):
 
         return final_clf
     
-    def plot_diagnostics(self, session: snowflake.snowpark.Session, 
+    def plot_diagnostics(self, connector: Connector,
+                        session,
                         model, 
                         stage_name: str, 
                         x: pd.DataFrame, 
@@ -304,9 +406,12 @@ class ClassificationTrainer(MLTrainer):
             label_column (str): name of the label column
         """
         try:
-            utils.plot_roc_auc_curve(session, model, stage_name, x, y, figure_names['roc-auc-curve'], label_column)
-            utils.plot_pr_auc_curve(session, model, stage_name, x, y, figure_names['pr-auc-curve'], label_column)
-            utils.plot_lift_chart(session, model, stage_name, x, y, figure_names['lift-chart'], label_column)
+            roc_auc_file = utils.plot_roc_auc_curve(model, x, y, figure_names['roc-auc-curve'], label_column)
+            connector.save_file(session, roc_auc_file, stage_name, overwrite=True)
+            pr_auc_file = utils.plot_pr_auc_curve(session, model, stage_name, x, y, figure_names['pr-auc-curve'], label_column)
+            connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
+            lift_chart_file = utils.plot_lift_chart(session, model, stage_name, x, y, figure_names['lift-chart'], label_column)
+            connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
         pass
@@ -374,15 +479,21 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     Returns:
         None: saves the model but returns nothing
     """
-    logger.info("Creating a session and loading configs")
-    connection_parameters = utils.remap_credentials(creds)
-    session = Session.builder.configs(connection_parameters).create()
+    warehouse = creds['type']
+    if warehouse == 'snowflake':
+        connector = SnowflakeConnector(creds)
+    elif warehouse == 'redshift':
+        connector = RedshiftConnector(creds)
+
+    logger.info("Creating a session")
+    session = connector.build_session()
 
     model_file_name = constants.MODEL_FILE_NAME
     stage_name = constants.STAGE_NAME
+    metrics_table = constants.METRICS_TABLE
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
-    session.sql(f"create stage if not exists {stage_name.replace('@', '')}").collect()
+    connector.run_query(session, f"create stage if not exists {stage_name.replace('@', '')}")
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     utils_path = os.path.join(current_dir, 'utils.py')
@@ -415,6 +526,49 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     elif prediction_task == 'regression':
         trainer = RegressionTrainer(**merged_config["data"], **{"prep": prep_config})
     
+    def train_model(feature_table: pd.DataFrame, merged_config: dict):
+        
+        train_config = merged_config['train']
+        models = train_config["model_params"]["models"]
+        model_id = str(int(time.time()))
+
+        X_train, X_val, X_test = utils.split_train_test(feature_table,
+                                                        trainer.label_column,
+                                                        trainer.entity_column,
+                                                        trainer.prep.train_size,
+                                                        trainer.prep.val_size,
+                                                        trainer.prep.test_size)
+        train_x, train_y = utils.split_label_from_features(X_train, trainer.label_column, trainer.entity_column)
+        val_x, val_y = utils.split_label_from_features(X_val, trainer.label_column, trainer.entity_column)
+        test_x, test_y = utils.split_label_from_features(X_test, trainer.label_column, trainer.entity_column)
+
+        categorical_columns = utils.get_categorical_columns(feature_table, trainer.label_column, trainer.entity_column)
+        numeric_columns = utils.get_numeric_columns(feature_table, trainer.label_column, trainer.entity_column)
+        train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
+        val_x = utils.transform_null(val_x, numeric_columns, categorical_columns)
+
+        preprocessor_pipe_x = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
+        train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
+        val_x_processed = preprocessor_pipe_x.transform(val_x)
+
+        final_model = trainer.select_best_model(models, train_x_processed, train_y, val_x_processed, val_y)
+        preprocessor_pipe_optimized = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
+        pipe = trainer.get_model_pipeline(preprocessor_pipe_optimized, final_model)
+        pipe.fit(train_x, train_y)
+        
+        model_file = connector.gen_model_file_path(model_file_name)
+        joblib.dump(pipe, model_file)
+
+        column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
+        column_name_file = connector.gen_column_file_path(f"{trainer.model_name_prefix}_{model_id}_column_names.json")
+        json.dump(column_dict, open(column_name_file,"w"))
+
+        results = trainer.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
+        results["model_id"] = model_id
+        metrics_df = pd.DataFrame.from_dict(results).reset_index()
+
+        return train_x, test_x, test_y, categorical_columns, numeric_columns, pipe, model_file, column_name_file, metrics_df, results
+
     @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
         packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
     def train_sp(session: snowflake.snowpark.Session,
@@ -432,53 +586,18 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         Returns:
             list: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
         """
-        model_file_name = constants.MODEL_FILE_NAME
-        stage_name = constants.STAGE_NAME
-        metrics_table = constants.METRICS_TABLE
-        train_config = merged_config['train']
+        feature_table = connector.get_table_as_dataframe(session, feature_table_name)
+        train_x, test_x, test_y, categorical_columns, numeric_columns, pipe, model_file, column_name_file, metrics_df, results = train_model(feature_table, merged_config)
 
-        models = train_config["model_params"]["models"]
-        model_id = str(int(time.time()))
-
-        feature_table = session.table(feature_table_name)
-        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(session, feature_table, 
-                                                                                trainer.label_column, 
-                                                                                trainer.entity_column, 
-                                                                                trainer.model_name_prefix, 
-                                                                                trainer.prep.train_size, 
-                                                                                trainer.prep.val_size, 
-                                                                                trainer.prep.test_size)
-
-        categorical_columns = utils.get_categorical_columns(feature_table, trainer.label_column, trainer.entity_column)
-        numeric_columns = utils.get_numeric_columns(feature_table, trainer.label_column, trainer.entity_column)
-        train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
-
-        preprocessor_pipe_x = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
-        train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
-        val_x_processed = preprocessor_pipe_x.transform(val_x)
-        
-        final_model = trainer.select_best_model(models, train_x_processed, train_y, val_x_processed, val_y)
-        preprocessor_pipe_optimized = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
-        pipe = trainer.get_model_pipeline(preprocessor_pipe_optimized, final_model)
-        pipe.fit(train_x, train_y)
-        
-        model_file = os.path.join('/tmp', model_file_name)
-        joblib.dump(pipe, model_file)
-        session.file.put(model_file, stage_name,overwrite=True)
-        
-        column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
-        column_name_file = os.path.join('/tmp', f"{trainer.model_name_prefix}_{model_id}_column_names.json")
-        json.dump(column_dict, open(column_name_file,"w"))
-        session.file.put(column_name_file, stage_name,overwrite=True)
-        trainer.plot_diagnostics(session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
+        connector.save_file(session, model_file, stage_name, overwrite=True)
+        connector.save_file(session, column_name_file, stage_name, overwrite=True)
+        trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
         try:           
             utils.plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
         except Exception as e:
             logger.error(f"Could not generate plots {e}")
-        results = trainer.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
-        results["model_id"] = model_id
-        metrics_df = pd.DataFrame.from_dict(results).reset_index()
-        session.write_pandas(metrics_df, table_name=f"{metrics_table}", auto_create_table=True, overwrite=False)
+
+        connector.write_pandas(session, metrics_df, table_name=f"{metrics_table}", auto_create_table=True, overwrite=False)
         return results
     
     logger.info("Getting past data for training")
@@ -499,7 +618,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
-        feature_table_instance = trainer.prepare_feature_table(session, 
+        feature_table_instance = trainer.prepare_feature_table(connector, session, 
                                                                feature_table_name, 
                                                                label_table_name)
         if feature_table is None:
@@ -511,10 +630,16 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     feature_table_name_remote = f"{trainer.model_name_prefix}_features"
     sorted_feature_table = feature_table.sort(col(trainer.entity_column).asc(), col(trainer.index_timestamp).desc()).drop([trainer.index_timestamp])
-    sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
+    # sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
+    connector.write_table(sorted_feature_table, feature_table_name_remote, mode="overwrite")
     logger.info("Training and fetching the results")
     
-    train_results_json = session.call(train_procedure, 
+    # train_results_json = session.call(train_procedure, 
+    #                                     feature_table_name_remote,
+    #                                     figure_names,
+    #                                     merged_config)
+    train_results_json = connector.call_procedure(session,
+                                        train_procedure, 
                                         feature_table_name_remote,
                                         figure_names,
                                         merged_config)

@@ -317,7 +317,7 @@ def get_column_names(onehot_encoder: OneHotEncoder,
             category_names.append(f"{col}_{value}")
     return category_names
 
-def get_numeric_columns(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str) -> List[str]:
+def get_numeric_columns(feature_df: pd.DataFrame, label_column: str, entity_column: str) -> List[str]:
     """
     Returns a list of strings representing the names of the numeric columns in the feature table.
 
@@ -330,12 +330,12 @@ def get_numeric_columns(feature_table: snowflake.snowpark.Table, label_column: s
         List[str]: A list of strings representing the names of the numeric columns in the feature table.
     """
     numeric_columns = []
-    for field in feature_table.schema.fields:
-        if field.datatype != T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-            numeric_columns.append(field.name)
+    for column in feature_df.columns:
+        if column.lower() not in (label_column, entity_column) and (feature_df[column].dtype == 'int64' or feature_df[column].dtype == 'float64'):
+            numeric_columns.append(column)
     return numeric_columns
 
-def get_categorical_columns(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str)-> List[str]:
+def get_categorical_columns(feature_df: pd.DataFrame, label_column: str, entity_column: str)-> List[str]:
     """
     Extracts the names of categorical columns from a given feature table schema.
 
@@ -348,9 +348,9 @@ def get_categorical_columns(feature_table: snowflake.snowpark.Table, label_colum
         List[str]: A list of categorical column names extracted from the feature table schema.
     """
     categorical_columns = []
-    for field in feature_table.schema.fields:
-        if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-            categorical_columns.append(field.name)
+    for column in feature_df.columns:
+        if column.lower() not in (label_column, entity_column) and (feature_df[column].dtype != 'int64' and feature_df[column].dtype != 'float64'):
+            categorical_columns.append(column)
     return categorical_columns
 
 def get_arraytype_features(table: snowflake.snowpark.Table)-> list:
@@ -635,45 +635,48 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
         print("Exception occured while retrieving material names. Please check the logs for more details")
         raise e
     
-def split_train_test(session: snowflake.snowpark.Session,
-                     feature_table: snowflake.snowpark.Table, 
+def split_train_test(feature_df: pd.DataFrame,
                      label_column: str, 
                      entity_column: str,
-                     model_name_prefix: str, 
                      train_size:float, 
                      val_size: float, 
                      test_size: float) -> Tuple:
     """Splits the data in train test and validation according to the their given partition factions.
 
     Args:
-        feature_table (snowflake.snowpark.Table): feature table from the retrieved material_names tuple
+        feature_df (pd.DataFrame): feature table dataframe from the retrieved material_names tuple
         label_column (str): name of label column from feature table
         entity_column (str): name of entity column from feature table
-        model_name_prefix (str): prefix for the model from model_configs file
         train_size (float): partition fraction for train data
         val_size (float): partition fraction for validation data
         test_size (float): partition fraction for test data
-
-    Returns:
-        Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
+    
+        Returns:
+        Tuple: returns the X_train, X_val and X_test in form of pd.DataFrame
     """
-    feature_df = feature_table.to_pandas()
-    feature_df.columns = feature_df.columns.str.upper()
     latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
     X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
     X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
-    #ToDo: handle timestamp columns, remove customer_id from train_x
-    session.write_pandas(X_train, table_name=f"{model_name_prefix.upper()}_TRAIN", auto_create_table=True, overwrite=True)
-    session.write_pandas(X_val, table_name=f"{model_name_prefix.upper()}_VAL", auto_create_table=True, overwrite=True)
-    session.write_pandas(X_test, table_name=f"{model_name_prefix.upper()}_TEST", auto_create_table=True, overwrite=True)
-    train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
-    train_y = X_train[[label_column.upper()]]
-    val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
-    val_y = X_val[[label_column.upper()]]
-    test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
-    test_y = X_test[[label_column.upper()]]
-    return train_x, train_y, test_x, test_y, val_x, val_y
+    return X_train, X_val, X_test
 
+def split_label_from_features(df: pd.DataFrame, 
+                     label_column: str, 
+                     entity_column: str) -> Tuple:
+    """Drops the entity and label columns from the df passed to the function.
+    Args:
+        df (pd.DataFrame): feature table from the retrieved material_names tuple
+        label_column (str): name of label column from feature table
+        entity_column (str): name of entity column from feature table
+    Returns:
+        Tuple: returns the subset_x, subset_y in form of pd.DataFrame
+    """
+    sub_x = df.drop([entity_column.upper(), label_column.upper()], axis=1)
+    sub_y = df[[label_column.upper()]]
+    return sub_x, sub_y
+    # session.write_pandas(X_train, table_name=f"{model_name_prefix.upper()}_TRAIN", auto_create_table=True, overwrite=True)
+    # session.write_pandas(X_val, table_name=f"{model_name_prefix.upper()}_VAL", auto_create_table=True, overwrite=True)
+    # session.write_pandas(X_test, table_name=f"{model_name_prefix.upper()}_TEST", auto_create_table=True, overwrite=True)
+    
 def get_classification_metrics(y_true: pd.DataFrame, 
                                y_pred_proba: np.array, 
                                th: float =0.5) -> dict:
@@ -766,7 +769,7 @@ def get_metrics(clf,
     
     return metrics, predictions, prob_threshold
 
-def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+def plot_roc_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> str:
     """
     Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.
 
@@ -796,10 +799,11 @@ def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, la
     plt.grid(True)
     figure_file = os.path.join('/tmp', f"{chart_name}")
     plt.savefig(figure_file)
-    session.file.put(figure_file, stage_name, overwrite=True)
+    # session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
+    return figure_file
 
-def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+def plot_pr_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> str:
     """
     Plots a precision-recall curve and saves it as a file.
 
@@ -830,10 +834,11 @@ def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, lab
     plt.grid(True)
     figure_file = os.path.join('/tmp', f"{chart_name}")
     plt.savefig(figure_file)
-    session.file.put(figure_file, stage_name, overwrite=True)
+    # session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
+    return figure_file
 
-def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+def plot_lift_chart(pipe, test_x, test_y, chart_name, label_column)-> str:
     """
     Generates a lift chart for a binary classification model.
 
@@ -875,8 +880,9 @@ def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label
     plt.grid(True)
     figure_file = os.path.join('/tmp', f"{chart_name}")
     plt.savefig(figure_file)
-    session.file.put(figure_file, stage_name, overwrite=True)
+    # session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
+    return figure_file
 
 def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, chart_name, top_k_features=5)-> None:
     """

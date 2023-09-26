@@ -299,10 +299,6 @@ class ClassificationTrainer(MLTrainer):
                 timestamp_columns = utils.get_timestamp_columns(session, feature_table, self.index_timestamp)
             for col in timestamp_columns:
                 feature_table = feature_table.withColumn(col, utils.F.datediff('day', utils.F.col(col), utils.F.col(self.index_timestamp)))
-            # label_table = (session.table(label_table_name)
-            #             .withColumn(self.label_column, utils.F.when(utils.F.col(self.label_column)==self.label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
-            #             .select(self.entity_column, self.label_column, self.index_timestamp)
-            #             .withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col))
             label_table = connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, self.label_value, label_ts_col)
             uppercase_list = lambda names: [name.upper() for name in names]
             lowercase_list = lambda names: [name.lower() for name in names]
@@ -631,14 +627,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
 
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
     sorted_feature_table = feature_table.sort(col(trainer.entity_column).asc(), col(trainer.index_timestamp).desc()).drop([trainer.index_timestamp])
-    # sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
+
     connector.write_table(sorted_feature_table, feature_table_name_remote, mode="overwrite")
     logger.info("Training and fetching the results")
-    
-    # train_results_json = session.call(train_procedure, 
-    #                                     feature_table_name_remote,
-    #                                     figure_names,
-    #                                     merged_config)
+
     train_results_json = connector.call_procedure(session,
                                         train_procedure, 
                                         feature_table_name_remote,

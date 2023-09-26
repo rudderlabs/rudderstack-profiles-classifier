@@ -46,58 +46,7 @@ class PreprocessorConfig:
     train_size: float
     test_size: float
     val_size: float
-    
-
-class ConnectorUtils(ABC):
-    """Base class for all utils related to the connector - accessing warehouse to fetch data, writing back, transformations on warehouse objects etc are all handled here
-    """
-    def __init__(self, credentials: dict):
-        self.credentials = credentials
-    @abstractmethod
-    def session(self):
-        pass
-    @abstractmethod
-    def write_table(self):
-        pass
-    
-    @abstractmethod
-    def read_table(self):
-        pass
-    
-    @abstractmethod
-    def write_pandas_as_table(self):
-        pass
-    
-    @abstractmethod
-    def fetch_file(self):
-        pass
-    
-    @abstractmethod
-    def save_file(self):
-        pass
-    
-    def drop_columns_if_exists(self):
-        pass 
-    
-    def get_column_names(self):
-        pass 
-    def get_column_types(self, table):
-        pass
-    
-class SnowflakeConnectorUtils(ConnectorUtils):
-    def __init__(self, credentials: dict):
-        super().__init__(credentials)
-    
-    def session(self):
-        pass
-    
-    def write_table(self):
-        pass
-    
-    def read_table(self):
-        pass
-    
-    
+            
     
 class TrainerUtils(ABC):
     """Base class for all utils related to the ML model training - model training, getting metrics, plotting etc 

@@ -317,9 +317,9 @@ def get_column_names(onehot_encoder: OneHotEncoder,
             category_names.append(f"{col}_{value}")
     return category_names
 
-def get_numeric_columns(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str) -> List[str]:
+def get_non_stringtype_features(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str) -> List[str]:
     """
-    Returns a list of strings representing the names of the numeric columns in the feature table.
+    Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
 
     Args:
         feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
@@ -327,17 +327,17 @@ def get_numeric_columns(feature_table: snowflake.snowpark.Table, label_column: s
         entity_column (str): A string representing the name of the entity column.
 
     Returns:
-        List[str]: A list of strings representing the names of the numeric columns in the feature table.
+        List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
     """
-    numeric_columns = []
+    non_stringtype_features = []
     for field in feature_table.schema.fields:
         if field.datatype != T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-            numeric_columns.append(field.name)
-    return numeric_columns
+            non_stringtype_features.append(field.name)
+    return non_stringtype_features
 
-def get_categorical_columns(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str)-> List[str]:
+def get_stringtype_features(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str)-> List[str]:
     """
-    Extracts the names of categorical columns from a given feature table schema.
+    Extracts the names of StringType(categorical) columns from a given feature table schema.
 
     Args:
         feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
@@ -345,13 +345,13 @@ def get_categorical_columns(feature_table: snowflake.snowpark.Table, label_colum
         entity_column (str): The name of the entity column.
 
     Returns:
-        List[str]: A list of categorical column names extracted from the feature table schema.
+        List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
     """
-    categorical_columns = []
+    stringtype_features = []
     for field in feature_table.schema.fields:
         if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-            categorical_columns.append(field.name)
-    return categorical_columns
+            stringtype_features.append(field.name)
+    return stringtype_features
 
 def get_arraytype_features(table: snowflake.snowpark.Table)-> list:
     """Returns the list of features to be ignored from the feature table.
@@ -480,19 +480,19 @@ def get_timestamp_columns(session: snowflake.snowpark.Session, table: snowflake.
 
 def get_latest_material_hash(session: snowflake.snowpark.Session,
                        material_table: str,
-                       model_name:str) -> Tuple:
+                       features_profiles_model:str) -> Tuple:
     """This function will return the model hash that is latest for given model name in material table
 
     Args:
         session (snowflake.snowpark.Session): snowpark session
         material_table (str): name of material registry table
-        model_name (str): model_name from model_configs file
+        features_profiles_model (str): feature profiles model name from model_configs file
 
     Returns:
         Tuple: latest model hash and it's creation timestamp
     """
     snowpark_df = session.table(material_table)
-    temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
+    temp_hash_vector = snowpark_df.filter(col("model_name") == features_profiles_model).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
     model_hash = temp_hash_vector.MODEL_HASH
     creation_ts = temp_hash_vector.CREATION_TS
     return model_hash, creation_ts
@@ -541,7 +541,7 @@ def get_material_names_(session: snowflake.snowpark.Session,
                        material_table: str, 
                        start_time: str, 
                        end_time: str, 
-                       model_name:str,
+                       features_profiles_model:str,
                        model_hash: str,
                        material_table_prefix:str,
                        prediction_horizon_days: int) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
@@ -552,7 +552,7 @@ def get_material_names_(session: snowflake.snowpark.Session,
         material_table (str): Name of the material table(present in constants.py file)
         start_time (str): train_start_dt
         end_time (str): train_end_dt
-        model_name (str): Present in model_configs file
+        features_profiles_model (str): Present in model_configs file
         model_hash (str) : latest model hash
         material_table_prefix (str): constant
         prediction_horizon_days (int): period of days
@@ -567,13 +567,13 @@ def get_material_names_(session: snowflake.snowpark.Session,
     snowpark_df = session.table(material_table)
 
     feature_snowpark_df = (snowpark_df
-                .filter(col("model_name") == model_name)
+                .filter(col("model_name") == features_profiles_model)
                 .filter(col("model_hash") == model_hash)
                 .filter(f"end_ts between \'{start_time}\' and \'{end_time}\'")
                 .select("seq_no", "end_ts")
                 ).distinct()
     label_snowpark_df = (snowpark_df
-                .filter(col("model_name") == model_name)
+                .filter(col("model_name") == features_profiles_model)
                 .filter(col("model_hash") == model_hash) 
                 .filter(f"end_ts between dateadd(day, {prediction_horizon_days}, \'{start_time}\') and dateadd(day, {prediction_horizon_days}, \'{end_time}\')")
                 .select("seq_no", "end_ts")
@@ -584,12 +584,12 @@ def get_material_names_(session: snowflake.snowpark.Session,
                                                             ).select(feature_snowpark_df.seq_no.alias("feature_seq_no"),feature_snowpark_df.end_ts.alias("feature_end_ts"),
                                                                     label_snowpark_df.seq_no.alias("label_seq_no"), label_snowpark_df.end_ts.alias("label_end_ts"))
     for row in feature_label_snowpark_df.collect():
-        material_names.append((material_table_prefix+model_name+"_"+model_hash+"_"+str(row.FEATURE_SEQ_NO), material_table_prefix+model_name+"_"+model_hash+"_"+str(row.LABEL_SEQ_NO)))
+        material_names.append((material_table_prefix+features_profiles_model+"_"+model_hash+"_"+str(row.FEATURE_SEQ_NO), material_table_prefix+features_profiles_model+"_"+model_hash+"_"+str(row.LABEL_SEQ_NO)))
         training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
     return material_names, training_dates
 
 def get_material_names(session: snowflake.snowpark.Session, material_table: str, start_date: str, end_date: str, 
-                       package_name: str, model_name: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
+                       package_name: str, features_profiles_model: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
                        output_filename: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
     """
     Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
@@ -602,7 +602,7 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
         start_date (str): The start date for training data.
         end_date (str): The end date for training data.
         package_name (str): The name of the package.
-        model_name (str): The name of the model.
+        features_profiles_model (str): The name of the model.
         model_hash (str): The latest model hash.
         material_table_prefix (str): A constant.
         prediction_horizon_days (int): The period of days for prediction horizon.
@@ -614,22 +614,22 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
             - training_dates: A list of tuples containing the corresponding training dates.
     """
     try:
-        material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+        material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
 
         if len(material_names) == 0:
             try:
                 # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
-                feature_package_path = f"packages/{package_name}/models/{model_name}"
+                feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
                 materialise_past_data(start_date, feature_package_path, output_filename)
                 start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
                 materialise_past_data(start_date_label, feature_package_path, output_filename)
-                material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+                material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
                 if len(material_names) == 0:
-                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
             except Exception as e:
                 # logger.exception(e)
                 print("Exception occured while materialising data. Please check the logs for more details")
-                raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+                raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
         return material_names, training_dates
     except Exception as e:
         print("Exception occured while retrieving material names. Please check the logs for more details")
@@ -639,7 +639,7 @@ def split_train_test(session: snowflake.snowpark.Session,
                      feature_table: snowflake.snowpark.Table, 
                      label_column: str, 
                      entity_column: str,
-                     model_name_prefix: str, 
+                     output_profiles_ml_model: str, 
                      train_size:float, 
                      val_size: float, 
                      test_size: float) -> Tuple:
@@ -649,7 +649,7 @@ def split_train_test(session: snowflake.snowpark.Session,
         feature_table (snowflake.snowpark.Table): feature table from the retrieved material_names tuple
         label_column (str): name of label column from feature table
         entity_column (str): name of entity column from feature table
-        model_name_prefix (str): prefix for the model from model_configs file
+        output_profiles_ml_model (str): output ml model from model_configs file
         train_size (float): partition fraction for train data
         val_size (float): partition fraction for validation data
         test_size (float): partition fraction for test data
@@ -663,9 +663,9 @@ def split_train_test(session: snowflake.snowpark.Session,
     X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
     X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
     #ToDo: handle timestamp columns, remove customer_id from train_x
-    session.write_pandas(X_train, table_name=f"{model_name_prefix.upper()}_TRAIN", auto_create_table=True, overwrite=True)
-    session.write_pandas(X_val, table_name=f"{model_name_prefix.upper()}_VAL", auto_create_table=True, overwrite=True)
-    session.write_pandas(X_test, table_name=f"{model_name_prefix.upper()}_TEST", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_train, table_name=f"{output_profiles_ml_model.upper()}_TRAIN", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_val, table_name=f"{output_profiles_ml_model.upper()}_VAL", auto_create_table=True, overwrite=True)
+    session.write_pandas(X_test, table_name=f"{output_profiles_ml_model.upper()}_TEST", auto_create_table=True, overwrite=True)
     train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
     train_y = X_train[[label_column.upper()]]
     val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
@@ -1006,7 +1006,7 @@ def explain_prediction(creds: dict, user_main_id: str, predictions_table_name: s
 
     prediction_table = session.table(predictions_table_name)
     model_id = prediction_table.select(F.col('model_id')).limit(1).collect()[0].MODEL_ID
-    model_name_prefix = merged_config['data']['model_name_prefix']
+    output_profiles_ml_model = merged_config['data']['output_profiles_ml_model']
     entity_column = merged_config['data']['entity_column']
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     index_timestamp = merged_config['data']['index_timestamp']
@@ -1014,7 +1014,7 @@ def explain_prediction(creds: dict, user_main_id: str, predictions_table_name: s
     top_k = merged_config['data']['top_k']
     bottom_k = merged_config['data']['bottom_k']
     
-    column_dict = load_stage_file_from_local(session, stage_name, f"{model_name_prefix}_{model_id}_column_names.json", '.', 'json')
+    column_dict = load_stage_file_from_local(session, stage_name, f"{output_profiles_ml_model}_{model_id}_column_names.json", '.', 'json')
     numeric_columns = column_dict['numeric_columns']
     categorical_columns = column_dict['categorical_columns']
 

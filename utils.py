@@ -2,7 +2,7 @@ from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_s
 from sklearn.model_selection import train_test_split
 import numpy as np 
 import pandas as pd
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Dict
 from scipy.optimize import minimize_scalar
 
 import snowflake.snowpark
@@ -29,6 +29,139 @@ import constants as constants
 import joblib
 import json
 import subprocess
+
+from dataclasses import dataclass
+from abc import ABC, abstractmethod
+
+
+@dataclass
+class PreprocessorConfig:
+    """PreprocessorConfig class is used to store the preprocessor configuration parameters
+    """
+    timestamp_columns: List[str]
+    ignore_features: List[str]
+    numeric_pipeline: dict
+    categorical_pipeline: dict
+    feature_selectors: dict
+    train_size: float
+    test_size: float
+    val_size: float
+            
+    
+class TrainerUtils(ABC):
+    """Base class for all utils related to the ML model training - model training, getting metrics, plotting etc 
+    """
+    @abstractmethod
+    def get_metrics(self, model, X_train, y_train, X_test, y_test, X_val, y_val, validation_metric):
+        pass
+    
+    @abstractmethod
+    def plot_lift_chart(self):
+        pass
+    
+    def plot_top_k_feature_importance(self):
+        pass
+    
+class ClassifierUtils(TrainerUtils):
+    def get_classification_metrics(self,
+                                   y_true: pd.DataFrame, 
+                                   y_pred_proba: np.array, 
+                                   th: float =0.5) -> dict:
+        """Generates classification metrics
+
+        Args:
+            y_true (pd.DataFrame): Array of 1s and 0s. True labels
+            y_pred_proba (np.array): Array of predicted probabilities
+            th (float, optional): thresold for classification. Defaults to 0.5.
+
+        Returns:
+            dict: Returns classification metrics in form of a dict for the given thresold
+        """
+        precision, recall, f1, _ = precision_recall_fscore_support(y_true, np.where(y_pred_proba>th,1,0))
+        precision = precision[1]
+        recall = recall[1]
+        f1 = f1[1]
+        roc_auc = roc_auc_score(y_true, y_pred_proba)
+        pr_auc = average_precision_score(y_true, y_pred_proba)
+        user_count = y_true.shape[0]
+        metrics = {"precision": precision, "recall": recall, "f1_score": f1, "roc_auc": roc_auc, 'pr_auc': pr_auc, 'users': user_count}
+        return metrics
+        
+    def get_best_th(self, y_true: pd.DataFrame, y_pred_proba: np.array, metric_to_optimize: str) -> Tuple:
+        """This function calculates the thresold that maximizes f1 score based on y_true and y_pred_proba and classication metrics on basis of that.
+
+        Args:
+            y_true (pd.DataFrame): Array of 1s and 0s. True labels
+            y_pred_proba (np.array): Array of predicted probabilities
+
+        Returns:
+            Tuple: Returns the metrics at the threshold and that threshold that maximizes f1 score based on y_true and y_pred_proba
+        """
+
+        metric_functions = {
+            'f1_score': f1_score,
+            'precision': precision_score,
+            'recall': recall_score,
+            'accuracy': accuracy_score
+        }
+
+        if metric_to_optimize not in metric_functions:
+            raise ValueError(f"Unsupported metric: {metric_to_optimize}")
+
+        objective_function = metric_functions[metric_to_optimize]
+        objective = lambda th: -objective_function(y_true, np.where(y_pred_proba > th, 1, 0))
+
+        result = minimize_scalar(objective, bounds=(0, 1), method='bounded')
+        best_th = result.x                
+        best_metrics = self.get_classification_metrics(y_true, y_pred_proba, best_th)
+        return best_metrics, best_th
+    
+    def get_metrics(self, clf,
+                    X_train: pd.DataFrame, 
+                    y_train: pd.DataFrame,
+                    X_test: pd.DataFrame, 
+                    y_test: pd.DataFrame,
+                    X_val: pd.DataFrame, 
+                    y_val: pd.DataFrame,
+                    validation_metric: str) -> Tuple:
+        """Generates classification metrics and predictions for train, validation and test data along with the best probability thresold
+
+        Args:
+            clf (_type_): classifier to calculate the classification metrics
+            X_train (pd.DataFrame): X_train dataframe
+            y_train (pd.DataFrame): y_train dataframe
+            X_test (pd.DataFrame): X_test dataframe
+            y_test (pd.DataFrame): y_test dataframe
+            X_val (pd.DataFrame): X_val dataframe
+            y_val (pd.DataFrame): y_val dataframe
+
+        Returns:
+            Tuple: Returns the classification metrics and predictions for train, validation and test data along with the best probability thresold.
+        """
+        train_preds = clf.predict_proba(X_train)[:,1]
+        train_metrics, prob_threshold = self.get_best_th(y_train, train_preds,validation_metric)
+
+        test_preds = clf.predict_proba(X_test)[:,1]
+        test_metrics = self.get_classification_metrics(y_test, test_preds, prob_threshold)
+
+        val_preds = clf.predict_proba(X_val)[:,1]
+        val_metrics = self.get_classification_metrics(y_val, val_preds, prob_threshold)
+
+        metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
+        predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
+        
+        return metrics, predictions, prob_threshold
+    
+    def plot_roc_auc_curve(self):
+        pass 
+    
+    def plot_pr_auc_curve(self):
+        pass 
+    
+    def plot_lift_chart(self):
+        pass
+    
+    
 
 def remap_credentials(credentials: dict) -> dict:
     """Remaps credentials from profiles siteconfig to the expected format from snowflake session
@@ -500,59 +633,6 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
         return material_names, training_dates
     except Exception as e:
         print("Exception occured while retrieving material names. Please check the logs for more details")
-        raise e
-
-def prepare_feature_table(session: snowflake.snowpark.Session,
-                          feature_table_name: str, 
-                          label_table_name: str,
-                          entity_column: str, 
-                          index_timestamp: str,
-                          timestamp_columns: List[str], 
-                          eligible_users: str, 
-                          label_column: str,
-                          label_value: Union[str,int,float], 
-                          prediction_horizon_days: int,
-                          ignore_features: List[str]) -> snowflake.snowpark.Table:
-    """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
-
-    Args:
-        session (snowflake.snowpark.Session): Snowpark session for data warehouse access
-        feature_table_name (str): feature table from the retrieved material_names tuple
-        label_table_name (str): label table from the retrieved material_names tuple
-        entity_column (str): name of entity column from model_configs file
-        index_timestamp (str): name of column containing timestamp info from model_configs file
-        timestamp_columns (List[str]): list of timestamp columns
-        eligible_users (str): query as a valid string to filter out eligible users as per need from model_configs file
-        label_column (str): name of label column from model_configs file
-        label_value (Union[str,int,float]): required label_value from model_configs file
-        prediction_horizon_days (int): 
-        ignore_features (List[str]): list of all features that are needed to be ignored(dropped)
-
-    Returns:
-        snowflake.snowpark.Table: feature table made using given instance from material names
-    """
-    try:
-        label_ts_col = f"{index_timestamp}_label_ts"
-        feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
-        arraytype_features = get_arraytype_features(feature_table)
-        ignore_features = merge_lists_to_unique(ignore_features, arraytype_features)
-        if eligible_users:
-            feature_table = feature_table.filter(eligible_users)
-        feature_table = feature_table.drop([label_column])
-        if len(timestamp_columns) == 0:
-            timestamp_columns = get_timestamp_columns(session, feature_table, index_timestamp)
-        for col in timestamp_columns:
-            feature_table = feature_table.withColumn(col, F.datediff('day', F.col(col), F.col(index_timestamp)))
-        label_table = (session.table(label_table_name)
-                    .withColumn(label_column, F.when(F.col(label_column)==label_value, F.lit(1)).otherwise(F.lit(0)))
-                    .select(entity_column, label_column, index_timestamp)
-                    .withColumnRenamed(F.col(index_timestamp), label_ts_col))
-        uppercase_list = lambda names: [name.upper() for name in names]
-        lowercase_list = lambda names: [name.lower() for name in names]
-        ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
-        return feature_table.join(label_table, [entity_column], join_type="left").drop([label_ts_col]).drop(ignore_features_)
-    except Exception as e:
-        print("Exception occured while preparing feature table. Please check the logs for more details")
         raise e
     
 def split_train_test(session: snowflake.snowpark.Session,

@@ -747,9 +747,151 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
     except Exception as e:
         print("Exception occured while retrieving material names. Please check the logs for more details")
         raise e
+    
+def split_train_test(feature_df: pd.DataFrame,
+                     label_column: str, 
+                     entity_column: str,
+                     output_profiles_ml_model: str, 
+                     train_size:float, 
+                     val_size: float, 
+                     test_size: float) -> Tuple:
+    """Splits the data in train test and validation according to the their given partition factions.
 
+    Args:
+        feature_df (pd.DataFrame): feature table dataframe from the retrieved material_names tuple
+        label_column (str): name of label column from feature table
+        entity_column (str): name of entity column from feature table
+        output_profiles_ml_model (str): output ml model from model_configs file
+        train_size (float): partition fraction for train data
+        val_size (float): partition fraction for validation data
+        test_size (float): partition fraction for test data
+    
+        Returns:
+        Tuple: returns the X_train, X_val and X_test in form of pd.DataFrame
+    """
+    latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
+    X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
+    X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
+    train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
+    train_y = X_train[[label_column.upper()]]
+    val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
+    val_y = X_val[[label_column.upper()]]
+    test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
+    test_y = X_test[[label_column.upper()]]
+    return train_x, train_y, test_x, test_y, val_x, val_y
+    return X_train, X_val, X_test
 
-def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+def split_label_from_features(df: pd.DataFrame, 
+                     label_column: str, 
+                     entity_column: str) -> Tuple:
+    """Drops the entity and label columns from the df passed to the function.
+    Args:
+        df (pd.DataFrame): feature table from the retrieved material_names tuple
+        label_column (str): name of label column from feature table
+        entity_column (str): name of entity column from feature table
+    Returns:
+        Tuple: returns the subset_x, subset_y in form of pd.DataFrame
+    """
+    sub_x = df.drop([entity_column.upper(), label_column.upper()], axis=1)
+    sub_y = df[[label_column.upper()]]
+    return sub_x, sub_y
+    # session.write_pandas(X_train, table_name=f"{model_name_prefix.upper()}_TRAIN", auto_create_table=True, overwrite=True)
+    # session.write_pandas(X_val, table_name=f"{model_name_prefix.upper()}_VAL", auto_create_table=True, overwrite=True)
+    # session.write_pandas(X_test, table_name=f"{model_name_prefix.upper()}_TEST", auto_create_table=True, overwrite=True)
+    
+def get_classification_metrics(y_true: pd.DataFrame, 
+                               y_pred_proba: np.array, 
+                               th: float =0.5) -> dict:
+    """Generates classification metrics
+
+    Args:
+        y_true (pd.DataFrame): Array of 1s and 0s. True labels
+        y_pred_proba (np.array): Array of predicted probabilities
+        th (float, optional): thresold for classification. Defaults to 0.5.
+
+    Returns:
+        dict: Returns classification metrics in form of a dict for the given thresold
+    """
+    precision, recall, f1, _ = precision_recall_fscore_support(y_true, np.where(y_pred_proba>th,1,0))
+    precision = precision[1]
+    recall = recall[1]
+    f1 = f1[1]
+    roc_auc = roc_auc_score(y_true, y_pred_proba)
+    pr_auc = average_precision_score(y_true, y_pred_proba)
+    user_count = y_true.shape[0]
+    metrics = {"precision": round(precision, 2), "recall": round(recall, 2), "f1_score": round(f1, 2), "roc_auc": round(roc_auc, 2), 'pr_auc': round(pr_auc, 2), 'users': user_count}
+    return metrics
+    
+def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array,train_config: dict) -> Tuple:
+    """This function calculates the thresold that maximizes f1 score based on y_true and y_pred_proba and classication metrics on basis of that.
+
+    Args:
+        y_true (pd.DataFrame): Array of 1s and 0s. True labels
+        y_pred_proba (np.array): Array of predicted probabilities
+
+    Returns:
+        Tuple: Returns the metrics at the threshold and that threshold that maximizes f1 score based on y_true and y_pred_proba
+    """
+
+    metric_to_optimize = train_config["model_params"]["validation_on"]
+
+    metric_functions = {
+        'f1_score': f1_score,
+        'precision': precision_score,
+        'recall': recall_score,
+        'accuracy': accuracy_score
+    }
+
+    if metric_to_optimize not in metric_functions:
+        raise ValueError(f"Unsupported metric: {metric_to_optimize}")
+
+    objective_function = metric_functions[metric_to_optimize]
+    objective = lambda th: -objective_function(y_true, np.where(y_pred_proba > th, 1, 0))
+
+    result = minimize_scalar(objective, bounds=(0, 1), method='bounded')
+    best_th = result.x
+    best_metric_value = -result.fun  
+            
+    best_metrics = get_classification_metrics(y_true, y_pred_proba, best_th)
+    return best_metrics, best_th
+
+def get_metrics(clf,
+                X_train: pd.DataFrame, 
+                y_train: pd.DataFrame,
+                X_test: pd.DataFrame, 
+                y_test: pd.DataFrame,
+                X_val: pd.DataFrame, 
+                y_val: pd.DataFrame,
+                train_config: dict) -> Tuple:
+    """Generates classification metrics and predictions for train, validation and test data along with the best probability thresold
+
+    Args:
+        clf (_type_): classifier to calculate the classification metrics
+        X_train (pd.DataFrame): X_train dataframe
+        y_train (pd.DataFrame): y_train dataframe
+        X_test (pd.DataFrame): X_test dataframe
+        y_test (pd.DataFrame): y_test dataframe
+        X_val (pd.DataFrame): X_val dataframe
+        y_val (pd.DataFrame): y_val dataframe
+
+    Returns:
+        Tuple: Returns the classification metrics and predictions for train, validation and test data along with the best probability thresold.
+    """
+    train_preds = clf.predict_proba(X_train)[:,1]
+    train_metrics, prob_threshold = get_best_th(y_train, train_preds,train_config)
+
+    test_preds = clf.predict_proba(X_test)[:,1]
+    test_metrics = get_classification_metrics(y_test, test_preds, prob_threshold)
+
+    val_preds = clf.predict_proba(X_val)[:,1]
+    val_metrics = get_classification_metrics(y_val, val_preds, prob_threshold)
+
+    metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
+    predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
+    
+    return metrics, predictions, round(prob_threshold, 2)
+
+def plot_roc_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> str:
     """
     Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.
 
@@ -779,10 +921,11 @@ def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, la
     plt.grid(True)
     figure_file = os.path.join('/tmp', f"{chart_name}")
     plt.savefig(figure_file)
-    session.file.put(figure_file, stage_name, overwrite=True)
+    # session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
+    return figure_file
 
-def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+def plot_pr_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> str:
     """
     Plots a precision-recall curve and saves it as a file.
 
@@ -813,10 +956,11 @@ def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, lab
     plt.grid(True)
     figure_file = os.path.join('/tmp', f"{chart_name}")
     plt.savefig(figure_file)
-    session.file.put(figure_file, stage_name, overwrite=True)
+    # session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
+    return figure_file
 
-def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+def plot_lift_chart(pipe, test_x, test_y, chart_name, label_column)-> str:
     """
     Generates a lift chart for a binary classification model.
 
@@ -858,8 +1002,9 @@ def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label
     plt.grid(True)
     figure_file = os.path.join('/tmp', f"{chart_name}")
     plt.savefig(figure_file)
-    session.file.put(figure_file, stage_name, overwrite=True)
+    # session.file.put(figure_file, stage_name, overwrite=True)
     plt.clf()
+    return figure_file
 
 def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, chart_name, top_k_features=5)-> None:
     """

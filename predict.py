@@ -80,7 +80,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     session = Session.builder.configs(connection_parameters).create()
     stage_name = constants.STAGE_NAME
     model_file_name = constants.MODEL_FILE_NAME
-    print(model_file_name)
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     notebook_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
@@ -88,17 +87,17 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     score_column_name = merged_config['outputs']['column_names']['score']
     percentile_column_name = merged_config['outputs']['column_names']['percentile']
-    model_name_prefix = merged_config["data"]["model_name_prefix"]
+    output_profiles_ml_model = merged_config["data"]["output_profiles_ml_model"]
     label_column = merged_config["data"]["label_column"]
     index_timestamp = merged_config["data"]["index_timestamp"]
     eligible_users = merged_config["data"]["eligible_users"]
     ignore_features = merged_config["preprocessing"]["ignore_features"]
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     entity_column = merged_config["data"]["entity_column"]
-    model_name = merged_config["data"]["model_name"]
+    features_profiles_model = merged_config["data"]["features_profiles_model"]
     udf_name = "prediction_score"
 
-    x_train_sample = session.table(f"{model_name_prefix}_train")
+    x_train_sample = session.table(f"{output_profiles_ml_model}_train")
     types = utils.generate_type_hint(x_train_sample.drop(label_column, entity_column))
     current_dir = os.path.dirname(os.path.abspath(__file__))
     predict_path = os.path.join(current_dir, 'predict.py')
@@ -107,8 +106,10 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     import_paths = [utils_path, constants_path]
     utils.delete_import_files(session, stage_name, import_paths)
-    
+
+    print(f"{output_profiles_ml_model}_{model_file_name}")
     print("Caching")
+    
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location
@@ -154,7 +155,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
     latest_seq_no = latest_hash_df.sort(F.col("end_ts"), ascending=False).select("seq_no").collect()[0].SEQ_NO
-    raw_data = session.table(f"{material_table_prefix}{model_name}_{model_hash}_{latest_seq_no}")
+    raw_data = session.table(f"{material_table_prefix}{features_profiles_model}_{model_hash}_{latest_seq_no}")
 
     if eligible_users:
         raw_data = raw_data.filter(eligible_users)

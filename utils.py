@@ -310,53 +310,6 @@ def drop_columns_if_exists(df: snowflake.snowpark.Table,
     ignore_features_ = [col for col in df.columns if col in ignore_features_upper or col in ignore_features_lower]
     return df.drop(ignore_features_)
 
-def delete_import_files(session: snowflake.snowpark.Session, 
-                        stage_name: str, 
-                        import_paths: List[str]) -> None:
-    """
-    Deletes files from the specified Snowflake stage that match the filenames extracted from the import paths.
-
-    Args:
-        session (snowflake.snowpark.Session): A Snowflake session object.
-        stage_name (str): The name of the Snowflake stage.
-        import_paths (List[str]): The paths of the files to be deleted from the stage.
-
-    Returns:
-        None: The function does not return any value.
-    """
-    import_files = [element.split('/')[-1] for element in import_paths]
-    files = session.sql(f"list {stage_name}").collect()
-    for row in files:
-        if any(substring in row.name for substring in import_files):
-            session.sql(f"remove @{row.name}").collect()
-
-def delete_procedures(session: snowflake.snowpark.Session, train_procedure: str) -> None:
-    """
-    Deletes Snowflake train procedures based on a given name pattern.
-
-    Args:
-        session (snowflake.snowpark.Session): A Snowflake session object.
-        train_procedure (str): The name pattern of the train procedures to be deleted.
-
-    Returns:
-        None
-
-    Example:
-        session = snowflake.snowpark.Session(...)
-        delete_procedures(session, 'train_model')
-
-    This function retrieves a list of procedures that match the given train procedure name pattern using a SQL query. 
-    It then iterates over each procedure and attempts to drop it using another SQL query. If an error occurs during the drop operation, it is ignored.
-    """
-    procedures = session.sql(f"show procedures like '{train_procedure}%'").collect()
-    for row in procedures:
-        try:
-            words = row.arguments.split(' ')[:-2]
-            procedure_arguments = ' '.join(words)
-            session.sql(f"drop procedure if exists {procedure_arguments}").collect()
-        except:
-            pass
-
 def get_column_names(onehot_encoder: OneHotEncoder, 
                      col_names: List[str]) -> List[str]:
     """Assigning new column names for the one-hot encoded columns.
@@ -438,31 +391,6 @@ def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_col
     df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
     return df
 
-def get_material_registry_name(session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:
-    """This function will return the latest material registry table name
-
-    Args:
-        session (snowflake.snowpark.Session): snowpark session
-        table_name (str): name of the material registry table prefix
-
-    Returns:
-        str: latest material registry table name
-    """
-    material_registry_tables = list()
-
-    def split_key(item):
-        parts = item.split('_')
-        if len(parts) > 1 and parts[-1].isdigit():
-            return int(parts[-1])
-        return 0
-
-    registry_df = session.sql(f"show tables starts with '{table_prefix}'")
-    for row in registry_df.collect():
-        material_registry_tables.append(row.name)
-    material_registry_tables.sort(reverse=True)
-    sorted_material_registry_tables = sorted(material_registry_tables, key=split_key, reverse=True)
-    return sorted_material_registry_tables[0]
-
 def get_output_directory(folder_path: str)-> str:
     """This function will return the output directory path
 
@@ -517,7 +445,7 @@ def get_label_date_ref(feature_date: str, horizon_days: int) -> str:
     label_date = label_timestamp.strftime("%Y-%m-%d")
     return label_date
 
-def get_timestamp_columns(session: snowflake.snowpark.Session, table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
+def get_timestamp_columns(table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
     """
     Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
 
@@ -748,6 +676,7 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
         print("Exception occured while retrieving material names. Please check the logs for more details")
         raise e
     
+   
 def split_train_test(feature_df: pd.DataFrame,
                      label_column: str, 
                      entity_column: str,
@@ -1006,7 +935,7 @@ def plot_lift_chart(pipe, test_x, test_y, chart_name, label_column)-> str:
     plt.clf()
     return figure_file
 
-def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, chart_name, top_k_features=5)-> None:
+def plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, chart_name, top_k_features=5)-> Tuple:
     """
     Generates a bar chart to visualize the top k important features in a machine learning model.
 
@@ -1040,7 +969,7 @@ def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_co
         feature_names = shap_df.columns
         shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
         shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
-        session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
+        # session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
         
         ax = shap_importance[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
         ax.set_xlabel(x_label)
@@ -1048,8 +977,9 @@ def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_co
         plt.title(f"Top {top_k_features} Important Features")
         figure_file = os.path.join('/tmp', f"{chart_name}")
         plt.savefig(figure_file, bbox_inches="tight")
-        session.file.put(figure_file, stage_name, overwrite=True)
+        # session.file.put(figure_file, stage_name, overwrite=True)
         plt.clf()
+        return shap_importance, figure_file
     except Exception as e:
         print("Exception occured while plotting feature importance")
         print(e)

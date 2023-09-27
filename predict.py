@@ -136,7 +136,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     predict_data = utils.drop_columns_if_exists(raw_data, ignore_features)
     
     if len(timestamp_columns) == 0:
-        timestamp_columns = utils.get_timestamp_columns(session, predict_data, index_timestamp)
+        timestamp_columns = utils.get_timestamp_columns(predict_data, index_timestamp)
     for col in timestamp_columns:
         predict_data = predict_data.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
 

@@ -310,6 +310,24 @@ def drop_columns_if_exists(df: snowflake.snowpark.Table,
     ignore_features_ = [col for col in df.columns if col in ignore_features_upper or col in ignore_features_lower]
     return df.drop(ignore_features_)
 
+def delete_import_files(session: snowflake.snowpark.Session, 
+                        stage_name: str, 
+                        import_paths: List[str]) -> None:
+    """
+    Deletes files from the specified Snowflake stage that match the filenames extracted from the import paths.
+    Args:
+        session (snowflake.snowpark.Session): A Snowflake session object.
+        stage_name (str): The name of the Snowflake stage.
+        import_paths (List[str]): The paths of the files to be deleted from the stage.
+    Returns:
+        None: The function does not return any value.
+    """
+    import_files = [element.split('/')[-1] for element in import_paths]
+    files = session.sql(f"list {stage_name}").collect()
+    for row in files:
+        if any(substring in row.name for substring in import_files):
+            session.sql(f"remove @{row.name}").collect()
+
 def get_column_names(onehot_encoder: OneHotEncoder, 
                      col_names: List[str]) -> List[str]:
     """Assigning new column names for the one-hot encoded columns.
@@ -390,6 +408,29 @@ def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_col
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
     df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
     return df
+
+def get_material_registry_name(session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:
+    """This function will return the latest material registry table name
+    Args:
+        session (snowflake.snowpark.Session): snowpark session
+        table_name (str): name of the material registry table prefix
+    Returns:
+        str: latest material registry table name
+    """
+    material_registry_tables = list()
+
+    def split_key(item):
+        parts = item.split('_')
+        if len(parts) > 1 and parts[-1].isdigit():
+            return int(parts[-1])
+        return 0
+
+    registry_df = session.sql(f"show tables starts with '{table_prefix}'")
+    for row in registry_df.collect():
+        material_registry_tables.append(row.name)
+    material_registry_tables.sort(reverse=True)
+    sorted_material_registry_tables = sorted(material_registry_tables, key=split_key, reverse=True)
+    return sorted_material_registry_tables[0]
 
 def get_output_directory(folder_path: str)-> str:
     """This function will return the output directory path

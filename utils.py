@@ -448,9 +448,6 @@ def split_label_from_features(df: pd.DataFrame,
     sub_x = df.drop([entity_column.upper(), label_column.upper()], axis=1)
     sub_y = df[[label_column.upper()]]
     return sub_x, sub_y
-    # session.write_pandas(X_train, table_name=f"{model_name_prefix.upper()}_TRAIN", auto_create_table=True, overwrite=True)
-    # session.write_pandas(X_val, table_name=f"{model_name_prefix.upper()}_VAL", auto_create_table=True, overwrite=True)
-    # session.write_pandas(X_test, table_name=f"{model_name_prefix.upper()}_TEST", auto_create_table=True, overwrite=True)
     
 def get_classification_metrics(y_true: pd.DataFrame, 
                                y_pred_proba: np.array, 
@@ -544,7 +541,7 @@ def get_metrics(clf,
     
     return metrics, predictions, prob_threshold
 
-def plot_roc_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> str:
+def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
     """
     Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.
 
@@ -572,13 +569,10 @@ def plot_roc_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> str:
     plt.legend(loc="lower right")
     sns.despine()
     plt.grid(True)
-    figure_file = os.path.join('/tmp', f"{chart_name}")
-    plt.savefig(figure_file)
-    # session.file.put(figure_file, stage_name, overwrite=True)
+    plt.savefig(roc_auc_file)
     plt.clf()
-    return figure_file
 
-def plot_pr_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> str:
+def plot_pr_auc_curve(pipe, test_x, test_y, pr_auc_file, label_column)-> None:
     """
     Plots a precision-recall curve and saves it as a file.
 
@@ -607,13 +601,10 @@ def plot_pr_auc_curve(pipe, test_x, test_y, chart_name, label_column)-> str:
     plt.legend(loc="lower left")
     sns.despine()
     plt.grid(True)
-    figure_file = os.path.join('/tmp', f"{chart_name}")
-    plt.savefig(figure_file)
-    # session.file.put(figure_file, stage_name, overwrite=True)
+    plt.savefig(pr_auc_file)
     plt.clf()
-    return figure_file
 
-def plot_lift_chart(pipe, test_x, test_y, chart_name, label_column)-> str:
+def plot_lift_chart(pipe, test_x, test_y, lift_chart_file, label_column)-> None:
     """
     Generates a lift chart for a binary classification model.
 
@@ -653,13 +644,10 @@ def plot_lift_chart(pipe, test_x, test_y, chart_name, label_column)-> str:
     plt.xlim([0, 100])
     plt.legend()
     plt.grid(True)
-    figure_file = os.path.join('/tmp', f"{chart_name}")
-    plt.savefig(figure_file)
-    # session.file.put(figure_file, stage_name, overwrite=True)
+    plt.savefig(lift_chart_file)
     plt.clf()
-    return figure_file
 
-def plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, chart_name, top_k_features=5)-> Tuple:
+def plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)-> pd.DataFrame:
     """
     Generates a bar chart to visualize the top k important features in a machine learning model.
 
@@ -693,17 +681,14 @@ def plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_co
         feature_names = shap_df.columns
         shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
         shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
-        # session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
         
         ax = shap_importance[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
         ax.set_xlabel(x_label)
         ax.set_ylabel("Feature Name")
         plt.title(f"Top {top_k_features} Important Features")
-        figure_file = os.path.join('/tmp', f"{chart_name}")
         plt.savefig(figure_file, bbox_inches="tight")
-        # session.file.put(figure_file, stage_name, overwrite=True)
         plt.clf()
-        return shap_importance, figure_file
+        return shap_importance
     except Exception as e:
         print("Exception occured while plotting feature importance")
         print(e)

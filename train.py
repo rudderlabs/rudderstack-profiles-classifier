@@ -6,8 +6,10 @@ import json
 from datetime import datetime
 import joblib
 import os
+import gzip
+import shutil
 import time
-from typing import Tuple, List, Union
+from typing import Tuple, List, Union, Any
 from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 from copy import deepcopy
 
@@ -23,6 +25,8 @@ from snowflake.snowpark.session import Session
 from snowflake.snowpark.functions import sproc
 import snowflake.snowpark
 from snowflake.snowpark.functions import col
+import snowflake.snowpark.types as T
+import snowflake.snowpark.functions as F
 
 from logger import logger
 
@@ -45,11 +49,8 @@ from dataclasses import asdict, dataclass
 logger.info("Start")
 
 class Connector(ABC):
-    def __init__(self, creds: dict) -> None:
-        self.connection_parameters = utils.remap_credentials(creds)
-
     @abstractmethod
-    def build_session(self) -> snowflake.snowpark.Session:
+    def build_session(self):
         pass
 
     @abstractmethod
@@ -61,7 +62,7 @@ class Connector(ABC):
         pass
     
     @abstractmethod
-    def get_table_as_dataframe(self, session: snowflake.snowpark.Session, table_name: str) -> pd.DataFrame:
+    def get_table_as_dataframe(self, session: Any, table_name: str) -> pd.DataFrame:
         pass
 
     @abstractmethod
@@ -70,14 +71,6 @@ class Connector(ABC):
 
     @abstractmethod
     def label_table(self, session, label_table_name, label_column, entity_column, index_timestamp, label_value, label_ts_col):
-        pass
-
-    @abstractmethod
-    def gen_model_file_path(self, model_file_name: str) -> str:
-        pass
-
-    @abstractmethod
-    def gen_column_file_path(self, column_name_file: str) -> str:
         pass
 
     @abstractmethod
@@ -93,28 +86,33 @@ class Connector(ABC):
         pass
 
 class SnowflakeConnector(Connector):
-    def __init__(self, creds: dict) -> None:
-        super().__init__(creds)
+    train_procedure = 'train_sproc'
+    stage_name = constants.STAGE_NAME
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    utils_path = os.path.join(current_dir, 'utils.py')
+    constants_path = os.path.join(current_dir, 'constants.py')
+    logger_path = os.path.join(current_dir, "logger.py")
+    import_paths = [utils_path, constants_path, logger_path]
+    metrics_table = constants.METRICS_TABLE
 
-    def build_session(self) -> snowflake.snowpark.Session:
+    def __init__(self, creds: dict) -> None:
+        self.connection_parameters = utils.remap_credentials(creds)
+    
+    def build_session(self):
         session = Session.builder.configs(self.connection_parameters).create()
-        logger.info("Session created")
         return session
     
     def run_query(self, session: snowflake.snowpark.Session, query: str) -> None:
-        session.sql(query).collect()
-        return
+        return session.sql(query).collect()
 
     def get_table(self, session: snowflake.snowpark.Session, table_name: str) -> snowflake.snowpark.Table:
         return session.table(table_name)
 
     def get_table_as_dataframe(self, session: snowflake.snowpark.Session, table_name: str) -> pd.DataFrame:
-        feature_table = session.table(table_name)
-        return feature_table.toPandas()
+        return self.get_table(session, table_name).toPandas()
     
-    def write_table(self, table: snowflake.snowpark.Table, table_name_remote: str, mode: str) -> None:
-        table.write.mode(mode).save_as_table(table_name_remote)
-        return
+    def write_table(self, table: snowflake.snowpark.Table, table_name_remote: str, write_mode: str) -> None:
+        return table.write.mode(write_mode).save_as_table(table_name_remote)
     
     def label_table(self, session: snowflake.snowpark.Session, label_table_name: str, label_column: str, entity_column: str, index_timestamp: str, label_value: Union[str,int,float], label_ts_col: str ):
         table = (session.table(label_table_name)
@@ -122,23 +120,260 @@ class SnowflakeConnector(Connector):
                         .select(entity_column, label_column, index_timestamp)
                         .withColumnRenamed(utils.F.col(index_timestamp), label_ts_col))
         return table
-    
-    def gen_model_file_path(self, model_file_name: str) -> str:
-        return os.path.join('/tmp', model_file_name)
-
-    def gen_column_file_path(self, column_name_file: str) -> str:
-        return os.path.join('/tmp', column_name_file)
 
     def save_file(self, session: snowflake.snowpark.Session, file_name: str, stage_name: str, overwrite: bool) -> None:
-        session.file.put(file_name, stage_name, overwrite=overwrite)
-        return
+        return session.file.put(file_name, stage_name, overwrite=overwrite)
     
-    def write_pandas(self, session: snowflake.snowpark.Session, df: pd.DataFrame, table_name: str, auto_create_table: bool, overwrite: bool) -> None:
-        session.write_pandas(df, table_name=f"{table_name}", auto_create_table=auto_create_table, overwrite=overwrite)
-        return
-    
-    def call_procedure(self, session: snowflake.snowpark.Session, train_procedure, remote_table_name: str, figure_names: dict, merged_config: dict):
+    def get_file(self, session:snowflake.snowpark.Session, file_stage_path: str, target_folder: str):
+        return session.file.get(file_stage_path, target_folder)
+
+    def write_pandas(self, session: snowflake.snowpark.Session, df: pd.DataFrame, table_name: str, auto_create_table: bool, overwrite: bool) -> Any:
+        return session.write_pandas(df, table_name=table_name, auto_create_table=auto_create_table, overwrite=overwrite)
+
+    def call_procedure(self, session, train_procedure, remote_table_name: str, figure_names: dict, merged_config: dict):
         return session.call(train_procedure, remote_table_name, figure_names, merged_config)
+    
+    def delete_import_files(self, session: snowflake.snowpark.Session, stage_name: str, import_paths: List[str]) -> None:
+        """
+        Deletes files from the specified Snowflake stage that match the filenames extracted from the import paths.
+
+        Args:
+            session (snowflake.snowpark.Session): A Snowflake session object.
+            stage_name (str): The name of the Snowflake stage.
+            import_paths (List[str]): The paths of the files to be deleted from the stage.
+
+        Returns:
+            None: The function does not return any value.
+        """
+        import_files = [element.split('/')[-1] for element in import_paths]
+        files = self.run_query(session, f"list {stage_name}")
+        for row in files:
+            if any(substring in row.name for substring in import_files):
+                self.run_query(session, f"remove @{row.name}")
+    
+    def delete_procedures(self, session: snowflake.snowpark.Session) -> None:
+        """
+        Deletes Snowflake train procedures based on a given name pattern.
+
+        Args:
+            session (snowflake.snowpark.Session): A Snowflake session object.
+            train_procedure (str): The name pattern of the train procedures to be deleted.
+
+        Returns:
+            None
+
+        Example:
+            session = snowflake.snowpark.Session(...)
+            delete_procedures(session, 'train_model')
+
+        This function retrieves a list of procedures that match the given train procedure name pattern using a SQL query. 
+        It then iterates over each procedure and attempts to drop it using another SQL query. If an error occurs during the drop operation, it is ignored.
+        """
+        procedures = self.run_query(session, f"show procedures like '{self.train_procedure}%'")
+        for row in procedures:
+            try:
+                words = row.arguments.split(' ')[:-2]
+                procedure_arguments = ' '.join(words)
+                self.run_query(session, f"drop procedure if exists {procedure_arguments}")
+            except:
+                pass
+
+    def get_material_registry_name(self, session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:
+        """This function will return the latest material registry table name
+
+        Args:
+            session (snowflake.snowpark.Session): snowpark session
+            table_name (str): name of the material registry table prefix
+
+        Returns:
+            str: latest material registry table name
+        """
+        material_registry_tables = list()
+        def split_key(item):
+            parts = item.split('_')
+            if len(parts) > 1 and parts[-1].isdigit():
+                return int(parts[-1])
+            return 0
+        registry_df = self.run_query(session, f"show tables starts with '{table_prefix}'")
+        for row in registry_df:
+            material_registry_tables.append(row.name)
+        material_registry_tables.sort(reverse=True)
+        sorted_material_registry_tables = sorted(material_registry_tables, key=split_key, reverse=True)
+        return sorted_material_registry_tables[0]
+    
+    def get_latest_material_hash(self, session: snowflake.snowpark.Session, material_table: str, model_name:str) -> Tuple:
+        """This function will return the model hash that is latest for given model name in material table
+
+        Args:
+            session (snowflake.snowpark.Session): snowpark session
+            material_table (str): name of material registry table
+            model_name (str): model_name from model_configs file
+
+        Returns:
+            Tuple: latest model hash and it's creation timestamp
+        """
+        snowpark_df = self.get_table(session, material_table)
+        temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
+        model_hash = temp_hash_vector.MODEL_HASH
+        creation_ts = temp_hash_vector.CREATION_TS
+        return model_hash, creation_ts
+
+    def get_material_names_(self, session: snowflake.snowpark.Session,
+                        material_table: str, 
+                        start_time: str, 
+                        end_time: str, 
+                        model_name:str,
+                        model_hash: str,
+                        material_table_prefix:str,
+                        prediction_horizon_days: int) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+        """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
+
+        Args:
+            session (snowflake.snowpark.Session): Snowpark session for data warehouse access
+            material_table (str): Name of the material table(present in constants.py file)
+            start_time (str): train_start_dt
+            end_time (str): train_end_dt
+            model_name (str): Present in model_configs file
+            model_hash (str) : latest model hash
+            material_table_prefix (str): constant
+            prediction_horizon_days (int): period of days
+
+        Returns:
+            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
+            ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
+        """
+        material_names = list()
+        training_dates = list()
+
+        snowpark_df = self.get_table(session, material_table)
+
+        feature_snowpark_df = (snowpark_df
+                    .filter(col("model_name") == model_name)
+                    .filter(col("model_hash") == model_hash)
+                    .filter(f"end_ts between \'{start_time}\' and \'{end_time}\'")
+                    .select("seq_no", "end_ts")
+                    ).distinct()
+        label_snowpark_df = (snowpark_df
+                    .filter(col("model_name") == model_name)
+                    .filter(col("model_hash") == model_hash) 
+                    .filter(f"end_ts between dateadd(day, {prediction_horizon_days}, \'{start_time}\') and dateadd(day, {prediction_horizon_days}, \'{end_time}\')")
+                    .select("seq_no", "end_ts")
+                    ).distinct()
+        
+        feature_label_snowpark_df = feature_snowpark_df.join(label_snowpark_df,
+                                                                F.datediff("day", feature_snowpark_df.end_ts, label_snowpark_df.end_ts)==prediction_horizon_days
+                                                                ).select(feature_snowpark_df.seq_no.alias("feature_seq_no"),feature_snowpark_df.end_ts.alias("feature_end_ts"),
+                                                                        label_snowpark_df.seq_no.alias("label_seq_no"), label_snowpark_df.end_ts.alias("label_end_ts"))
+        for row in feature_label_snowpark_df.collect():
+            material_names.append((material_table_prefix+model_name+"_"+model_hash+"_"+str(row.FEATURE_SEQ_NO), material_table_prefix+model_name+"_"+model_hash+"_"+str(row.LABEL_SEQ_NO)))
+            training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
+        return material_names, training_dates
+
+    def get_material_names(self, session: snowflake.snowpark.Session, material_table: str, start_date: str, end_date: str, 
+                        package_name: str, model_name: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
+                        output_filename: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+        """
+        Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
+        If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
+        If no materialized data is found even after materialization, an exception is raised.
+
+        Args:
+            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
+            material_table (str): The name of the material table (present in constants.py file).
+            start_date (str): The start date for training data.
+            end_date (str): The end date for training data.
+            package_name (str): The name of the package.
+            model_name (str): The name of the model.
+            model_hash (str): The latest model hash.
+            material_table_prefix (str): A constant.
+            prediction_horizon_days (int): The period of days for prediction horizon.
+            output_filename (str): The name of the output file.
+
+        Returns:
+            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
+                - material_names: A list of tuples containing the names of the feature and label tables.
+                - training_dates: A list of tuples containing the corresponding training dates.
+        """
+        try:
+            material_names, training_dates = self.get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+
+            if len(material_names) == 0:
+                try:
+                    # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
+                    feature_package_path = f"packages/{package_name}/models/{model_name}"
+                    utils.materialise_past_data(start_date, feature_package_path, output_filename)
+                    start_date_label = utils.get_label_date_ref(start_date, prediction_horizon_days)
+                    utils.materialise_past_data(start_date_label, feature_package_path, output_filename)
+                    material_names, training_dates = self.get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+                    if len(material_names) == 0:
+                        raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+                except Exception as e:
+                    # logger.exception(e)
+                    print("Exception occured while materialising data. Please check the logs for more details")
+                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+            return material_names, training_dates
+        except Exception as e:
+            print("Exception occured while retrieving material names. Please check the logs for more details")
+            raise e
+    
+    def get_numeric_columns(self, feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str) -> List[str]:
+        """
+        Returns a list of strings representing the names of the numeric columns in the feature table.
+
+        Args:
+            feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
+            label_column (str): A string representing the name of the label column.
+            entity_column (str): A string representing the name of the entity column.
+
+        Returns:
+            List[str]: A list of strings representing the names of the numeric columns in the feature table.
+        """
+        numeric_columns = []
+        for field in feature_table.schema.fields:
+            if field.datatype != T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
+                numeric_columns.append(field.name)
+        return numeric_columns
+
+    def get_categorical_columns(self, feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str)-> List[str]:
+        """
+        Extracts the names of categorical columns from a given feature table schema.
+
+        Args:
+            feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
+            label_column (str): The name of the label column.
+            entity_column (str): The name of the entity column.
+
+        Returns:
+            List[str]: A list of categorical column names extracted from the feature table schema.
+        """
+        categorical_columns = []
+        for field in feature_table.schema.fields:
+            if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
+                categorical_columns.append(field.name)
+        return categorical_columns
+    
+    def fetch_staged_file(self, session: snowflake.snowpark.Session, stage_name: str, file_name: str, target_folder: str)-> None:
+        """
+        Fetches a file from a Snowflake stage and saves it to a local target folder.
+
+        Args:
+            session (snowflake.snowpark.Session): The Snowflake session object used to connect to the Snowflake account.
+            stage_name (str): The name of the Snowflake stage where the file is located.
+            file_name (str): The name of the file to fetch from the stage.
+            target_folder (str): The local folder where the fetched file will be saved.
+
+        Returns:
+            None
+        """
+        file_stage_path = f"{stage_name}/{file_name}"
+        _ = self.get_file(session, file_stage_path, target_folder)
+        input_file_path = os.path.join(target_folder, f"{file_name}.gz")
+        output_file_path = os.path.join(target_folder, file_name)
+
+        with gzip.open(input_file_path, 'rb') as gz_file:
+            with open(output_file_path, 'wb') as target_file:
+                shutil.copyfileobj(gz_file, target_file)
+        os.remove(input_file_path)
 
 class RedshiftConnector(Connector):
     pass
@@ -296,7 +531,7 @@ class ClassificationTrainer(MLTrainer):
             feature_table = feature_table.drop([self.label_column])
             timestamp_columns = self.prep.timestamp_columns
             if len(timestamp_columns) == 0:
-                timestamp_columns = utils.get_timestamp_columns(session, feature_table, self.index_timestamp)
+                timestamp_columns = utils.get_timestamp_columns(feature_table, self.index_timestamp)
             for col in timestamp_columns:
                 feature_table = feature_table.withColumn(col, utils.F.datediff('day', utils.F.col(col), utils.F.col(self.index_timestamp)))
             label_table = connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, self.label_value, label_ts_col)
@@ -382,8 +617,7 @@ class ClassificationTrainer(MLTrainer):
 
         return final_clf
     
-    def plot_diagnostics(self, connector: Connector,
-                        session,
+    def plot_diagnostics(self, connector: Connector, session,
                         model, 
                         stage_name: str, 
                         x: pd.DataFrame, 
@@ -404,9 +638,9 @@ class ClassificationTrainer(MLTrainer):
         try:
             roc_auc_file = utils.plot_roc_auc_curve(model, x, y, figure_names['roc-auc-curve'], label_column)
             connector.save_file(session, roc_auc_file, stage_name, overwrite=True)
-            pr_auc_file = utils.plot_pr_auc_curve(session, model, stage_name, x, y, figure_names['pr-auc-curve'], label_column)
+            pr_auc_file = utils.plot_pr_auc_curve(model, stage_name, x, y, figure_names['pr-auc-curve'], label_column)
             connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
-            lift_chart_file = utils.plot_lift_chart(session, model, stage_name, x, y, figure_names['lift-chart'], label_column)
+            lift_chart_file = utils.plot_lift_chart(model, stage_name, x, y, figure_names['lift-chart'], label_column)
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
@@ -424,7 +658,6 @@ class ClassificationTrainer(MLTrainer):
                            "data": {"metrics": model_results['metrics'], 
                                     "threshold": model_results['prob_th']}}
         return training_summary
-            
 
 class RegressionTrainer(MLTrainer):
     # A different set of evaluation metrics. 
@@ -458,6 +691,47 @@ class RegressionTrainer(MLTrainer):
                                 label_table_name: str) -> snowflake.snowpark.Table:
         pass
 
+def train_model(trainer:Union[ClassificationTrainer, RegressionTrainer], feature_df: pd.DataFrame, categorical_columns, numeric_columns, merged_config: dict):
+        
+    train_config = merged_config['train']
+    models = train_config["model_params"]["models"]
+    model_id = str(int(time.time()))
+    model_file_name = constants.MODEL_FILE_NAME
+
+    X_train, X_val, X_test = utils.split_train_test(feature_df,
+                                                    trainer.label_column,
+                                                    trainer.entity_column,
+                                                    trainer.prep.train_size,
+                                                    trainer.prep.val_size,
+                                                    trainer.prep.test_size)
+    train_x, train_y = utils.split_label_from_features(X_train, trainer.label_column, trainer.entity_column)
+    val_x, val_y = utils.split_label_from_features(X_val, trainer.label_column, trainer.entity_column)
+    test_x, test_y = utils.split_label_from_features(X_test, trainer.label_column, trainer.entity_column)
+
+    train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
+    val_x = utils.transform_null(val_x, numeric_columns, categorical_columns)
+
+    preprocessor_pipe_x = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
+    train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
+    val_x_processed = preprocessor_pipe_x.transform(val_x)
+
+    final_model = trainer.select_best_model(models, train_x_processed, train_y, val_x_processed, val_y)
+    preprocessor_pipe_optimized = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
+    pipe = trainer.get_model_pipeline(preprocessor_pipe_optimized, final_model)
+    pipe.fit(train_x, train_y)
+    
+    model_file = os.path.join("/tmp", model_file_name)
+    joblib.dump(pipe, model_file)
+
+    column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
+    column_name_file = os.path.join("/tmp", f"{trainer.model_name_prefix}_{model_id}_column_names.json")
+    json.dump(column_dict, open(column_name_file,"w"))
+
+    results = trainer.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
+    results["model_id"] = model_id
+    metrics_df = pd.DataFrame.from_dict(results).reset_index()
+
+    return train_x, test_x, test_y, pipe, model_file, column_name_file, metrics_df, results
 
 def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     """Trains the model and saves the model with given output_filename.
@@ -480,8 +754,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         connector = SnowflakeConnector(creds)
     elif warehouse == 'redshift':
         connector = RedshiftConnector(creds)
-
-    logger.info("Creating a session")
     session = connector.build_session()
 
     model_file_name = constants.MODEL_FILE_NAME
@@ -490,7 +762,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
     connector.run_query(session, f"create stage if not exists {stage_name.replace('@', '')}")
-
+    
+    train_procedure = 'train_sproc'
     current_dir = os.path.dirname(os.path.abspath(__file__))
     utils_path = os.path.join(current_dir, 'utils.py')
     constants_path = os.path.join(current_dir, 'constants.py')
@@ -512,60 +785,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     elif prediction_task == 'regression':
         trainer = RegressionTrainer(**merged_config["data"], **{"prep": prep_config})
 
-    figure_names = {"roc-auc-curve": f"01-test-roc-auc-{trainer.output_profiles_ml_model}.png",
-                    "pr-auc-curve": f"02-test-pr-auc-{trainer.output_profiles_ml_model}.png",
-                    "lift-chart": f"03-test-lift-chart-{trainer.output_profiles_ml_model}.png",
-                    "feature-importance-chart": f"04-feature-importance-chart-{trainer.output_profiles_ml_model}.png"}
-    train_procedure = 'train_sproc'
-
-    import_paths = [utils_path, constants_path, logger_path]
-    utils.delete_import_files(session, stage_name, import_paths)
-    utils.delete_procedures(session, train_procedure)
-    
-    
-    def train_model(feature_table: pd.DataFrame, merged_config: dict):
-        
-        train_config = merged_config['train']
-        models = train_config["model_params"]["models"]
-        model_id = str(int(time.time()))
-
-        X_train, X_val, X_test = utils.split_train_test(feature_table,
-                                                        trainer.label_column,
-                                                        trainer.entity_column,
-                                                        trainer.prep.train_size,
-                                                        trainer.prep.val_size,
-                                                        trainer.prep.test_size)
-        train_x, train_y = utils.split_label_from_features(X_train, trainer.label_column, trainer.entity_column)
-        val_x, val_y = utils.split_label_from_features(X_val, trainer.label_column, trainer.entity_column)
-        test_x, test_y = utils.split_label_from_features(X_test, trainer.label_column, trainer.entity_column)
-
-        categorical_columns = utils.get_categorical_columns(feature_table, trainer.label_column, trainer.entity_column)
-        numeric_columns = utils.get_numeric_columns(feature_table, trainer.label_column, trainer.entity_column)
-        train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
-        val_x = utils.transform_null(val_x, numeric_columns, categorical_columns)
-
-        preprocessor_pipe_x = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
-        train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
-        val_x_processed = preprocessor_pipe_x.transform(val_x)
-
-        final_model = trainer.select_best_model(models, train_x_processed, train_y, val_x_processed, val_y)
-        preprocessor_pipe_optimized = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
-        pipe = trainer.get_model_pipeline(preprocessor_pipe_optimized, final_model)
-        pipe.fit(train_x, train_y)
-        
-        model_file = connector.gen_model_file_path(model_file_name)
-        joblib.dump(pipe, model_file)
-
-        column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
-        column_name_file = connector.gen_column_file_path(f"{trainer.model_name_prefix}_{model_id}_column_names.json")
-        json.dump(column_dict, open(column_name_file,"w"))
-
-        results = trainer.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
-        results["model_id"] = model_id
-        metrics_df = pd.DataFrame.from_dict(results).reset_index()
-
-        return train_x, test_x, test_y, categorical_columns, numeric_columns, pipe, model_file, column_name_file, metrics_df, results
-
     @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
         packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
     def train_sp(session: snowflake.snowpark.Session,
@@ -583,14 +802,19 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         Returns:
             list: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
         """
-        feature_table = connector.get_table_as_dataframe(session, feature_table_name)
-        train_x, test_x, test_y, categorical_columns, numeric_columns, pipe, model_file, column_name_file, metrics_df, results = train_model(feature_table, merged_config)
+        feature_df = connector.get_table_as_dataframe(session, feature_table_name)
+        feature_table = connector.get_table(session, feature_table_name)
+        categorical_columns = connector.get_categorical_columns(feature_table, trainer.label_column, trainer.entity_column)
+        numeric_columns = connector.get_numeric_columns(feature_table, trainer.label_column, trainer.entity_column)
+        train_x, test_x, test_y, pipe, model_file, column_name_file, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config)
 
         connector.save_file(session, model_file, stage_name, overwrite=True)
         connector.save_file(session, column_name_file, stage_name, overwrite=True)
         trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
         try:           
-            utils.plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
+            shap_importance, figure_file = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
+            connector.write_pandas(session, shap_importance, f"FEATURE_IMPORTANCE", True,False)
+            connector.save_file(session, figure_file, stage_name, overwrite=True)
         except Exception as e:
             logger.error(f"Could not generate plots {e}")
 
@@ -598,13 +822,13 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         return results
     
     logger.info("Getting past data for training")
-    material_table = utils.get_material_registry_name(session, material_registry_table_prefix)
-    model_hash, creation_ts = utils.get_latest_material_hash(session, material_table, trainer.features_profiles_model)
+    material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
+    model_hash, creation_ts = connector.get_latest_material_hash(session, material_table, trainer.model_name)
     start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
     if start_date == None or end_date == None:
         start_date, end_date = utils.get_date_range(creation_ts, trainer.prediction_horizon_days)
 
-    material_names, training_dates = utils.get_material_names(session, material_table, start_date, end_date, 
+    material_names, training_dates = connector.get_material_names(session, material_table, start_date, end_date, 
                                                               trainer.package_name, 
                                                               trainer.features_profiles_model, 
                                                               model_hash, 
@@ -615,7 +839,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
-        feature_table_instance = trainer.prepare_feature_table(connector, session, 
+        feature_table_instance = trainer.prepare_feature_table(connector, session,
                                                                feature_table_name, 
                                                                label_table_name)
         if feature_table is None:
@@ -628,11 +852,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
     sorted_feature_table = feature_table.sort(col(trainer.entity_column).asc(), col(trainer.index_timestamp).desc()).drop([trainer.index_timestamp])
 
-    connector.write_table(sorted_feature_table, feature_table_name_remote, mode="overwrite")
+    connector.write_table(sorted_feature_table, feature_table_name_remote, write_mode="overwrite")
     logger.info("Training and fetching the results")
 
-    train_results_json = connector.call_procedure(session,
-                                        train_procedure, 
+    train_results_json = connector.call_procedure(session, train_procedure, 
                                         feature_table_name_remote,
                                         figure_names,
                                         merged_config)
@@ -654,7 +877,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     logger.info("Fetching visualisations to local")
     for figure_name in figure_names.values():
         try:
-            utils.fetch_staged_file(session, stage_name, figure_name, target_path)
+            connector.fetch_staged_file(session, stage_name, figure_name, target_path)
         except:
             print(f"Could not fetch {figure_name}")
 

@@ -130,8 +130,8 @@ class SnowflakeConnector(Connector):
     def write_pandas(self, session: snowflake.snowpark.Session, df: pd.DataFrame, table_name: str, auto_create_table: bool, overwrite: bool) -> Any:
         return session.write_pandas(df, table_name=table_name, auto_create_table=auto_create_table, overwrite=overwrite)
 
-    def call_procedure(self, session, train_procedure, remote_table_name: str, figure_names: dict, merged_config: dict):
-        return session.call(train_procedure, remote_table_name, figure_names, merged_config)
+    def call_procedure(self, session: snowflake.snowpark.Session, *args):
+        return session.call(*args)
     
     def delete_import_files(self, session: snowflake.snowpark.Session, stage_name: str, import_paths: List[str]) -> None:
         """
@@ -636,11 +636,16 @@ class ClassificationTrainer(MLTrainer):
             label_column (str): name of the label column
         """
         try:
-            roc_auc_file = utils.plot_roc_auc_curve(model, x, y, figure_names['roc-auc-curve'], label_column)
+            roc_auc_file = os.path.join('/tmp', figure_names['roc-auc-curve'])
+            utils.plot_roc_auc_curve(model, x, y, roc_auc_file, label_column)
             connector.save_file(session, roc_auc_file, stage_name, overwrite=True)
-            pr_auc_file = utils.plot_pr_auc_curve(model, stage_name, x, y, figure_names['pr-auc-curve'], label_column)
+
+            pr_auc_file = os.path.join('/tmp', figure_names['pr-auc-curve'])
+            utils.plot_pr_auc_curve(model, x, y, pr_auc_file, label_column)
             connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
-            lift_chart_file = utils.plot_lift_chart(model, stage_name, x, y, figure_names['lift-chart'], label_column)
+
+            lift_chart_file = os.path.join('/tmp', figure_names['lift-chart'])
+            utils.plot_lift_chart(model, x, y, lift_chart_file, label_column)
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
@@ -731,7 +736,7 @@ def train_model(trainer:Union[ClassificationTrainer, RegressionTrainer], feature
     results["model_id"] = model_id
     metrics_df = pd.DataFrame.from_dict(results).reset_index()
 
-    return train_x, test_x, test_y, pipe, model_file, column_name_file, metrics_df, results
+    return X_train, X_val, X_test, train_x, test_x, test_y, pipe, model_file, column_name_file, metrics_df, results
 
 def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     """Trains the model and saves the model with given output_filename.
@@ -806,13 +811,17 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         feature_table = connector.get_table(session, feature_table_name)
         categorical_columns = connector.get_categorical_columns(feature_table, trainer.label_column, trainer.entity_column)
         numeric_columns = connector.get_numeric_columns(feature_table, trainer.label_column, trainer.entity_column)
-        train_x, test_x, test_y, pipe, model_file, column_name_file, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config)
+        X_train, X_val, X_test, train_x, test_x, test_y, pipe, model_file, column_name_file, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config)
 
+        connector.write_pandas(session, X_train, table_name=f"{trainer.model_name_prefix.upper()}_TRAIN", auto_create_table=True, overwrite=True)
+        connector.write_pandas(session, X_val, table_name=f"{trainer.model_name_prefix.upper()}_VAL", auto_create_table=True, overwrite=True)
+        connector.write_pandas(session, X_test, table_name=f"{trainer.model_name_prefix.upper()}_TEST", auto_create_table=True, overwrite=True)
         connector.save_file(session, model_file, stage_name, overwrite=True)
         connector.save_file(session, column_name_file, stage_name, overwrite=True)
         trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
-        try:           
-            shap_importance, figure_file = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_names['feature-importance-chart'], top_k_features=5)
+        try:
+            figure_file = os.path.join('tmp', figure_names['feature-importance-chart'])
+            shap_importance = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)
             connector.write_pandas(session, shap_importance, f"FEATURE_IMPORTANCE", True,False)
             connector.save_file(session, figure_file, stage_name, overwrite=True)
         except Exception as e:

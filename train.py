@@ -782,6 +782,15 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     
     prediction_task = merged_config['data'].pop('task', 'classification') # Assuming default as classification
 
+    figure_names = {"roc-auc-curve": f"01-test-roc-auc.png",
+                    "pr-auc-curve": f"02-test-pr-auc.png",
+                    "lift-chart": f"03-test-lift-chart.png",
+                    "feature-importance-chart": f"04-feature-importance-chart.png"}
+
+    import_paths = [utils_path, constants_path, logger_path]
+    connector.delete_import_files(session, stage_name, import_paths)
+    connector.delete_procedures(session)
+    
     logger.info("Initialising trainer")
     
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])

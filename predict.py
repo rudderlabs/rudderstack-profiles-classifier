@@ -184,7 +184,7 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None
-        output_folder = 'output/dev/seq_no/4'
+        output_folder = 'output/dev/seq_no/7'
         model_path = f"{output_folder}/train_output.json"
         
     predict(creds, aws_config, model_path, None, "test_can_delet",None)

@@ -317,9 +317,9 @@ def get_column_names(onehot_encoder: OneHotEncoder,
             category_names.append(f"{col}_{value}")
     return category_names
 
-def get_numeric_columns(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str) -> List[str]:
+def get_non_stringtype_features(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str) -> List[str]:
     """
-    Returns a list of strings representing the names of the numeric columns in the feature table.
+    Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
 
     Args:
         feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
@@ -327,17 +327,17 @@ def get_numeric_columns(feature_table: snowflake.snowpark.Table, label_column: s
         entity_column (str): A string representing the name of the entity column.
 
     Returns:
-        List[str]: A list of strings representing the names of the numeric columns in the feature table.
+        List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
     """
-    numeric_columns = []
+    non_stringtype_features = []
     for field in feature_table.schema.fields:
         if field.datatype != T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-            numeric_columns.append(field.name)
-    return numeric_columns
+            non_stringtype_features.append(field.name)
+    return non_stringtype_features
 
-def get_categorical_columns(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str)-> List[str]:
+def get_stringtype_features(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str)-> List[str]:
     """
-    Extracts the names of categorical columns from a given feature table schema.
+    Extracts the names of StringType(categorical) columns from a given feature table schema.
 
     Args:
         feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
@@ -345,13 +345,13 @@ def get_categorical_columns(feature_table: snowflake.snowpark.Table, label_colum
         entity_column (str): The name of the entity column.
 
     Returns:
-        List[str]: A list of categorical column names extracted from the feature table schema.
+        List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
     """
-    categorical_columns = []
+    stringtype_features = []
     for field in feature_table.schema.fields:
         if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-            categorical_columns.append(field.name)
-    return categorical_columns
+            stringtype_features.append(field.name)
+    return stringtype_features
 
 def get_arraytype_features(table: snowflake.snowpark.Table)-> list:
     """Returns the list of features to be ignored from the feature table.

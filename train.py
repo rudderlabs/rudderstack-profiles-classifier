@@ -450,8 +450,12 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                                                                                 trainer.prep.val_size, 
                                                                                 trainer.prep.test_size)
 
-        categorical_columns = utils.get_categorical_columns(feature_table, trainer.label_column, trainer.entity_column)
-        numeric_columns = utils.get_numeric_columns(feature_table, trainer.label_column, trainer.entity_column)
+        stringtype_features = utils.get_stringtype_features(feature_table, trainer.label_column, trainer.entity_column)
+        categorical_columns = utils.merge_lists_to_unique(trainer.prep.categorical_pipeline['categorical_columns'], stringtype_features)
+
+        non_stringtype_features = utils.get_non_stringtype_features(feature_table, trainer.label_column, trainer.entity_column)
+        numeric_columns = utils.merge_lists_to_unique(trainer.prep.numeric_pipeline['numeric_columns'], non_stringtype_features)
+
         train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
 
         preprocessor_pipe_x = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))

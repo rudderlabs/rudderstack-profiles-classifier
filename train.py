@@ -729,7 +729,7 @@ def train_model(trainer:Union[ClassificationTrainer, RegressionTrainer], feature
     joblib.dump(pipe, model_file)
 
     column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
-    column_name_file = os.path.join("/tmp", f"{trainer.model_name_prefix}_{model_id}_column_names.json")
+    column_name_file = os.path.join("/tmp", f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json")
     json.dump(column_dict, open(column_name_file,"w"))
 
     results = trainer.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
@@ -860,9 +860,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         json.dump(column_dict, open(column_name_file,"w"))
         session.file.put(column_name_file, stage_name,overwrite=True)
         trainer.plot_diagnostics(session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
-        connector.write_pandas(session, X_train, table_name=f"{trainer.model_name_prefix.upper()}_TRAIN", auto_create_table=True, overwrite=True)
-        connector.write_pandas(session, X_val, table_name=f"{trainer.model_name_prefix.upper()}_VAL", auto_create_table=True, overwrite=True)
-        connector.write_pandas(session, X_test, table_name=f"{trainer.model_name_prefix.upper()}_TEST", auto_create_table=True, overwrite=True)
+        connector.write_pandas(session, X_train, table_name=f"{trainer.output_profiles_ml_model.upper()}_TRAIN", auto_create_table=True, overwrite=True)
+        connector.write_pandas(session, X_val, table_name=f"{trainer.output_profiles_ml_model.upper()}_VAL", auto_create_table=True, overwrite=True)
+        connector.write_pandas(session, X_test, table_name=f"{trainer.output_profiles_ml_model.upper()}_TEST", auto_create_table=True, overwrite=True)
         connector.save_file(session, model_file, stage_name, overwrite=True)
         connector.save_file(session, column_name_file, stage_name, overwrite=True)
         trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
@@ -879,7 +879,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     
     logger.info("Getting past data for training")
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
-    model_hash, creation_ts = connector.get_latest_material_hash(session, material_table, trainer.model_name)
+    model_hash, creation_ts = connector.get_latest_material_hash(session, material_table, trainer.features_profiles_model)
     start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
     if start_date == None or end_date == None:
         start_date, end_date = utils.get_date_range(creation_ts, trainer.prediction_horizon_days)

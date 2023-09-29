@@ -104,10 +104,12 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     utils_path = os.path.join(current_dir, 'utils.py')
     constants_path = os.path.join(current_dir, 'constants.py')
 
+    model_name = f"{output_profiles_ml_model}_{model_file_name}"
+
     import_paths = [utils_path, constants_path]
     utils.delete_import_files(session, stage_name, import_paths)
 
-    print(f"{output_profiles_ml_model}_{model_file_name}")
+    print(model_name)
     print("Caching")
     
     @cachetools.cached(cache={})
@@ -115,7 +117,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         """session.import adds the staged model file to an import directory. We load the model file from this location
 
         Args:
-            filename (str): path for the model_file_name
+            filename (str): path for the model_name
 
         Returns:
             _type_: return the trained model after loading it
@@ -131,10 +133,10 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     drop_fn_if_exists(session, udf_name)
     @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
               stage_location=stage_name, name=udf_name, 
-              imports= import_paths+[f"{stage_name}/{model_file_name}"],
+              imports= import_paths+[f"{stage_name}/{model_name}"],
               packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML"])
     def predict_scores(df: types) -> T.PandasSeries[float]:
-        trained_model = load_model(model_file_name)
+        trained_model = load_model(model_name)
         df.columns = features
         categorical_columns = list(df.select_dtypes(include='object'))
         numeric_columns = list(df.select_dtypes(exclude='object'))

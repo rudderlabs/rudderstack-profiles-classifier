@@ -491,7 +491,7 @@ def get_latest_material_hash(session: snowflake.snowpark.Session,
     Returns:
         Tuple: latest model hash and it's creation timestamp
     """
-    snowpark_df = session.table(material_table)
+    snowpark_df = get_material_registry_table(session, material_table)
     temp_hash_vector = snowpark_df.filter(col("model_name") == features_profiles_model).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
     model_hash = temp_hash_vector.MODEL_HASH
     creation_ts = temp_hash_vector.CREATION_TS
@@ -537,6 +537,44 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
         print(f"Exception occured while materialising data for date {features_valid_time} ")
         print(e)
 
+def is_valid_table(session: snowflake.snowpark.Session, table_name: str) -> bool:
+    """
+    Checks whether a table exists in the data warehouse.
+
+    Args:
+        session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
+        table_name (str): The name of the table to be checked.
+
+    Returns:
+        bool: True if the table exists, False otherwise.
+    """
+    try:
+        session.sql(f"select * from {table_name} limit 1").collect()
+        return True
+    except:
+        return False
+    
+def get_material_registry_table(session: snowflake.snowpark.Session, material_registry_table_name: str) -> snowflake.snowpark.Table:
+    """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
+    Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
+
+    Args:
+        session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
+        material_registry_table_name (str): The material registry table name.
+
+    Returns:
+        snowflake.snowpark.Table: The filtered material registry table containing only the successfully materialized data.
+    """
+    material_registry_table = (session.table(material_registry_table_name)
+                               .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
+                               .filter(F.col("status")==2)
+                               )
+    return material_registry_table
+
+
+def generate_material_name(material_table_prefix: str, model_name: str, model_hash: str, seq_no: str) -> str:
+    return f'{material_table_prefix}{model_name}"_"{model_hash}"_"{seq_no}'
+
 def get_material_names_(session: snowflake.snowpark.Session,
                        material_table: str, 
                        start_time: str, 
@@ -564,7 +602,7 @@ def get_material_names_(session: snowflake.snowpark.Session,
     material_names = list()
     training_dates = list()
 
-    snowpark_df = session.table(material_table)
+    snowpark_df = get_material_registry_table(session, material_table)
 
     feature_snowpark_df = (snowpark_df
                 .filter(col("model_name") == features_profiles_model)
@@ -584,8 +622,11 @@ def get_material_names_(session: snowflake.snowpark.Session,
                                                             ).select(feature_snowpark_df.seq_no.alias("feature_seq_no"),feature_snowpark_df.end_ts.alias("feature_end_ts"),
                                                                     label_snowpark_df.seq_no.alias("label_seq_no"), label_snowpark_df.end_ts.alias("label_end_ts"))
     for row in feature_label_snowpark_df.collect():
-        material_names.append((material_table_prefix+features_profiles_model+"_"+model_hash+"_"+str(row.FEATURE_SEQ_NO), material_table_prefix+features_profiles_model+"_"+model_hash+"_"+str(row.LABEL_SEQ_NO)))
-        training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
+        feature_table_name_ = generate_material_name(material_table_prefix, features_profiles_model, model_hash, str(row.FEATURE_SEQ_NO))
+        label_table_name_ = generate_material_name(material_table_prefix, features_profiles_model, model_hash, str(row.LABEL_SEQ_NO))
+        if is_valid_table(feature_table_name_) and is_valid_table(label_table_name_):
+            material_names.append((feature_table_name_, label_table_name_))
+            training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
     return material_names, training_dates
 
 def get_material_names(session: snowflake.snowpark.Session, material_table: str, start_date: str, end_date: str, 

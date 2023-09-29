@@ -509,8 +509,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                                                                label_table_name)
         if feature_table is None:
             feature_table = feature_table_instance
-            # logger.warning("Taking only one material for training. Remove the break point to train on all materials")
-            # break
+            logger.warning("Taking only one material for training. Remove the break point to train on all materials")
+            break
         else:
             feature_table = feature_table.unionAllByName(feature_table_instance)
 

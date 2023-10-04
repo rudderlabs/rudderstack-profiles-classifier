@@ -660,12 +660,10 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
     except Exception as e:
         print("Exception occured while retrieving material names. Please check the logs for more details")
         raise e
-    
    
 def split_train_test(feature_df: pd.DataFrame,
                      label_column: str, 
                      entity_column: str,
-                     output_profiles_ml_model: str, 
                      train_size:float, 
                      val_size: float, 
                      test_size: float) -> Tuple:
@@ -686,13 +684,6 @@ def split_train_test(feature_df: pd.DataFrame,
     latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
     X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
     X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
-    train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
-    train_y = X_train[[label_column.upper()]]
-    val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
-    val_y = X_val[[label_column.upper()]]
-    test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
-    test_y = X_test[[label_column.upper()]]
-    return train_x, train_y, test_x, test_y, val_x, val_y
     return X_train, X_val, X_test
 
 def split_label_from_features(df: pd.DataFrame, 

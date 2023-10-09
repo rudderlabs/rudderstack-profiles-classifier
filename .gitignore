@@ -10,3 +10,8 @@ train_output.json
 appmap.yml
 *.ipynb
 pysnowpark/*
+**/output/**
+**/migrations/**
+*.log
+*.egg-info
+build

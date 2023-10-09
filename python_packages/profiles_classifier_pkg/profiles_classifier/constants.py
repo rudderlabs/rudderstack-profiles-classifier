@@ -1,0 +1,6 @@
+class constants:
+    MATERIAL_REGISTRY_TABLE_PREFIX = 'MATERIAL_REGISTRY'
+    MATERIAL_TABLE_PREFIX = "material_"
+    MODEL_FILE_NAME = 'classifier.joblib'
+    STAGE_NAME = "@ml_models5"
+    METRICS_TABLE = "CLASSIFIER_METRICS"

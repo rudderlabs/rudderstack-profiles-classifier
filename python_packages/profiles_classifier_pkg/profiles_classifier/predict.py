@@ -23,10 +23,12 @@ import sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-import utils
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
-import constants
+from profiles_rudderstack.material import WhtMaterial
+from .utils import utils
+from .constants import constants
 from logger import logger
+
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
 import yaml
 import json
 import datetime
@@ -62,7 +64,7 @@ def drop_fn_if_exists(session: snowflake.snowpark.Session,
     
 
 
-def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_tablename : str, config: dict) -> None:
+def predict(session: snowflake.snowpark.Session, aws_config: dict, model_path: str, inputs: str, config: dict, this: WhtMaterial) -> None:
     """Generates the prediction probabilities and save results for given model_path
 
     Args:
@@ -76,8 +78,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     Returns:
         None: save the prediction results but returns nothing
     """
-    connection_parameters = utils.remap_credentials(creds)
-    session = Session.builder.configs(connection_parameters).create()
     stage_name = constants.STAGE_NAME
     model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -177,7 +177,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
              .withColumn("model_id", F.lit(model_id)))
 
     preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(entity_column, index_timestamp, score_column_name, percentile_column_name, "model_id")
-    preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)
+    this.write_output(preds_with_percentile.to_pandas())
     
 
 if __name__ == "__main__":

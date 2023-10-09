@@ -1,0 +1,47 @@
+name: sample_test
+schema_version: 44
+connection: shopify_wh
+include_untimed: true
+model_folders:
+  - models
+entities:
+  - name: user
+    serve_traits:
+      - id_served: user_id
+        name: user_id_stitched_features
+      - id_served: main_id
+        name: main_id_stitched_features
+id_types:
+  - name: main_id
+  - name: user_id
+  - name: anonymous_id
+    filters:
+      - type: exclude
+        value: ""
+      - type: exclude
+        value: "unknown"
+      - type: exclude
+        value: "NaN"
+  - name: email
+    filters:
+      - type: include
+        regex: ".+@.+"
+      - type: exclude
+        value: "test@company.com"
+packages:
+  - name: feature_table # Do not modify this. If this changes, it needs to be passed to train.py in the config as package_name: <value> and also in the inputs in python_model
+    url: https://github.com/rudderlabs/rudderstack-profiles-shopify-features.git
+    inputsMap:
+      rsCartUpdate: inputs/rsCartUpdate
+      rsIdentifies: inputs/rsIdentifies
+      rsOrderCancelled: inputs/rsOrderCancelled
+      rsOrderCreated: inputs/rsOrderCreated
+      rsOrderUpdated: inputs/rsOrderUpdated
+      rsPages: inputs/rsPages
+      rsTracks: inputs/rsTracks
+
+python_requirements:
+  # - profiles_rudderstack_pysql==0.2.0 #registers py_sql_model model type
+  # - profiles_rudderstack_common_column_union==0.2.0 #registers common_column_union model type
+  # - profiles_rudderstack_common_column_union_new==0.2.0 #registers common_column_union_new model type
+  - profiles_classifier==1.0.0 #registers churn model type

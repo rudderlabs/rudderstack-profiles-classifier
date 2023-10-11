@@ -27,7 +27,7 @@ preprocessing:
   ignore_features: []
 
   numeric_pipeline:
-    numeric_columns: all
+    numeric_columns: []
     pipeline:
       - name: SimpleImputer
         # strategy can be any acceptable value of sklearn simpleimputer strategy
@@ -39,7 +39,7 @@ preprocessing:
         # keep_empty_features: False
 
   categorical_pipeline:
-    categorical_columns: []
+    categorical_columns: ['STATE', 'COUNTRY']
     pipeline:
       - name: SimpleImputer
         strategy: constant

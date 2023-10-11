@@ -673,7 +673,6 @@ def split_train_test(feature_df: pd.DataFrame,
         feature_df (pd.DataFrame): feature table dataframe from the retrieved material_names tuple
         label_column (str): name of label column from feature table
         entity_column (str): name of entity column from feature table
-        output_profiles_ml_model (str): output ml model from model_configs file
         train_size (float): partition fraction for train data
         val_size (float): partition fraction for validation data
         test_size (float): partition fraction for test data

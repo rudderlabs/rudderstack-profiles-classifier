@@ -703,12 +703,12 @@ def train_model(trainer:Union[ClassificationTrainer, RegressionTrainer], feature
     model_id = str(int(time.time()))
     model_file_name = constants.MODEL_FILE_NAME
 
-    X_train, X_val, X_test = utils.split_train_test(feature_df,
-                                                    trainer.label_column,
-                                                    trainer.entity_column,
-                                                    trainer.prep.train_size,
-                                                    trainer.prep.val_size,
-                                                    trainer.prep.test_size)
+    X_train, X_val, X_test = utils.split_train_test(feature_df=feature_df,
+                                                    label_column=trainer.label_column,
+                                                    entity_column=trainer.entity_column,
+                                                    train_size=trainer.prep.train_size,
+                                                    val_size=trainer.prep.val_size,
+                                                    test_size=trainer.prep.test_size)
     train_x, train_y = utils.split_label_from_features(X_train, trainer.label_column, trainer.entity_column)
     val_x, val_y = utils.split_label_from_features(X_val, trainer.label_column, trainer.entity_column)
     test_x, test_y = utils.split_label_from_features(X_test, trainer.label_column, trainer.entity_column)

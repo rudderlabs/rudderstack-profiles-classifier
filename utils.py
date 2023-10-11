@@ -381,18 +381,6 @@ def get_stringtype_features(feature_table: snowflake.snowpark.Table, label_colum
             stringtype_features.append(field.name)
     return stringtype_features
 
-def get_arraytype_features(table: snowflake.snowpark.Table)-> list:
-    """Returns the list of features to be ignored from the feature table.
-
-    Args:
-        table (snowflake.snowpark.Table): snowpark table.
-
-    Returns:
-        list: The list of features to be ignored based column datatypes as ArrayType.
-    """
-    arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
-    return arraytype_features
-
 def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str])-> pd.DataFrame:
     """
     Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively.
@@ -484,25 +472,7 @@ def get_label_date_ref(feature_date: str, horizon_days: int) -> str:
     """
     label_timestamp = datetime.strptime(feature_date, "%Y-%m-%d") + timedelta(days=horizon_days)
     label_date = label_timestamp.strftime("%Y-%m-%d")
-    return label_date
-
-def get_timestamp_columns(table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
-    """
-    Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-    Args:
-        session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
-        feature_table (snowflake.snowpark.Table): The feature table from which to retrieve the timestamp columns.
-        index_timestamp (str): The name of the column containing the index timestamp information.
-
-    Returns:
-        List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-    """
-    timestamp_columns = []
-    for field in table.schema.fields:
-        if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
-            timestamp_columns.append(field.name)
-    return timestamp_columns
+    return label_date    
 
 def get_latest_material_hash(session: snowflake.snowpark.Session,
                        material_table: str,

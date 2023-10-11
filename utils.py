@@ -661,8 +661,7 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
         print("Exception occured while retrieving material names. Please check the logs for more details")
         raise e
     
-def split_train_test(session: snowflake.snowpark.Session,
-                     feature_df: pd.DataFrame, 
+def split_train_test(feature_df: pd.DataFrame, 
                      label_column: str, 
                      entity_column: str,
                      train_size:float, 

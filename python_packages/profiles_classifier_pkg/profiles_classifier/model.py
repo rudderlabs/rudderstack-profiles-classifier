@@ -17,19 +17,15 @@ class ChurnModel(BaseModelType):
             "type": "object",
             "properties": {
                 "inputs": { "type": "array", "items": { "type": "string" } },
-                "train": {
+                "model_info": {
                     "type": "object",
                     "properties": {
                         "file_extension": { "type": "string" },
                         "file_validity": { "type": "string" },
                         "config": { "type": ["object"] } },
-                    "required": ["file_extension", "file_validity"] },
-                "predict": {
-                    "type": "object",
-                    "properties": {
-                        "config": { "type": ["object"] } } }
+                    "required": ["file_extension", "file_validity", "config"] }
             },
-            "required": ["inputs", "train", "predict"],
+            "required": ["inputs", "model_info"],
             "additionalProperties": False
             }
 
@@ -37,7 +33,7 @@ class ChurnModel(BaseModelType):
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self)-> PyNativeRecipe:
-        return ChurnRecipe(self.build_spec["inputs"], self.build_spec["train"], self.build_spec["predict"])
+        return ChurnRecipe(self.build_spec["inputs"], self.build_spec["model_info"])
 
     def validate(self):
         # Model Validate
@@ -48,10 +44,9 @@ class ChurnModel(BaseModelType):
 
 
 class ChurnRecipe(PyNativeRecipe):
-    def __init__(self, inputs: List[str], train_config: dict, predict_config: dict) -> None:
+    def __init__(self, inputs: List[str], model_info: dict) -> None:
         self.inputs = inputs
-        self.train_info = train_config
-        self.predict_info = predict_config
+        self.model_info = model_info
         self.logger = Logger("ChurnRecipe")
 
     def describe(self, this: WhtMaterial):
@@ -75,8 +70,8 @@ class ChurnRecipe(PyNativeRecipe):
         # wh_type = this.wht_ctx.client.__wh_type     ## warehouse type from configs to differ the snowpark session with redshift connection
 
         self.logger.info(f"Training script initiation ================")
-        train(snowpark_session, inputs, training_json_file, self.train_info.get('config'), this)
+        train(snowpark_session, inputs, training_json_file, self.model_info.get('config'), this)
         self.logger.info(f"Predictions script initiation ================")
-        predict(snowpark_session, aws_config, training_json_file, None, self.predict_info.get('config'), this)
+        predict(snowpark_session, aws_config, training_json_file, None, self.model_info.get('config'), this)
 
         self.logger.info("Executing ChurnRecipe ================ End")

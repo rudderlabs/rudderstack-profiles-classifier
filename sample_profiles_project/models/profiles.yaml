@@ -5,18 +5,14 @@ models:
       inputs:
         - packages/feature_table/models/shopify_user_features
 
-      train:
+      model_info:
         file_extension: .json
         file_validity: 2m
         config:
-          data: &model_data_configs
+          data:
             package_name: feature_table # Name of the package where the profiles feature table is defined (declared in pb_project.yaml packages)
             label_column: is_churned_7_days
             label_value: 1
             prediction_horizon_days: 7
             features_profiles_model: 'shopify_user_features'
             output_profiles_ml_model: *model_name
-
-      predict:
-        config:
-          data: *model_data_configs

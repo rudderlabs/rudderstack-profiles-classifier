@@ -31,6 +31,11 @@ import yaml
 import json
 import datetime
 
+import warnings
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
+warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
+
 def drop_fn_if_exists(session: snowflake.snowpark.Session, 
                       fn_name: str) -> bool:
     """Snowflake caches the functions and it reuses these next time. To avoid the caching, we manually search for the same function name and drop it before we create the udf.
@@ -75,41 +80,71 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     session = Session.builder.configs(connection_parameters).create()
     stage_name = constants.STAGE_NAME
     model_file_name = constants.MODEL_FILE_NAME
-    print(model_file_name)
     current_dir = os.path.dirname(os.path.abspath(__file__))
 
     notebook_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
     merged_config = utils.combine_config(notebook_config, config)
 
+    with open(model_path, "r") as f:
+        results = json.load(f)
+    model_hash = results["config"]["material_hash"]
+    model_id = results["model_info"]["model_id"]
+    current_ts = datetime.datetime.now()
+
     score_column_name = merged_config['outputs']['column_names']['score']
     percentile_column_name = merged_config['outputs']['column_names']['percentile']
-    model_name_prefix = merged_config["data"]["model_name_prefix"]
+    output_profiles_ml_model = merged_config["data"]["output_profiles_ml_model"]
     label_column = merged_config["data"]["label_column"]
     index_timestamp = merged_config["data"]["index_timestamp"]
     eligible_users = merged_config["data"]["eligible_users"]
-    ignore_feature = merged_config["preprocessing"]["ignore_features"]
+    ignore_features = merged_config["preprocessing"]["ignore_features"]
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     entity_column = merged_config["data"]["entity_column"]
-    model_name = merged_config["data"]["model_name"]
-    udf_name = "prediction_score"
+    features_profiles_model = merged_config["data"]["features_profiles_model"]
 
-    x_train_sample = session.table(f"{model_name_prefix}_train")
-    types = utils.generate_type_hint(x_train_sample.drop(label_column, entity_column))
     current_dir = os.path.dirname(os.path.abspath(__file__))
     predict_path = os.path.join(current_dir, 'predict.py')
     utils_path = os.path.join(current_dir, 'utils.py')
     constants_path = os.path.join(current_dir, 'constants.py')
 
+    model_name = f"{output_profiles_ml_model}_{model_file_name}"
+
     import_paths = [utils_path, constants_path]
     utils.delete_import_files(session, stage_name, import_paths)
+
+    material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
+    material_table = utils.get_material_registry_name(session, material_registry_table_prefix)
+    latest_hash_df = session.table(material_table).filter(F.col("model_hash") == model_hash)
     
+    material_table_prefix = constants.MATERIAL_TABLE_PREFIX
+    latest_seq_no = latest_hash_df.sort(F.col("end_ts"), ascending=False).select("seq_no").collect()[0].SEQ_NO
+    raw_data = session.table(f"{material_table_prefix}{features_profiles_model}_{model_hash}_{latest_seq_no}")
+
+    if eligible_users:
+        raw_data = raw_data.filter(eligible_users)
+        
+    arraytype_features = utils.get_arraytype_features(raw_data)
+    ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_features)
+    predict_data = utils.drop_columns_if_exists(raw_data, ignore_features)
+    
+    if len(timestamp_columns) == 0:
+        timestamp_columns = utils.get_timestamp_columns(session, predict_data, index_timestamp)
+    for col in timestamp_columns:
+        predict_data = predict_data.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
+
+    input  = predict_data.drop(label_column, entity_column, index_timestamp)
+    types = utils.generate_type_hint(input)
+    udf_name = "prediction_score"
+
+    print(model_name)
     print("Caching")
+
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location
 
         Args:
-            filename (str): path for the model_file_name
+            filename (str): path for the model_name
 
         Returns:
             _type_: return the trained model after loading it
@@ -132,13 +167,20 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
         return trained_model.predict_proba(df)[:,1]
     
-    features = x_train_sample.drop(label_column, entity_column).columns
+    features = input.columns
     drop_fn_if_exists(session, udf_name)
     @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
               stage_location=stage_name, name=udf_name, 
-              imports= import_paths+[f"{stage_name}/{model_file_name}"],
+              imports= import_paths+[f"{stage_name}/{model_name}"],
               packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML"])
     def predict_scores(df: types) -> T.PandasSeries[float]:
+        # trained_model = load_model(model_name)
+        # df.columns = features
+        # categorical_columns = list(df.select_dtypes(include='object'))
+        # numeric_columns = list(df.select_dtypes(exclude='object'))
+        # df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+        # df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
+        # return trained_model.predict_proba(df)[:,1]
         df.columns = features
         predict_proba = predict(df)
         return predict_proba
@@ -192,7 +234,7 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None
-        output_folder = 'output/dev/seq_no/4'
+        output_folder = 'output/dev/seq_no/7'
         model_path = f"{output_folder}/train_output.json"
     # creds['type'] = 'redshift'
     predict(creds, aws_config, model_path, None, "test_can_delet",None)

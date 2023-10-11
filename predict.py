@@ -85,8 +85,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     notebook_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
     merged_config = utils.combine_config(notebook_config, config)
 
-    f = open(model_path, "r")
-    results = json.load(f)
+    with open(model_path, "r") as f:
+        results = json.load(f)
     model_hash = results["config"]["material_hash"]
     model_id = results["model_info"]["model_id"]
     current_ts = datetime.datetime.now()

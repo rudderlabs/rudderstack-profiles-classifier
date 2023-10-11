@@ -534,39 +534,39 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             utils.plot_lift_chart(session, pipe, stage_name, test_x, test_y, figure_names['lift-chart'], label_column)
         except Exception as e:
             logger.error("Could not generate plots")
-        model_file_name = constants.MODEL_FILE_NAME
-        stage_name = constants.STAGE_NAME
-        metrics_table = constants.METRICS_TABLE
-        train_config = merged_config['train']
+        # model_file_name = constants.MODEL_FILE_NAME
+        # stage_name = constants.STAGE_NAME
+        # metrics_table = constants.METRICS_TABLE
+        # train_config = merged_config['train']
 
-        models = train_config["model_params"]["models"]
-        model_id = str(int(time.time()))
+        # models = train_config["model_params"]["models"]
+        # model_id = str(int(time.time()))
 
-        feature_table = session.table(feature_table_name)
-        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(session, feature_table, 
-                                                                                trainer.label_column, 
-                                                                                trainer.entity_column, 
-                                                                                trainer.output_profiles_ml_model, 
-                                                                                trainer.prep.train_size, 
-                                                                                trainer.prep.val_size, 
-                                                                                trainer.prep.test_size)
+        # feature_table = session.table(feature_table_name)
+        # train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(session, feature_table, 
+        #                                                                         trainer.label_column, 
+        #                                                                         trainer.entity_column, 
+        #                                                                         trainer.output_profiles_ml_model, 
+        #                                                                         trainer.prep.train_size, 
+        #                                                                         trainer.prep.val_size, 
+        #                                                                         trainer.prep.test_size)
 
-        stringtype_features = utils.get_stringtype_features(feature_table, trainer.label_column, trainer.entity_column)
-        categorical_columns = utils.merge_lists_to_unique(trainer.prep.categorical_pipeline['categorical_columns'], stringtype_features)
+        # stringtype_features = utils.get_stringtype_features(feature_table, trainer.label_column, trainer.entity_column)
+        # categorical_columns = utils.merge_lists_to_unique(trainer.prep.categorical_pipeline['categorical_columns'], stringtype_features)
 
-        non_stringtype_features = utils.get_non_stringtype_features(feature_table, trainer.label_column, trainer.entity_column)
-        numeric_columns = utils.merge_lists_to_unique(trainer.prep.numeric_pipeline['numeric_columns'], non_stringtype_features)
+        # non_stringtype_features = utils.get_non_stringtype_features(feature_table, trainer.label_column, trainer.entity_column)
+        # numeric_columns = utils.merge_lists_to_unique(trainer.prep.numeric_pipeline['numeric_columns'], non_stringtype_features)
 
-        train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
+        # train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
 
-        preprocessor_pipe_x = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
-        train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
-        val_x_processed = preprocessor_pipe_x.transform(val_x)
+        # preprocessor_pipe_x = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
+        # train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
+        # val_x_processed = preprocessor_pipe_x.transform(val_x)
         
-        final_model = trainer.select_best_model(models, train_x_processed, train_y, val_x_processed, val_y)
-        preprocessor_pipe_optimized = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
-        pipe = trainer.get_model_pipeline(preprocessor_pipe_optimized, final_model)
-        pipe.fit(train_x, train_y)
+        # final_model = trainer.select_best_model(models, train_x_processed, train_y, val_x_processed, val_y)
+        # preprocessor_pipe_optimized = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
+        # pipe = trainer.get_model_pipeline(preprocessor_pipe_optimized, final_model)
+        # pipe.fit(train_x, train_y)
         
         model_file = os.path.join('/tmp', f"{trainer.output_profiles_ml_model}_{model_file_name}")
         joblib.dump(pipe, model_file)

@@ -719,10 +719,6 @@ def split_train_test(session: snowflake.snowpark.Session,
     latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
     X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
     X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
-    #ToDo: handle timestamp columns, remove customer_id from train_x
-    session.write_pandas(X_train, table_name=f"{output_profiles_ml_model.upper()}_TRAIN", auto_create_table=True, overwrite=True)
-    session.write_pandas(X_val, table_name=f"{output_profiles_ml_model.upper()}_VAL", auto_create_table=True, overwrite=True)
-    session.write_pandas(X_test, table_name=f"{output_profiles_ml_model.upper()}_TEST", auto_create_table=True, overwrite=True)
     train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
     train_y = X_train[[label_column.upper()]]
     val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)

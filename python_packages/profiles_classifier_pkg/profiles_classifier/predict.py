@@ -85,6 +85,12 @@ def predict(session: snowflake.snowpark.Session, aws_config: dict, model_path: s
     notebook_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
     merged_config = utils.combine_config(notebook_config, config)
 
+    with open(model_path, "r") as f:
+        results = json.load(f)
+    model_hash = results["config"]["material_hash"]
+    model_id = results["model_info"]["model_id"]
+    current_ts = datetime.datetime.now()
+
     score_column_name = merged_config['outputs']['column_names']['score']
     percentile_column_name = merged_config['outputs']['column_names']['percentile']
     output_profiles_ml_model = merged_config["data"]["output_profiles_ml_model"]
@@ -95,10 +101,7 @@ def predict(session: snowflake.snowpark.Session, aws_config: dict, model_path: s
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     entity_column = merged_config["data"]["entity_column"]
     features_profiles_model = merged_config["data"]["features_profiles_model"]
-    udf_name = "prediction_score"
 
-    x_train_sample = session.table(f"{output_profiles_ml_model}_train")
-    types = utils.generate_type_hint(x_train_sample.drop(label_column, entity_column))
     current_dir = os.path.dirname(os.path.abspath(__file__))
     predict_path = os.path.join(current_dir, 'predict.py')
     utils_path = os.path.join(current_dir, 'utils.py')
@@ -108,48 +111,6 @@ def predict(session: snowflake.snowpark.Session, aws_config: dict, model_path: s
 
     import_paths = [utils_path, constants_path]
     utils.delete_import_files(session, stage_name, import_paths)
-
-    print(model_name)
-    print("Caching")
-    
-    @cachetools.cached(cache={})
-    def load_model(filename: str):
-        """session.import adds the staged model file to an import directory. We load the model file from this location
-
-        Args:
-            filename (str): path for the model_name
-
-        Returns:
-            _type_: return the trained model after loading it
-        """
-        import_dir = sys._xoptions.get("snowflake_import_directory")     
-        assert import_dir.startswith('/home/udf/')
-        if import_dir:
-              with open(os.path.join(import_dir, filename), 'rb') as file:
-                     m = joblib.load(file)
-                     return m
-                 
-    features = x_train_sample.drop(label_column, entity_column).columns
-    drop_fn_if_exists(session, udf_name)
-    @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
-              stage_location=stage_name, name=udf_name, 
-              imports= import_paths+[f"{stage_name}/{model_name}"],
-              packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML"])
-    def predict_scores(df: types) -> T.PandasSeries[float]:
-        trained_model = load_model(model_name)
-        df.columns = features
-        categorical_columns = list(df.select_dtypes(include='object'))
-        numeric_columns = list(df.select_dtypes(exclude='object'))
-        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
-        return trained_model.predict_proba(df)[:,1]
-
-
-    f = open(model_path, "r")
-    results = json.load(f)
-    model_hash = results["config"]["material_hash"]
-    model_id = results["model_info"]["model_id"]
-    current_ts = datetime.datetime.now()
 
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table = utils.get_material_registry_name(session, material_registry_table_prefix)
@@ -172,6 +133,43 @@ def predict(session: snowflake.snowpark.Session, aws_config: dict, model_path: s
         predict_data = predict_data.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
 
     input  = predict_data.drop(label_column, entity_column, index_timestamp)
+    types = utils.generate_type_hint(input)
+    udf_name = "prediction_score"
+
+    print(model_name)
+    print("Caching")
+
+    @cachetools.cached(cache={})
+    def load_model(filename: str):
+        """session.import adds the staged model file to an import directory. We load the model file from this location
+
+        Args:
+            filename (str): path for the model_name
+
+        Returns:
+            _type_: return the trained model after loading it
+        """
+        import_dir = sys._xoptions.get("snowflake_import_directory")     
+        assert import_dir.startswith('/home/udf/')
+        if import_dir:
+              with open(os.path.join(import_dir, filename), 'rb') as file:
+                     m = joblib.load(file)
+                     return m
+                 
+    features = input.columns
+    drop_fn_if_exists(session, udf_name)
+    @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
+              stage_location=stage_name, name=udf_name, 
+              imports= import_paths+[f"{stage_name}/{model_name}"],
+              packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML"])
+    def predict_scores(df: types) -> T.PandasSeries[float]:
+        trained_model = load_model(model_name)
+        df.columns = features
+        categorical_columns = list(df.select_dtypes(include='object'))
+        numeric_columns = list(df.select_dtypes(exclude='object'))
+        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
+        return trained_model.predict_proba(df)[:,1]
     
     preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias(score_column_name))
              .withColumn("model_id", F.lit(model_id)))

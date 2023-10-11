@@ -1,5 +1,5 @@
 models:
-  - name: &model_name churn_predict_model
+  - name: &model_name shopify_churn
     model_type: churn_prediction
     model_spec:
       inputs:
@@ -15,8 +15,7 @@ models:
             label_value: 1
             prediction_horizon_days: 7
             features_profiles_model: 'shopify_user_features'
-            # output_profiles_ml_model: *model_name
-            output_profiles_ml_model: 'shopify_churn_test'
+            output_profiles_ml_model: *model_name
 
       predict:
         config:

@@ -87,8 +87,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     with open(model_path, "r") as f:
         results = json.load(f)
-    model_hash = results["config"]["material_hash"]
-    model_id = results["model_info"]["model_id"]
+    train_model_hash = results["config"]["material_hash"]
+    train_model_id = results["model_info"]["model_id"]
     current_ts = datetime.datetime.now()
 
     score_column_name = merged_config['outputs']['column_names']['score']
@@ -114,11 +114,16 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table = utils.get_material_registry_name(session, material_registry_table_prefix)
-    latest_hash_df = session.table(material_table).filter(F.col("model_hash") == model_hash)
+
+    latest_model_hash, _ = utils.get_latest_material_hash(session, material_table, features_profiles_model)
+    if latest_model_hash != train_model_hash:
+        raise ValueError(f"Model hash {train_model_hash} does not match with the latest model hash {latest_model_hash} in the material registry table. Please retrain the model")
+    
+    latest_hash_df = session.table(material_table).filter(F.col("model_hash") == latest_model_hash)
     
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
     latest_seq_no = latest_hash_df.sort(F.col("end_ts"), ascending=False).select("seq_no").collect()[0].SEQ_NO
-    raw_data = session.table(f"{material_table_prefix}{features_profiles_model}_{model_hash}_{latest_seq_no}")
+    raw_data = session.table(f"{material_table_prefix}{features_profiles_model}_{latest_model_hash}_{latest_seq_no}")
 
     if eligible_users:
         raw_data = raw_data.filter(eligible_users)
@@ -172,7 +177,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         return trained_model.predict_proba(df)[:,1]
     
     preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias(score_column_name))
-             .withColumn("model_id", F.lit(model_id)))
+             .withColumn("model_id", F.lit(train_model_id)))
 
     preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(entity_column, index_timestamp, score_column_name, percentile_column_name, "model_id")
     preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)

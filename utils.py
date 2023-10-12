@@ -747,7 +747,7 @@ def get_classification_metrics(y_true: pd.DataFrame,
     roc_auc = roc_auc_score(y_true, y_pred_proba)
     pr_auc = average_precision_score(y_true, y_pred_proba)
     user_count = y_true.shape[0]
-    metrics = {"precision": precision, "recall": recall, "f1_score": f1, "roc_auc": roc_auc, 'pr_auc': pr_auc, 'users': user_count}
+    metrics = {"precision": round(precision, 2), "recall": round(recall, 2), "f1_score": round(f1, 2), "roc_auc": round(roc_auc, 2), 'pr_auc': round(pr_auc, 2), 'users': user_count}
     return metrics
     
 def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array,train_config: dict) -> Tuple:
@@ -817,7 +817,7 @@ def get_metrics(clf,
     metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
     predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
     
-    return metrics, predictions, prob_threshold
+    return metrics, predictions, round(prob_threshold, 2)
 
 def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
     """

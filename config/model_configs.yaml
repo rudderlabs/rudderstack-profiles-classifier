@@ -1,12 +1,12 @@
 data:
   # Related to the data that is used to train the model
-  label_column: is_churned_7_days # Name of the entity_var that needs to be predicted in advance
-  label_value: 1 # Value of the label_column when the entity does the event. Not required for regression tasks
+  label_column: DAYS_SINCE_LAST_SEEN # Name of the entity_var that needs to be predicted in advance
+  # label_value: 1 # Value of the label_column when the entity does the event. Not required for regression tasks
   entity_column: user_main_id # Name of the entity defined in the profiles project. Ex: user_id, user_main_id, rudder_id etc
   package_name: feature_table # Name of the package where the profiles feature table is defined (declared in pb_project.yaml packages)
-  features_profiles_model: 'shopify_user_features' # Name of the feature table model
-  output_profiles_ml_model: 'shopify_churn_test'
-  task: classification # classification or regression; Can support a few other tasks in the future, like ltv, churn etc which can be super classes of classification/regression.
+  features_profiles_model: 'rudder_user_base_features' # Name of the feature table model
+  output_profiles_ml_model: 'ltv_test'
+  task: regression # classification or regression; Can support a few other tasks in the future, like ltv, churn etc which can be super classes of classification/regression.
   index_timestamp: valid_at
   eligible_users: '' # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'
   # train_start_dt: '2023-04-24'
@@ -158,6 +158,96 @@ train:
       - name: MLPClassifier
         evaluation_metric: average_precision_score
         modelparams: # https://scikit-learn.org/stable/modules/generated/sklearn.neural_network.MLPClassifier.html
+          activation: 'relu'
+          solver: 'adam'
+          alpha: 0.0001
+          batch_size: 'auto'
+          learning_rate: 'constant'
+          learning_rate_init: 0.001
+          power_t: 0.5
+          max_iter: 200
+          shuffle: True
+          random_state: 42
+          tol: 0.0001
+          verbose: False
+          warm_start: False
+          momentum: 0.9
+          nesterovs_momentum: True
+          early_stopping: False
+          validation_fraction: 0.1
+          beta_1: 0.9
+          beta_2: 0.999
+          n_iter_no_change: 10
+          max_fun: 15000
+        hyperopts_config:
+          max_evals: 10
+        hyperopts:
+          - name: hidden_layer_sizes
+            type: choice
+            options:
+              - [64, 32]
+              - [16, 32, 64]
+              - [64, 32, 16, 4]
+      - name: XGBRegressor
+        evaluation_metric: mean_squared_error  # Evaluation metric for regression tasks
+        modelparams:
+          objective: reg:squarederror  # Objective for regression
+          subsample: 0.7
+          use_label_encoder: False
+          eval_metric: rmse  # Evaluation metric for early stopping
+          early_stopping_rounds: 10
+        fitparams:
+          verbose: False
+        hyperopts_config:
+          max_evals: 10
+        hyperopts:
+          - name: max_depth
+            type: choice
+            options: [3, 4, 5, 6, 7]
+          - name: eta
+            type: quniform
+            low: 0.05
+            high: 0.5
+            q: 0.05
+          - name: gamma
+            type: quniform
+            low: 0.25
+            high: 1
+            q: 0.05
+          - name: colsample_bytree
+            type: uniform
+            low: 0.5
+            high: 1
+          - name: min_child_weight
+            type: choice
+            options: [1, 3, 5, 7, 9]
+          - name: n_estimators
+            type: choice
+            options:
+              low: 50
+              high: 500
+              step: 50
+      - name: RandomForestRegressor
+        evaluation_metric: mean_squared_error  # Evaluation metric for regression tasks
+        modelparams:
+          n_jobs: 4
+          random_state: 42
+          criterion: mse  # Criterion for regression
+        hyperopts_config:
+          max_evals: 10
+        hyperopts:
+          - name: max_depth
+            type: choice
+            options: [3, 4, 5, 6, 7]
+          - name: n_estimators
+            type: choice
+            options:
+              low: 50
+              high: 500
+              step: 50
+      - name: MLPRegressor
+        evaluation_metric: mean_squared_error  # Evaluation metric for regression tasks
+        modelparams:
           activation: 'relu'
           solver: 'adam'
           alpha: 0.0001

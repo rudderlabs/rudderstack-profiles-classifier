@@ -3,7 +3,7 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, precision_score, recall_score, accuracy_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc, roc_curve, precision_recall_curve
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, precision_score, recall_score, accuracy_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc, roc_curve, precision_recall_curve , mean_absolute_error, mean_squared_error,r2_score
 from sklearn.model_selection import train_test_split
 import numpy as np 
 import pandas as pd
@@ -60,7 +60,7 @@ class TrainerUtils(ABC):
     def get_metrics(self, model, X_train, y_train, X_test, y_test, X_val, y_val, validation_metric):
         pass
     
-    @abstractmethod
+    # @abstractmethod
     def plot_lift_chart(self):
         pass
     
@@ -157,6 +157,46 @@ class ClassifierUtils(TrainerUtils):
         
         return metrics, predictions, prob_threshold
     
+    def split_train_test(session: snowflake.snowpark.Session,
+                        feature_table: snowflake.snowpark.Table, 
+                        label_column: str, 
+                        entity_column: str,
+                        model_name_prefix: str, 
+                        train_size:float, 
+                        val_size: float, 
+                        test_size: float) -> Tuple:
+        """Splits the data in train test and validation according to the their given partition factions.
+
+        Args:
+            feature_table (snowflake.snowpark.Table): feature table from the retrieved material_names tuple
+            label_column (str): name of label column from feature table
+            entity_column (str): name of entity column from feature table
+            model_name_prefix (str): prefix for the model from model_configs file
+            train_size (float): partition fraction for train data
+            val_size (float): partition fraction for validation data
+            test_size (float): partition fraction for test data
+
+        Returns:
+            Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
+        """
+        feature_df = feature_table.to_pandas()
+        feature_df.columns = feature_df.columns.str.upper()
+        latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
+        # For Clasification (Stratify the data)
+        X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
+        X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
+        #ToDo: handle timestamp columns, remove customer_id from train_x
+        session.write_pandas(X_train, table_name=f"{model_name_prefix.upper()}_TRAIN", auto_create_table=True, overwrite=True)
+        session.write_pandas(X_val, table_name=f"{model_name_prefix.upper()}_VAL", auto_create_table=True, overwrite=True)
+        session.write_pandas(X_test, table_name=f"{model_name_prefix.upper()}_TEST", auto_create_table=True, overwrite=True)
+        train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
+        train_y = X_train[[label_column.upper()]]
+        val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
+        val_y = X_val[[label_column.upper()]]
+        test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
+        test_y = X_test[[label_column.upper()]]
+        return train_x, train_y, test_x, test_y, val_x, val_y
+    
     def plot_roc_auc_curve(self):
         pass 
     
@@ -165,7 +205,95 @@ class ClassifierUtils(TrainerUtils):
     
     def plot_lift_chart(self):
         pass
+
+class RegressorUtils(TrainerUtils):
+
+    evalution_metrics_map = {
+        metric.__name__: metric
+        for metric in [mean_absolute_error, mean_squared_error,r2_score]
+    }
+
+    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
+        """
+        Calculate and return regression metrics for the trained model.
+
+        Args:
+            model: The trained regression model.
+            train_x (pd.DataFrame): Training data features.
+            train_y (pd.DataFrame): Training data labels.
+            test_x (pd.DataFrame): Test data features.
+            test_y (pd.DataFrame): Test data labels.
+            val_x (pd.DataFrame): Validation data features.
+            val_y (pd.DataFrame): Validation data labels.
+            train_config (dict): Configuration for training.
+
+        Returns:
+            result_dict (dict): Dictionary containing regression metrics.
+        """
+        train_pred = model.predict(train_x)
+        test_pred = model.predict(test_x)
+        val_pred = model.predict(val_x)
+
+        train_metrics = {}
+        test_metrics = {}
+        val_metrics = {}
+
+        for metric_name, metric_func in self.evalution_metrics_map.items():
+            train_metrics[metric_name] = float(metric_func(train_y, train_pred))
+            test_metrics[metric_name] = float(metric_func(test_y, test_pred))
+            val_metrics[metric_name] = float(metric_func(val_y, val_pred))
+
+        prob_th = 0  # Placeholder for probability threshold
+
+        result_dict = {
+            "prob_th": prob_th,
+            "train_metrics": train_metrics,
+            "test_metrics": test_metrics,
+            "val_metrics": val_metrics,
+        }
+
+        return result_dict
     
+    def split_train_test(session: snowflake.snowpark.Session,
+                     feature_table: snowflake.snowpark.Table, 
+                     label_column: str, 
+                     entity_column: str,
+                     output_profiles_ml_model: str, 
+                     train_size:float, 
+                     val_size: float, 
+                     test_size: float) -> Tuple:
+        """Splits the data in train test and validation according to the their given partition factions.
+
+        Args:
+            feature_table (snowflake.snowpark.Table): feature table from the retrieved material_names tuple
+            label_column (str): name of label column from feature table
+            entity_column (str): name of entity column from feature table
+            output_profiles_ml_model (str): output ml model from model_configs file
+            train_size (float): partition fraction for train data
+            val_size (float): partition fraction for validation data
+            test_size (float): partition fraction for test data
+
+        Returns:
+            Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
+        """
+        feature_df = feature_table.to_pandas()
+        feature_df.columns = feature_df.columns.str.upper()
+        latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
+        X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42)
+        X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42)
+        train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
+        train_y = X_train[[label_column.upper()]]
+        val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
+        val_y = X_val[[label_column.upper()]]
+        test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
+        test_y = X_test[[label_column.upper()]]
+        return train_x, train_y, test_x, test_y, val_x, val_y
+
+    def plot_residuals(self):
+        pass
+
+    def plot_top_k_feature_importance(self):
+        pass
     
 
 def remap_credentials(credentials: dict) -> dict:
@@ -691,7 +819,8 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
     except Exception as e:
         print("Exception occured while retrieving material names. Please check the logs for more details")
         raise e
-    
+
+# TODO : Make a TrainerUtils class and return this function as per the task 
 def split_train_test(session: snowflake.snowpark.Session,
                      feature_table: snowflake.snowpark.Table, 
                      label_column: str, 
@@ -717,8 +846,8 @@ def split_train_test(session: snowflake.snowpark.Session,
     feature_df = feature_table.to_pandas()
     feature_df.columns = feature_df.columns.str.upper()
     latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
-    X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
-    X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
+    X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42)
+    X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42)
     train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
     train_y = X_train[[label_column.upper()]]
     val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)

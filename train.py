@@ -1158,7 +1158,7 @@ class RegressionTrainer(MLTrainer):
                                 label_table_name: str) -> snowflake.snowpark.Table:
         pass
 
-def train_model(trainer, feature_df: pd.DataFrame, categorical_columns, numeric_columns, merged_config: dict):  
+def train_model(trainer, feature_df: pd.DataFrame, categorical_columns, numeric_columns, merged_config: dict, model_file):  
     train_config = merged_config['train']
     models = train_config["model_params"]["models"]
     model_id = str(int(time.time()))
@@ -1185,19 +1185,14 @@ def train_model(trainer, feature_df: pd.DataFrame, categorical_columns, numeric_
     preprocessor_pipe_optimized = trainer.get_preprocessing_pipeline(numeric_columns, categorical_columns, trainer.prep.numeric_pipeline.get("pipeline"), trainer.prep.categorical_pipeline.get("pipeline"))
     pipe = trainer.get_model_pipeline(preprocessor_pipe_optimized, final_model)
     pipe.fit(train_x, train_y)
-    
-    model_file = os.path.join("/tmp", model_file_name)
-    joblib.dump(pipe, model_file)
 
-    column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
-    column_name_file = os.path.join("/tmp", f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json")
-    json.dump(column_dict, open(column_name_file,"w"))
+    joblib.dump(pipe, model_file)
 
     results = trainer.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
     results["model_id"] = model_id
     metrics_df = pd.DataFrame.from_dict(results).reset_index()
 
-    return X_train, X_val, X_test, train_x, test_x, test_y, pipe, model_file, column_name_file, metrics_df, results
+    return X_train, X_val, X_test, train_x, test_x, test_y, pipe, model_file, model_id, metrics_df, results
 
 def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_config: dict=None) -> None:
     """Trains the model and saves the model with given output_filename.
@@ -1246,7 +1241,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
                 figure_names: dict,
                 merged_config: dict) -> dict:
 
-        # feature_df = connector.get_table(session, feature_table_name)
+        model_file = connector.join_file_path(model_file_name)
         feature_df = pd.read_csv(f"data/{feature_table_name}.csv")
         feature_df.columns = [col.upper() for col in feature_df.columns]
         
@@ -1255,10 +1250,12 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
 
         non_stringtype_features = connector.get_non_stringtype_features(session, feature_df, trainer.label_column, trainer.entity_column)
         numeric_columns = utils.merge_lists_to_unique(trainer.prep.numeric_pipeline['numeric_columns'], non_stringtype_features)
+        
+        X_train, X_val, X_test, train_x, test_x, test_y, pipe, model_file, model_id, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config, model_file)
 
-        # logger.info(categorical_columns)
-        # time.sleep(5000)
-        X_train, X_val, X_test, train_x, test_x, test_y, pipe, model_file, column_name_file, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config)
+        column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
+        column_name_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json")
+        json.dump(column_dict, open(column_name_file,"w"))
 
         trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
         connector.write_pandas(session, X_train, table_name=f"{trainer.output_profiles_ml_model.upper()}_TRAIN", auto_create_table=True, overwrite=True)
@@ -1281,6 +1278,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
     warehouse = creds['type']
     logger.info("Building session")
     if warehouse == 'snowflake':
+        logger.info("Building session for Snowflake")
         train_procedure = 'train_sproc'
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
@@ -1306,14 +1304,18 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
                 list: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
             """
             feature_df = connector.get_table_as_dataframe(session, feature_table_name)
-            
+            model_file = connector.join_file_path(model_file_name)
             stringtype_features = connector.get_stringtype_features(session, feature_table_name, trainer.label_column, trainer.entity_column)
             categorical_columns = utils.merge_lists_to_unique(trainer.prep.categorical_pipeline['categorical_columns'], stringtype_features)
 
             non_stringtype_features = connector.get_non_stringtype_features(session, feature_table_name, trainer.label_column, trainer.entity_column)
             numeric_columns = utils.merge_lists_to_unique(trainer.prep.numeric_pipeline['numeric_columns'], non_stringtype_features)
 
-            X_train, X_val, X_test, train_x, test_x, test_y, pipe, model_file, column_name_file, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config)
+            X_train, X_val, X_test, train_x, test_x, test_y, pipe, model_file, model_id, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config, model_file)
+
+            column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
+            column_name_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json")
+            json.dump(column_dict, open(column_name_file,"w"))
 
             trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
             connector.write_pandas(session, X_train, table_name=f"{trainer.output_profiles_ml_model.upper()}_TRAIN", auto_create_table=True, overwrite=True)
@@ -1333,6 +1335,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
             connector.write_pandas(session, metrics_df, table_name=f"{metrics_table}", auto_create_table=True, overwrite=False)
             return results
     elif warehouse == 'redshift':
+        logger.info("Building session for RedShift")
         train_procedure = train_rs
         connector = RedshiftConnector()
         session = connector.build_session(creds)

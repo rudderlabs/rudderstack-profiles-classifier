@@ -531,7 +531,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                         'material_names': material_names,
                         'material_hash': model_hash,
                         **asdict(trainer)},
-            "model_info": {'file_location': {'stage': stage_name, 'file_name': f"{trainer.output_profiles_ml_model}_{model_file_name}"}, 'model_id': model_id},
+            "model_info": {'file_location': {'stage': stage_name, 
+                                             'file_name': f"{trainer.output_profiles_ml_model}_{model_file_name}"}, 
+                                             'model_id': model_id,
+                                             "threshold": train_results['prob_th']},
             "input_model_name": trainer.features_profiles_model}
     json.dump(results, open(output_filename,"w"))
 

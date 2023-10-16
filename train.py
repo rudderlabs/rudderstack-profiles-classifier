@@ -350,15 +350,21 @@ class ClassificationTrainer(MLTrainer):
     
     def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config) -> dict:
         model_metrics, _, prob_th = utils.get_metrics(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
-        result_dict = {"output_model_name": self.output_profiles_ml_model,
-                       "prob_th": prob_th,
-                        "metrics": model_metrics}
-        return result_dict
+        model_metrics["model_name_prefix"] = self.output_profiles_ml_model
+        model_metrics["prob_th"] = prob_th
+        return model_metrics
     
     def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
-        training_summary ={"timestamp": model_timestamp,
-                           "data": {"metrics": model_results['metrics'], 
-                                    "threshold": model_results['prob_th']}}
+
+        training_summary = {
+            "timestamp": model_timestamp,
+            "data": {
+                "train_metrics": model_results["train_metrics"],
+                "test_metrics": model_results["test_metrics"],
+                "val_metrics": model_results["val_metrics"],
+                "threshold": model_results['prob_th']
+            }
+        }
         return training_summary
             
 

@@ -943,7 +943,7 @@ def get_metrics(clf,
     val_preds = clf.predict_proba(X_val)[:,1]
     val_metrics = get_classification_metrics(y_val, val_preds, prob_threshold)
 
-    metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
+    metrics = {"train_metrics": train_metrics, "val_metrics": val_metrics, "test_metrics": test_metrics}
     predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
     
     return metrics, predictions, round(prob_threshold, 2)

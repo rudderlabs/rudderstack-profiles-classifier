@@ -57,6 +57,10 @@ class Connector(ABC):
     @abstractmethod
     def run_query(self, query: str) -> None:
         pass
+
+    @abstractmethod
+    def join_file_path(self, file_name: str):
+        pass
     
     @abstractmethod
     def get_table(self, table_name: str):
@@ -508,6 +512,9 @@ class SnowflakeConnector(Connector):
     
     def join_feature_table_label_table(self, feature_table, label_table, entity_column):
         return feature_table.join(label_table, [entity_column], join_type="inner")
+    
+    def join_file_path(self, file_name: str):
+        return os.path.join('/tmp', file_name)
 
 class RedshiftConnector(Connector):
     def __init__(self) -> None:
@@ -827,6 +834,9 @@ class RedshiftConnector(Connector):
     
     def join_feature_table_label_table(self, feature_table, label_table, entity_column):
         return feature_table.merge(label_table, on=[entity_column], how="inner")
+    
+    def join_file_path(self, file_name: str):
+        return os.path.join('data', file_name)
 
 @dataclass
 class MLTrainer(ABC):
@@ -1146,15 +1156,15 @@ class ClassificationTrainer(MLTrainer):
             label_column (str): name of the label column
         """
         try:
-            roc_auc_file = os.path.join('/tmp', figure_names['roc-auc-curve'])
+            roc_auc_file = connector.join_file_path(figure_names['roc-auc-curve'])
             utils.plot_roc_auc_curve(model, x, y, roc_auc_file, label_column)
             connector.save_file(session, roc_auc_file, stage_name, overwrite=True)
 
-            pr_auc_file = os.path.join('/tmp', figure_names['pr-auc-curve'])
+            pr_auc_file = connector.join_file_path(figure_names['pr-auc-curve'])
             utils.plot_pr_auc_curve(model, x, y, pr_auc_file, label_column)
             connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
 
-            lift_chart_file = os.path.join('/tmp', figure_names['lift-chart'])
+            lift_chart_file = connector.join_file_path(figure_names['lift-chart'])
             utils.plot_lift_chart(model, x, y, lift_chart_file, label_column)
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
@@ -1421,7 +1431,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         connector.save_file(session, column_name_file, stage_name, overwrite=True)
         trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
         try:
-            figure_file = os.path.join('tmp', figure_names['feature-importance-chart'])
+            figure_file = os.path.join('data', figure_names['feature-importance-chart'])
             shap_importance = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)
             connector.write_pandas(session, shap_importance, f"FEATURE_IMPORTANCE", True,False)
             connector.save_file(session, figure_file, stage_name, overwrite=True)

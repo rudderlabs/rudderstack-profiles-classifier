@@ -119,10 +119,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     if latest_model_hash != train_model_hash:
         raise ValueError(f"Model hash {train_model_hash} does not match with the latest model hash {latest_model_hash} in the material registry table. Please retrain the model")
     
-    latest_hash_df = session.table(material_table).filter(F.col("model_hash") == latest_model_hash)
-    
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
-    latest_seq_no = latest_hash_df.sort(F.col("end_ts"), ascending=False).select("seq_no").collect()[0].SEQ_NO
+    latest_seq_no = utils.get_latest_material_seq(session, material_table, material_table_prefix, features_profiles_model, latest_model_hash)
     raw_data = session.table(f"{material_table_prefix}{features_profiles_model}_{latest_model_hash}_{latest_seq_no}")
 
     if eligible_users:

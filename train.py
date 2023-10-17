@@ -565,7 +565,7 @@ class RedshiftConnector(Connector):
     def call_procedure(self, cursor, train_procedure, remote_table_name: str, figure_names: dict, merged_config: dict):
         return train_procedure(cursor, remote_table_name, figure_names, merged_config)
 
-    def get_non_stringtype_features(self, cursor, feature_df, label_column: str, entity_column: str) -> List[str]:
+    def get_non_stringtype_features(self, cursor, feature_df: pd.DataFrame, label_column: str, entity_column: str) -> List[str]:
         """
         Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
 
@@ -588,7 +588,7 @@ class RedshiftConnector(Connector):
                 non_stringtype_features.append(column)
         return non_stringtype_features
 
-    def get_stringtype_features(self, cursor, feature_df: str, label_column: str, entity_column: str)-> List[str]:
+    def get_stringtype_features(self, cursor, feature_df: pd.DataFrame, label_column: str, entity_column: str)-> List[str]:
         """
         Extracts the names of StringType(categorical) columns from a given feature table schema.
 

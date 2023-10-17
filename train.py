@@ -46,7 +46,7 @@ from profiles_rudderstack.wh import ProfilesConnector
 
 import utils
 import constants
-local_folder = 'data'
+local_folder = "data"
 logger.info("Start")
 
 trainer_utils = utils.TrainerUtils()

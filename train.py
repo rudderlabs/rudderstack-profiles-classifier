@@ -54,7 +54,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def run_query(self, query: str) -> None:
+    def run_query(self, session, query: str) -> None:
         pass
 
     @abstractmethod
@@ -103,17 +103,6 @@ class Connector(ABC):
 
     @abstractmethod
     def get_timestamp_columns(self, session, table_name: str, index_timestamp)-> list:
-        pass
-    
-    @abstractmethod
-    def get_material_names_(self, session,
-                        material_table: str, 
-                        start_time: str, 
-                        end_time: str, 
-                        model_name:str,
-                        model_hash: str,
-                        material_table_prefix:str,
-                        prediction_horizon_days: int) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         pass
 
     @abstractmethod
@@ -351,7 +340,7 @@ class SnowflakeConnector(Connector):
                                                                 ).select(feature_snowpark_df.seq_no.alias("feature_seq_no"),feature_snowpark_df.end_ts.alias("feature_end_ts"),
                                                                         label_snowpark_df.seq_no.alias("label_seq_no"), label_snowpark_df.end_ts.alias("label_end_ts"))
         for row in feature_label_snowpark_df.collect():
-            material_names.append((material_table_prefix+model_name+"_"+model_hash+"_"+str(row.FEATURE_SEQ_NO), material_table_prefix+model_name+"_"+model_hash+"_"+str(row.LABEL_SEQ_NO)))
+            material_names.append((utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row.FEATURE_SEQ_NO)), utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row.LABEL_SEQ_NO))))
             training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
         return material_names, training_dates
 
@@ -517,6 +506,7 @@ class SnowflakeConnector(Connector):
 
 class RedshiftConnector(Connector):
     def __init__(self) -> None:
+        self.folder = 'data'
         return
     
     def remap_credentials(self, creds: dict) -> dict:
@@ -525,6 +515,7 @@ class RedshiftConnector(Connector):
         new_creds['database'] = new_creds['dbname']
         new_creds.pop('dbname')
         new_creds.pop('type')
+        self.schema = new_creds['schema']
         new_creds.pop('schema')
         return new_creds
     
@@ -533,8 +524,10 @@ class RedshiftConnector(Connector):
         self.creds = creds
         conn = redshift_connector.connect(**self.connection_parameters)
         conn.autocommit = True
-        return conn.cursor()
-    
+        cursor = conn.cursor()
+        self.run_query(cursor, f"SET search_path TO {self.schema};")
+        return cursor
+
     def run_query(self, cursor, query: str):
         cursor.execute(query)
         return cursor.fetchall()
@@ -548,7 +541,7 @@ class RedshiftConnector(Connector):
 
     def write_table(self, s3_config: dict, table, table_name_remote: str, write_mode) -> None:
         rs_conn = ProfilesConnector(self.creds)
-        rs_conn.write_to_table(table, table_name_remote, schema="rs_profiles_2", if_exists='replace')
+        rs_conn.write_to_table(table, table_name_remote, schema=self.schema, if_exists='replace')
         return
 
     def label_table(self, cursor, label_table_name, label_column, entity_column, index_timestamp, label_value, label_ts_col):
@@ -619,7 +612,7 @@ class RedshiftConnector(Connector):
         Returns:
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
-        cursor.execute(f"select * from pg_get_cols('rs_profiles_2.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);")
+        cursor.execute(f"select * from pg_get_cols('{self.schema}.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);")
         col_df = cursor.fetch_dataframe()
         arraytype_features = []
         for _, row in col_df.iterrows():
@@ -639,7 +632,7 @@ class RedshiftConnector(Connector):
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
-        cursor.execute(f"select * from pg_get_cols('rs_profiles_2.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);")
+        cursor.execute(f"select * from pg_get_cols('{self.schema}.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);")
         col_df = cursor.fetch_dataframe()
         timestamp_columns = []
         for _, row in col_df.iterrows():
@@ -663,8 +656,7 @@ class RedshiftConnector(Connector):
             if len(parts) > 1 and parts[-1].isdigit():
                 return int(parts[-1])
             return 0
-        cursor.execute("SET search_path TO rs_profiles_2;")
-        cursor.execute(f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = 'rs_profiles_2';")
+        cursor.execute(f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';")
         registry_df = cursor.fetch_dataframe()
 
         registry_df = registry_df[registry_df['tablename'].str.startswith(f"{table_prefix.lower()}")]
@@ -732,7 +724,7 @@ class RedshiftConnector(Connector):
         feature_label_df.loc[(feature_label_df["feature_end_ts"] - feature_label_df["label_end_ts"]).dt.days == prediction_horizon_days, :]
 
         for _, row in feature_label_df.iterrows():
-            material_names.append((material_table_prefix+model_name+"_"+model_hash+"_"+str(row["feature_seq_no"]), material_table_prefix+model_name+"_"+model_hash+"_"+str(row["label_seq_no"])))
+            material_names.append((utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["feature_seq_no"])), utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["label_seq_no"]))))
             training_dates.append((str(row["feature_end_ts"]), str(row["label_end_ts"])))
         return material_names, training_dates
 
@@ -1162,7 +1154,6 @@ def train_model(trainer, feature_df: pd.DataFrame, categorical_columns, numeric_
     train_config = merged_config['train']
     models = train_config["model_params"]["models"]
     model_id = str(int(time.time()))
-    model_file_name = constants.MODEL_FILE_NAME
 
     X_train, X_val, X_test = utils.split_train_test(feature_df=feature_df,
                                                     label_column=trainer.label_column,
@@ -1192,7 +1183,7 @@ def train_model(trainer, feature_df: pd.DataFrame, categorical_columns, numeric_
     results["model_id"] = model_id
     metrics_df = pd.DataFrame.from_dict(results).reset_index()
 
-    return X_train, X_val, X_test, train_x, test_x, test_y, pipe, model_file, model_id, metrics_df, results
+    return train_x, test_x, test_y, pipe, model_file, model_id, metrics_df, results
 
 def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_config: dict=None) -> None:
     """Trains the model and saves the model with given output_filename.
@@ -1251,16 +1242,13 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
         non_stringtype_features = connector.get_non_stringtype_features(session, feature_df, trainer.label_column, trainer.entity_column)
         numeric_columns = utils.merge_lists_to_unique(trainer.prep.numeric_pipeline['numeric_columns'], non_stringtype_features)
         
-        X_train, X_val, X_test, train_x, test_x, test_y, pipe, model_file, model_id, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config, model_file)
+        train_x, test_x, test_y, pipe, model_file, model_id, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config, model_file)
 
         column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
         column_name_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json")
         json.dump(column_dict, open(column_name_file,"w"))
 
         trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
-        connector.write_pandas(session, X_train, table_name=f"{trainer.output_profiles_ml_model.upper()}_TRAIN", auto_create_table=True, overwrite=True)
-        connector.write_pandas(session, X_val, table_name=f"{trainer.output_profiles_ml_model.upper()}_VAL", auto_create_table=True, overwrite=True)
-        connector.write_pandas(session, X_test, table_name=f"{trainer.output_profiles_ml_model.upper()}_TEST", auto_create_table=True, overwrite=True)
         connector.save_file(session, model_file, stage_name, overwrite=True)
         connector.save_file(session, column_name_file, stage_name, overwrite=True)
         trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
@@ -1311,16 +1299,13 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
             non_stringtype_features = connector.get_non_stringtype_features(session, feature_table_name, trainer.label_column, trainer.entity_column)
             numeric_columns = utils.merge_lists_to_unique(trainer.prep.numeric_pipeline['numeric_columns'], non_stringtype_features)
 
-            X_train, X_val, X_test, train_x, test_x, test_y, pipe, model_file, model_id, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config, model_file)
+            train_x, test_x, test_y, pipe, model_file, model_id, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config, model_file)
 
             column_dict = {'numeric_columns': numeric_columns, 'categorical_columns': categorical_columns}
             column_name_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json")
             json.dump(column_dict, open(column_name_file,"w"))
 
             trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
-            connector.write_pandas(session, X_train, table_name=f"{trainer.output_profiles_ml_model.upper()}_TRAIN", auto_create_table=True, overwrite=True)
-            connector.write_pandas(session, X_val, table_name=f"{trainer.output_profiles_ml_model.upper()}_VAL", auto_create_table=True, overwrite=True)
-            connector.write_pandas(session, X_test, table_name=f"{trainer.output_profiles_ml_model.upper()}_TEST", auto_create_table=True, overwrite=True)
             connector.save_file(session, model_file, stage_name, overwrite=True)
             connector.save_file(session, column_name_file, stage_name, overwrite=True)
             trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)

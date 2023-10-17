@@ -46,6 +46,7 @@ from profiles_rudderstack.wh import ProfilesConnector
 
 import utils
 import constants
+local_folder = 'data'
 logger.info("Start")
 
 class Connector(ABC):
@@ -506,7 +507,6 @@ class SnowflakeConnector(Connector):
 
 class RedshiftConnector(Connector):
     def __init__(self) -> None:
-        self.folder = 'data'
         return
     
     def remap_credentials(self, creds: dict) -> dict:
@@ -796,8 +796,8 @@ class RedshiftConnector(Connector):
         return model_hash, creation_ts
 
     def write_pandas(self, cursor, df: pd.DataFrame, table_name, auto_create_table, overwrite):
-        Path("data").mkdir(parents=True, exist_ok=True)
-        df.to_csv(f"data/{table_name}.csv", index=False)
+        Path(local_folder).mkdir(parents=True, exist_ok=True)
+        df.to_csv(f"{local_folder}/{table_name}.csv", index=False)
         if table_name != constants.METRICS_TABLE:
             self.write_table(None, df, table_name, overwrite)
         return
@@ -827,7 +827,7 @@ class RedshiftConnector(Connector):
         return feature_table.merge(label_table, on=[entity_column], how="inner")
     
     def join_file_path(self, file_name: str):
-        return os.path.join('data', file_name)
+        return os.path.join(local_folder, file_name)
 
 @dataclass
 class MLTrainer(ABC):
@@ -1233,7 +1233,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
                 merged_config: dict) -> dict:
 
         model_file = connector.join_file_path(model_file_name)
-        feature_df = pd.read_csv(f"data/{feature_table_name}.csv")
+        feature_df = pd.read_csv(f"{local_folder}/{feature_table_name}.csv")
         feature_df.columns = [col.upper() for col in feature_df.columns]
         
         stringtype_features = connector.get_stringtype_features(session, feature_df, trainer.label_column, trainer.entity_column)
@@ -1253,7 +1253,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
         connector.save_file(session, column_name_file, stage_name, overwrite=True)
         trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
         try:
-            figure_file = os.path.join('data', figure_names['feature-importance-chart'])
+            figure_file = connector.join_file_path(figure_names['feature-importance-chart'])
             shap_importance = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)
             connector.write_pandas(session, shap_importance, f"FEATURE_IMPORTANCE", True,False)
             connector.save_file(session, figure_file, stage_name, overwrite=True)

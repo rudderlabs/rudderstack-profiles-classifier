@@ -89,12 +89,15 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         results = json.load(f)
     train_model_hash = results["config"]["material_hash"]
     train_model_id = results["model_info"]["model_id"]
+    prob_th = results["model_info"]["threshold"]
     current_ts = datetime.datetime.now()
 
     score_column_name = merged_config['outputs']['column_names']['score']
     percentile_column_name = merged_config['outputs']['column_names']['percentile']
+    output_label_column = merged_config['outputs']['column_names']['output_label_column']
     output_profiles_ml_model = merged_config["data"]["output_profiles_ml_model"]
     label_column = merged_config["data"]["label_column"]
+    label_value = merged_config["data"]["label_value"]
     index_timestamp = merged_config["data"]["index_timestamp"]
     eligible_users = merged_config["data"]["eligible_users"]
     ignore_features = merged_config["preprocessing"]["ignore_features"]
@@ -178,8 +181,9 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     
     preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias(score_column_name))
              .withColumn("model_id", F.lit(train_model_id)))
-
-    preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(entity_column, index_timestamp, score_column_name, percentile_column_name, "model_id")
+    preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))
+    preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(
+                                                    entity_column, index_timestamp, "model_id", score_column_name, percentile_column_name, output_label_column)
     preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)
     
 

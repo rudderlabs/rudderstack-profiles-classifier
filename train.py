@@ -23,6 +23,7 @@ from snowflake.snowpark.session import Session
 from snowflake.snowpark.functions import sproc
 import snowflake.snowpark
 from snowflake.snowpark.functions import col
+import snowflake.snowpark.functions as F
 
 from logger import logger
 
@@ -198,11 +199,11 @@ class ClassificationTrainer(MLTrainer):
             if len(timestamp_columns) == 0:
                 timestamp_columns = utils.get_timestamp_columns(session, feature_table, self.index_timestamp)
             for col in timestamp_columns:
-                feature_table = feature_table.withColumn(col, utils.F.datediff('day', utils.F.col(col), utils.F.col(self.index_timestamp)))
+                feature_table = feature_table.withColumn(col, F.datediff('day', F.col(col), F.col(self.index_timestamp)))
             label_table = (session.table(label_table_name)
-                        .withColumn(self.label_column, utils.F.when(utils.F.col(self.label_column)==self.label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
+                        .withColumn(self.label_column, F.when(F.col(self.label_column)==self.label_value, F.lit(1)).otherwise(F.lit(0)))
                         .select(self.entity_column, self.label_column, self.index_timestamp)
-                        .withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col))
+                        .withColumnRenamed(F.col(self.index_timestamp), label_ts_col))
             uppercase_list = lambda names: [name.upper() for name in names]
             lowercase_list = lambda names: [name.lower() for name in names]
             ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]

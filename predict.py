@@ -176,7 +176,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     
     preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias(score_column_name))
              .withColumn("model_id", F.lit(model_id)))
-    preds = preds.withColumn(output_label_column, utils.F.when(utils.F.col(score_column_name)>=prob_th, utils.F.lit(True)).otherwise(utils.F.lit(False)))
+    preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))
     preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(
                                                     entity_column, index_timestamp, "model_id", score_column_name, percentile_column_name, output_label_column)
     preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)

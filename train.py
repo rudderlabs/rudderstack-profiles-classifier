@@ -1568,13 +1568,13 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         train_results = train_results_json
     model_id = train_results["model_id"]
 
-    # train_results_json = connector.call_procedure(session, train_procedure, 
-    #                                     feature_table_name_remote,
-    #                                     figure_names,
-    #                                     merged_config)
-    # logger.info("Saving train results to file")
-    # train_results = json.loads(train_results_json)
-    # model_id = train_results["model_id"]
+    train_results_json = connector.call_procedure(session, train_procedure, 
+                                        feature_table_name_remote,
+                                        figure_names,
+                                        merged_config)
+    logger.info("Saving train results to file")
+    train_results = json.loads(train_results_json)
+    model_id = train_results["model_id"]
     
     results = {"config": {'training_dates': training_dates,
                         'material_names': material_names,
@@ -1586,13 +1586,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                              "threshold": train_results['prob_th']},
             "input_model_name": trainer.features_profiles_model}
     json.dump(results, open(output_filename,"w"))
-    # results = {"config": {'training_dates': training_dates,
-    #                     'material_names': material_names,
-    #                     'material_hash': model_hash,
-    #                     **asdict(trainer)},
-    #         "model_info": {'file_location': {'stage': stage_name, 'file_name': f"{trainer.output_profiles_ml_model}_{model_file_name}"}, 'model_id': model_id},
-    #         "input_model_name": trainer.features_profiles_model}
-    # json.dump(results, open(output_filename,"w"))
 
     model_timestamp = datetime.utcfromtimestamp(int(model_id)).strftime('%Y-%m-%dT%H:%M:%SZ')
     summary = trainer.prepare_training_summary(train_results, model_timestamp)

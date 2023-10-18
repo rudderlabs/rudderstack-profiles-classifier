@@ -514,16 +514,6 @@ def merge_lists_to_unique(l1: list, l2: list)-> list:
     """
     return list(set(l1 + l2))
 
-def get_latest_material_seq(session, material_table, material_table_prefix, features_profiles_model, model_hash):
-    latest_hash_df = get_material_registry_table(session, material_table).filter(F.col("model_hash") == model_hash)
-    latest_seq_nos = latest_hash_df.sort(F.col("end_ts"), ascending=False).select("seq_no").collect()
-
-    for row in latest_seq_nos:
-        table_name = generate_material_name(material_table_prefix, features_profiles_model, model_hash, row.SEQ_NO)
-        if is_valid_table(session, table_name):
-            return row.SEQ_NO
-    raise ValueError(f"No valid table found for model_hash {model_hash}")
-
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str)-> None:
     """
     Materializes past data for a given date using the 'pb' command-line tool.

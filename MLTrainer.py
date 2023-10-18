@@ -6,7 +6,7 @@ from logger import logger
 from copy import deepcopy
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Tuple, List, Union, Any, Dict
+from typing import Tuple, List, Union, Dict
 from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 
 from sklearn.pipeline import Pipeline

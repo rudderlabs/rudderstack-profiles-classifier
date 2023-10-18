@@ -422,13 +422,13 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    utils_path = os.path.join(current_dir, 'utils.py')
-    constants_path = os.path.join(current_dir, 'constants.py')
-    logger_path = os.path.join(current_dir, "logger.py")
+    import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "RedshiftConnector.py")
+    import_paths = []
+    for file in import_files:
+        import_paths.append(os.path.join(current_dir, file))
     config_path = os.path.join(current_dir, 'config', 'model_configs.yaml')
     folder_path = os.path.dirname(output_filename)
     target_path = utils.get_output_directory(folder_path)
-    import_paths = [utils_path, constants_path, logger_path]
     metrics_table = constants.METRICS_TABLE
 
     logger.info("Initialising trainer")

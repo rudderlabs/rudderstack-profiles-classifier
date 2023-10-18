@@ -499,8 +499,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                                               trainer.features_profiles_model, 
                                                               model_hash, 
                                                               material_table_prefix, 
-                                                              trainer.prediction_horizon_days, 
-                                                              output_filename,
+                                                              trainer.prediction_horizon_days,
                                                               site_config_path,
                                                               project_folder)
  

@@ -359,7 +359,7 @@ class RegressionTrainer(MLTrainer):
         pass
 
 
-def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
+def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str, project_folder: str) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:
@@ -500,7 +500,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                                                               model_hash, 
                                                               material_table_prefix, 
                                                               trainer.prediction_horizon_days, 
-                                                              output_filename)
+                                                              output_filename,
+                                                              site_config_path,
+                                                              project_folder)
  
     feature_table = None
     for row in material_names:

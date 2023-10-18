@@ -557,8 +557,12 @@ if __name__ == "__main__":
     inputs = None
     output_folder = 'output/dev/seq_no/7'
     output_file_name = f"{output_folder}/train_output.json"
+    siteconfig_path = os.path.join(homedir, ".pb/siteconfig.yaml")
+    
     from pathlib import Path
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
+
+    project_folder = '/Users/ambuj/Desktop/Git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
-    train(creds, inputs, output_file_name, None)
+    train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

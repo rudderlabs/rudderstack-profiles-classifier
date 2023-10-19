@@ -159,6 +159,8 @@ class MLTrainer(ABC):
                     
             space[name] = self.hyperopts_expressions_map[f"hp_{exp_type}"](name, **expression_)
         return space
+    
+
 
     def prepare_feature_table(self, session: snowflake.snowpark.Session,
                             feature_table_name: str, 
@@ -187,11 +189,7 @@ class MLTrainer(ABC):
             for col in timestamp_columns:
                 feature_table = feature_table.withColumn(col, utils.F.datediff('day', utils.F.col(col), utils.F.col(self.index_timestamp)))
             
-            label_table = session.table(label_table_name)
-            if task == 'classification':
-                label_table =label_table.withColumn(self.label_column, utils.F.when(utils.F.col(self.label_column)==self.label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
-
-            label_table = label_table.select(self.entity_column, self.label_column, self.index_timestamp).withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col)
+            label_table = self.prepare_label_table(session, label_table_name, label_ts_col)
 
             uppercase_list = lambda names: [name.upper() for name in names]
             lowercase_list = lambda names: [name.lower() for name in names]
@@ -202,7 +200,10 @@ class MLTrainer(ABC):
         except Exception as e:
             print("Exception occured while preparing feature table. Please check the logs for more details")
             raise e
-        
+
+    @abstractmethod   
+    def prepare_label_table(self, session: snowflake.snowpark.Session, label_table_name : str, label_ts_col : str):
+        pass
     @abstractmethod
     def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
         pass
@@ -237,6 +238,13 @@ class ClassificationTrainer(MLTrainer):
             "feature-importance-chart": f"04-feature-importance-chart-{self.output_profiles_ml_model}.png"
         }
                   
+    def prepare_label_table(self,session, label_table_name, label_ts_col):
+        label_table = (session.table(label_table_name)
+                    .withColumn(self.label_column, utils.F.when(utils.F.col(self.label_column)==self.label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
+                    .select(self.entity_column, self.label_column, self.index_timestamp)
+                    .withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col))
+        return label_table
+
     def build_model(self, X_train:pd.DataFrame, 
                     y_train:pd.DataFrame,
                     X_val:pd.DataFrame, 
@@ -283,6 +291,7 @@ class ClassificationTrainer(MLTrainer):
 
         clf = model_class(**best_hyperparams, **model_config["modelparams"])
         return clf, trials
+    
     def select_best_model(self, models, train_x, train_y, val_x, val_y):
         """
         Selects the best classifier model based on the given list of models and their configurations.
@@ -367,6 +376,12 @@ class RegressionTrainer(MLTrainer):
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
         self.figure_names = {}
+
+    def prepare_label_table(self,session, label_table_name, label_ts_col):
+        label_table = (session.table(label_table_name)
+                    .select(self.entity_column, self.label_column, self.index_timestamp)
+                    .withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col))
+        return label_table
 
     def build_model(
         self,
@@ -465,7 +480,7 @@ class RegressionTrainer(MLTrainer):
         pass
 
     def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config) -> dict:
-        model_metrics = trainer_utils.get_metrics_regressor(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
+        model_metrics = trainer_utils.get_metrics_regressor(model, train_x, train_y, test_x, test_y, val_x, val_y,train_config)
         result_dict = {"output_model_name": self.output_profiles_ml_model,
                         "metrics": model_metrics}
         return result_dict
@@ -559,10 +574,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         isStratify = True if prediction_task == 'classification' else False 
 
         feature_table = session.table(feature_table_name)
-        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(session, feature_table, 
+        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(feature_table, 
                                                                                 trainer.label_column, 
                                                                                 trainer.entity_column, 
-                                                                                trainer.output_profiles_ml_model, 
                                                                                 trainer.prep.train_size, 
                                                                                 trainer.prep.val_size, 
                                                                                 trainer.prep.test_size,

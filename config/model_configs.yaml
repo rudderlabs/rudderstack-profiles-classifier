@@ -1,6 +1,6 @@
 data:
   # Related to the data that is used to train the model
-  label_column: DAYS_LAST_SEEN # Name of the entity_var that needs to be predicted in advance
+  label_column: DAYS_SINCE_LAST_SEEN # Name of the entity_var that needs to be predicted in advance
   label_value: 1 # Value of the label_column when the entity does the event. Not required for regression tasks
   entity_column: user_main_id # Name of the entity defined in the profiles project. Ex: user_id, user_main_id, rudder_id etc
   package_name: feature_table # Name of the package where the profiles feature table is defined (declared in pb_project.yaml packages)

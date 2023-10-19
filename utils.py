@@ -186,11 +186,9 @@ class TrainerUtils(ABC):
 
         return metrics
     
-def split_train_test(session: snowflake.snowpark.Session,
-                    feature_table: snowflake.snowpark.Table, 
+def split_train_test(feature_table: snowflake.snowpark.Table, 
                     label_column: str, 
                     entity_column: str,
-                    output_profiles_ml_model: str, 
                     train_size:float, 
                     val_size: float, 
                     test_size: float,

@@ -23,6 +23,7 @@ class ChurnModel(BaseModelType):
                         "file_extension": { "type": "string" },
                         "file_validity": { "type": "string" },
                         "config": { "type": ["object"] } },
+                        # "config": { "type": ["object", "null"], "additionalProperties": True } },
                     "required": ["file_extension", "file_validity", "config"] }
             },
             "required": ["inputs", "model_info"],

@@ -23,6 +23,7 @@ from snowflake.snowpark.session import Session
 from snowflake.snowpark.functions import sproc
 import snowflake.snowpark
 from snowflake.snowpark.functions import col
+import snowflake.snowpark.functions as F
 
 from logger import logger
 
@@ -634,8 +635,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                                                               trainer.features_profiles_model, 
                                                               model_hash, 
                                                               material_table_prefix, 
-                                                              trainer.prediction_horizon_days, 
-                                                              output_filename)
+                                                              trainer.prediction_horizon_days,
+                                                              site_config_path,
+                                                              project_folder)
  
     feature_table = None
     for row in material_names:
@@ -668,7 +670,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                         'material_names': material_names,
                         'material_hash': model_hash,
                         **asdict(trainer)},
-            "model_info": {'file_location': {'stage': stage_name, 'file_name': f"{trainer.output_profiles_ml_model}_{model_file_name}"}, 'model_id': model_id},
+            "model_info": {'file_location': {'stage': stage_name, 
+                                             'file_name': f"{trainer.output_profiles_ml_model}_{model_file_name}"}, 
+                                             'model_id': model_id,
+                                             "threshold": train_results['prob_th']},
             "input_model_name": trainer.features_profiles_model}
     json.dump(results, open(output_filename,"w"))
 
@@ -689,8 +694,12 @@ if __name__ == "__main__":
     inputs = None
     output_folder = 'output/dev/seq_no/7'
     output_file_name = f"{output_folder}/train_output.json"
+    siteconfig_path = os.path.join(homedir, ".pb/siteconfig.yaml")
+    
     from pathlib import Path
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
+
+    project_folder = '/Users/ambuj/Desktop/Git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
-    train(creds, inputs, output_file_name, None)
+    train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

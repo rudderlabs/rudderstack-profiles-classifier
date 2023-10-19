@@ -287,8 +287,9 @@ train:
 outputs:
   # Related to the output of the data prep step
   column_names:
-    percentile: &percentile_name percentile_churn_score_7_days
-    score: churn_score_7_days
+    percentile: &percentile_name percentile_score
+    score: probability_score
+    output_label_column: output_label
   feature_meta_data: 
     features:
       - name: *percentile_name

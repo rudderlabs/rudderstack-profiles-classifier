@@ -152,7 +152,7 @@ class TrainerUtils(ABC):
         
         return metrics, predictions, round(prob_threshold, 2)
     
-    def get_metrics_regressor(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
+    def get_metrics_regressor(self, model, train_x, train_y, test_x, test_y, val_x, val_y):
         """
         Calculate and return regression metrics for the trained model.
 

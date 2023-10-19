@@ -10,7 +10,7 @@ from typing import List, Tuple, Any, Union
 
 import utils
 from Connector import Connector
-from profiles_rudderstack.wh import ProfilesConnector
+from wh import ProfilesConnector
 local_folder = "data"
 
 class RedshiftConnector(Connector):
@@ -97,7 +97,7 @@ class RedshiftConnector(Connector):
         """
         s3_config = kwargs.get("s3_config")
         Path(local_folder).mkdir(parents=True, exist_ok=True)
-        df.to_csv(f"{local_folder}/{table_name}.csv", index=False)
+        df.to_parquet(f"{local_folder}/{table_name}.parquet.gzip", compression='gzip')
         self.write_pandas(df, table_name, s3_config=s3_config)
         return
     
@@ -111,11 +111,7 @@ class RedshiftConnector(Connector):
         Returns:
             Nothing
         """
-        s3_config = kwargs.get("s3_config", None)
-        if s3_config == None:
-            rs_conn = ProfilesConnector(self.creds)
-        else:
-            rs_conn = ProfilesConnector(self.creds, s3_config=s3_config)
+        rs_conn = ProfilesConnector(self.creds, **kwargs)
         rs_conn.write_to_table(df, table_name_remote, schema=self.schema, if_exists='replace')
         return
 
@@ -169,13 +165,7 @@ class RedshiftConnector(Connector):
         Returns:
             List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
         """
-        # cursor = kwargs.get("session")
-        # cursor.execute(f"select * from pg_get_cols('rs_profiles_2.{feature_table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);")
-        # col_df = cursor.fetch_dataframe()
         non_stringtype_features = []
-        # for _, row in col_df.iterrows():
-        #     if (~str(row['col_type']).startswith('character varying')) and row['col_name'].lower() not in (label_column.lower(), entity_column.lower()):
-        #         non_stringtype_features.append(row['col_name'].upper())
         for column in feature_df.columns:
             if column.lower() not in (label_column, entity_column) and (feature_df[column].dtype == 'int64' or feature_df[column].dtype == 'float64'):
                 non_stringtype_features.append(column)
@@ -193,13 +183,7 @@ class RedshiftConnector(Connector):
         Returns:
             List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
         """
-        # cursor = kwargs.get("session")
-        # cursor.execute(f"select * from pg_get_cols('rs_profiles_2.{feature_table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);")
-        # col_df = cursor.fetch_dataframe()
         stringtype_features = []
-        # for _, row in col_df.iterrows():
-        #     if (str(row['col_type']).startswith('character varying')) and row['col_name'].lower() not in (label_column.lower(), entity_column.lower()):
-        #         stringtype_features.append(row['col_name'].upper())
         for column in feature_df.columns:
             if column.lower() not in (label_column, entity_column) and (feature_df[column].dtype != 'int64' and feature_df[column].dtype != 'float64'):
                 stringtype_features.append(column)

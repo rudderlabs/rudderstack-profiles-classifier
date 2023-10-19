@@ -265,7 +265,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
 
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
     sorted_feature_table = connector.sort_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp)
-    connector.write_table(sorted_feature_table, feature_table_name_remote, s3_config=s3_config, auto_create_table=False, overwrite=True)
+    connector.write_table(sorted_feature_table, feature_table_name_remote, s3_config=s3_config, write_mode="overwrite")
 
     logger.info("Training and fetching the results")
 

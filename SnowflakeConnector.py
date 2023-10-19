@@ -91,7 +91,7 @@ class SnowflakeConnector(Connector):
         Returns:
             Nothing
         """
-        write_mode = kwargs.get('write_mode', "overwrite")
+        write_mode = kwargs.get('write_mode', "append")
         return table.write.mode(write_mode).save_as_table(table_name_remote)
     
     def label_table(self, session: snowflake.snowpark.Session,

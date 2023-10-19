@@ -359,7 +359,7 @@ class RegressionTrainer(MLTrainer):
         pass
 
 
-def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
+def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str, project_folder: str) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:
@@ -499,8 +499,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                                                               trainer.features_profiles_model, 
                                                               model_hash, 
                                                               material_table_prefix, 
-                                                              trainer.prediction_horizon_days, 
-                                                              output_filename)
+                                                              trainer.prediction_horizon_days,
+                                                              site_config_path,
+                                                              project_folder)
  
     feature_table = None
     for row in material_names:
@@ -556,8 +557,12 @@ if __name__ == "__main__":
     inputs = None
     output_folder = 'output/dev/seq_no/7'
     output_file_name = f"{output_folder}/train_output.json"
+    siteconfig_path = os.path.join(homedir, ".pb/siteconfig.yaml")
+    
     from pathlib import Path
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
+
+    project_folder = '/Users/ambuj/Desktop/Git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
-    train(creds, inputs, output_file_name, None)
+    train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

@@ -313,7 +313,7 @@ class RedshiftConnector(Connector):
 
     def get_material_names(self, cursor: redshift_connector.cursor.Cursor, material_table: str, start_date: str, end_date: str, 
                         package_name: str, model_name: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
-                        output_filename: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+                        site_config_path: str, project_folder: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """
         Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
         If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
@@ -329,7 +329,8 @@ class RedshiftConnector(Connector):
             model_hash (str): The latest model hash.
             material_table_prefix (str): A constant.
             prediction_horizon_days (int): The period of days for prediction horizon.
-            output_filename (str): The name of the output file.
+            site_config_path (str): path to the siteconfig.yaml file
+            project_folder (str): project folder path to pb_project.yaml file
 
         Returns:
             Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
@@ -342,9 +343,9 @@ class RedshiftConnector(Connector):
             if len(material_names) == 0:
                 try:
                     feature_package_path = f"packages/{package_name}/models/{model_name}"
-                    utils.materialise_past_data(start_date, feature_package_path, output_filename)
+                    utils.materialise_past_data(start_date, feature_package_path, site_config_path, project_folder)
                     start_date_label = utils.get_label_date_ref(start_date, prediction_horizon_days)
-                    utils.materialise_past_data(start_date_label, feature_package_path, output_filename)
+                    utils.materialise_past_data(start_date_label, feature_package_path, site_config_path, project_folder)
                     material_names, training_dates = self.get_material_names_(cursor, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
                     if len(material_names) == 0:
                         raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")

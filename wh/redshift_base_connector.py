@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy import orm as sa_orm
 
 from logging import Logger
-from connector_base import ConnectorBase, register_connector
+from wh.connector_base import ConnectorBase, register_connector
 
 @register_connector
 class RedShiftConnector(ConnectorBase):

@@ -4,9 +4,9 @@
 
 from typing import Union
 
-from connector_base import connector_classes
-from redshift_connector import RedShiftConnector
-from snowflake_connector import SnowflakeConnector
+from wh.redshift_base_connector import RedShiftConnector
+from wh.snowflake_base_connector import SnowflakeConnector
+from wh.connector_base import connector_classes
 
 # SnowflakeConnector not used currently in profiles_rudderstack
 def ProfilesConnector(config: dict, **kwargs) -> Union[RedShiftConnector, SnowflakeConnector]:

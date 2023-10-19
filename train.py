@@ -71,8 +71,6 @@ def train_model(trainer: Union[ClassificationTrainer, RegressionTrainer], featur
 
     return train_x, test_x, test_y, pipe, model_id, metrics_df, results
 
-# def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str, project_folder: str) -> None:
-# def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_config: dict=None) -> None:
 def train_and_store_model_results_rs(session: redshift_connector.cursor.Cursor,
             feature_table_name: str,
             figure_names: dict,
@@ -81,7 +79,7 @@ def train_and_store_model_results_rs(session: redshift_connector.cursor.Cursor,
     connector = kwargs.get("connector")
     trainer = kwargs.get("trainer")
     model_file = connector.join_file_path(model_file_name)
-    feature_df = pd.read_csv(f"{local_folder}/{feature_table_name}.csv")
+    feature_df = pd.read_parquet(f"{local_folder}/{feature_table_name}.parquet.gzip")
     feature_df.columns = [col.upper() for col in feature_df.columns]
 
     stringtype_features = connector.get_stringtype_features(feature_df, trainer.label_column, trainer.entity_column, session=session)
@@ -108,11 +106,10 @@ def train_and_store_model_results_rs(session: redshift_connector.cursor.Cursor,
     for col in metrics_df.columns:
         if metrics_df[col].dtype == 'object':
             metrics_df[col] = metrics_df[col].apply(lambda x: json.dumps(x))
-
     connector.write_pandas(metrics_df, f"{metrics_table}")
     return results
 
-def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_config: dict=None) -> None:
+def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str, s3_config: dict, project_folder: str) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:
@@ -156,7 +153,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
     logger.info("Building session")
     if warehouse == 'snowflake':
         logger.info("Building session for Snowflake")
-        train_procedure = 'train_and_store_model_results_rs'
+        train_procedure = 'train_and_store_model_results_sf'
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
         connector.create_stage(session, stage_name)
@@ -165,7 +162,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
 
         @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
             packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.2", "scikit-plot==0.3.7"])
-        def train_and_store_model_results_rs(session: snowflake.snowpark.Session,
+        def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
                     figure_names: dict,
                     merged_config: dict) -> dict:
@@ -232,25 +229,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
                                                               trainer.features_profiles_model, 
                                                               model_hash, 
                                                               material_table_prefix, 
-                                                              trainer.prediction_horizon_days, 
-                                                              output_filename)
-
-    material_names, training_dates = connector.get_material_names(session, material_table, start_date, end_date, 
-                                                              trainer.package_name, 
-                                                              trainer.features_profiles_model, 
-                                                              model_hash, 
-                                                              material_table_prefix, 
                                                               trainer.prediction_horizon_days,
                                                               output_filename,
                                                               site_config_path,
                                                               project_folder)
-    # material_names, training_dates = connector.get_material_names(session, material_table, start_date, end_date, 
-    #                                                           trainer.package_name, 
-    #                                                           trainer.features_profiles_model, 
-    #                                                           model_hash, 
-    #                                                           material_table_prefix, 
-    #                                                           trainer.prediction_horizon_days, 
-    #                                                           output_filename)
  
     feature_table = None
     for row in material_names:
@@ -310,16 +292,15 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["shopify_wh_rs"]["outputs"]["dev"]
         # s3_config = yaml.safe_load(f)["connections"]["py_models"]["s3"]
+        s3_config = None
     inputs = None
     output_folder = 'output/dev/seq_no/7'
     output_file_name = f"{output_folder}/train_output.json"
     siteconfig_path = os.path.join(homedir, ".pb/siteconfig.yaml")
-    
-    from pathlib import Path
+
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
 
-    project_folder = '~/git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+    project_folder = '/Users/admin/Desktop/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
-    train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)
-    train(creds, inputs, output_file_name, None)
+    train(creds, inputs, output_file_name, None, siteconfig_path, s3_config, project_folder)

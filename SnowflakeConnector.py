@@ -6,12 +6,14 @@ import pandas as pd
 from typing import Any, List, Tuple, Union
 
 import snowflake.snowpark
-from snowflake.snowpark.session import Session
-from snowflake.snowpark.functions import col
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
+from snowflake.snowpark.window import Window
+from snowflake.snowpark.functions import col
+from snowflake.snowpark.session import Session
 
 import utils
+from logger import logger
 from Connector import Connector
 
 class SnowflakeConnector(Connector):
@@ -524,7 +526,10 @@ class SnowflakeConnector(Connector):
         Returns:
             The table after the columns have been dropped as a snowpark table object.
         """
-        return table.drop(col_list)
+        ignore_features_upper = [col.upper() for col in col_list]
+        ignore_features_lower = [col.lower() for col in col_list]
+        ignore_features_ = [col for col in table.columns if col in ignore_features_upper or col in ignore_features_lower]
+        return table.drop(ignore_features_)
     
     def sort_feature_table(self, feature_table: snowflake.snowpark.Table, entity_column: str, index_timestamp: str) -> snowflake.snowpark.Table:
         """
@@ -582,3 +587,89 @@ class SnowflakeConnector(Connector):
             The joined file path as a string.
         """
         return os.path.join('/tmp', file_name)
+    
+    def drop_fn_if_exists(self, session: snowflake.snowpark.Session, fn_name: str) -> bool:
+        """Snowflake caches the functions and it reuses these next time. To avoid the caching, we manually search for the same function name and drop it before we create the udf.
+
+        Args:
+            session (snowflake.snowpark.Session): snowpark session to access warehouse
+            fn_name (str): Name of the function to be dropped
+
+        Returns:
+            bool
+        """
+        fn_list = session.sql(f"show user functions like '{fn_name}'").collect()
+        if len(fn_list) == 0:
+            logger.info(f"Function {fn_name} does not exist")
+            return True
+        else:
+            logger.info("Function name match found. Dropping all functions with the same name")
+            for fn in fn_list:
+                fn_signature = fn["arguments"].split("RETURN")[0]
+                drop = session.sql(f"DROP FUNCTION IF EXISTS {fn_signature}")
+                logger.info(drop.collect()[0].status)
+            logger.info("All functions with the same name dropped")
+            return True
+    
+    def get_latest_seq_no(self, table: snowflake.snowpark.Table) -> int:
+        return table.sort(F.col("end_ts"), ascending=False).select("seq_no").collect()[0].SEQ_NO
+    
+    def get_latest_hash_df(self, session: snowflake.snowpark.Session, material_table: str, latest_model_hash) -> snowflake.snowpark.Table:
+        return self.get_table(session, material_table).filter(F.col("model_hash") == latest_model_hash)
+    
+    def get_arraytype_features_from_table(self, table: snowflake.snowpark.Table)-> list:
+        """Returns the list of features to be ignored from the feature table.
+        Args:
+            table (snowflake.snowpark.Table): snowpark table.
+        Returns:
+            list: The list of features to be ignored based column datatypes as ArrayType.
+        """
+        arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
+        return arraytype_features
+    
+    def generate_type_hint(self, sp_df: snowflake.snowpark.Table):        
+        """Returns the type hints for given snowpark DataFrame's fields
+
+        Args:
+            sp_df (snowflake.snowpark.Table): snowpark DataFrame
+
+        Returns:
+            _type_: Returns the type hints for given snowpark DataFrame's fields
+        """
+        type_map = {
+            T.BooleanType(): float,
+            T.DoubleType(): float,
+            T.DecimalType(36,6): float,
+            T.LongType(): float,
+            T.StringType(): str
+        }
+        types = [type_map[d.datatype] for d in sp_df.schema.fields]
+        return T.PandasDataFrame[tuple(types)]
+    
+    def get_timestamp_columns_from_table(self, table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
+        """
+        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+
+        Args:
+            session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
+            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
+            index_timestamp (str): The name of the column containing the index timestamp information.
+
+        Returns:
+            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+        """
+        timestamp_columns = []
+        for field in table.schema.fields:
+            if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
+                timestamp_columns.append(field.name)
+        return timestamp_columns
+    
+    def call_prediction_procedure(self, predict_data: snowflake.snowpark.Table, prediction_procedure: Any, entity_column: str, index_timestamp: str,
+                                  score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
+                                  prob_th: float, input: snowflake.snowpark.Table):
+        preds = (predict_data.select(entity_column, index_timestamp, prediction_procedure(*input).alias(score_column_name))
+             .withColumn("model_id", F.lit(train_model_id)))
+        preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))
+        preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(
+                                                        entity_column, index_timestamp, "model_id", score_column_name, percentile_column_name, output_label_column)
+        return preds_with_percentile

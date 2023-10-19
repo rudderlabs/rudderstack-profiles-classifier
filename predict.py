@@ -2,6 +2,7 @@ import os
 import sys
 import yaml
 import json
+import typing
 import joblib
 import datetime
 import warnings
@@ -9,7 +10,7 @@ import cachetools
 import numpy as np
 import pandas as pd
 
-from logger import logger
+from typing import Any
 from xgboost import XGBClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
@@ -22,7 +23,6 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 import snowflake.snowpark
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
-from snowflake.snowpark.window import Window
 from snowflake.snowpark.session import Session
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -30,35 +30,44 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import utils
 import constants
+from Connector import Connector
+from RedshiftConnector import RedshiftConnector
+from SnowflakeConnector import SnowflakeConnector
 
 warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
-def drop_fn_if_exists(session: snowflake.snowpark.Session, 
-                      fn_name: str) -> bool:
-    """Snowflake caches the functions and it reuses these next time. To avoid the caching, we manually search for the same function name and drop it before we create the udf.
+local_folder = "data"
+
+@cachetools.cached(cache={})
+def load_model(filename: str):
+    """session.import adds the staged model file to an import directory. We load the model file from this location
 
     Args:
-        session (snowflake.snowpark.Session): snowpark session
-        fn_name (str): 
+        filename (str): path for the model_name
 
     Returns:
-        bool: 
+        _type_: return the trained model after loading it
     """
-    fn_list = session.sql(f"show user functions like '{fn_name}'").collect()
-    if len(fn_list) == 0:
-        logger.info(f"Function {fn_name} does not exist")
-        return True
-    else:
-        logger.info("Function name match found. Dropping all functions with the same name")
-        for fn in fn_list:
-            fn_signature = fn["arguments"].split("RETURN")[0]
-            drop = session.sql(f"DROP FUNCTION IF EXISTS {fn_signature}")
-            logger.info(drop.collect()[0].status)
-        logger.info("All functions with the same name dropped")
-        return True
-    
+    import_dir = sys._xoptions.get("snowflake_import_directory")
 
+    if import_dir:
+        assert import_dir.startswith('/home/udf/')
+        filename = os.path.join(import_dir, filename)
+    else:
+        filename = os.path.join(local_folder, filename)
+
+    with open(filename, 'rb') as file:
+        m = joblib.load(file)
+        return m
+
+def predict_helper(df: pd.DataFrame, model_name: str) -> Any:
+    trained_model = load_model(model_name)
+    categorical_columns = list(df.select_dtypes(include='object'))
+    numeric_columns = list(df.select_dtypes(exclude='object'))
+    df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+    df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
+    return trained_model.predict_proba(df)[:,1]
 
 def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_tablename : str, config: dict) -> None:
     """Generates the prediction probabilities and save results for given model_path
@@ -74,8 +83,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     Returns:
         None: save the prediction results but returns nothing
     """
-    connection_parameters = utils.remap_credentials(creds)
-    session = Session.builder.configs(connection_parameters).create()
+
     stage_name = constants.STAGE_NAME
     model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -103,86 +111,83 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     entity_column = merged_config["data"]["entity_column"]
     features_profiles_model = merged_config["data"]["features_profiles_model"]
 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
     predict_path = os.path.join(current_dir, 'predict.py')
-    utils_path = os.path.join(current_dir, 'utils.py')
-    constants_path = os.path.join(current_dir, 'constants.py')
+    import_files = ("utils.py","constants.py", "Connector.py", "SnowflakeConnector.py", "RedshiftConnector.py")
+    import_paths = []
+    for file in import_files:
+        import_paths.append(os.path.join(current_dir, file))
 
-    model_name = f"{output_profiles_ml_model}_{model_file_name}"
+    # model_name = f"{output_profiles_ml_model}_{model_file_name}"
+    model_name = f"{model_file_name}"
 
-    import_paths = [utils_path, constants_path]
-    utils.delete_import_files(session, stage_name, import_paths)
+    if creds["type"] == "snowflake":
+        udf_name = "prediction_score"
+        connector = SnowflakeConnector()
+        session = connector.build_session(creds)
+        connector.delete_import_files(session, stage_name, import_paths)
+        connector.drop_fn_if_exists(session, udf_name)
+    elif creds["type"] == "redshift":
+        connector = RedshiftConnector()
+        session = connector.build_session(creds)
 
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
-    material_table = utils.get_material_registry_name(session, material_registry_table_prefix)
+    material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
 
-    latest_model_hash, _ = utils.get_latest_material_hash(session, material_table, features_profiles_model)
+    latest_model_hash, _ = connector.get_latest_material_hash(session, material_table, features_profiles_model)
     if latest_model_hash != train_model_hash:
         raise ValueError(f"Model hash {train_model_hash} does not match with the latest model hash {latest_model_hash} in the material registry table. Please retrain the model")
     
-    latest_hash_df = session.table(material_table).filter(F.col("model_hash") == latest_model_hash)
+    latest_hash_df = session.table(material_table)
+    latest_hash_df = connector.get_latest_hash_df(session, material_table, latest_model_hash)
     
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
-    latest_seq_no = latest_hash_df.sort(F.col("end_ts"), ascending=False).select("seq_no").collect()[0].SEQ_NO
-    raw_data = session.table(f"{material_table_prefix}{features_profiles_model}_{latest_model_hash}_{latest_seq_no}")
+    latest_seq_no = connector.get_latest_seq_no(latest_hash_df)
+    raw_data = connector.get_table(session, f"{material_table_prefix}{features_profiles_model}_{latest_model_hash}_{latest_seq_no}")
 
     if eligible_users:
-        raw_data = raw_data.filter(eligible_users)
+        raw_data = connector.filter_columns(raw_data, eligible_users)
         
-    arraytype_features = utils.get_arraytype_features(raw_data)
+    arraytype_features = connector.get_arraytype_features_from_table(raw_data)
     ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_features)
-    predict_data = utils.drop_columns_if_exists(raw_data, ignore_features)
-    
-    if len(timestamp_columns) == 0:
-        timestamp_columns = utils.get_timestamp_columns(predict_data, index_timestamp)
-    for col in timestamp_columns:
-        predict_data = predict_data.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
+    predict_data = connector.drop_cols(raw_data, ignore_features)
 
-    input  = predict_data.drop(label_column, entity_column, index_timestamp)
-    types = utils.generate_type_hint(input)
-    udf_name = "prediction_score"
+    if len(timestamp_columns) == 0:
+        timestamp_columns = connector.get_timestamp_columns_from_table(predict_data, index_timestamp)
+    for col in timestamp_columns:
+        # predict_data = predict_data.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
+        predict_data = connector.add_days_diff(predict_data, col, col, index_timestamp)
+
+    # input  = predict_data.drop(label_column, entity_column, index_timestamp)
+    input = connector.drop_cols(predict_data, [label_column, entity_column, index_timestamp])
+    types = connector.generate_type_hint(input)
 
     print(model_name)
     print("Caching")
-
-    @cachetools.cached(cache={})
-    def load_model(filename: str):
-        """session.import adds the staged model file to an import directory. We load the model file from this location
-
-        Args:
-            filename (str): path for the model_name
-
-        Returns:
-            _type_: return the trained model after loading it
-        """
-        import_dir = sys._xoptions.get("snowflake_import_directory")     
-        assert import_dir.startswith('/home/udf/')
-        if import_dir:
-              with open(os.path.join(import_dir, filename), 'rb') as file:
-                     m = joblib.load(file)
-                     return m
                  
     features = input.columns
-    drop_fn_if_exists(session, udf_name)
-    @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
-              stage_location=stage_name, name=udf_name, 
-              imports= import_paths+[f"{stage_name}/{model_name}"],
-              packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML"])
-    def predict_scores(df: types) -> T.PandasSeries[float]:
-        trained_model = load_model(model_name)
-        df.columns = features
-        categorical_columns = list(df.select_dtypes(include='object'))
-        numeric_columns = list(df.select_dtypes(exclude='object'))
-        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
-        return trained_model.predict_proba(df)[:,1]
+
+    if creds['type'] == 'snowflake':
+        @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
+                stage_location=stage_name, name=udf_name, 
+                imports= import_paths+[f"{stage_name}/{model_name}"],
+                packages=["snowflake-snowpark-python==0.10.0","typing", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML"])
+        def predict_scores(df: types) -> T.PandasSeries[float]:
+            df.columns = features
+            predict_proba = predict_helper(df, model_name)
+            return predict_proba
+        
+        prediction_procedure = predict_scores
+    elif creds['type'] == 'redshift':
+        def predict_scores_rs(df: types) -> pd.Series:
+            df = df[features]
+            df = df.to_pandas()
+            predict_proba = predict_helper(df, model_name)
+            return predict_proba
+        prediction_procedure = predict_scores_rs
     
-    preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias(score_column_name))
-             .withColumn("model_id", F.lit(train_model_id)))
-    preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))
-    preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(
-                                                    entity_column, index_timestamp, "model_id", score_column_name, percentile_column_name, output_label_column)
-    preds_with_percentile.write.mode("overwrite").save_as_table(output_tablename)
+    preds_with_percentile = connector.call_prediction_procedure(predict_data, prediction_procedure, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, prob_th, input)
+    connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite")
+    print("Everything worked yayayayayayayayay!")
     
 
 if __name__ == "__main__":

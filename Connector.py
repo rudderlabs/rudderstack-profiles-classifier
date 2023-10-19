@@ -49,6 +49,14 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def get_material_registry_name(self, session, table_prefix: str) -> str:
+        pass
+
+    @abstractmethod
+    def get_latest_seq_no(self, table) -> int:
+        pass
+
+    @abstractmethod
     def get_non_stringtype_features(self, feature_table: Union[str, pd.DataFrame], label_column: str, entity_column: str, **kwargs) -> List[str]:
         pass
 
@@ -62,6 +70,10 @@ class Connector(ABC):
 
     @abstractmethod
     def get_timestamp_columns(self, session, table_name: str, index_timestamp: str)-> List[str]:
+        pass
+
+    @abstractmethod
+    def get_timestamp_columns_from_table(self, session, table_name: str, index_timestamp: str)-> List[str]:
         pass
 
     @abstractmethod
@@ -88,4 +100,14 @@ class Connector(ABC):
 
     @abstractmethod
     def join_feature_table_label_table(self, feature_table: Union[snowflake.snowpark.Table, pd.DataFrame], label_table: Union[snowflake.snowpark.Table, pd.DataFrame], entity_column: str):
+        pass
+
+    @abstractmethod
+    def get_latest_hash_df(self, session, material_table: str) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
+        pass
+    
+    @abstractmethod
+    def call_prediction_procedure(self, predict_data: Union[snowflake.snowpark.Table, pd.DataFrame], prediction_procedure: Any, entity_column: str, index_timestamp: str,
+                                  score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
+                                  prob_th: float, input: Union[snowflake.snowpark.Table, pd.DataFrame]):
         pass

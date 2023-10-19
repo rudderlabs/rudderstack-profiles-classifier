@@ -223,25 +223,6 @@ def combine_config(notebook_config: dict, profiles_config:dict= None) -> dict:
             merged_config[key] = notebook_config[key]
     return merged_config
 
-def generate_type_hint(sp_df: snowflake.snowpark.Table):        
-    """Returns the type hints for given snowpark DataFrame's fields
-
-    Args:
-        sp_df (snowflake.snowpark.Table): snowpark DataFrame
-
-    Returns:
-        _type_: Returns the type hints for given snowpark DataFrame's fields
-    """
-    type_map = {
-        T.BooleanType(): float,
-        T.DoubleType(): float,
-        T.DecimalType(36,6): float,
-        T.LongType(): float,
-        T.StringType(): str
-    }
-    types = [type_map[d.datatype] for d in sp_df.schema.fields]
-    return T.PandasDataFrame[tuple(types)]
-
 def drop_columns_if_exists(df: snowflake.snowpark.Table, 
                           ignore_features: list) -> snowflake.snowpark.Table:
     """Returns the snowpark DataFrame after dropping the features that are to be ignored.

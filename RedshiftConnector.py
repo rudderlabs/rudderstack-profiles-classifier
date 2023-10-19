@@ -372,6 +372,23 @@ class RedshiftConnector(Connector):
             print("Exception occured while retrieving material names. Please check the logs for more details")
             raise e
 
+    def get_material_registry_table(self, cursor: redshift_connector.cursor.Cursor, material_registry_table_name: str) -> pd.DataFrame:
+        """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
+        Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
+
+        Args:
+            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
+            material_registry_table_name (str): The material registry table name.
+
+        Returns:
+            snowflake.snowpark.Table: The filtered material registry table containing only the successfully materialized data.
+        """
+        material_registry_table = self.get_table(cursor, material_registry_table_name)
+        # material_registry_table = material_registry_table.withColumn("status", F.get_path("metadata", F.lit("complete.status"))).filter(F.col("status")==2)
+        # material_registry_table["status"] = material_registry_table["metadata"].apply(lambda x: x["complete"]["status"])
+        # material_registry_table = material_registry_table[material_registry_table["status"]==2]
+        return material_registry_table
+    
     def get_latest_material_hash(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str) -> Tuple:
         """This function will return the model hash that is latest for given model name in material table
 
@@ -383,7 +400,7 @@ class RedshiftConnector(Connector):
         Returns:
             Tuple: latest model hash and it's creation timestamp
         """
-        redshift_df = self.get_table_as_dataframe(cursor, material_table)
+        redshift_df = self.get_material_registry_table(cursor, material_table)
 
         temp_hash_vector = redshift_df.query(f"model_name == '{model_name}'").sort_values(by="creation_ts", ascending=False).reset_index(drop=True)[["model_hash", "creation_ts"]].iloc[0]
     
@@ -419,7 +436,10 @@ class RedshiftConnector(Connector):
         Returns:
             The table after the columns have been dropped as a Pandas DataFrame object.
         """
-        return table.drop(columns = col_list)
+        ignore_features_upper = [col.upper() for col in col_list]
+        ignore_features_lower = [col.lower() for col in col_list]
+        ignore_features_ = [col for col in table.columns if col in ignore_features_upper or col in ignore_features_lower]
+        return table.drop(columns = ignore_features_)
 
     def add_days_diff(self, table: pd.DataFrame, new_col: str, time_col_1: str, time_col_2: str) -> pd.DataFrame:
         """
@@ -485,3 +505,71 @@ class RedshiftConnector(Connector):
     def save_file(self, *args, **kwargs) -> None:
         """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
         return
+    
+    def get_latest_seq_no(self, table: pd.DataFrame) -> int:
+        # return table.sort(F.col("end_ts"), ascending=False).select("seq_no").collect()[0].SEQ_NO
+        return table.sort_values(by="end_ts", ascending=False).iloc[0].seq_no
+    
+    def get_latest_hash_df(self, session: redshift_connector.cursor.Cursor, material_table: str, latest_model_hash) -> pd.DataFrame:
+        # return self.get_table(session, material_table).filter(F.col("model_hash") == latest_model_hash)
+        return self.get_table(session, material_table).query(f"model_hash == '{latest_model_hash}'")
+    
+    def get_arraytype_features_from_table(self, table: pd.DataFrame)-> list:
+        """Returns the list of features to be ignored from the feature table.
+        Args:
+            table (snowflake.snowpark.Table): snowpark table.
+        Returns:
+            list: The list of features to be ignored based column datatypes as ArrayType.
+        """
+        # arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
+        arraytype_features = []
+        for column in table.columns:
+            if table[column].dtype == 'object':
+                arraytype_features.append(column)
+        return arraytype_features
+
+    def generate_type_hint(self, df: pd.DataFrame):        
+        """Returns the type hints for given pandas DataFrame's fields
+
+        Args:
+            sp_df (snowflake.snowpark.Table): pandas DataFrame
+
+        Returns:
+            _type_: Returns the type hints for given snowpark DataFrame's fields
+        """
+        types = []
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                types.append(str)
+            else:
+                types.append(float)
+        return types
+    
+    def get_timestamp_columns_from_table(self, table: pd.DataFrame, index_timestamp: str)-> List[str]:
+        """
+        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): The Snowpark session for data warehouse access.
+            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
+            index_timestamp (str): The name of the column containing the index timestamp information.
+
+        Returns:
+            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+        """
+        
+        timestamp_columns = []
+        for col in table.columns:
+            if table[col].dtype == 'datetime64[ns]':
+                timestamp_columns.append(col)
+        return timestamp_columns
+    
+    def call_prediction_procedure(self, predict_data: pd.DataFrame, prediction_procedure: Any, entity_column: str, index_timestamp: str,
+                                  score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
+                                  prob_th: float, input: pd.DataFrame):
+        preds = predict_data[[entity_column, index_timestamp]]
+        preds[score_column_name] = prediction_procedure(input)
+        preds['model_id'] = train_model_id
+        preds[output_label_column] = preds[score_column_name].apply(lambda x: True if x >= prob_th else False)
+        preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
+        return preds

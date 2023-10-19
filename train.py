@@ -9,7 +9,6 @@ import pandas as pd
 import redshift_connector.cursor
 
 from pathlib import Path
-from logger import logger
 from datetime import datetime
 from dataclasses import asdict
 from typing import List, Union
@@ -22,6 +21,7 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 
 import utils
 import constants
+from logger import logger
 from RedshiftConnector import RedshiftConnector
 from SnowflakeConnector import SnowflakeConnector
 from MLTrainer import ClassificationTrainer, RegressionTrainer

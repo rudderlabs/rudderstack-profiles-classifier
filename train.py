@@ -44,24 +44,13 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
 logger.info("Start")
 
+trainer_utils = utils.TrainerUtils()
+
 @dataclass
 class MLTrainer(ABC):
-    # label_column: str
-    # entity_column: str
-    # package_name: str
-    # features_profiles_model: str
-    # output_profiles_ml_model: str
-    # index_timestamp: str
-    # eligible_users: str
-    # train_start_dt: str
-    # train_end_dt: str
-    # prediction_horizon_days: int
-    # # sample_data: float
-    # # top_k: int
-    # # bottom_k: int
-    # prep: utils.PreprocessorConfig
 
     def __init__(self,
+                 label_value: int,
                  label_column: str,
                  entity_column: str,
                  package_name: str,
@@ -73,6 +62,7 @@ class MLTrainer(ABC):
                  train_end_dt: str,
                  prediction_horizon_days: int,
                  prep: utils.PreprocessorConfig):
+        self.label_value = label_value
         self.label_column = label_column
         self.entity_column = entity_column
         self.package_name = package_name
@@ -170,48 +160,10 @@ class MLTrainer(ABC):
             space[name] = self.hyperopts_expressions_map[f"hp_{exp_type}"](name, **expression_)
         return space
 
-    @abstractmethod
-    def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
-        pass
-    @abstractmethod
-    def plot_diagnostics(self, session: snowflake.snowpark.Session, 
-                        model, 
-                        stage_name: str, 
-                        x: pd.DataFrame, 
-                        y: pd.DataFrame, 
-                        figure_names: dict, 
-                        label_column: str):
-        pass
-    @abstractmethod
-    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
-        pass
-    @abstractmethod
-    def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
-        pass
-    @abstractmethod
-    def prepare_feature_table(self, session, feature_table_name, label_table_name):
-        pass
-
-
-@dataclass
-class ClassificationTrainer(MLTrainer):
-
-    evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
-    models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}  
-
-    def __init__(self, label_value,**kwargs):
-        super().__init__(**kwargs)
-        self.label_value = label_value
-        self.figure_names = {
-            "roc-auc-curve": f"01-test-roc-auc-{self.output_profiles_ml_model}.png",
-            "pr-auc-curve": f"02-test-pr-auc-{self.output_profiles_ml_model}.png",
-            "lift-chart": f"03-test-lift-chart-{self.output_profiles_ml_model}.png",
-            "feature-importance-chart": f"04-feature-importance-chart-{self.output_profiles_ml_model}.png"
-        }
-          
     def prepare_feature_table(self, session: snowflake.snowpark.Session,
                             feature_table_name: str, 
-                            label_table_name: str) -> snowflake.snowpark.Table:
+                            label_table_name: str,
+                            task : str) -> snowflake.snowpark.Table:
         """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
 
         Args:
@@ -234,10 +186,13 @@ class ClassificationTrainer(MLTrainer):
                 timestamp_columns = utils.get_timestamp_columns(session, feature_table, self.index_timestamp)
             for col in timestamp_columns:
                 feature_table = feature_table.withColumn(col, utils.F.datediff('day', utils.F.col(col), utils.F.col(self.index_timestamp)))
-            label_table = (session.table(label_table_name)
-                        .withColumn(self.label_column, utils.F.when(utils.F.col(self.label_column)==self.label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
-                        .select(self.entity_column, self.label_column, self.index_timestamp)
-                        .withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col))
+            
+            label_table = session.table(label_table_name)
+            if task == 'classification':
+                label_table =label_table.withColumn(self.label_column, utils.F.when(utils.F.col(self.label_column)==self.label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
+
+            label_table = label_table.select(self.entity_column, self.label_column, self.index_timestamp).withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col)
+
             uppercase_list = lambda names: [name.upper() for name in names]
             lowercase_list = lambda names: [name.lower() for name in names]
             ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
@@ -248,6 +203,40 @@ class ClassificationTrainer(MLTrainer):
             print("Exception occured while preparing feature table. Please check the logs for more details")
             raise e
         
+    @abstractmethod
+    def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
+        pass
+    @abstractmethod
+    def plot_diagnostics(self, session: snowflake.snowpark.Session, 
+                        model, 
+                        stage_name: str, 
+                        x: pd.DataFrame, 
+                        y: pd.DataFrame, 
+                        figure_names: dict, 
+                        label_column: str):
+        pass
+    @abstractmethod
+    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
+        pass
+    @abstractmethod
+    def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
+        pass
+
+
+class ClassificationTrainer(MLTrainer):
+
+    evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
+    models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}  
+
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
+        self.figure_names = {
+            "roc-auc-curve": f"01-test-roc-auc-{self.output_profiles_ml_model}.png",
+            "pr-auc-curve": f"02-test-pr-auc-{self.output_profiles_ml_model}.png",
+            "lift-chart": f"03-test-lift-chart-{self.output_profiles_ml_model}.png",
+            "feature-importance-chart": f"04-feature-importance-chart-{self.output_profiles_ml_model}.png"
+        }
+                  
     def build_model(self, X_train:pd.DataFrame, 
                     y_train:pd.DataFrame,
                     X_val:pd.DataFrame, 
@@ -311,7 +300,7 @@ class ClassificationTrainer(MLTrainer):
         for model_config in models:
             name = model_config["name"]
 
-            if (name in self.models_map.keys()) == True:
+            if name in self.models_map.keys():
                 print(f"Training {name}")
 
                 clf, trials = self.build_model(train_x, train_y, val_x, val_y, self.models_map[name], model_config)
@@ -347,24 +336,19 @@ class ClassificationTrainer(MLTrainer):
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
         pass
-    
+
     def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config) -> dict:
-        model_metrics, _, prob_th = utils.get_metrics(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
-        model_metrics["model_name_prefix"] = self.output_profiles_ml_model
-        model_metrics["prob_th"] = prob_th
-        return model_metrics
+        model_metrics, _, prob_th = trainer_utils.get_metrics_classifier(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
+        model_metrics['prob_th'] = prob_th
+        result_dict = {"output_model_name": self.output_profiles_ml_model,
+                       "prob_th": prob_th,
+                        "metrics": model_metrics}
+        return result_dict
     
     def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
-
-        training_summary = {
-            "timestamp": model_timestamp,
-            "data": {
-                "train_metrics": model_results["train_metrics"],
-                "test_metrics": model_results["test_metrics"],
-                "val_metrics": model_results["val_metrics"],
-                "threshold": model_results['prob_th']
-            }
-        }
+        training_summary ={"timestamp": model_timestamp,
+                           "data": {"metrics": model_results['metrics'], 
+                                    "threshold": model_results['prob_th']}}
         return training_summary
             
 
@@ -383,7 +367,6 @@ class RegressionTrainer(MLTrainer):
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
         self.figure_names = {}
-        self.regressor_utils = utils.RegressorUtils()
 
     def build_model(
         self,
@@ -391,7 +374,7 @@ class RegressionTrainer(MLTrainer):
         y_train: pd.DataFrame,
         X_val: pd.DataFrame,
         y_val: pd.DataFrame,
-        model_class,
+        model_class: Union[XGBRegressor, RandomForestRegressor, MLPRegressor],
         model_config: Dict,
     ) -> Tuple:
         """
@@ -411,6 +394,11 @@ class RegressionTrainer(MLTrainer):
         hyperopt_space = self.generate_hyperparameter_space(
             model_config["hyperopts"]
         )
+
+        # We can set evaluation set for XGB Regressor model which we cannot directly configure from the configuration file
+        fit_params = model_config.get("fitparams", {}).copy()
+        if model_class.__name__ == "XGBRegressor":
+            fit_params["eval_set"] = [(X_train, y_train), (X_val, y_val)]
 
         # Objective method to run for different hyper-parameter space
         def objective(space):
@@ -455,7 +443,7 @@ class RegressionTrainer(MLTrainer):
             name = model_config["name"]
             print(f"Training {name}")
 
-            if (name in self.models_map.keys()) == True:
+            if name in self.models_map.keys():
                 reg, trials = self.build_model(
                     train_x, train_y, val_x, val_y, self.models_map[name], model_config
                 )
@@ -475,64 +463,18 @@ class RegressionTrainer(MLTrainer):
                         label_column: str):
         # To implemenet for regression - can be residual plot, binned lift chart adjusted to quantiles etc
         pass
-    
-    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
-        result_dict = self.regressor_utils.get_metrics(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
-        result_dict["model_name_prefix"] = self.output_profiles_ml_model
+
+    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config) -> dict:
+        model_metrics = trainer_utils.get_metrics_regressor(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
+        result_dict = {"output_model_name": self.output_profiles_ml_model,
+                        "metrics": model_metrics}
         return result_dict
     
     def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
-        training_summary = {
-            "timestamp": model_timestamp,
-            "data": {
-                "train_metrics": model_results["train_metrics"],
-                "test_metrics": model_results["test_metrics"],
-                "val_metrics": model_results["val_metrics"]
-            }
-        }
+        training_summary ={"timestamp": model_timestamp,
+                           "data": {"metrics": model_results['metrics']}}
         return training_summary
-    
-    def prepare_feature_table(self, session: snowflake.snowpark.Session,
-                            feature_table_name: str, 
-                            label_table_name: str) -> snowflake.snowpark.Table:
-        """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
-
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session for data warehouse access
-            feature_table_name (str): feature table from the retrieved material_names tuple
-            label_table_name (str): label table from the retrieved material_names tuple
-        Returns:
-            snowflake.snowpark.Table: feature table made using given instance from material names
-        """
-        try:
-            label_ts_col = f"{self.index_timestamp}_label_ts"
-            feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
-            arraytype_features = utils.get_arraytype_features(feature_table)
-            ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
-            if self.eligible_users:
-                feature_table = feature_table.filter(self.eligible_users)
-            feature_table = feature_table.drop([self.label_column])
-            timestamp_columns = self.prep.timestamp_columns
-            if len(timestamp_columns) == 0:
-                timestamp_columns = utils.get_timestamp_columns(session, feature_table, self.index_timestamp)
-            for col in timestamp_columns:
-                feature_table = feature_table.withColumn(col, utils.F.datediff('day', utils.F.col(col), utils.F.col(self.index_timestamp)))
-            label_table = (session.table(label_table_name)
-                        .select(self.entity_column, self.label_column, self.index_timestamp)
-                        .withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col))
-            label_table = label_table.filter(label_table[self.label_column].isNotNull())
-            uppercase_list = lambda names: [name.upper() for name in names]
-            lowercase_list = lambda names: [name.lower() for name in names]
-            ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
-            self.prep.ignore_features = ignore_features_
-            self.prep.timestamp_columns = timestamp_columns
-            return feature_table.join(label_table, [self.entity_column], join_type="inner").drop([label_ts_col]).drop(ignore_features_)
-        except Exception as e:
-            print("Exception occured while preparing feature table. Please check the logs for more details")
-            raise e
-
-
-
+        
 def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
     """Trains the model and saves the model with given output_filename.
 
@@ -613,6 +555,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         models = train_config["model_params"]["models"]
         model_id = str(int(time.time()))
 
+
+        isStratify = True if prediction_task == 'classification' else False 
+
         feature_table = session.table(feature_table_name)
         train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(session, feature_table, 
                                                                                 trainer.label_column, 
@@ -620,7 +565,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
                                                                                 trainer.output_profiles_ml_model, 
                                                                                 trainer.prep.train_size, 
                                                                                 trainer.prep.val_size, 
-                                                                                trainer.prep.test_size)
+                                                                                trainer.prep.test_size,
+                                                                                isStratify=isStratify)
 
         stringtype_features = utils.get_stringtype_features(feature_table, trainer.label_column, trainer.entity_column)
         categorical_columns = utils.merge_lists_to_unique(trainer.prep.categorical_pipeline['categorical_columns'], stringtype_features)
@@ -654,7 +600,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
             logger.error(f"Could not generate plots {e}")
         results = trainer.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
         results["model_id"] = model_id
-        metrics_df = pd.DataFrame.from_dict(results).reset_index()
+
+        metrics_df = pd.DataFrame({'model_id': [results["model_id"]],
+                            'metrics': [results["metrics"]],
+                            'output_model_name': [results["output_model_name"]]}).reset_index(drop=True)
+
         session.write_pandas(metrics_df, table_name=f"{metrics_table}", auto_create_table=True, overwrite=False)
         return results
     
@@ -678,7 +628,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
         feature_table_name, label_table_name = row
         feature_table_instance = trainer.prepare_feature_table(session, 
                                                                feature_table_name, 
-                                                               label_table_name)
+                                                               label_table_name,
+                                                               prediction_task)
         if feature_table is None:
             feature_table = feature_table_instance
             logger.warning("Taking only one material for training. Remove the break point to train on all materials")

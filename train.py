@@ -165,8 +165,7 @@ class MLTrainer(ABC):
 
     def prepare_feature_table(self, session: snowflake.snowpark.Session,
                             feature_table_name: str, 
-                            label_table_name: str,
-                            task : str) -> snowflake.snowpark.Table:
+                            label_table_name: str) -> snowflake.snowpark.Table:
         """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
 
         Args:
@@ -652,8 +651,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         feature_table_name, label_table_name = row
         feature_table_instance = trainer.prepare_feature_table(session, 
                                                                feature_table_name, 
-                                                               label_table_name,
-                                                               prediction_task)
+                                                               label_table_name)
         if feature_table is None:
             feature_table = feature_table_instance
             logger.warning("Taking only one material for training. Remove the break point to train on all materials")
@@ -708,6 +706,6 @@ if __name__ == "__main__":
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
 
-    project_folder = '/Users/ambuj/Desktop/Git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+    project_folder = '~/git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

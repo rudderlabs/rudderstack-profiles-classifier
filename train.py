@@ -481,8 +481,9 @@ class RegressionTrainer(MLTrainer):
         pass
 
     def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config) -> dict:
-        model_metrics = trainer_utils.get_metrics_regressor(model, train_x, train_y, test_x, test_y, val_x, val_y,train_config)
+        model_metrics = trainer_utils.get_metrics_regressor(model, train_x, train_y, test_x, test_y, val_x, val_y)
         result_dict = {"output_model_name": self.output_profiles_ml_model,
+                       "prob_th": None,
                         "metrics": model_metrics}
         return result_dict
     
@@ -491,7 +492,7 @@ class RegressionTrainer(MLTrainer):
                            "data": {"metrics": model_results['metrics']}}
         return training_summary
         
-def train(creds: dict, inputs: str, output_filename: str, config: dict) -> None:
+def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str, project_folder: str) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:

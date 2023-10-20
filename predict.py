@@ -172,8 +172,12 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         categorical_columns = list(df.select_dtypes(include='object'))
         numeric_columns = list(df.select_dtypes(exclude='object'))
         df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
-        return trained_model.predict_proba(df)[:,1]
+        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})   
+
+        if hasattr(trained_model, 'predict_proba'):
+            return trained_model.predict_proba(df)[:,1]
+        else:
+            return trained_model.predict(df)
     
     preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias(score_column_name))
              .withColumn("model_id", F.lit(train_model_id)))
@@ -186,7 +190,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None
         output_folder = 'output/dev/seq_no/7'

@@ -491,8 +491,14 @@ class RegressionTrainer(MLTrainer):
         training_summary ={"timestamp": model_timestamp,
                            "data": {"metrics": model_results['metrics']}}
         return training_summary
-        
-def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str, project_folder: str) -> None:
+
+    def prepare_feature_table(self, session: snowflake.snowpark.Session,
+                                feature_table_name: str, 
+                                label_table_name: str) -> snowflake.snowpark.Table:
+        pass
+
+
+def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str = None, project_folder: str = None) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:
@@ -637,6 +643,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                                               model_hash, 
                                                               material_table_prefix, 
                                                               trainer.prediction_horizon_days,
+                                                              output_filename,
                                                               site_config_path,
                                                               project_folder)
  

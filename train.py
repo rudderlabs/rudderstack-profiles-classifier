@@ -291,8 +291,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
 if __name__ == "__main__":
     homedir = os.path.expanduser("~") 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
-        # creds = yaml.safe_load(f)["connections"]["shopify_wh_rs"]["outputs"]["dev"]
+        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
+        # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
         # s3_config = yaml.safe_load(f)["connections"]["py_models"]["s3"]
         s3_config = None
     inputs = None

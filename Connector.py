@@ -19,7 +19,7 @@ class Connector(ABC):
         pass
     
     @abstractmethod
-    def get_table(self, session, table_name: str) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
+    def get_table(self, session, table_name: str):
         pass
     
     @abstractmethod
@@ -27,13 +27,13 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def write_table(self, table: Union[snowflake.snowpark.Table, pd.DataFrame], table_name_remote: str, **kwargs) -> Any:
+    def write_table(self, table, table_name_remote: str, **kwargs) -> Any:
         pass
 
     @abstractmethod
     def label_table(self, session,
                     label_table_name: str, label_column: str, entity_column: str, index_timestamp: str,
-                    label_value: Union[str,int,float], label_ts_col: str) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
+                    label_value: Union[str,int,float], label_ts_col: str):
         pass
 
     @abstractmethod
@@ -49,11 +49,11 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_non_stringtype_features(self, feature_table: Union[str, pd.DataFrame], label_column: str, entity_column: str, **kwargs) -> List[str]:
+    def get_non_stringtype_features(self, feature_table, label_column: str, entity_column: str, **kwargs) -> List[str]:
         pass
 
     @abstractmethod
-    def get_stringtype_features(self, feature_table: Union[str, pd.DataFrame], label_column: str, entity_column: str, **kwargs)-> List[str]:
+    def get_stringtype_features(self, feature_table, label_column: str, entity_column: str, **kwargs)-> List[str]:
         pass
 
     @abstractmethod
@@ -75,17 +75,17 @@ class Connector(ABC):
         pass
     
     @abstractmethod
-    def filter_columns(self, table: Union[snowflake.snowpark.Table, pd.DataFrame], column_element: str):
+    def filter_columns(self, table, column_element: str):
         pass
     
     @abstractmethod
-    def drop_cols(self, table: Union[snowflake.snowpark.Table, pd.DataFrame], col_list: List):
+    def drop_cols(self, table, col_list: List):
         pass
 
     @abstractmethod
-    def add_days_diff(self, table: Union[snowflake.snowpark.Table, pd.DataFrame], new_col: str, time_col_1: str, time_col_2: str):
+    def add_days_diff(self, table, new_col: str, time_col_1: str, time_col_2: str):
         pass
 
     @abstractmethod
-    def join_feature_table_label_table(self, feature_table: Union[snowflake.snowpark.Table, pd.DataFrame], label_table: Union[snowflake.snowpark.Table, pd.DataFrame], entity_column: str):
+    def join_feature_table_label_table(self, feature_table, label_table, entity_column: str):
         pass

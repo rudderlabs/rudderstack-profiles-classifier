@@ -74,11 +74,10 @@ def train_model(trainer: Union[ClassificationTrainer, RegressionTrainer], featur
 
     return train_x, test_x, test_y, pipe, model_id, metrics_df, results
 
-def train_and_store_model_results_rs(session: redshift_connector.cursor.Cursor,
-            feature_table_name: str,
+def train_and_store_model_results_rs(feature_table_name: str,
             figure_names: dict,
             merged_config: dict, **kwargs) -> dict:
-
+    session = kwargs.get("session")
     connector = kwargs.get("connector")
     trainer = kwargs.get("trainer")
     model_file = connector.join_file_path(model_file_name)
@@ -102,14 +101,14 @@ def train_and_store_model_results_rs(session: redshift_connector.cursor.Cursor,
     try:
         figure_file = connector.join_file_path(figure_names['feature-importance-chart'])
         shap_importance = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)
-        connector.write_pandas(shap_importance, f"FEATURE_IMPORTANCE")
+        connector.write_pandas(shap_importance, f"FEATURE_IMPORTANCE", if_exists="replace")
     except Exception as e:
         logger.error(f"Could not generate plots {e}")
 
     for col in metrics_df.columns:
         if metrics_df[col].dtype == 'object':
             metrics_df[col] = metrics_df[col].apply(lambda x: json.dumps(x))
-    connector.write_pandas(metrics_df, f"{metrics_table}")
+    connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     return results
 
 def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str=None, s3_config: dict=None, project_folder: str=None) -> None:

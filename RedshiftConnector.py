@@ -112,7 +112,8 @@ class RedshiftConnector(Connector):
             Nothing
         """
         rs_conn = ProfilesConnector(self.creds, **kwargs)
-        rs_conn.write_to_table(df, table_name_remote, schema=self.schema, if_exists='replace')
+        if_exists = kwargs.get("if_exists", "append")
+        rs_conn.write_to_table(df, table_name_remote, schema=self.schema, if_exists=if_exists)
         return
 
     def label_table(self, cursor: redshift_connector.cursor.Cursor,
@@ -150,8 +151,8 @@ class RedshiftConnector(Connector):
             Results of the training function
         """
         train_function = args[0]
-        cursor = kwargs.get("session", None)
-        return train_function(cursor, *args, **kwargs)
+        args = args[1:]
+        return train_function(*args, **kwargs)
 
     def get_non_stringtype_features(self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs) -> List[str]:
         """
@@ -291,6 +292,7 @@ class RedshiftConnector(Connector):
             (df["end_ts"] <= end_time),
             ["seq_no", "end_ts"]
         ].drop_duplicates().rename(columns = {'seq_no':'feature_seq_no', 'end_ts': 'feature_end_ts'})
+        feature_df["label_end_ts"] = feature_df["feature_end_ts"] + timedelta(days=prediction_horizon_days)
 
         time_format = '%Y-%m-%d'
         label_start_time = datetime.strptime(start_time, time_format) + timedelta(days=prediction_horizon_days)
@@ -303,14 +305,11 @@ class RedshiftConnector(Connector):
             ["seq_no", "end_ts"]
         ].drop_duplicates().rename(columns = {'seq_no':'label_seq_no', 'end_ts': 'label_end_ts'})
 
-        feature_label_df = pd.merge(feature_df, label_df, left_index=True, right_index=True)
-        feature_label_df = feature_label_df.loc[(feature_label_df["feature_end_ts"] - feature_label_df["label_end_ts"]).dt.days == prediction_horizon_days, :]
+        feature_label_df = pd.merge(feature_df, label_df, on="label_end_ts", how="inner")
 
         for _, row in feature_label_df.iterrows():
             material_names.append((utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["feature_seq_no"])), utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["label_seq_no"]))))
             training_dates.append((str(row["feature_end_ts"]), str(row["label_end_ts"])))
-        print(f"Material names: {material_names}")
-        print(f"Training dates: {training_dates}")
         return material_names, training_dates
 
     def get_material_names(self, cursor: redshift_connector.cursor.Cursor, material_table: str, start_date: str, end_date: str, 
@@ -349,9 +348,6 @@ class RedshiftConnector(Connector):
                     start_date_label = utils.get_label_date_ref(start_date, prediction_horizon_days)
                     utils.materialise_past_data(start_date_label, feature_package_path, output_filename, site_config_path, project_folder)
                     material_names, training_dates = self.get_material_names_(cursor, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
-                    print("Material names and training dates after materialisation:")
-                    print(f"Material names: {material_names}")
-                    print(f"Training dates: {training_dates}")
                     if len(material_names) == 0:
                         raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
                 except Exception as e:

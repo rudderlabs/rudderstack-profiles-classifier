@@ -317,7 +317,7 @@ class SnowflakeConnector(Connector):
         material_names = list()
         training_dates = list()
 
-        snowpark_df = self.get_table(session, material_table)
+        snowpark_df = self.get_material_registry_table(session, material_table)
 
         feature_snowpark_df = (snowpark_df
                     .filter(col("model_name") == model_name)
@@ -339,11 +339,14 @@ class SnowflakeConnector(Connector):
         for row in feature_label_snowpark_df.collect():
             material_names.append((utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row.FEATURE_SEQ_NO)), utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row.LABEL_SEQ_NO))))
             training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
+            # if is_valid_table(session, feature_table_name_) and is_valid_table(session, label_table_name_):
+            #     material_names.append((feature_table_name_, label_table_name_))
+            #     training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
         return material_names, training_dates
 
     def get_material_names(self, session: snowflake.snowpark.Session, material_table: str, start_date: str, end_date: str, 
                         package_name: str, model_name: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
-                        site_config_path: str, project_folder: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+                        output_filename: str, site_config_path: str, project_folder: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """
         Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
         If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
@@ -374,9 +377,9 @@ class SnowflakeConnector(Connector):
                 try:
                     # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
                     feature_package_path = f"packages/{package_name}/models/{model_name}"
-                    utils.materialise_past_data(start_date, feature_package_path, site_config_path, project_folder)
+                    utils.materialise_past_data(start_date, feature_package_path, output_filename, site_config_path, project_folder)
                     start_date_label = utils.get_label_date_ref(start_date, prediction_horizon_days)
-                    utils.materialise_past_data(start_date_label, feature_package_path, site_config_path, project_folder)
+                    utils.materialise_past_data(start_date_label, feature_package_path, output_filename, site_config_path, project_folder)
                     material_names, training_dates = self.get_material_names_(session, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
                     if len(material_names) == 0:
                         raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")

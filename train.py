@@ -112,7 +112,7 @@ def train_and_store_model_results_rs(session: redshift_connector.cursor.Cursor,
     connector.write_pandas(metrics_df, f"{metrics_table}")
     return results
 
-def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str, s3_config: dict, project_folder: str) -> None:
+def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str=None, s3_config: dict=None, project_folder: str=None) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:
@@ -233,6 +233,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                                               model_hash, 
                                                               material_table_prefix, 
                                                               trainer.prediction_horizon_days,
+                                                              output_filename,
                                                               site_config_path,
                                                               project_folder)
  

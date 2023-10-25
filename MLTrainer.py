@@ -140,7 +140,7 @@ class MLTrainer(ABC):
 
     def prepare_feature_table(self, connector: Connector, session,
                             feature_table_name: str, 
-                            label_table_name: str) -> snowflake.snowpark.Table:
+                            label_table_name: str) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
         """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
 
         Args:

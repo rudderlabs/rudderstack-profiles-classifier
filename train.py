@@ -71,11 +71,10 @@ def train_model(trainer: Union[ClassificationTrainer, RegressionTrainer], featur
 
     return train_x, test_x, test_y, pipe, model_id, metrics_df, results
 
-def train_and_store_model_results_rs(session: redshift_connector.cursor.Cursor,
-            feature_table_name: str,
+def train_and_store_model_results_rs(feature_table_name: str,
             figure_names: dict,
             merged_config: dict, **kwargs) -> dict:
-
+    session = kwargs.get("session")
     connector = kwargs.get("connector")
     trainer = kwargs.get("trainer")
     model_file = connector.join_file_path(model_file_name)
@@ -154,7 +153,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
     logger.info("Building session")
     if warehouse == 'snowflake':
         logger.info("Building session for Snowflake")
-        train_procedure = 'train_and_store_model_results_rs'
+        train_procedure = 'train_and_store_model_results_sf'
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
         connector.create_stage(session, stage_name)
@@ -163,7 +162,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
 
         @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
             packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.2", "scikit-plot==0.3.7"])
-        def train_and_store_model_results_rs(session: snowflake.snowpark.Session,
+        def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
                     figure_names: dict,
                     merged_config: dict) -> dict:

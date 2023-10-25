@@ -154,8 +154,8 @@ class RedshiftConnector(Connector):
             Results of the training function
         """
         train_function = args[0]
-        cursor = kwargs.get("session", None)
-        return train_function(cursor, *args, **kwargs)
+        args = args[1:]
+        return train_function(*args, **kwargs)
 
     def get_non_stringtype_features(self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs) -> List[str]:
         """
@@ -169,13 +169,7 @@ class RedshiftConnector(Connector):
         Returns:
             List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
         """
-        # cursor = kwargs.get("session")
-        # cursor.execute(f"select * from pg_get_cols('rs_profiles_2.{feature_table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);")
-        # col_df = cursor.fetch_dataframe()
         non_stringtype_features = []
-        # for _, row in col_df.iterrows():
-        #     if (~str(row['col_type']).startswith('character varying')) and row['col_name'].lower() not in (label_column.lower(), entity_column.lower()):
-        #         non_stringtype_features.append(row['col_name'].upper())
         for column in feature_df.columns:
             if column.lower() not in (label_column, entity_column) and (feature_df[column].dtype == 'int64' or feature_df[column].dtype == 'float64'):
                 non_stringtype_features.append(column)
@@ -193,13 +187,7 @@ class RedshiftConnector(Connector):
         Returns:
             List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
         """
-        # cursor = kwargs.get("session")
-        # cursor.execute(f"select * from pg_get_cols('rs_profiles_2.{feature_table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);")
-        # col_df = cursor.fetch_dataframe()
         stringtype_features = []
-        # for _, row in col_df.iterrows():
-        #     if (str(row['col_type']).startswith('character varying')) and row['col_name'].lower() not in (label_column.lower(), entity_column.lower()):
-        #         stringtype_features.append(row['col_name'].upper())
         for column in feature_df.columns:
             if column.lower() not in (label_column, entity_column) and (feature_df[column].dtype != 'int64' and feature_df[column].dtype != 'float64'):
                 stringtype_features.append(column)
@@ -307,7 +295,7 @@ class RedshiftConnector(Connector):
             (df["end_ts"] <= end_time),
             ["seq_no", "end_ts"]
         ].drop_duplicates().rename(columns = {'seq_no':'feature_seq_no', 'end_ts': 'feature_end_ts'})
-
+        feature_df["label_end_ts"] = feature_df["feature_end_ts"] + timedelta(days=prediction_horizon_days)
         time_format = '%Y-%m-%d'
         label_start_time = datetime.strptime(start_time, time_format) + timedelta(days=prediction_horizon_days)
         label_end_time = datetime.strptime(end_time, time_format) + timedelta(days=prediction_horizon_days)
@@ -319,8 +307,7 @@ class RedshiftConnector(Connector):
             ["seq_no", "end_ts"]
         ].drop_duplicates().rename(columns = {'seq_no':'label_seq_no', 'end_ts': 'label_end_ts'})
 
-        feature_label_df = pd.merge(feature_df, label_df, left_index=True, right_index=True)
-        feature_label_df = feature_label_df.loc[(feature_label_df["feature_end_ts"] - feature_label_df["label_end_ts"]).dt.days == prediction_horizon_days, :]
+        feature_label_df = pd.merge(feature_df, label_df, on="label_end_ts", how="inner")
 
         for _, row in feature_label_df.iterrows():
             material_names.append((utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["feature_seq_no"])), utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["label_seq_no"]))))
@@ -384,11 +371,12 @@ class RedshiftConnector(Connector):
             snowflake.snowpark.Table: The filtered material registry table containing only the successfully materialized data.
         """
         material_registry_table = self.get_table(cursor, material_registry_table_name)
-        # material_registry_table = material_registry_table.withColumn("status", F.get_path("metadata", F.lit("complete.status"))).filter(F.col("status")==2)
-        # material_registry_table["status"] = material_registry_table["metadata"].apply(lambda x: x["complete"]["status"])
-        # material_registry_table = material_registry_table[material_registry_table["status"]==2]
+        material_registry_table["json_metadata"] = material_registry_table["metadata"].apply(lambda x: eval(x))
+        material_registry_table["status"] = material_registry_table["json_metadata"].apply(lambda x: x["complete"]["status"])
+        material_registry_table.drop(columns=["json_metadata"], inplace=True)
+        material_registry_table = material_registry_table[material_registry_table["status"]==2]
         return material_registry_table
-    
+
     def get_latest_material_hash(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str) -> Tuple:
         """This function will return the model hash that is latest for given model name in material table
 

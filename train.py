@@ -67,7 +67,10 @@ def train_model(trainer: Union[ClassificationTrainer, RegressionTrainer], featur
 
     results = trainer.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
     results["model_id"] = model_id
-    metrics_df = pd.DataFrame.from_dict(results).reset_index()
+    metrics_df = pd.DataFrame({'model_id': [results["model_id"]],
+                            'metrics': [results["metrics"]],
+                            'output_model_name': [results["output_model_name"]]}).reset_index(drop=True)
+
 
     return train_x, test_x, test_y, pipe, model_id, metrics_df, results
 
@@ -230,7 +233,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                                               model_hash, 
                                                               material_table_prefix, 
                                                               trainer.prediction_horizon_days,
-                                                              output_filename,
                                                               site_config_path,
                                                               project_folder)
  

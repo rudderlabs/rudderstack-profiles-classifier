@@ -80,7 +80,7 @@ def train_and_store_model_results_rs(feature_table_name: str,
     session = kwargs.get("session")
     connector = kwargs.get("connector")
     trainer = kwargs.get("trainer")
-    model_file = connector.join_file_path(model_file_name)
+    model_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_file_name}")
     feature_df = pd.read_parquet(f"{local_folder}/{feature_table_name}.parquet.gzip")
     feature_df.columns = [col.upper() for col in feature_df.columns]
 
@@ -180,7 +180,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                 list: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
             """
             feature_df = connector.get_table_as_dataframe(session, feature_table_name)
-            model_file = connector.join_file_path(model_file_name)
+            model_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_file_name}")
             stringtype_features = connector.get_stringtype_features(feature_table_name, trainer.label_column, trainer.entity_column, session=session)
             categorical_columns = utils.merge_lists_to_unique(trainer.prep.categorical_pipeline['categorical_columns'], stringtype_features)
 

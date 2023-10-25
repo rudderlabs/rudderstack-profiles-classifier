@@ -495,14 +495,6 @@ class RedshiftConnector(Connector):
         """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
         return
     
-    def get_latest_seq_no(self, table: pd.DataFrame) -> int:
-        # return table.sort(F.col("end_ts"), ascending=False).select("seq_no").collect()[0].SEQ_NO
-        return table.sort_values(by="end_ts", ascending=False).iloc[0].seq_no
-    
-    def get_latest_hash_df(self, session: redshift_connector.cursor.Cursor, material_table: str, latest_model_hash) -> pd.DataFrame:
-        # return self.get_table(session, material_table).filter(F.col("model_hash") == latest_model_hash)
-        return self.get_table(session, material_table).query(f"model_hash == '{latest_model_hash}'")
-    
     def get_arraytype_features_from_table(self, table: pd.DataFrame)-> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
@@ -510,10 +502,9 @@ class RedshiftConnector(Connector):
         Returns:
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
-        # arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
         arraytype_features = []
         for column in table.columns:
-            if table[column].dtype == 'object':
+            if table[column].dtype == 'super':
                 arraytype_features.append(column)
         return arraytype_features
 

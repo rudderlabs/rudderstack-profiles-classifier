@@ -616,12 +616,6 @@ class SnowflakeConnector(Connector):
             logger.info("All functions with the same name dropped")
             return True
     
-    def get_latest_seq_no(self, table: snowflake.snowpark.Table) -> int:
-        return table.sort(F.col("end_ts"), ascending=False).select("seq_no").collect()[0].SEQ_NO
-    
-    def get_latest_hash_df(self, session: snowflake.snowpark.Session, material_table: str, latest_model_hash) -> snowflake.snowpark.Table:
-        return self.get_table(session, material_table).filter(F.col("model_hash") == latest_model_hash)
-    
     def get_arraytype_features_from_table(self, table: snowflake.snowpark.Table)-> list:
         """Returns the list of features to be ignored from the feature table.
         Args:

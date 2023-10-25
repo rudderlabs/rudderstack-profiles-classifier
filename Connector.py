@@ -53,10 +53,6 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_latest_seq_no(self, table) -> int:
-        pass
-
-    @abstractmethod
     def get_non_stringtype_features(self, feature_table: Union[str, pd.DataFrame], label_column: str, entity_column: str, **kwargs) -> List[str]:
         pass
 
@@ -100,10 +96,6 @@ class Connector(ABC):
 
     @abstractmethod
     def join_feature_table_label_table(self, feature_table: Union[snowflake.snowpark.Table, pd.DataFrame], label_table: Union[snowflake.snowpark.Table, pd.DataFrame], entity_column: str):
-        pass
-
-    @abstractmethod
-    def get_latest_hash_df(self, session, material_table: str) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
         pass
     
     @abstractmethod

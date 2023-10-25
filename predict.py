@@ -65,6 +65,8 @@ def load_model(filename: str):
 
 def predict_helper(df: pd.DataFrame, model_name: str) -> Any:
     trained_model = load_model(model_name)
+    # change the columns to uppercase
+    df.columns = [x.upper() for x in df.columns]
     categorical_columns = list(df.select_dtypes(include='object'))
     numeric_columns = list(df.select_dtypes(exclude='object'))
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
@@ -138,15 +140,9 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     latest_model_hash, _ = connector.get_latest_material_hash(session, material_table, features_profiles_model)
     if latest_model_hash != train_model_hash:
         raise ValueError(f"Model hash {train_model_hash} does not match with the latest model hash {latest_model_hash} in the material registry table. Please retrain the model")
-    
-    latest_hash_df = session.table(material_table)
-    latest_hash_df = connector.get_latest_hash_df(session, material_table, latest_model_hash)
-    
-    material_table_prefix = constants.MATERIAL_TABLE_PREFIX
-    latest_seq_no = connector.get_latest_seq_no(latest_hash_df)
-    raw_data = connector.get_table(session, f"{material_table_prefix}{features_profiles_model}_{latest_model_hash}_{latest_seq_no}")
 
-    raw_data = session.table(f"{features_profiles_model}")
+    raw_data = connector.get_table(session, f"{features_profiles_model}")
+    print(f"{features_profiles_model}")
 
     if eligible_users:
         raw_data = connector.filter_columns(raw_data, eligible_users)
@@ -158,7 +154,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     if len(timestamp_columns) == 0:
         timestamp_columns = connector.get_timestamp_columns_from_table(predict_data, index_timestamp)
     for col in timestamp_columns:
-        # predict_data = predict_data.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
         predict_data = connector.add_days_diff(predict_data, col, col, index_timestamp)
 
     # input  = predict_data.drop(label_column, entity_column, index_timestamp)
@@ -184,7 +179,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     elif creds['type'] == 'redshift':
         def predict_scores_rs(df: types) -> pd.Series:
             df = df[features]
-            df = df.to_pandas()
             predict_proba = predict_helper(df, model_name)
             return predict_proba
         prediction_procedure = predict_scores_rs
@@ -197,7 +191,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
+        creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None
         output_folder = 'output/dev/seq_no/7'

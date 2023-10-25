@@ -356,21 +356,39 @@ class RedshiftConnector(Connector):
         except Exception as e:
             print("Exception occured while retrieving material names. Please check the logs for more details")
             raise e
+    
+    def get_material_registry_table(self, cursor: redshift_connector.cursor.Cursor, material_registry_table_name: str) -> pd.DataFrame:
+        """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
+        Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
+            material_registry_table_name (str): The material registry table name.
+
+        Returns:
+            pd.DataFrame: The filtered material registry table containing only the successfully materialized data.
+        """
+        material_registry_table = self.get_table_as_dataframe(cursor, material_registry_table_name)
+        material_registry_table["json_metadata"] = material_registry_table["metadata"].apply(lambda x: eval(x))
+        material_registry_table["status"] = material_registry_table["json_metadata"].apply(lambda x: x["complete"]["status"])
+        material_registry_table = material_registry_table[material_registry_table["status"] == 2]
+        material_registry_table.drop(columns=["json_metadata"], inplace=True)
+        return material_registry_table
 
     def get_latest_material_hash(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str) -> Tuple:
         """This function will return the model hash that is latest for given model name in material table
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
             material_table (str): name of material registry table
             model_name (str): model_name from model_configs file
 
         Returns:
             Tuple: latest model hash and it's creation timestamp
         """
-        redshift_df = self.get_table_as_dataframe(cursor, material_table)
+        redshift_df = self.get_material_registry_table(cursor, material_table)
 
-        temp_hash_vector = redshift_df.query(f"model_name == '{model_name}'").sort_values(by="creation_ts", ascending=False).reset_index(drop=True)[["model_hash", "creation_ts"]].iloc[0]
+        temp_hash_vector = redshift_df.query(f"model_name == \"{model_name}\"").sort_values(by="creation_ts", ascending=False).reset_index(drop=True)[["model_hash", "creation_ts"]].iloc[0]
     
         model_hash = temp_hash_vector["model_hash"]
         creation_ts = temp_hash_vector["creation_ts"]

@@ -11,6 +11,7 @@ from typing import List, Tuple, Any, Union
 import utils
 from Connector import Connector
 from profiles_rudderstack.wh import ProfilesConnector
+from wh import ProfilesConnector
 local_folder = "data"
 
 class RedshiftConnector(Connector):
@@ -97,7 +98,7 @@ class RedshiftConnector(Connector):
         """
         s3_config = kwargs.get("s3_config")
         Path(local_folder).mkdir(parents=True, exist_ok=True)
-        df.to_csv(f"{local_folder}/{table_name}.csv", index=False)
+        df.to_parquet(f"{local_folder}/{table_name}.parquet.gzip", compression='gzip')
         self.write_pandas(df, table_name, s3_config=s3_config)
         return
     
@@ -111,12 +112,9 @@ class RedshiftConnector(Connector):
         Returns:
             Nothing
         """
-        s3_config = kwargs.get("s3_config", None)
-        if s3_config == None:
-            rs_conn = ProfilesConnector(self.creds)
-        else:
-            rs_conn = ProfilesConnector(self.creds, s3_config=s3_config)
-        rs_conn.write_to_table(df, table_name_remote, schema=self.schema, if_exists='replace')
+        rs_conn = ProfilesConnector(self.creds, **kwargs)
+        if_exists = kwargs.get("if_exists", "append")
+        rs_conn.write_to_table(df, table_name_remote, schema=self.schema, if_exists=if_exists)
         return
 
     def label_table(self, cursor: redshift_connector.cursor.Cursor,
@@ -286,7 +284,7 @@ class RedshiftConnector(Connector):
         material_names = list()
         training_dates = list()
 
-        df = self.get_table(cursor, material_table)
+        df = self.get_material_registry_table(cursor, material_table)
 
         feature_df = df.loc[
             (df["model_name"] == model_name) &
@@ -296,6 +294,7 @@ class RedshiftConnector(Connector):
             ["seq_no", "end_ts"]
         ].drop_duplicates().rename(columns = {'seq_no':'feature_seq_no', 'end_ts': 'feature_end_ts'})
         feature_df["label_end_ts"] = feature_df["feature_end_ts"] + timedelta(days=prediction_horizon_days)
+
         time_format = '%Y-%m-%d'
         label_start_time = datetime.strptime(start_time, time_format) + timedelta(days=prediction_horizon_days)
         label_end_time = datetime.strptime(end_time, time_format) + timedelta(days=prediction_horizon_days)
@@ -315,8 +314,8 @@ class RedshiftConnector(Connector):
         return material_names, training_dates
 
     def get_material_names(self, cursor: redshift_connector.cursor.Cursor, material_table: str, start_date: str, end_date: str, 
-                        package_name: str, model_name: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
-                        output_filename: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+                        package_name: str, model_name: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int,
+                        output_filename: str, site_config_path: str, project_folder: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """
         Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
         If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
@@ -333,6 +332,8 @@ class RedshiftConnector(Connector):
             material_table_prefix (str): A constant.
             prediction_horizon_days (int): The period of days for prediction horizon.
             output_filename (str): The name of the output file.
+            site_config_path (str): path to the siteconfig.yaml file
+            project_folder (str): project folder path to pb_project.yaml file
 
         Returns:
             Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
@@ -345,9 +346,9 @@ class RedshiftConnector(Connector):
             if len(material_names) == 0:
                 try:
                     feature_package_path = f"packages/{package_name}/models/{model_name}"
-                    utils.materialise_past_data(start_date, feature_package_path, output_filename)
+                    utils.materialise_past_data(start_date, feature_package_path, output_filename, site_config_path, project_folder)
                     start_date_label = utils.get_label_date_ref(start_date, prediction_horizon_days)
-                    utils.materialise_past_data(start_date_label, feature_package_path, output_filename)
+                    utils.materialise_past_data(start_date_label, feature_package_path, output_filename, site_config_path, project_folder)
                     material_names, training_dates = self.get_material_names_(cursor, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
                     if len(material_names) == 0:
                         raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
@@ -364,24 +365,24 @@ class RedshiftConnector(Connector):
         Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
 
         Args:
-            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
             material_registry_table_name (str): The material registry table name.
 
         Returns:
-            snowflake.snowpark.Table: The filtered material registry table containing only the successfully materialized data.
+            pd.DataFrame: The filtered material registry table containing only the successfully materialized data.
         """
-        material_registry_table = self.get_table(cursor, material_registry_table_name)
+        material_registry_table = self.get_table_as_dataframe(cursor, material_registry_table_name)
         material_registry_table["json_metadata"] = material_registry_table["metadata"].apply(lambda x: eval(x))
         material_registry_table["status"] = material_registry_table["json_metadata"].apply(lambda x: x["complete"]["status"])
+        material_registry_table = material_registry_table[material_registry_table["status"] == 2]
         material_registry_table.drop(columns=["json_metadata"], inplace=True)
-        material_registry_table = material_registry_table[material_registry_table["status"]==2]
         return material_registry_table
 
     def get_latest_material_hash(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str) -> Tuple:
         """This function will return the model hash that is latest for given model name in material table
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
             material_table (str): name of material registry table
             model_name (str): model_name from model_configs file
 

@@ -9,6 +9,7 @@ import pandas as pd
 import redshift_connector.cursor
 
 from pathlib import Path
+from logger import logger
 from datetime import datetime
 from dataclasses import asdict
 from typing import List, Union
@@ -21,7 +22,6 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 
 import utils
 import constants
-from logger import logger
 from RedshiftConnector import RedshiftConnector
 from SnowflakeConnector import SnowflakeConnector
 from MLTrainer import ClassificationTrainer, RegressionTrainer
@@ -67,7 +67,10 @@ def train_model(trainer: Union[ClassificationTrainer, RegressionTrainer], featur
 
     results = trainer.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
     results["model_id"] = model_id
-    metrics_df = pd.DataFrame.from_dict(results).reset_index()
+    metrics_df = pd.DataFrame({'model_id': [results["model_id"]],
+                            'metrics': [results["metrics"]],
+                            'output_model_name': [results["output_model_name"]]}).reset_index(drop=True)
+
 
     return train_x, test_x, test_y, pipe, model_id, metrics_df, results
 
@@ -78,7 +81,7 @@ def train_and_store_model_results_rs(feature_table_name: str,
     connector = kwargs.get("connector")
     trainer = kwargs.get("trainer")
     model_file = connector.join_file_path(model_file_name)
-    feature_df = pd.read_csv(f"{local_folder}/{feature_table_name}.csv")
+    feature_df = pd.read_parquet(f"{local_folder}/{feature_table_name}.parquet.gzip")
     feature_df.columns = [col.upper() for col in feature_df.columns]
 
     stringtype_features = connector.get_stringtype_features(feature_df, trainer.label_column, trainer.entity_column, session=session)
@@ -98,18 +101,17 @@ def train_and_store_model_results_rs(feature_table_name: str,
     try:
         figure_file = connector.join_file_path(figure_names['feature-importance-chart'])
         shap_importance = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)
-        connector.write_pandas(shap_importance, f"FEATURE_IMPORTANCE")
+        connector.write_pandas(shap_importance, f"FEATURE_IMPORTANCE", if_exists="replace")
     except Exception as e:
         logger.error(f"Could not generate plots {e}")
 
     for col in metrics_df.columns:
         if metrics_df[col].dtype == 'object':
             metrics_df[col] = metrics_df[col].apply(lambda x: json.dumps(x))
-
-    connector.write_pandas(metrics_df, f"{metrics_table}")
+    connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     return results
 
-def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_config: dict=None) -> None:
+def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str=None, s3_config: dict=None, project_folder: str=None) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:
@@ -229,9 +231,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
                                                               trainer.features_profiles_model, 
                                                               model_hash, 
                                                               material_table_prefix, 
-                                                              trainer.prediction_horizon_days, 
-                                                              output_filename)
-
+                                                              trainer.prediction_horizon_days,
+                                                              output_filename,
+                                                              site_config_path,
+                                                              project_folder)
+ 
     feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
@@ -245,7 +249,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, s3_confi
 
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
     sorted_feature_table = connector.sort_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp)
-    connector.write_table(sorted_feature_table, feature_table_name_remote, s3_config=s3_config, auto_create_table=False, overwrite=True)
+    connector.write_table(sorted_feature_table, feature_table_name_remote, s3_config=s3_config, write_mode="overwrite")
 
     logger.info("Training and fetching the results")
 
@@ -290,11 +294,15 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["shopify_wh_rs"]["outputs"]["dev"]
         # s3_config = yaml.safe_load(f)["connections"]["py_models"]["s3"]
+        s3_config = None
     inputs = None
     output_folder = 'output/dev/seq_no/7'
     output_file_name = f"{output_folder}/train_output.json"
-    from pathlib import Path
+    siteconfig_path = os.path.join(homedir, ".pb/siteconfig.yaml")
+
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
 
-    train(creds, inputs, output_file_name, None)
+    project_folder = '/Users/admin/Desktop/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+       
+    train(creds, inputs, output_file_name, None, siteconfig_path, s3_config, project_folder)

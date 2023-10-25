@@ -16,28 +16,42 @@ from sklearn.preprocessing import OneHotEncoder
 from xgboost import XGBClassifier, XGBRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.metrics import precision_recall_fscore_support, average_precision_score, mean_absolute_error, mean_squared_error
+from sklearn.metrics import precision_recall_fscore_support, average_precision_score, mean_absolute_error, mean_squared_error, r2_score
 
 import utils
 from Connector import Connector
+trainer_utils = utils.TrainerUtils()
 
 @dataclass
 class MLTrainer(ABC):
-    label_column: str
-    entity_column: str
-    package_name: str
-    features_profiles_model: str
-    output_profiles_ml_model: str
-    index_timestamp: str
-    eligible_users: str
-    train_start_dt: str
-    train_end_dt: str
-    prediction_horizon_days: int
-    # sample_data: float
-    # top_k: int
-    # bottom_k: int
-    prep: utils.PreprocessorConfig
+
+    def __init__(self,
+                 label_value: int,
+                 label_column: str,
+                 entity_column: str,
+                 package_name: str,
+                 features_profiles_model: str,
+                 output_profiles_ml_model: str,
+                 index_timestamp: str,
+                 eligible_users: str,
+                 train_start_dt: str,
+                 train_end_dt: str,
+                 prediction_horizon_days: int,
+                 prep: utils.PreprocessorConfig):
+        self.label_value = label_value
+        self.label_column = label_column
+        self.entity_column = entity_column
+        self.package_name = package_name
+        self.features_profiles_model = features_profiles_model
+        self.output_profiles_ml_model = output_profiles_ml_model
+        self.index_timestamp = index_timestamp
+        self.eligible_users = eligible_users
+        self.train_start_dt = train_start_dt
+        self.train_end_dt = train_end_dt
+        self.prediction_horizon_days = prediction_horizon_days
+        self.prep = prep
     hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}    
+    
     def get_preprocessing_pipeline(self, numeric_columns: List[str], 
                                     categorical_columns: List[str], 
                                     numerical_pipeline_config: List[str], 
@@ -97,6 +111,7 @@ class MLTrainer(ABC):
         pipe = Pipeline([('preprocessor', preprocessor), 
                         ('model', clf)])
         return pipe
+    
     def generate_hyperparameter_space(self, hyperopts: List[dict]) -> dict:
         """Returns a dict of hyper-parameters expression map
 
@@ -122,38 +137,9 @@ class MLTrainer(ABC):
             space[name] = self.hyperopts_expressions_map[f"hp_{exp_type}"](name, **expression_)
         return space
 
-    @abstractmethod
-    def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
-        pass
-    @abstractmethod
-    def plot_diagnostics(self, connector: Connector,
-                        session,
-                        model, 
-                        stage_name: str, 
-                        x: pd.DataFrame, 
-                        y: pd.DataFrame, 
-                        figure_names: dict, 
-                        label_column: str):
-        pass
-    @abstractmethod
-    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
-        pass
-    @abstractmethod
-    def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
-        pass
-    @abstractmethod
-    def prepare_feature_table(self, connector, session, feature_table_name, label_table_name):
-        pass
-
-@dataclass
-class ClassificationTrainer(MLTrainer):
-    label_value: Union[str,int,float]
-    evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
-    models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}        
-    def prepare_feature_table(self, connector: Connector,
-                            session,
+    def prepare_feature_table(self, connector: Connector, session,
                             feature_table_name: str, 
-                            label_table_name: str) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
+                            label_table_name: str) -> snowflake.snowpark.Table:
         """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
 
         Args:
@@ -189,7 +175,43 @@ class ClassificationTrainer(MLTrainer):
         except Exception as e:
             print("Exception occured while preparing feature table. Please check the logs for more details")
             raise e
-        
+
+    @abstractmethod
+    def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
+        pass
+
+    @abstractmethod
+    def plot_diagnostics(self, connector: Connector, session,
+                        model, 
+                        stage_name: str, 
+                        x: pd.DataFrame, 
+                        y: pd.DataFrame, 
+                        figure_names: dict, 
+                        label_column: str):
+        pass
+
+    @abstractmethod
+    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
+        pass
+
+    @abstractmethod
+    def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
+        pass
+
+class ClassificationTrainer(MLTrainer):
+
+    evalution_metrics_map = {metric.__name__: metric for metric in [average_precision_score, precision_recall_fscore_support]}
+    models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}  
+
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
+        self.figure_names = {
+            "roc-auc-curve": f"01-test-roc-auc-{self.output_profiles_ml_model}.png",
+            "pr-auc-curve": f"02-test-pr-auc-{self.output_profiles_ml_model}.png",
+            "lift-chart": f"03-test-lift-chart-{self.output_profiles_ml_model}.png",
+            "feature-importance-chart": f"04-feature-importance-chart-{self.output_profiles_ml_model}.png"
+        }
+
     def build_model(self, X_train:pd.DataFrame, 
                     y_train:pd.DataFrame,
                     X_val:pd.DataFrame, 
@@ -236,7 +258,7 @@ class ClassificationTrainer(MLTrainer):
 
         clf = model_class(**best_hyperparams, **model_config["modelparams"])
         return clf, trials
-
+    
     def select_best_model(self, models, train_x, train_y, val_x, val_y):
         """
         Selects the best classifier model based on the given list of models and their configurations.
@@ -253,13 +275,15 @@ class ClassificationTrainer(MLTrainer):
         best_acc = 0
         for model_config in models:
             name = model_config["name"]
-            print(f"Training {name}")
 
-            clf, trials = self.build_model(train_x, train_y, val_x, val_y, self.models_map[name], model_config)
+            if name in self.models_map.keys():
+                print(f"Training {name}")
 
-            if best_acc < max([ -1*loss for loss in trials.losses()]):
-                final_clf = clf
-                best_acc = max([ -1*loss for loss in trials.losses()])
+                clf, trials = self.build_model(train_x, train_y, val_x, val_y, self.models_map[name], model_config)
+
+                if best_acc < max([ -1*loss for loss in trials.losses()]):
+                    final_clf = clf
+                    best_acc = max([ -1*loss for loss in trials.losses()])
 
         return final_clf
     
@@ -273,7 +297,8 @@ class ClassificationTrainer(MLTrainer):
         """Plots the diagnostics for the given model
 
         Args:
-            session (snowflake.snowpark.Session): valid snowpark session to access data warehouse
+            Connector (Connector): Connector instance to access data warehouse
+            session: valid snowpark session or redshift cursor to access data warehouse
             model (object): trained model
             stage_name (str): name of the stage
             x (pd.DataFrame): test data features
@@ -296,9 +321,10 @@ class ClassificationTrainer(MLTrainer):
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
         pass
-    
+
     def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config) -> dict:
-        model_metrics, _, prob_th = utils.get_metrics(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
+        model_metrics, _, prob_th = trainer_utils.get_metrics_classifier(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
+        model_metrics['prob_th'] = prob_th
         result_dict = {"output_model_name": self.output_profiles_ml_model,
                        "prob_th": prob_th,
                         "metrics": model_metrics}
@@ -310,17 +336,109 @@ class ClassificationTrainer(MLTrainer):
                                     "threshold": model_results['prob_th']}}
         return training_summary
 
-class RegressionTrainer(MLTrainer):
-    # A different set of evaluation metrics. 
-    evalution_metrics_map = {metric.__name__: metric for metric in [mean_absolute_error, mean_squared_error]}
-    def build_model(self, X_train: pd.DataFrame, y_train: pd.DataFrame, X_val: pd.DataFrame, y_val: pd.DataFrame,
-                    model_config: Dict) -> Tuple:
-        # Implementation for regression model building
-        pass
-    def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
-        # Implementation for regression model selection
-        pass
 
+class RegressionTrainer(MLTrainer):
+
+    evalution_metrics_map = {
+        metric.__name__: metric
+        for metric in [mean_absolute_error, mean_squared_error, r2_score]
+    }
+    
+    models_map = {
+        model.__name__: model
+        for model in [XGBRegressor, RandomForestRegressor, MLPRegressor]
+    }
+
+    def __init__(self,**kwargs):
+        super().__init__(**kwargs)
+        self.figure_names = {}
+
+    def build_model(
+        self,
+        X_train: pd.DataFrame,
+        y_train: pd.DataFrame,
+        X_val: pd.DataFrame,
+        y_val: pd.DataFrame,
+        model_class: Union[XGBRegressor, RandomForestRegressor, MLPRegressor],
+        model_config: Dict,
+    ) -> Tuple:
+        """
+        Returns the regressor with best hyper-parameters after performing hyper-parameter tuning.
+
+        Args:
+            X_train (pd.DataFrame): X_train dataframe
+            y_train (pd.DataFrame): y_train dataframe
+            X_val (pd.DataFrame): X_val dataframe
+            y_val (pd.DataFrame): y_val dataframe
+            model_class: Regressor class to build the model
+            model_config (dict): configurations for the given model
+
+        Returns:
+            Tuple: regressor with best hyper-parameters found out using val_data along with trials info
+        """
+        hyperopt_space = self.generate_hyperparameter_space(
+            model_config["hyperopts"]
+        )
+
+        # We can set evaluation set for XGB Regressor model which we cannot directly configure from the configuration file
+        fit_params = model_config.get("fitparams", {}).copy()
+        if model_class.__name__ == "XGBRegressor":
+            fit_params["eval_set"] = [(X_train, y_train), (X_val, y_val)]
+
+        # Objective method to run for different hyper-parameter space
+        def objective(space):
+            reg = model_class(**model_config["modelparams"], **space)
+            reg.fit(X_train, y_train)
+            pred = reg.predict(X_val)
+            eval_metric_name = model_config["evaluation_metric"]
+            loss = self.evalution_metrics_map[eval_metric_name](y_val, pred)
+
+            return {"loss": loss, "status": STATUS_OK, "config": space}
+
+        trials = Trials()
+        best_hyperparams = fmin(
+            fn=objective,
+            space=hyperopt_space,
+            algo=tpe.suggest,
+            max_evals=model_config["hyperopts_config"]["max_evals"],
+            return_argmin=False,
+            trials=trials,
+        )
+
+        reg = model_class(**best_hyperparams, **model_config["modelparams"])
+        return reg, trials
+    
+    def select_best_model(self, models, train_x, train_y, val_x, val_y):
+        """
+        Selects the best regressor model based on the given list of models and their configurations.
+
+        Args:
+            models (list): A list of dictionaries representing the models to be trained.
+            train_x (pd.DataFrame): The training data features.
+            train_y (pd.DataFrame): The training data labels.
+            val_x (pd.DataFrame): The validation data features.
+            val_y (pd.DataFrame): The validation data labels.
+
+        Returns:
+            final_reg (object): The selected regressor model with the best hyperparameters.
+        """
+        best_loss = float("inf")
+
+        for model_config in models:
+            name = model_config["name"]
+            print(f"Training {name}")
+
+            if name in self.models_map.keys():
+                reg, trials = self.build_model(
+                    train_x, train_y, val_x, val_y, self.models_map[name], model_config
+                )
+
+                if best_loss > min(trials.losses()):
+                    final_reg = reg
+                    best_loss = min(trials.losses())
+
+        return final_reg
+    
     def plot_diagnostics(self, connector: Connector, session, 
                         model, 
                         stage_name: str, 
@@ -330,14 +448,15 @@ class RegressionTrainer(MLTrainer):
                         label_column: str):
         # To implemenet for regression - can be residual plot, binned lift chart adjusted to quantiles etc
         pass
-    
-    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config):
-        # TODO: To implement get_metrics and return metrics
-        pass
+
+    def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config) -> dict:
+        model_metrics = trainer_utils.get_metrics_regressor(model, train_x, train_y, test_x, test_y, val_x, val_y)
+        result_dict = {"output_model_name": self.output_profiles_ml_model,
+                       "prob_th": None,
+                        "metrics": model_metrics}
+        return result_dict
     
     def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
-        pass
-    def prepare_feature_table(self, session,
-                                feature_table_name: str,
-                                label_table_name: str) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
-        pass
+        training_summary ={"timestamp": model_timestamp,
+                           "data": {"metrics": model_results['metrics']}}
+        return training_summary

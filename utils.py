@@ -3,7 +3,7 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, precision_score, recall_score, accuracy_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc, roc_curve, precision_recall_curve
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score, precision_score, recall_score, accuracy_score, average_precision_score,average_precision_score, PrecisionRecallDisplay, RocCurveDisplay, auc, roc_curve, precision_recall_curve , mean_absolute_error, mean_squared_error,r2_score
 from sklearn.model_selection import train_test_split
 import numpy as np 
 import pandas as pd
@@ -54,20 +54,13 @@ class PreprocessorConfig:
             
     
 class TrainerUtils(ABC):
-    """Base class for all utils related to the ML model training - model training, getting metrics, plotting etc 
-    """
-    @abstractmethod
-    def get_metrics(self, model, X_train, y_train, X_test, y_test, X_val, y_val, validation_metric):
-        pass
+
+    evalution_metrics_map_regressor = {
+        metric.__name__: metric
+        for metric in [mean_absolute_error, mean_squared_error,r2_score]
+    }
     
-    @abstractmethod
-    def plot_lift_chart(self):
-        pass
-    
-    def plot_top_k_feature_importance(self):
-        pass
-    
-class ClassifierUtils(TrainerUtils):
+
     def get_classification_metrics(self,
                                    y_true: pd.DataFrame, 
                                    y_pred_proba: np.array, 
@@ -102,7 +95,8 @@ class ClassifierUtils(TrainerUtils):
         Returns:
             Tuple: Returns the metrics at the threshold and that threshold that maximizes f1 score based on y_true and y_pred_proba
         """
-
+        
+        
         metric_functions = {
             'f1_score': f1_score,
             'precision': precision_score,
@@ -121,14 +115,14 @@ class ClassifierUtils(TrainerUtils):
         best_metrics = self.get_classification_metrics(y_true, y_pred_proba, best_th)
         return best_metrics, best_th
     
-    def get_metrics(self, clf,
-                    X_train: pd.DataFrame, 
-                    y_train: pd.DataFrame,
-                    X_test: pd.DataFrame, 
-                    y_test: pd.DataFrame,
-                    X_val: pd.DataFrame, 
-                    y_val: pd.DataFrame,
-                    validation_metric: str) -> Tuple:
+    def get_metrics_classifier(self,clf,
+                X_train: pd.DataFrame, 
+                y_train: pd.DataFrame,
+                X_test: pd.DataFrame, 
+                y_test: pd.DataFrame,
+                X_val: pd.DataFrame, 
+                y_val: pd.DataFrame,
+                train_config: dict) -> Tuple:
         """Generates classification metrics and predictions for train, validation and test data along with the best probability thresold
 
         Args:
@@ -144,7 +138,8 @@ class ClassifierUtils(TrainerUtils):
             Tuple: Returns the classification metrics and predictions for train, validation and test data along with the best probability thresold.
         """
         train_preds = clf.predict_proba(X_train)[:,1]
-        train_metrics, prob_threshold = self.get_best_th(y_train, train_preds,validation_metric)
+        metric_to_optimize = train_config["model_params"]["validation_on"]
+        train_metrics, prob_threshold = self.get_best_th(y_train, train_preds,metric_to_optimize)
 
         test_preds = clf.predict_proba(X_test)[:,1]
         test_metrics = self.get_classification_metrics(y_test, test_preds, prob_threshold)
@@ -155,19 +150,76 @@ class ClassifierUtils(TrainerUtils):
         metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
         predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
         
-        return metrics, predictions, prob_threshold
+        return metrics, predictions, round(prob_threshold, 2)
     
-    def plot_roc_auc_curve(self):
-        pass 
-    
-    def plot_pr_auc_curve(self):
-        pass 
-    
-    def plot_lift_chart(self):
-        pass
-    
-    
+    def get_metrics_regressor(self, model, train_x, train_y, test_x, test_y, val_x, val_y):
+        """
+        Calculate and return regression metrics for the trained model.
 
+        Args:
+            model: The trained regression model.
+            train_x (pd.DataFrame): Training data features.
+            train_y (pd.DataFrame): Training data labels.
+            test_x (pd.DataFrame): Test data features.
+            test_y (pd.DataFrame): Test data labels.
+            val_x (pd.DataFrame): Validation data features.
+            val_y (pd.DataFrame): Validation data labels.
+            train_config (dict): Configuration for training.
+
+        Returns:
+            result_dict (dict): Dictionary containing regression metrics.
+        """
+        train_pred = model.predict(train_x)
+        test_pred = model.predict(test_x)
+        val_pred = model.predict(val_x)
+
+        train_metrics = {}
+        test_metrics = {}
+        val_metrics = {}
+
+        for metric_name, metric_func in self.evalution_metrics_map_regressor.items():
+            train_metrics[metric_name] = float(metric_func(train_y, train_pred))
+            test_metrics[metric_name] = float(metric_func(test_y, test_pred))
+            val_metrics[metric_name] = float(metric_func(val_y, val_pred))
+
+        metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
+
+        return metrics
+    
+def split_train_test(feature_table: snowflake.snowpark.Table, 
+                    label_column: str, 
+                    entity_column: str,
+                    train_size:float, 
+                    val_size: float, 
+                    test_size: float,
+                    isStratify : bool) -> Tuple:
+    """Splits the data in train test and validation according to the their given partition factions.
+
+    Args:
+        feature_table (snowflake.snowpark.Table): feature table from the retrieved material_names tuple
+        label_column (str): name of label column from feature table
+        entity_column (str): name of entity column from feature table
+        output_profiles_ml_model (str): output ml model from model_configs file
+        train_size (float): partition fraction for train data
+        val_size (float): partition fraction for validation data
+        test_size (float): partition fraction for test data
+
+    Returns:
+        Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
+    """
+    feature_df = feature_table.to_pandas()
+    feature_df.columns = feature_df.columns.str.upper()
+    latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
+    X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42,stratify=latest_feature_df[label_column.upper()].values if isStratify else None)
+    X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42,stratify=X_temp[label_column.upper()].values if isStratify else None)
+    train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
+    train_y = X_train[[label_column.upper()]]
+    val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
+    val_y = X_val[[label_column.upper()]]
+    test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
+    test_y = X_test[[label_column.upper()]]
+    return train_x, train_y, test_x, test_y, val_x, val_y
+    
 def remap_credentials(credentials: dict) -> dict:
     """Remaps credentials from profiles siteconfig to the expected format from snowflake session
 
@@ -460,14 +512,15 @@ def merge_lists_to_unique(l1: list, l2: list)-> list:
     """
     return list(set(l1 + l2))
 
-def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str)-> None:
+def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> None:
     """
     Materializes past data for a given date using the 'pb' command-line tool.
 
     Args:
-        output_path (str): The path where the output will be stored.
         features_valid_time (str): The date for which the past data needs to be materialized.
         feature_package_path (str): The path to the feature package.
+        site_config_path (str): path to the siteconfig.yaml file
+        project_folder (str): project folder path to pb_project.yaml file
 
     Returns:
         None.
@@ -476,14 +529,16 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
         materialise_past_data("2022-01-01", "packages/feature_table/models/shopify_user_features", "output/path")
     """
     try:
-        path_components = output_path.split(os.path.sep)
-        output_index = path_components.index('output')
-        pb_proj_dir = os.path.sep.join(path_components[:output_index])
         features_valid_time_unix = int(datetime.strptime(features_valid_time, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
-        args = ["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
+        if project_folder is None:
+            path_components = output_path.split(os.path.sep)
+            output_index = path_components.index('output')
+            project_folder = os.path.sep.join(path_components[:output_index])
+        args = ["pb", "run", "-p", project_folder, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
+        if site_config_path is not None:
+            args.extend(['-c', site_config_path])
         print(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
-        #subprocess.run(["pb", "run", "-m", "packages/feature_table/models/shopify_user_features", "--end_time", str(features_valid_time_unix)])
-        subprocess.run(["pb", "run", "-p", pb_proj_dir, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     except Exception as e:
         print(f"Exception occured while materialising data for date {features_valid_time} ")
         print(e)
@@ -593,7 +648,7 @@ def get_material_names_(session: snowflake.snowpark.Session,
 
 def get_material_names(session: snowflake.snowpark.Session, material_table: str, start_date: str, end_date: str, 
                        package_name: str, features_profiles_model: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
-                       output_filename: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+                       output_filename: str, site_config_path: str, project_folder: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
     """
     Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
     If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
@@ -609,7 +664,8 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
         model_hash (str): The latest model hash.
         material_table_prefix (str): A constant.
         prediction_horizon_days (int): The period of days for prediction horizon.
-        output_filename (str): The name of the output file.
+        site_config_path (str): path to the siteconfig.yaml file
+        project_folder (str): project folder path to pb_project.yaml file
 
     Returns:
         Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
@@ -623,9 +679,9 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
             try:
                 # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
                 feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
-                materialise_past_data(start_date, feature_package_path, output_filename)
+                materialise_past_data(start_date, feature_package_path, output_filename, site_config_path, project_folder)
                 start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
-                materialise_past_data(start_date_label, feature_package_path, output_filename)
+                materialise_past_data(start_date_label, feature_package_path, output_filename, site_config_path, project_folder)
                 material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
                 if len(material_names) == 0:
                     raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")

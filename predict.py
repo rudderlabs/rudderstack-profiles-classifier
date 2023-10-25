@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from typing import Any
+from logger import logger
 from xgboost import XGBClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
@@ -23,6 +24,7 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 import snowflake.snowpark
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
+from snowflake.snowpark.window import Window
 from snowflake.snowpark.session import Session
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -144,6 +146,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     latest_seq_no = connector.get_latest_seq_no(latest_hash_df)
     raw_data = connector.get_table(session, f"{material_table_prefix}{features_profiles_model}_{latest_model_hash}_{latest_seq_no}")
 
+    raw_data = session.table(f"{features_profiles_model}")
+
     if eligible_users:
         raw_data = connector.filter_columns(raw_data, eligible_users)
         
@@ -193,7 +197,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None
         output_folder = 'output/dev/seq_no/7'

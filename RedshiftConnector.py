@@ -506,6 +506,8 @@ class RedshiftConnector(Connector):
         for column in table.columns:
             if table[column].dtype == 'super':
                 arraytype_features.append(column)
+        # arraytype_features = ['TOTAL_PRODUCTS_ADDED', 'PRODUCTS_ADDED_IN_PAST_1_DAYS', 'ITEMS_PURCHASED_EVER', 'PRODUCTS_ADDED_IN_PAST_365_DAYS', 'PRODUCTS_ADDED_IN_PAST_7_DAYS']
+        # arraytype_features = [col.lower() for col in arraytype_features]
         return arraytype_features
 
     def generate_type_hint(self, df: pd.DataFrame):        
@@ -538,10 +540,12 @@ class RedshiftConnector(Connector):
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
         
-        timestamp_columns = []
-        for col in table.columns:
-            if table[col].dtype == 'datetime64[ns]':
-                timestamp_columns.append(col)
+        # timestamp_columns = []
+        # for col in table.columns:
+        #     # if table[col].dtype == 'datetime':
+        #     if str(table[col].dtype).startswith('datetime'):
+        #         timestamp_columns.append(col)
+        timestamp_columns = ['first_seen_date', 'last_seen_date']
         return timestamp_columns
     
     def call_prediction_procedure(self, predict_data: pd.DataFrame, prediction_procedure: Any, entity_column: str, index_timestamp: str,

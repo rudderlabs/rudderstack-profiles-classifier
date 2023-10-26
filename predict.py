@@ -64,14 +64,14 @@ def load_model(filename: str):
         return m
 
 def predict_helper(df: pd.DataFrame, model_name: str) -> Any:
-    trained_model = load_model(model_name)
-    # change the columns to uppercase
-    df.columns = [x.upper() for x in df.columns]
-    categorical_columns = list(df.select_dtypes(include='object'))
-    numeric_columns = list(df.select_dtypes(exclude='object'))
-    df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-    df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
-    return trained_model.predict_proba(df)[:,1]
+        trained_model = load_model(model_name)
+        # change the columns to uppercase
+        df.columns = [x.upper() for x in df.columns]
+        categorical_columns = list(df.select_dtypes(include='object'))
+        numeric_columns = list(df.select_dtypes(exclude='object'))
+        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
+        return trained_model.predict_proba(df)[:,1]
 
 def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_tablename : str, config: dict) -> None:
     """Generates the prediction probabilities and save results for given model_path
@@ -165,6 +165,9 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
                  
     features = input.columns
 
+    # categorical_columns = list(df.select_dtypes(include='object'))
+    # numeric_columns = list(df.select_dtypes(exclude='object'))
+
     if creds['type'] == 'snowflake':
         @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
                 stage_location=stage_name, name=udf_name, 
@@ -177,8 +180,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         
         prediction_procedure = predict_scores
     elif creds['type'] == 'redshift':
-        def predict_scores_rs(df: types) -> pd.Series:
-            df = df[features]
+        def predict_scores_rs(df: pd.DataFrame) -> pd.Series:
+            df.columns = features
             predict_proba = predict_helper(df, model_name)
             return predict_proba
         prediction_procedure = predict_scores_rs

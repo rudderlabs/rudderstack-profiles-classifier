@@ -332,11 +332,11 @@ def delete_import_files(session: snowflake.snowpark.Session,
 
 def delete_procedures(session: snowflake.snowpark.Session, train_procedure: str) -> None:
     """
-    Deletes Snowflake train procedures based on a given name pattern.
+    Deletes Snowflake train procedures based on a given name.
 
     Args:
         session (snowflake.snowpark.Session): A Snowflake session object.
-        train_procedure (str): The name pattern of the train procedures to be deleted.
+        train_procedure (str): The name of the train procedures to be deleted.
 
     Returns:
         None
@@ -345,17 +345,16 @@ def delete_procedures(session: snowflake.snowpark.Session, train_procedure: str)
         session = snowflake.snowpark.Session(...)
         delete_procedures(session, 'train_model')
 
-    This function retrieves a list of procedures that match the given train procedure name pattern using a SQL query. 
-    It then iterates over each procedure and attempts to drop it using another SQL query. If an error occurs during the drop operation, it is ignored.
+    This function retrieves a list of procedures that match the given train procedure name using a SQL query. 
+    It then iterates over each procedure and attempts to drop it using another SQL query. If an error occurs during the drop operation, it throws an exception.
     """
-    procedures = session.sql(f"show procedures like '{train_procedure}%'").collect()
+    procedures = session.sql(f"show procedures like '{train_procedure}'").collect()
     for row in procedures:
         try:
-            words = row.arguments.split(' ')[:-2]
-            procedure_arguments = ' '.join(words)
+            procedure_arguments = row.arguments.split('RETURN')[0].strip()
             session.sql(f"drop procedure if exists {procedure_arguments}").collect()
         except:
-            pass
+            raise Exception(f"Error while deleting procedure {row.name}")
 
 def get_column_names(onehot_encoder: OneHotEncoder, 
                      col_names: List[str]) -> List[str]:

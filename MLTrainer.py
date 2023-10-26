@@ -183,6 +183,10 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str, label_ts_col: str):
+        pass
+
+    @abstractmethod
     def plot_diagnostics(self, connector: Connector, session,
                         model, 
                         stage_name: str, 
@@ -289,7 +293,7 @@ class ClassificationTrainer(MLTrainer):
 
         return final_clf
 
-    def prepare_feature_table(self, connector: Connector, session, label_table_name: str, label_ts_col: str):
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str, label_ts_col: str):
         return connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, self.label_value, label_ts_col)
 
     def plot_diagnostics(self, connector: Connector, session,
@@ -444,7 +448,7 @@ class RegressionTrainer(MLTrainer):
 
         return final_reg
     
-    def prepare_feature_table(self, connector: Connector, session, label_table_name: str, label_ts_col: str):
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str, label_ts_col: str):
         return connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, None, label_ts_col)
 
     def plot_diagnostics(self, connector: Connector, session, 

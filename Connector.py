@@ -7,7 +7,6 @@ import utils
 
 
 class Connector(ABC):
-    @abstractmethod
     def remap_credentials(self, credentials: dict) -> dict:
         """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses
 

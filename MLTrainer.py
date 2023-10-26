@@ -163,7 +163,8 @@ class MLTrainer(ABC):
                 timestamp_columns = connector.get_timestamp_columns(session, feature_table_name, self.index_timestamp)
             for col in timestamp_columns:
                 feature_table = connector.add_days_diff(feature_table, col, col, self.index_timestamp)
-            label_table = connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, self.label_value, label_ts_col)
+            # label_table = connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, self.label_value, label_ts_col)
+            label_table = self.prepare_label_table(connector, session, label_table_name, label_ts_col)
             uppercase_list = lambda names: [name.upper() for name in names]
             lowercase_list = lambda names: [name.lower() for name in names]
             ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
@@ -287,7 +288,10 @@ class ClassificationTrainer(MLTrainer):
                     best_acc = max([ -1*loss for loss in trials.losses()])
 
         return final_clf
-    
+
+    def prepare_feature_table(self, connector: Connector, session, label_table_name: str, label_ts_col: str):
+        return connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, self.label_value, label_ts_col)
+
     def plot_diagnostics(self, connector: Connector, session,
                         model, 
                         stage_name: str, 
@@ -440,6 +444,9 @@ class RegressionTrainer(MLTrainer):
 
         return final_reg
     
+    def prepare_feature_table(self, connector: Connector, session, label_table_name: str, label_ts_col: str):
+        return connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, None, label_ts_col)
+
     def plot_diagnostics(self, connector: Connector, session, 
                         model, 
                         stage_name: str, 

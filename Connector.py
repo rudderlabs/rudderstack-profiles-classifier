@@ -1,21 +1,35 @@
 import pandas as pd
-import snowflake.snowpark
 
 from abc import ABC, abstractmethod
 from typing import Any, List, Tuple, Union
 
+import utils
+
 
 class Connector(ABC):
     @abstractmethod
-    def build_session(self, creds: dict):
-        pass
+    def remap_credentials(self, credentials: dict) -> dict:
+        """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses
+
+        Args:
+            credentials (dict): Data warehouse credentials from profiles siteconfig
+
+        Returns:
+            dict: Data warehouse creadentials remapped in format that is required to create a connection to warehouse
+        """
+        new_creds = {k if k != 'dbname' else 'database': v for k, v in credentials.items() if k != 'type'}
+        return new_creds
 
     @abstractmethod
-    def run_query(self, session, query: str) -> Any:
+    def build_session(self, credentials: dict):
         pass
 
     @abstractmethod
     def join_file_path(self, file_name: str) -> str:
+        pass
+
+    @abstractmethod
+    def run_query(self, session, query: str) -> Any:
         pass
     
     @abstractmethod
@@ -31,6 +45,10 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def write_pandas(self, df: pd.DataFrame, table_name: str, auto_create_table: bool, overwrite: bool) -> Any:
+        pass
+
+    @abstractmethod
     def label_table(self, session,
                     label_table_name: str, label_column: str, entity_column: str, index_timestamp: str,
                     label_value: Union[str,int,float], label_ts_col: str):
@@ -38,10 +56,6 @@ class Connector(ABC):
 
     @abstractmethod
     def save_file(self, session, file_name: str, stage_name: str, overwrite: bool) -> Any:
-        pass
-
-    @abstractmethod
-    def write_pandas(self, df: pd.DataFrame, table_name: str, auto_create_table: bool, overwrite: bool) -> Any:
         pass
 
     @abstractmethod
@@ -67,23 +81,35 @@ class Connector(ABC):
     @abstractmethod
     def get_material_names(self, session, material_table: str, start_date: str, end_date: str, 
                         package_name: str, model_name: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
-                        output_filename: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+                        output_filename: str, site_config_path: str, project_folder: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+        pass
+
+    @abstractmethod
+    def get_material_registry_name(self, session, table_prefix: str) -> str:
         pass
 
     @abstractmethod
     def get_latest_material_hash(self, session, material_table: str, model_name:str) -> Tuple:
         pass
-    
+
     @abstractmethod
-    def filter_columns(self, table, column_element: str):
-        pass
-    
-    @abstractmethod
-    def drop_cols(self, table, col_list: List):
+    def fetch_staged_file(self, session, stage_name: str, file_name: str, target_folder: str)-> None:
         pass
 
     @abstractmethod
-    def add_days_diff(self, table, new_col: str, time_col_1: str, time_col_2: str):
+    def filter_columns(self, table, column_element: str):
+        pass
+
+    @abstractmethod
+    def drop_cols(self, table, col_list: list):
+        pass
+
+    @abstractmethod
+    def sort_feature_table(self, feature_table, entity_column: str, index_timestamp: str):
+        pass
+
+    @abstractmethod
+    def add_days_diff(self, table, new_col, time_col_1, time_col_2):
         pass
 
     @abstractmethod

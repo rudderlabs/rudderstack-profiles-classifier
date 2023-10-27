@@ -32,11 +32,11 @@ class Connector(ABC):
         pass
     
     @abstractmethod
-    def get_table(self, session, table_name: str):
+    def get_table(self, session, table_name: str, **kwargs):
         pass
     
     @abstractmethod
-    def get_table_as_dataframe(self, session, table_name: str) -> pd.DataFrame:
+    def get_table_as_dataframe(self, session, table_name: str, **kwargs) -> pd.DataFrame:
         pass
 
     @abstractmethod
@@ -93,10 +93,6 @@ class Connector(ABC):
 
     @abstractmethod
     def fetch_staged_file(self, session, stage_name: str, file_name: str, target_folder: str)-> None:
-        pass
-
-    @abstractmethod
-    def filter_columns(self, table, column_element: str):
         pass
 
     @abstractmethod

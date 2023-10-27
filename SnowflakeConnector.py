@@ -58,7 +58,7 @@ class SnowflakeConnector(Connector):
         """
         return session.sql(query).collect()
 
-    def get_table(self, session: snowflake.snowpark.Session, table_name: str) -> snowflake.snowpark.Table:
+    def get_table(self, session: snowflake.snowpark.Session, table_name: str, **kwargs) -> snowflake.snowpark.Table:
         """Fetches the table with the given name from the snowpark session as a snowpark table object
 
         Args:
@@ -68,9 +68,13 @@ class SnowflakeConnector(Connector):
         Returns:
             table (snowflake.snowpark.Table): The table as a snowpark table object
         """
-        return session.table(table_name)
+        filter_condition = kwargs.get('filter_condition', None)
+        table = session.table(table_name)
+        if filter_condition:
+            table = self.filter_table(table, filter_condition)
+        return table
 
-    def get_table_as_dataframe(self, session: snowflake.snowpark.Session, table_name: str) -> pd.DataFrame:
+    def get_table_as_dataframe(self, session: snowflake.snowpark.Session, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the snowpark session as a pandas Dataframe object
 
         Args:
@@ -80,7 +84,7 @@ class SnowflakeConnector(Connector):
         Returns:
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
-        return self.get_table(session, table_name).toPandas()
+        return self.get_table(session, table_name, **kwargs).toPandas()
 
     def write_table(self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs) -> None:
         """Writes the given snowpark table object to the snowpark session with the name as the given name
@@ -334,7 +338,6 @@ class SnowflakeConnector(Connector):
         registry_df = self.run_query(session, f"show tables starts with '{table_prefix}'")
         for row in registry_df:
             material_registry_tables.append(row.name)
-        # material_registry_tables.sort(reverse=True)
         sorted_material_registry_tables = sorted(material_registry_tables, key=split_key, reverse=True)
         return sorted_material_registry_tables[0]
 
@@ -378,7 +381,7 @@ class SnowflakeConnector(Connector):
                 shutil.copyfileobj(gz_file, target_file)
         os.remove(input_file_path)
 
-    def filter_columns(self, table: snowflake.snowpark.Table, column_element: str) -> snowflake.snowpark.Table:
+    def filter_table(self, table: snowflake.snowpark.Table, filter_condition: str) -> snowflake.snowpark.Table:
         """
         Filters the given table based on the given column element.
 
@@ -389,7 +392,7 @@ class SnowflakeConnector(Connector):
         Returns:
             The filtered table as a snowpark table object.
         """
-        return table.filter(column_element)
+        return table.filter(filter_condition)
 
     def drop_cols(self, table: snowflake.snowpark.Table, col_list: list) -> snowflake.snowpark.Table:
         """

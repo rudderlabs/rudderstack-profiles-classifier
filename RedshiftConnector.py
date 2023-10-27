@@ -61,7 +61,7 @@ class RedshiftConnector(Connector):
         cursor.execute(query)
         return cursor.fetchall()
 
-    def get_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str) -> pd.DataFrame:
+    def get_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
 
         Args:
@@ -71,9 +71,9 @@ class RedshiftConnector(Connector):
         Returns:
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
-        return self.get_table_as_dataframe(cursor, table_name)
+        return self.get_table_as_dataframe(cursor, table_name, **kwargs)
 
-    def get_table_as_dataframe(self, cursor: redshift_connector.cursor.Cursor, table_name: str) -> pd.DataFrame:
+    def get_table_as_dataframe(self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
 
         Args:
@@ -83,7 +83,11 @@ class RedshiftConnector(Connector):
         Returns:
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
-        cursor.execute(f"select * from \"{table_name.lower()}\";")
+        filter_condition = kwargs.get("filter_condition", "")
+        if filter_condition:
+            cursor.execute(f"SELECT * FROM \"{table_name.lower()}\" WHERE {filter_condition};")
+        else:
+            cursor.execute(f"SELECT * FROM \"{table_name.lower()}\";")
         return cursor.fetch_dataframe()
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
@@ -97,9 +101,7 @@ class RedshiftConnector(Connector):
             Nothing
         """
         s3_config = kwargs.get("s3_config")
-        Path(local_folder).mkdir(parents=True, exist_ok=True)
-        table_path = os.path.join(local_folder, f"{table_name}.parquet.gzip")
-        df.to_parquet(table_path, compression='gzip')
+        self.write_table_locally(df, table_name)
         self.write_pandas(df, table_name, s3_config=s3_config)
 
     def write_pandas(self, df: pd.DataFrame, table_name_remote: str, **kwargs) -> None:
@@ -302,19 +304,6 @@ class RedshiftConnector(Connector):
         """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
         pass
 
-    def filter_columns(self, table: pd.DataFrame, column_element: str) -> pd.DataFrame:
-        """
-        Filters the given table based on the given column element.
-
-        Args:
-            table (pd.DataFrame): The table to be filtered.
-            column_element (str): The name of the column to be used for filtering.
-
-        Returns:
-            The filtered table as a Pandas DataFrame object.
-        """
-        return table.filter(items = [column_element])
-
     def drop_cols(self, table: pd.DataFrame, col_list: list) -> pd.DataFrame:
         """
         Drops the columns in the given list from the given table.
@@ -475,3 +464,17 @@ class RedshiftConnector(Connector):
             material_names.append((utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["feature_seq_no"])), utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["label_seq_no"]))))
             training_dates.append((str(row["feature_end_ts"]), str(row["label_end_ts"])))
         return material_names, training_dates
+
+    def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:
+        """Writes the given pandas dataframe to the local storage with the given name.
+
+        Args:
+            df (pd.DataFrame): Pandas dataframe to be written to the local storage
+            table_name (str): Name with which the dataframe is to be written to the local storage
+
+        Returns:
+            Nothing
+        """
+        Path(local_folder).mkdir(parents=True, exist_ok=True)
+        table_path = os.path.join(local_folder, f"{table_name}.parquet.gzip")
+        df.to_parquet(table_path, compression='gzip')

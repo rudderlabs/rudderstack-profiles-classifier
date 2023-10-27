@@ -278,7 +278,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                                               trainer.prediction_horizon_days,
                                                               output_filename,
                                                               site_config_path,
-                                                              project_folder)
+                                                              project_folder,
+                                                              trainer.inputs)
  
     feature_table = None
     for row in material_names:
@@ -329,8 +330,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     model_timestamp = datetime.utcfromtimestamp(int(model_id)).strftime('%Y-%m-%dT%H:%M:%SZ')
     summary = trainer.prepare_training_summary(train_results, model_timestamp)
     json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))
-    logger.info("Fetching visualisations to local")
-    for figure_name in figure_names.values():
+    logger.debug("Fetching visualisations to local")
+    for figure_name in trainer.figure_names.values():
         try:
             connector.fetch_staged_file(session, stage_name, figure_name, target_path)
         except:
@@ -350,6 +351,7 @@ if __name__ == "__main__":
 
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
+    logger.setLevel(logger.logging.DEBUG)
 
     project_folder = '/Users/admin/Desktop/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        

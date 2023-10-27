@@ -111,6 +111,8 @@ def train_and_store_model_results_rs(feature_table_name: str,
     session = kwargs.get("session")
     connector = kwargs.get("connector")
     trainer = kwargs.get("trainer")
+    if session == None or connector == None or trainer == None:
+        raise ValueError("session, connector and trainer are required in kwargs for training in Redshift")
     model_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_file_name}")
     feature_df_path = os.path.join(local_folder, f"{feature_table_name}.parquet.gzip")
     feature_df = pd.read_parquet(feature_df_path)

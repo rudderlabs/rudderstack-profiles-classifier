@@ -316,7 +316,7 @@ class RedshiftConnector(Connector):
         """
         return table.drop(columns = col_list)
 
-    def sort_feature_table(self, feature_table: pd.DataFrame, entity_column: str, index_timestamp: str) -> pd.DataFrame:
+    def filter_feature_table(self, feature_table: pd.DataFrame, entity_column: str, index_timestamp: str, max_row_count: int) -> pd.DataFrame:
         """
         Sorts the given feature table based on the given entity column and index timestamp.
 
@@ -328,7 +328,10 @@ class RedshiftConnector(Connector):
         Returns:
             The sorted feature table as a Pandas DataFrame object.
         """
-        return feature_table.sort_values(by=[entity_column, index_timestamp], ascending=[True, False]).drop(columns=[index_timestamp])
+        feature_table["row_num"] = feature_table.groupby(entity_column).cumcount() + 1
+        feature_table = feature_table[feature_table["row_num"] == 1]
+        feature_table = feature_table.sort_values(by=[entity_column, index_timestamp], ascending=[True, False]).drop(columns=['row_num', index_timestamp])
+        return feature_table.groupby(entity_column).head(max_row_count)
 
     def add_days_diff(self, table: pd.DataFrame, new_col: str, time_col_1: str, time_col_2: str) -> pd.DataFrame:
         """

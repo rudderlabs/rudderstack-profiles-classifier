@@ -6,10 +6,11 @@ import pandas as pd
 from typing import Any, List, Tuple, Union
 
 import snowflake.snowpark
-from snowflake.snowpark.session import Session
-from snowflake.snowpark.functions import col
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
+from snowflake.snowpark.window import Window
+from snowflake.snowpark.functions import col
+from snowflake.snowpark.session import Session
 
 import utils
 import constants
@@ -407,7 +408,7 @@ class SnowflakeConnector(Connector):
         """
         return table.drop(col_list)
 
-    def sort_feature_table(self, feature_table: snowflake.snowpark.Table, entity_column: str, index_timestamp: str) -> snowflake.snowpark.Table:
+    def filter_feature_table(self, feature_table: snowflake.snowpark.Table, entity_column: str, index_timestamp: str, max_row_count: int) -> snowflake.snowpark.Table:
         """
         Sorts the given feature table based on the given entity column and index timestamp.
 
@@ -419,7 +420,10 @@ class SnowflakeConnector(Connector):
         Returns:
             The sorted feature table as a snowpark table object.
         """
-        return feature_table.sort(col(entity_column).asc(), col(index_timestamp).desc()).drop([index_timestamp])
+        table = feature_table.withColumn('row_num', F.row_number().over(Window.partition_by(F.col(entity_column)).order_by(
+                                                        F.col(index_timestamp).desc()))).filter(F.col('row_num') == 1).drop(
+                                                            ['row_num', index_timestamp]).sample(n = int(max_row_count))
+        return table
 
     def add_days_diff(self, table: snowflake.snowpark.Table, new_col, time_col_1, time_col_2) -> snowflake.snowpark.Table:
         """

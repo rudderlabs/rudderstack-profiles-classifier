@@ -37,6 +37,8 @@ class MLTrainer(ABC):
                  train_start_dt: str,
                  train_end_dt: str,
                  prediction_horizon_days: int,
+                 inputs: List[str],
+                 max_row_count: int,
                  prep: utils.PreprocessorConfig):
         self.label_value = label_value
         self.label_column = label_column
@@ -49,6 +51,8 @@ class MLTrainer(ABC):
         self.train_start_dt = train_start_dt
         self.train_end_dt = train_end_dt
         self.prediction_horizon_days = prediction_horizon_days
+        self.inputs = inputs
+        self.max_row_count = max_row_count
         self.prep = prep
     hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}    
     
@@ -294,7 +298,11 @@ class ClassificationTrainer(MLTrainer):
         return final_clf
 
     def prepare_label_table(self, connector: Connector, session, label_table_name: str, label_ts_col: str):
-        return connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, self.label_value, label_ts_col)
+        label_table = connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, self.label_value, label_ts_col)
+        distinct_values = label_table.select(self.label_column).distinct().collect()
+        if len(distinct_values) == 1:
+            raise ValueError(f"Only one value of label column found in label table. Please check if the label column is correct. Label column: {self.label_column}")
+        return label_table
 
     def plot_diagnostics(self, connector: Connector, session,
                         model, 

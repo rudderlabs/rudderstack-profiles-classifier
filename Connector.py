@@ -100,7 +100,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def sort_feature_table(self, feature_table, entity_column: str, index_timestamp: str):
+    def filter_feature_table(self, feature_table, entity_column: str, index_timestamp: str, max_row_count: int):
         pass
 
     @abstractmethod

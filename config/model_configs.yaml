@@ -51,6 +51,7 @@ preprocessing:
       - name: OneHotEncoder
         handle_unknown: ignore
         sparse: False
+        max_categories: 5 # perform onehot encoding by keeping maximum of these categories per feature. If None, all categories are kept.
   feature_selectors:
     # Feature selectors that get applied after normalizing is done. Has to be from `VarianceThreshold`, `GenericUnivariateSelect`, `chi2`, `f_classif`
     # ToDo: This section is not implemented in the notebook.

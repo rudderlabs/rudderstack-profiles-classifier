@@ -209,8 +209,7 @@ def split_train_test(feature_table: snowflake.snowpark.Table,
     """
     feature_df = feature_table.to_pandas()
     feature_df.columns = feature_df.columns.str.upper()
-    latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
-    X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42,stratify=latest_feature_df[label_column.upper()].values if isStratify else None)
+    X_train, X_temp = train_test_split(feature_df, train_size=train_size, random_state=42,stratify=feature_df[label_column.upper()].values if isStratify else None)
     X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42,stratify=X_temp[label_column.upper()].values if isStratify else None)
     train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
     train_y = X_train[[label_column.upper()]]
@@ -332,11 +331,11 @@ def delete_import_files(session: snowflake.snowpark.Session,
 
 def delete_procedures(session: snowflake.snowpark.Session, train_procedure: str) -> None:
     """
-    Deletes Snowflake train procedures based on a given name pattern.
+    Deletes Snowflake train procedures based on a given name.
 
     Args:
         session (snowflake.snowpark.Session): A Snowflake session object.
-        train_procedure (str): The name pattern of the train procedures to be deleted.
+        train_procedure (str): The name of the train procedures to be deleted.
 
     Returns:
         None
@@ -345,17 +344,16 @@ def delete_procedures(session: snowflake.snowpark.Session, train_procedure: str)
         session = snowflake.snowpark.Session(...)
         delete_procedures(session, 'train_model')
 
-    This function retrieves a list of procedures that match the given train procedure name pattern using a SQL query. 
-    It then iterates over each procedure and attempts to drop it using another SQL query. If an error occurs during the drop operation, it is ignored.
+    This function retrieves a list of procedures that match the given train procedure name using a SQL query. 
+    It then iterates over each procedure and attempts to drop it using another SQL query. If an error occurs during the drop operation, it throws an exception.
     """
-    procedures = session.sql(f"show procedures like '{train_procedure}%'").collect()
+    procedures = session.sql(f"show procedures like '{train_procedure}'").collect()
     for row in procedures:
         try:
-            words = row.arguments.split(' ')[:-2]
-            procedure_arguments = ' '.join(words)
+            procedure_arguments = row.arguments.split('RETURN')[0].strip()
             session.sql(f"drop procedure if exists {procedure_arguments}").collect()
         except:
-            pass
+            raise Exception(f"Error while deleting procedure {row.name}")
 
 def get_column_names(onehot_encoder: OneHotEncoder, 
                      col_names: List[str]) -> List[str]:

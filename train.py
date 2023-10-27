@@ -31,6 +31,7 @@ from snowflake.snowpark.functions import sproc
 import snowflake.snowpark
 from snowflake.snowpark.functions import col
 import snowflake.snowpark.functions as F
+from snowflake.snowpark.window import Window
 
 
 from logger import logger
@@ -67,6 +68,7 @@ class MLTrainer(ABC):
                  train_end_dt: str,
                  prediction_horizon_days: int,
                  inputs: List[str],
+                 max_row_count: int,
                  prep: utils.PreprocessorConfig):
         self.label_value = label_value
         self.label_column = label_column
@@ -80,6 +82,7 @@ class MLTrainer(ABC):
         self.train_end_dt = train_end_dt
         self.prediction_horizon_days = prediction_horizon_days
         self.inputs = inputs
+        self.max_row_count = max_row_count
         self.prep = prep
     hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}    
     def get_preprocessing_pipeline(self, numeric_columns: List[str], 
@@ -585,7 +588,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         models = train_config["model_params"]["models"]
         model_id = str(int(time.time()))
 
-
         isStratify = True if prediction_task == 'classification' else False 
 
         feature_table = session.table(feature_table_name)
@@ -669,8 +671,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             feature_table = feature_table.unionAllByName(feature_table_instance)
 
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
-    sorted_feature_table = feature_table.sort(col(trainer.entity_column).asc(), col(trainer.index_timestamp).desc()).drop([trainer.index_timestamp])
-    sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
+    filtered_feature_table = feature_table.withColumn('row_num', F.row_number().over(Window.partition_by(F.col(trainer.entity_column)).order_by(
+                                                        F.col(trainer.index_timestamp).desc()))).filter(F.col('row_num') == 1).drop(
+                                                            ['row_num', trainer.index_timestamp]).sample(n = int(trainer.max_row_count))
+    filtered_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
     logger.info("Training and fetching the results")
     try:
         train_results_json = session.call(train_procedure, 

@@ -59,7 +59,6 @@ class RedshiftConnector(Connector):
             Results of the query run on the Redshift connection
         """
         cursor.execute(query)
-        return cursor.fetchall()
 
     def get_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object

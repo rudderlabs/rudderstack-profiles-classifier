@@ -28,7 +28,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def run_query(self, session, query: str) -> Any:
+    def run_query(self, session, query: str) -> Union[Any, None]:
         pass
     
     @abstractmethod

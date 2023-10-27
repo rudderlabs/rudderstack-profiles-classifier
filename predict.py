@@ -2,7 +2,6 @@ import os
 import sys
 import yaml
 import json
-import typing
 import joblib
 import datetime
 import warnings
@@ -11,7 +10,6 @@ import numpy as np
 import pandas as pd
 
 from typing import Any
-from logger import logger
 from xgboost import XGBClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
@@ -24,8 +22,6 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 import snowflake.snowpark
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
-from snowflake.snowpark.window import Window
-from snowflake.snowpark.session import Session
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -63,12 +59,18 @@ def load_model(filename: str):
         m = joblib.load(file)
         return m
 
-def predict_helper(df: pd.DataFrame, model_name: str) -> Any:
+def predict_helper(df: pd.DataFrame, model_name: str, **kwargs) -> Any:
         trained_model = load_model(model_name)
-        # change the columns to uppercase
         df.columns = [x.upper() for x in df.columns]
-        categorical_columns = list(df.select_dtypes(include='object'))
-        numeric_columns = list(df.select_dtypes(exclude='object'))
+        column_names_path = kwargs.get("column_names_path", None)
+        if column_names_path:
+            with open(column_names_path, "r") as f:
+                column_names = json.load(f)
+                categorical_columns = column_names["categorical_columns"]
+                numeric_columns = column_names["numeric_columns"]
+        else:
+            categorical_columns = list(df.select_dtypes(include='object'))
+            numeric_columns = list(df.select_dtypes(exclude='object'))
         df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
         df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
         return trained_model.predict_proba(df)[:,1]
@@ -121,8 +123,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     for file in import_files:
         import_paths.append(os.path.join(current_dir, file))
 
-    # model_name = f"{output_profiles_ml_model}_{model_file_name}"
-    model_name = f"{model_file_name}"
+    model_name = f"{output_profiles_ml_model}_{model_file_name}"
+    column_names_path = f"{output_profiles_ml_model}_{train_model_id}_column_names.json"
 
     if creds["type"] == "snowflake":
         udf_name = "prediction_score"
@@ -141,12 +143,11 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     if latest_model_hash != train_model_hash:
         raise ValueError(f"Model hash {train_model_hash} does not match with the latest model hash {latest_model_hash} in the material registry table. Please retrain the model")
 
-    raw_data = connector.get_table(session, f"{features_profiles_model}")
-    print(f"{features_profiles_model}")
-
     if eligible_users:
-        raw_data = connector.filter_columns(raw_data, eligible_users)
-        
+        raw_data = connector.get_table(session, f"{features_profiles_model}", filter_condition=eligible_users)
+    else:
+        raw_data = connector.get_table(session, f"{features_profiles_model}")
+
     arraytype_features = connector.get_arraytype_features_from_table(raw_data)
     ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_features)
     predict_data = connector.drop_cols(raw_data, ignore_features)
@@ -156,7 +157,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     for col in timestamp_columns:
         predict_data = connector.add_days_diff(predict_data, col, col, index_timestamp)
 
-    # input  = predict_data.drop(label_column, entity_column, index_timestamp)
     input = connector.drop_cols(predict_data, [label_column, entity_column, index_timestamp])
     types = connector.generate_type_hint(input)
 
@@ -164,9 +164,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     print("Caching")
                  
     features = input.columns
-
-    # categorical_columns = list(df.select_dtypes(include='object'))
-    # numeric_columns = list(df.select_dtypes(exclude='object'))
 
     if creds['type'] == 'snowflake':
         @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
@@ -180,15 +177,14 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         
         prediction_procedure = predict_scores
     elif creds['type'] == 'redshift':
-        def predict_scores_rs(df: pd.DataFrame) -> pd.Series:
+        def predict_scores_rs(df: pd.DataFrame, column_names_path: str) -> pd.Series:
             df.columns = features
-            predict_proba = predict_helper(df, model_name)
+            predict_proba = predict_helper(df, model_name, column_names_path=column_names_path)
             return predict_proba
         prediction_procedure = predict_scores_rs
-    
-    preds_with_percentile = connector.call_prediction_procedure(predict_data, prediction_procedure, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, prob_th, input)
+
+    preds_with_percentile = connector.call_prediction_procedure(predict_data, prediction_procedure, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite")
-    print("Everything worked yayayayayayayayay!")
     
 
 if __name__ == "__main__":

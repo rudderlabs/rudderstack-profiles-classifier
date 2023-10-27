@@ -671,7 +671,7 @@ class SnowflakeConnector(Connector):
     
     def call_prediction_procedure(self, predict_data: snowflake.snowpark.Table, prediction_procedure: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
-                                  prob_th: float, input: snowflake.snowpark.Table):
+                                  column_names_path: str, prob_th: float, input: snowflake.snowpark.Table):
         preds = (predict_data.select(entity_column, index_timestamp, prediction_procedure(*input).alias(score_column_name))
              .withColumn("model_id", F.lit(train_model_id)))
         preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))

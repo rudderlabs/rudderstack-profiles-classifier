@@ -49,7 +49,7 @@ class RedshiftConnector(Connector):
         """
         return os.path.join(local_folder, file_name)
 
-    def run_query(self, cursor: redshift_connector.cursor.Cursor, query: str) -> Any:
+    def run_query(self, cursor: redshift_connector.cursor.Cursor, query: str) -> None:
         """Runs the given query on the redshift connection
 
         Args:
@@ -60,7 +60,6 @@ class RedshiftConnector(Connector):
             Results of the query run on the Redshift connection
         """
         cursor.execute(query)
-        return cursor.fetchall()
 
     def get_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
@@ -538,9 +537,10 @@ class RedshiftConnector(Connector):
     
     def call_prediction_procedure(self, predict_data: pd.DataFrame, prediction_procedure: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
-                                  prob_th: float, input: pd.DataFrame):
+                                  column_names_path: str, prob_th: float, input: pd.DataFrame):
         preds = predict_data[[entity_column, index_timestamp]]
-        preds[score_column_name] = prediction_procedure(input)
+        column_names_path = self.join_file_path(column_names_path)
+        preds[score_column_name] = prediction_procedure(input, column_names_path)
         preds['model_id'] = train_model_id
         preds[output_label_column] = preds[score_column_name].apply(lambda x: True if x >= prob_th else False)
         preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100

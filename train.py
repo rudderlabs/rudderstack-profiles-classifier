@@ -87,7 +87,6 @@ def train_model(trainer: MLTrainer, feature_df: pd.DataFrame,
                             'metrics': [results["metrics"]],
                             'output_model_name': [results["output_model_name"]]}).reset_index(drop=True)
 
-
     return train_x, test_x, test_y, pipe, model_id, metrics_df, results
 
 def train_and_store_model_results_rs(feature_table_name: str,
@@ -142,6 +141,7 @@ def train_and_store_model_results_rs(feature_table_name: str,
     for col in metrics_df.columns:
         if metrics_df[col].dtype == 'object':
             metrics_df[col] = metrics_df[col].apply(lambda x: json.dumps(x))
+    connector.run_query(session, f"CREATE TABLE IF NOT EXISTS rs_profiles_3.{metrics_table} (model_id character varying(65535),metrics character varying(65535),output_model_name character varying(65535));")
     connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     return results
 

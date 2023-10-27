@@ -589,7 +589,7 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
             project_folder = os.path.sep.join(path_components[:output_index])
         args = ["pb", "run", "-p", project_folder, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
         if site_config_path is not None:
-            args.append(['-c', site_config_path])
+            args.extend(['-c', site_config_path])
         print(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
         subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     except Exception as e:

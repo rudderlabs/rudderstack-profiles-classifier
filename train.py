@@ -191,6 +191,8 @@ class MLTrainer(ABC):
             ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
             if self.eligible_users:
                 feature_table = feature_table.filter(self.eligible_users)
+            else:
+                feature_table = self.get_default_users_shortlisting(feature_table)
             feature_table = feature_table.drop([self.label_column])
             timestamp_columns = self.prep.timestamp_columns
             if len(timestamp_columns) == 0:
@@ -209,7 +211,10 @@ class MLTrainer(ABC):
         except Exception as e:
             print("Exception occured while preparing feature table. Please check the logs for more details")
             raise e
-
+        
+    @abstractmethod
+    def get_default_users_shortlisting(self, feature_table):
+        pass
     @abstractmethod   
     def prepare_label_table(self, session: snowflake.snowpark.Session, label_table_name : str, label_ts_col : str):
         pass
@@ -246,7 +251,20 @@ class ClassificationTrainer(MLTrainer):
             "lift-chart": f"03-test-lift-chart-{self.output_profiles_ml_model}.png",
             "feature-importance-chart": f"04-feature-importance-chart-{self.output_profiles_ml_model}.png"
         }
-                  
+
+    def get_default_users_shortlisting(self, feature_table: snowflake.snowpark.Table)-> snowflake.snowpark.Table:
+        """
+        Filter the feature_table based on the condition that the value in the label_column is not equal to label_value.
+
+        Args:
+            feature_table (snowflake.snowpark.Table): A Snowflake table object representing the feature data.
+
+        Returns:
+            snowflake.snowpark.Table: A Snowflake table object representing the filtered feature_table where the values in the label_column are not equal to the label_value.
+        """
+        feature_table_ = feature_table.filter(F.col(self.label_column) != self.label_value)
+        return feature_table_
+
     def prepare_label_table(self,session, label_table_name, label_ts_col):
         label_table = (session.table(label_table_name)
                     .withColumn(self.label_column, utils.F.when(utils.F.col(self.label_column)==self.label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
@@ -388,6 +406,9 @@ class RegressionTrainer(MLTrainer):
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
         self.figure_names = {}
+
+    def get_default_users_shortlisting(self, feature_table: snowflake.snowpark.Table)-> snowflake.snowpark.Table:
+        return feature_table
 
     def prepare_label_table(self,session, label_table_name, label_ts_col):
         label_table = (session.table(label_table_name)

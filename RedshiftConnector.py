@@ -98,7 +98,8 @@ class RedshiftConnector(Connector):
         """
         s3_config = kwargs.get("s3_config")
         Path(local_folder).mkdir(parents=True, exist_ok=True)
-        df.to_parquet(f"{local_folder}/{table_name}.parquet.gzip", compression='gzip')
+        table_path = os.path.join(local_folder, f"{table_name}.parquet.gzip")
+        df.to_parquet(table_path, compression='gzip')
         self.write_pandas(df, table_name, s3_config=s3_config)
 
     def write_pandas(self, df: pd.DataFrame, table_name_remote: str, **kwargs) -> None:

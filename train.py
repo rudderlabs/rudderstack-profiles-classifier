@@ -15,6 +15,13 @@ from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
+
+import warnings
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
+warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
+
 from xgboost import XGBClassifier, XGBRegressor
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.neural_network import MLPClassifier, MLPRegressor
@@ -25,6 +32,7 @@ import snowflake.snowpark
 from snowflake.snowpark.functions import col
 import snowflake.snowpark.functions as F
 
+
 from logger import logger
 
 import numpy as np
@@ -34,16 +42,12 @@ import numpy as np
 import pandas as pd
 from typing import Tuple, List, Dict
 
-import warnings
-from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
-warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
+
 
 import utils
 import constants
 from abc import ABC, abstractmethod
 from dataclasses import asdict, dataclass
-logger.info("Start")
 
 trainer_utils = utils.TrainerUtils()
 
@@ -62,6 +66,7 @@ class MLTrainer(ABC):
                  train_start_dt: str,
                  train_end_dt: str,
                  prediction_horizon_days: int,
+                 inputs: List[str],
                  prep: utils.PreprocessorConfig):
         self.label_value = label_value
         self.label_column = label_column
@@ -74,6 +79,7 @@ class MLTrainer(ABC):
         self.train_start_dt = train_start_dt
         self.train_end_dt = train_end_dt
         self.prediction_horizon_days = prediction_horizon_days
+        self.inputs = inputs
         self.prep = prep
     hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}    
     def get_preprocessing_pipeline(self, numeric_columns: List[str], 
@@ -243,6 +249,9 @@ class ClassificationTrainer(MLTrainer):
                     .withColumn(self.label_column, utils.F.when(utils.F.col(self.label_column)==self.label_value, utils.F.lit(1)).otherwise(utils.F.lit(0)))
                     .select(self.entity_column, self.label_column, self.index_timestamp)
                     .withColumnRenamed(utils.F.col(self.index_timestamp), label_ts_col))
+        distinct_values = label_table.select(self.label_column).distinct().collect()
+        if len(distinct_values) == 1:
+            raise ValueError(f"Only one value of label column found in label table. Please check if the label column is correct. Label column: {self.label_column}")
         return label_table
 
     def build_model(self, X_train:pd.DataFrame, 
@@ -491,11 +500,6 @@ class RegressionTrainer(MLTrainer):
                            "data": {"metrics": model_results['metrics']}}
         return training_summary
 
-    def prepare_feature_table(self, session: snowflake.snowpark.Session,
-                                feature_table_name: str, 
-                                label_table_name: str) -> snowflake.snowpark.Table:
-        pass
-
 
 def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str = None, project_folder: str = None) -> None:
     """Trains the model and saves the model with given output_filename.
@@ -513,7 +517,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     Returns:
         None: saves the model but returns nothing
     """
-    logger.info("Creating a session and loading configs")
+    logger.debug("Creating a session and loading configs")
     connection_parameters = utils.remap_credentials(creds)
     session = Session.builder.configs(connection_parameters).create()
 
@@ -536,15 +540,19 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     
     prediction_task = merged_config['data'].pop('task', 'classification') # Assuming default as classification
 
-    logger.info("Initialising trainer")
+    logger.debug("Initialising trainer")
     
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == 'classification':    
         trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config)
     elif prediction_task == 'regression':
         trainer = RegressionTrainer(**merged_config["data"], prep=prep_config)
-
-    
+        
+    logger.info(f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}")
+    if trainer.eligible_users:
+        logger.info(f"Only following users are considered for training: {trainer.eligible_users}")
+    else:
+        logger.warning("All users are used for training. Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc.")
     train_procedure = 'train_sproc'
 
     import_paths = [utils_path, constants_path, logger_path]
@@ -644,7 +652,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                                               trainer.prediction_horizon_days,
                                                               output_filename,
                                                               site_config_path,
-                                                              project_folder)
+                                                              project_folder,
+                                                              trainer.inputs)
  
     feature_table = None
     for row in material_names:
@@ -663,12 +672,15 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     sorted_feature_table = feature_table.sort(col(trainer.entity_column).asc(), col(trainer.index_timestamp).desc()).drop([trainer.index_timestamp])
     sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
     logger.info("Training and fetching the results")
-    
-    train_results_json = session.call(train_procedure, 
-                                        feature_table_name_remote,
-                                        trainer.figure_names,
-                                        merged_config)
-    logger.info("Saving train results to file")
+    try:
+        train_results_json = session.call(train_procedure, 
+                                            feature_table_name_remote,
+                                            trainer.figure_names,
+                                            merged_config)
+    except Exception as e:
+        logger.error(f"Error while training the model: {e}")
+        raise e
+    logger.info("Training completed. Saving train results to file")
     train_results = json.loads(train_results_json)
     model_id = train_results["model_id"]
     
@@ -686,7 +698,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     model_timestamp = datetime.utcfromtimestamp(int(model_id)).strftime('%Y-%m-%dT%H:%M:%SZ')
     summary = trainer.prepare_training_summary(train_results, model_timestamp)
     json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))
-    logger.info("Fetching visualisations to local")
+    logger.debug("Fetching visualisations to local")
     for figure_name in trainer.figure_names.values():
         try:
             utils.fetch_staged_file(session, stage_name, figure_name, target_path)
@@ -696,7 +708,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
 if __name__ == "__main__":
     homedir = os.path.expanduser("~") 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
+        creds = yaml.safe_load(f)["connections"]["base_wh"]["outputs"]["dev"]
     inputs = None
     output_folder = 'output/dev/seq_no/7'
     output_file_name = f"{output_folder}/train_output.json"
@@ -705,6 +717,7 @@ if __name__ == "__main__":
     from pathlib import Path
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
+    logger.setLevel(logger.logging.DEBUG)
 
     project_folder = '~/git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        

@@ -5,7 +5,7 @@ import logging
 logger = logging.getLogger("churn_prediction")
 
 # Configure the logger with the desired log level and handlers
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 #file_handler = logging.FileHandler("classifier.log")
 #file_handler.setLevel(logging.INFO)

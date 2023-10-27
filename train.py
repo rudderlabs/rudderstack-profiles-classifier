@@ -178,12 +178,21 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     logger.info("Initialising trainer")
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
-    prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
+    
     prediction_task = merged_config['data'].pop('task', 'classification') # Assuming default as classification
-    if prediction_task == 'classification':
-        trainer = ClassificationTrainer(**merged_config["data"], **{"prep": prep_config})
+
+    logger.debug("Initialising trainer")
+    prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
+    if prediction_task == 'classification':    
+        trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config)
     elif prediction_task == 'regression':
-        trainer = RegressionTrainer(**merged_config["data"], **{"prep": prep_config})
+        trainer = RegressionTrainer(**merged_config["data"], prep=prep_config)
+    
+    logger.info(f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}")
+    if trainer.eligible_users:
+        logger.info(f"Only following users are considered for training: {trainer.eligible_users}")
+    else:
+        logger.warning("All users are used for training. Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc.")
 
     """ Building session """
     warehouse = creds['type']
@@ -283,18 +292,22 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             feature_table = feature_table.unionAllByName(feature_table_instance)
 
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
-    sorted_feature_table = connector.sort_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp)
-    connector.write_table(sorted_feature_table, feature_table_name_remote, s3_config=s3_config, write_mode="overwrite")
-
+    filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp, trainer.max_row_count)
+    connector.write_table(filtered_feature_table, feature_table_name_remote, s3_config=s3_config, write_mode="overwrite")
     logger.info("Training and fetching the results")
 
-    train_results_json = connector.call_procedure(train_procedure,
-                                        feature_table_name_remote,
-                                        figure_names,
-                                        merged_config,
-                                        session=session,
-                                        connector=connector,
-                                        trainer=trainer)
+    try:
+        train_results_json = connector.call_procedure(train_procedure,
+                                            feature_table_name_remote,
+                                            figure_names,
+                                            merged_config,
+                                            session=session,
+                                            connector=connector,
+                                            trainer=trainer)
+    except Exception as e:
+        logger.error(f"Error while training the model: {e}")
+        raise e
+
     logger.info("Saving train results to file")
     if not isinstance(train_results_json, dict):
         train_results = json.loads(train_results_json)

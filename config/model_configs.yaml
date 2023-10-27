@@ -14,6 +14,7 @@ data:
   # train_end_dt: '2023-05-01'
   train_end_dt:
   prediction_horizon_days: 7 # Days in advance to predict the label_column. 
+  max_row_count: 500000
   # sample_data: 1. # Keep 1 if all data during train_start_dt, train_end_dt and eligible_users should be selected; Else, give the percent as the number between 0 and 1; Ex, 0.25 indicates 25% data gets sampled
 
   # top_k: 5
@@ -50,6 +51,7 @@ preprocessing:
       - name: OneHotEncoder
         handle_unknown: ignore
         sparse: False
+        max_categories: 5 # perform onehot encoding by keeping maximum of these categories per feature. If None, all categories are kept.
   feature_selectors:
     # Feature selectors that get applied after normalizing is done. Has to be from `VarianceThreshold`, `GenericUnivariateSelect`, `chi2`, `f_classif`
     # ToDo: This section is not implemented in the notebook.

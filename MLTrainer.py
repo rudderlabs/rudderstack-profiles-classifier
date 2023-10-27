@@ -139,7 +139,7 @@ class MLTrainer(ABC):
 
     def prepare_feature_table(self, connector: Connector, session,
                             feature_table_name: str, 
-                            label_table_name: str) -> snowflake.snowpark.Table:
+                            label_table_name: str) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
         """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
 
         Args:
@@ -151,18 +151,19 @@ class MLTrainer(ABC):
         """
         try:
             label_ts_col = f"{self.index_timestamp}_label_ts"
-            feature_table = connector.get_table(session, feature_table_name) #.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
+            if self.eligible_users:
+                feature_table = connector.get_table(session, feature_table_name, filter_condition=self.eligible_users)
+            else:
+                feature_table = connector.get_table(session, feature_table_name) #.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
             arraytype_features = connector.get_arraytype_features(session, feature_table_name)
             ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
-            if self.eligible_users:
-                feature_table = connector.filter_columns(feature_table, self.eligible_users)
             feature_table = connector.drop_cols(feature_table, [self.label_column])
             timestamp_columns = self.prep.timestamp_columns
             if len(timestamp_columns) == 0:
                 timestamp_columns = connector.get_timestamp_columns(session, feature_table_name, self.index_timestamp)
             for col in timestamp_columns:
                 feature_table = connector.add_days_diff(feature_table, col, col, self.index_timestamp)
-            label_table = connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, self.label_value, label_ts_col)
+            label_table = self.prepare_label_table(connector, session, label_table_name, label_ts_col)
             uppercase_list = lambda names: [name.upper() for name in names]
             lowercase_list = lambda names: [name.lower() for name in names]
             ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
@@ -178,6 +179,10 @@ class MLTrainer(ABC):
 
     @abstractmethod
     def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
+        pass
+
+    @abstractmethod
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str, label_ts_col: str):
         pass
 
     @abstractmethod
@@ -286,7 +291,10 @@ class ClassificationTrainer(MLTrainer):
                     best_acc = max([ -1*loss for loss in trials.losses()])
 
         return final_clf
-    
+
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str, label_ts_col: str):
+        return connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, self.label_value, label_ts_col)
+
     def plot_diagnostics(self, connector: Connector, session,
                         model, 
                         stage_name: str, 
@@ -439,6 +447,9 @@ class RegressionTrainer(MLTrainer):
 
         return final_reg
     
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str, label_ts_col: str):
+        return connector.label_table(session, label_table_name, self.label_column, self.entity_column, self.index_timestamp, None, label_ts_col)
+
     def plot_diagnostics(self, connector: Connector, session, 
                         model, 
                         stage_name: str, 

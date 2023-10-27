@@ -186,7 +186,7 @@ class TrainerUtils(ABC):
 
         return metrics
     
-def split_train_test(feature_table: snowflake.snowpark.Table, 
+def split_train_test(feature_df: pd.DataFrame, 
                     label_column: str, 
                     entity_column: str,
                     train_size:float, 
@@ -196,7 +196,7 @@ def split_train_test(feature_table: snowflake.snowpark.Table,
     """Splits the data in train test and validation according to the their given partition factions.
 
     Args:
-        feature_table (snowflake.snowpark.Table): feature table from the retrieved material_names tuple
+        feature_df (pd.DataFrame): feature table dataframe from the retrieved material_names tuple
         label_column (str): name of label column from feature table
         entity_column (str): name of entity column from feature table
         output_profiles_ml_model (str): output ml model from model_configs file
@@ -207,7 +207,6 @@ def split_train_test(feature_table: snowflake.snowpark.Table,
     Returns:
         Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
     """
-    feature_df = feature_table.to_pandas()
     feature_df.columns = feature_df.columns.str.upper()
     latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
     X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42,stratify=latest_feature_df[label_column.upper()].values if isStratify else None)
@@ -693,46 +692,6 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
     except Exception as e:
         print("Exception occured while retrieving material names. Please check the logs for more details")
         raise e
-   
-def split_train_test(feature_df: pd.DataFrame,
-                     label_column: str, 
-                     entity_column: str,
-                     train_size:float, 
-                     val_size: float, 
-                     test_size: float) -> Tuple:
-    """Splits the data in train test and validation according to the their given partition factions.
-
-    Args:
-        feature_df (pd.DataFrame): feature table dataframe from the retrieved material_names tuple
-        label_column (str): name of label column from feature table
-        entity_column (str): name of entity column from feature table
-        output_profiles_ml_model (str): output ml model from model_configs file
-        train_size (float): partition fraction for train data
-        val_size (float): partition fraction for validation data
-        test_size (float): partition fraction for test data
-    
-        Returns:
-        Tuple: returns the X_train, X_val and X_test in form of pd.DataFrame
-    """
-    latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
-    X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42, stratify=latest_feature_df[label_column.upper()].values)
-    X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42, stratify=X_temp[label_column.upper()].values)
-    return X_train, X_val, X_test
-
-def split_label_from_features(df: pd.DataFrame, 
-                     label_column: str, 
-                     entity_column: str) -> Tuple:
-    """Drops the entity and label columns from the df passed to the function.
-    Args:
-        df (pd.DataFrame): feature table from the retrieved material_names tuple
-        label_column (str): name of label column from feature table
-        entity_column (str): name of entity column from feature table
-    Returns:
-        Tuple: returns the subset_x, subset_y in form of pd.DataFrame
-    """
-    sub_x = df.drop([entity_column.upper(), label_column.upper()], axis=1)
-    sub_y = df[[label_column.upper()]]
-    return sub_x, sub_y
     
 def get_classification_metrics(y_true: pd.DataFrame, 
                                y_pred_proba: np.array, 

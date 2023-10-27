@@ -1,43 +1,46 @@
 import pandas as pd
-import snowflake.snowpark
 
 from abc import ABC, abstractmethod
 from typing import Any, List, Tuple, Union
 
+import utils
+
 
 class Connector(ABC):
-    @abstractmethod
-    def build_session(self, creds: dict):
-        pass
+    def remap_credentials(self, credentials: dict) -> dict:
+        """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses
+
+        Args:
+            credentials (dict): Data warehouse credentials from profiles siteconfig
+
+        Returns:
+            dict: Data warehouse creadentials remapped in format that is required to create a connection to warehouse
+        """
+        new_creds = {k if k != 'dbname' else 'database': v for k, v in credentials.items() if k != 'type'}
+        return new_creds
 
     @abstractmethod
-    def run_query(self, session, query: str) -> Any:
+    def build_session(self, credentials: dict):
         pass
 
     @abstractmethod
     def join_file_path(self, file_name: str) -> str:
         pass
+
+    @abstractmethod
+    def run_query(self, session, query: str) -> Any:
+        pass
     
     @abstractmethod
-    def get_table(self, session, table_name: str) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
+    def get_table(self, session, table_name: str, **kwargs):
         pass
     
     @abstractmethod
-    def get_table_as_dataframe(self, session, table_name: str) -> pd.DataFrame:
+    def get_table_as_dataframe(self, session, table_name: str, **kwargs) -> pd.DataFrame:
         pass
 
     @abstractmethod
-    def write_table(self, table: Union[snowflake.snowpark.Table, pd.DataFrame], table_name_remote: str, **kwargs) -> Any:
-        pass
-
-    @abstractmethod
-    def label_table(self, session,
-                    label_table_name: str, label_column: str, entity_column: str, index_timestamp: str,
-                    label_value: Union[str,int,float], label_ts_col: str) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
-        pass
-
-    @abstractmethod
-    def save_file(self, session, file_name: str, stage_name: str, overwrite: bool) -> Any:
+    def write_table(self, table, table_name_remote: str, **kwargs) -> Any:
         pass
 
     @abstractmethod
@@ -45,19 +48,25 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def label_table(self, session,
+                    label_table_name: str, label_column: str, entity_column: str, index_timestamp: str,
+                    label_value: Union[str,int,float], label_ts_col: str):
+        pass
+
+    @abstractmethod
+    def save_file(self, session, file_name: str, stage_name: str, overwrite: bool) -> Any:
+        pass
+
+    @abstractmethod
     def call_procedure(self, *args, **kwargs) -> Any:
         pass
 
     @abstractmethod
-    def get_material_registry_name(self, session, table_prefix: str) -> str:
+    def get_non_stringtype_features(self, feature_table, label_column: str, entity_column: str, **kwargs) -> List[str]:
         pass
 
     @abstractmethod
-    def get_non_stringtype_features(self, feature_table: Union[str, pd.DataFrame], label_column: str, entity_column: str, **kwargs) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_stringtype_features(self, feature_table: Union[str, pd.DataFrame], label_column: str, entity_column: str, **kwargs)-> List[str]:
+    def get_stringtype_features(self, feature_table, label_column: str, entity_column: str, **kwargs)-> List[str]:
         pass
 
     @abstractmethod
@@ -75,31 +84,33 @@ class Connector(ABC):
     @abstractmethod
     def get_material_names(self, session, material_table: str, start_date: str, end_date: str, 
                         package_name: str, model_name: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
-                        output_filename: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+                        output_filename: str, site_config_path: str, project_folder: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+        pass
+
+    @abstractmethod
+    def get_material_registry_name(self, session, table_prefix: str) -> str:
         pass
 
     @abstractmethod
     def get_latest_material_hash(self, session, material_table: str, model_name:str) -> Tuple:
         pass
-    
+
     @abstractmethod
-    def filter_columns(self, table: Union[snowflake.snowpark.Table, pd.DataFrame], column_element: str):
-        pass
-    
-    @abstractmethod
-    def drop_cols(self, table: Union[snowflake.snowpark.Table, pd.DataFrame], col_list: List):
+    def fetch_staged_file(self, session, stage_name: str, file_name: str, target_folder: str)-> None:
         pass
 
     @abstractmethod
-    def add_days_diff(self, table: Union[snowflake.snowpark.Table, pd.DataFrame], new_col: str, time_col_1: str, time_col_2: str):
+    def drop_cols(self, table, col_list: list):
         pass
 
     @abstractmethod
-    def join_feature_table_label_table(self, feature_table: Union[snowflake.snowpark.Table, pd.DataFrame], label_table: Union[snowflake.snowpark.Table, pd.DataFrame], entity_column: str):
+    def sort_feature_table(self, feature_table, entity_column: str, index_timestamp: str):
         pass
-    
+
     @abstractmethod
-    def call_prediction_procedure(self, predict_data: Union[snowflake.snowpark.Table, pd.DataFrame], prediction_procedure: Any, entity_column: str, index_timestamp: str,
-                                  score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
-                                  prob_th: float, input: Union[snowflake.snowpark.Table, pd.DataFrame]):
+    def add_days_diff(self, table, new_col, time_col_1, time_col_2):
+        pass
+
+    @abstractmethod
+    def join_feature_table_label_table(self, feature_table, label_table, entity_column: str):
         pass

@@ -110,3 +110,7 @@ class Connector(ABC):
     @abstractmethod
     def join_feature_table_label_table(self, feature_table, label_table, entity_column: str):
         pass
+
+    @abstractmethod
+    def get_distinct_values_in_column(self, table, column_name: str) -> List:
+        pass

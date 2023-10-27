@@ -366,6 +366,19 @@ class RedshiftConnector(Connector):
             The table after the join action as a Pandas DataFrame object.
         """
         return feature_table.merge(label_table, on=[entity_column], how=join_type)
+    
+    def get_distinct_values_in_column(self, table: pd.DataFrame, column_name: str) -> List:
+        """Returns the distinct values in the given column of the given table.
+
+        Args:
+            table (pd.DataFrame): The dataframe from which the distinct values are to be extracted.
+            column_name (str): The name of the column from which the distinct values are to be extracted.
+        
+        Returns:
+            List: The list of distinct values in the given column of the given table.
+        """
+        # Create a list of distinct values in the given column of the given pandas dataframe
+        return table.column_name.unique()
 
     def get_material_registry_name(self, cursor: redshift_connector.cursor.Cursor, table_prefix: str="material_registry") -> str:
         """This function will return the latest material registry table name

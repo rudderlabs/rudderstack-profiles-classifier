@@ -455,6 +455,18 @@ class SnowflakeConnector(Connector):
             The table after the join action as a snowpark table object.
         """
         return feature_table.join(label_table, [entity_column], join_type=join_type)
+    
+    def get_distinct_values_in_column(self, table: snowflake.snowpark.Table, column_name: str) -> List:
+        """Returns the distinct values in the given column of the given table.
+
+        Args:
+            table (snowflake.snowpark.Table): The table from which the distinct values are to be extracted.
+            column_name (str): The name of the column from which the distinct values are to be extracted.
+        
+        Returns:
+            List: The list of distinct values in the given column of the given table.
+        """
+        return table.select(column_name).distinct().collect()
 
     def get_material_registry_table(self, session: snowflake.snowpark.Session, material_registry_table_name: str) -> snowflake.snowpark.Table:
         """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.

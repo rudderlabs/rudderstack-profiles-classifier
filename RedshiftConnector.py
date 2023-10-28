@@ -234,51 +234,61 @@ class RedshiftConnector(Connector):
                 timestamp_columns.append(row['col_name'])
         return timestamp_columns
 
-    def get_material_names(self, cursor: redshift_connector.cursor.Cursor, material_table: str, start_date: str, end_date: str, 
-                        package_name: str, model_name: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int,
-                        output_filename: str, site_config_path: str, project_folder: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-        """
-        Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
-        If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
-        If no materialized data is found even after materialization, an exception is raised.
+    def get_material_names_(self, cursor: redshift_connector.cursor.Cursor,
+                        material_table: str, 
+                        start_time: str, 
+                        end_time: str, 
+                        model_name:str,
+                        model_hash: str,
+                        material_table_prefix:str,
+                        prediction_horizon_days: int) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+        """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): A Redshift connection cursor for data warehouse access.
-            material_table (str): The name of the material table (present in constants.py file).
-            start_date (str): The start date for training data.
-            end_date (str): The end date for training data.
-            package_name (str): The name of the package.
-            model_name (str): The name of the model.
-            model_hash (str): The latest model hash.
-            material_table_prefix (str): A constant.
-            prediction_horizon_days (int): The period of days for prediction horizon.
-            site_config_path (str): path to the siteconfig.yaml file
-            project_folder (str): project folder path to pb_project.yaml file
+            cursor (redshift_connector.cursor.Cursor): Redshift connector cursor for data warehouse access
+            material_table (str): Name of the material table(present in constants.py file)
+            start_time (str): train_start_dt
+            end_time (str): train_end_dt
+            model_name (str): Present in model_configs file
+            model_hash (str) : latest model hash
+            material_table_prefix (str): constant
+            prediction_horizon_days (int): period of days
 
         Returns:
-            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
-                - material_names: A list of tuples containing the names of the feature and label tables.
-                - training_dates: A list of tuples containing the corresponding training dates.
+            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
+            ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
         """
-        try:
-            material_names, training_dates = self.get_material_names_(cursor, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
+        material_names = list()
+        training_dates = list()
 
-            if len(material_names) == 0:
-                try:
-                    feature_package_path = f"packages/{package_name}/models/{model_name}"
-                    utils.materialise_past_data(start_date, feature_package_path, output_filename, site_config_path, project_folder)
-                    start_date_label = utils.get_label_date_ref(start_date, prediction_horizon_days)
-                    utils.materialise_past_data(start_date_label, feature_package_path, output_filename, site_config_path, project_folder)
-                    material_names, training_dates = self.get_material_names_(cursor, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
-                    if len(material_names) == 0:
-                        raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
-                except Exception as e:
-                    print("Exception occured while materialising data. Please check the logs for more details")
-                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
-            return material_names, training_dates
-        except Exception as e:
-            print("Exception occured while retrieving material names. Please check the logs for more details")
-            raise e
+        df = self.get_material_registry_table(cursor, material_table)
+
+        feature_df = df.loc[
+            (df["model_name"] == model_name) &
+            (df["model_hash"] == model_hash) &
+            (df["end_ts"] >= start_time) &
+            (df["end_ts"] <= end_time),
+            ["seq_no", "end_ts"]
+        ].drop_duplicates().rename(columns = {'seq_no':'feature_seq_no', 'end_ts': 'feature_end_ts'})
+        feature_df["label_end_ts"] = feature_df["feature_end_ts"] + timedelta(days=prediction_horizon_days)
+
+        time_format = '%Y-%m-%d'
+        label_start_time = datetime.strptime(start_time, time_format) + timedelta(days=prediction_horizon_days)
+        label_end_time = datetime.strptime(end_time, time_format) + timedelta(days=prediction_horizon_days)
+        label_df = df.loc[
+            (df["model_name"] == model_name) &
+            (df["model_hash"] == model_hash) &
+            (df["end_ts"] >= label_start_time) &
+            (df["end_ts"] <= label_end_time),
+            ["seq_no", "end_ts"]
+        ].drop_duplicates().rename(columns = {'seq_no':'label_seq_no', 'end_ts': 'label_end_ts'})
+
+        feature_label_df = pd.merge(feature_df, label_df, on="label_end_ts", how="inner")
+
+        for _, row in feature_label_df.iterrows():
+            material_names.append((utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["feature_seq_no"])), utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["label_seq_no"]))))
+            training_dates.append((str(row["feature_end_ts"]), str(row["label_end_ts"])))
+        return material_names, training_dates
 
     def get_latest_material_hash(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str) -> Tuple:
         """This function will return the model hash that is latest for given model name in material table
@@ -377,8 +387,7 @@ class RedshiftConnector(Connector):
         Returns:
             List: The list of distinct values in the given column of the given table.
         """
-        # Create a list of distinct values in the given column of the given pandas dataframe
-        return table.column_name.unique()
+        return table[column_name].unique()
 
     def get_material_registry_name(self, cursor: redshift_connector.cursor.Cursor, table_prefix: str="material_registry") -> str:
         """This function will return the latest material registry table name
@@ -423,62 +432,6 @@ class RedshiftConnector(Connector):
         material_registry_table["json_metadata"] = material_registry_table["metadata"].apply(lambda x: eval(x))
         material_registry_table["status"] = material_registry_table["json_metadata"].apply(lambda x: x["complete"]["status"])
         return material_registry_table[material_registry_table["status"] == 2].drop(columns=["json_metadata"])
-
-    def get_material_names_(self, cursor: redshift_connector.cursor.Cursor,
-                        material_table: str, 
-                        start_time: str, 
-                        end_time: str, 
-                        model_name:str,
-                        model_hash: str,
-                        material_table_prefix:str,
-                        prediction_horizon_days: int) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-        """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
-
-        Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connector cursor for data warehouse access
-            material_table (str): Name of the material table(present in constants.py file)
-            start_time (str): train_start_dt
-            end_time (str): train_end_dt
-            model_name (str): Present in model_configs file
-            model_hash (str) : latest model hash
-            material_table_prefix (str): constant
-            prediction_horizon_days (int): period of days
-
-        Returns:
-            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
-            ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
-        """
-        material_names = list()
-        training_dates = list()
-
-        df = self.get_material_registry_table(cursor, material_table)
-
-        feature_df = df.loc[
-            (df["model_name"] == model_name) &
-            (df["model_hash"] == model_hash) &
-            (df["end_ts"] >= start_time) &
-            (df["end_ts"] <= end_time),
-            ["seq_no", "end_ts"]
-        ].drop_duplicates().rename(columns = {'seq_no':'feature_seq_no', 'end_ts': 'feature_end_ts'})
-        feature_df["label_end_ts"] = feature_df["feature_end_ts"] + timedelta(days=prediction_horizon_days)
-
-        time_format = '%Y-%m-%d'
-        label_start_time = datetime.strptime(start_time, time_format) + timedelta(days=prediction_horizon_days)
-        label_end_time = datetime.strptime(end_time, time_format) + timedelta(days=prediction_horizon_days)
-        label_df = df.loc[
-            (df["model_name"] == model_name) &
-            (df["model_hash"] == model_hash) &
-            (df["end_ts"] >= label_start_time) &
-            (df["end_ts"] <= label_end_time),
-            ["seq_no", "end_ts"]
-        ].drop_duplicates().rename(columns = {'seq_no':'label_seq_no', 'end_ts': 'label_end_ts'})
-
-        feature_label_df = pd.merge(feature_df, label_df, on="label_end_ts", how="inner")
-
-        for _, row in feature_label_df.iterrows():
-            material_names.append((utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["feature_seq_no"])), utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["label_seq_no"]))))
-            training_dates.append((str(row["feature_end_ts"]), str(row["label_end_ts"])))
-        return material_names, training_dates
 
     def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:
         """Writes the given pandas dataframe to the local storage with the given name.

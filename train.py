@@ -351,7 +351,7 @@ if __name__ == "__main__":
 
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
-    logger.setLevel(logger.logging.DEBUG)
+    # logger.setLevel(logger.logging.DEBUG)
 
     project_folder = '/Users/admin/Desktop/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        

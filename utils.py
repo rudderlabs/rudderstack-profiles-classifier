@@ -1,5 +1,6 @@
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
@@ -17,10 +18,10 @@ import snowflake.snowpark.types as T
 from snowflake.snowpark.functions import col
 
 import yaml
-from copy import deepcopy
+
 from datetime import datetime, timedelta, timezone
 
-import sys
+
 import os
 import gzip
 import shutil
@@ -36,8 +37,7 @@ import json
 import subprocess
 
 from dataclasses import dataclass
-from abc import ABC, abstractmethod
-
+from logger import logger
 
 @dataclass
 class PreprocessorConfig:
@@ -53,7 +53,7 @@ class PreprocessorConfig:
     val_size: float
             
     
-class TrainerUtils(ABC):
+class TrainerUtils:
 
     evalution_metrics_map_regressor = {
         metric.__name__: metric
@@ -208,8 +208,7 @@ def split_train_test(feature_df: pd.DataFrame,
         Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
     """
     feature_df.columns = feature_df.columns.str.upper()
-    latest_feature_df = feature_df.drop_duplicates(subset=[entity_column.upper()], keep='first')
-    X_train, X_temp = train_test_split(latest_feature_df, train_size=train_size, random_state=42,stratify=latest_feature_df[label_column.upper()].values if isStratify else None)
+    X_train, X_temp = train_test_split(feature_df, train_size=train_size, random_state=42,stratify=feature_df[label_column.upper()].values if isStratify else None)
     X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42,stratify=X_temp[label_column.upper()].values if isStratify else None)
     train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
     train_y = X_train[[label_column.upper()]]
@@ -307,6 +306,32 @@ def delete_import_files(session: snowflake.snowpark.Session,
     for row in files:
         if any(substring in row.name for substring in import_files):
             session.sql(f"remove @{row.name}").collect()
+
+def delete_procedures(session: snowflake.snowpark.Session, train_procedure: str) -> None:
+    """
+    Deletes Snowflake train procedures based on a given name.
+
+    Args:
+        session (snowflake.snowpark.Session): A Snowflake session object.
+        train_procedure (str): The name of the train procedures to be deleted.
+
+    Returns:
+        None
+
+    Example:
+        session = snowflake.snowpark.Session(...)
+        delete_procedures(session, 'train_model')
+
+    This function retrieves a list of procedures that match the given train procedure name using a SQL query. 
+    It then iterates over each procedure and attempts to drop it using another SQL query. If an error occurs during the drop operation, it throws an exception.
+    """
+    procedures = session.sql(f"show procedures like '{train_procedure}'").collect()
+    for row in procedures:
+        try:
+            procedure_arguments = row.arguments.split('RETURN')[0].strip()
+            session.sql(f"drop procedure if exists {procedure_arguments}").collect()
+        except:
+            raise Exception(f"Error while deleting procedure {row.name}")
 
 def get_column_names(onehot_encoder: OneHotEncoder, 
                      col_names: List[str]) -> List[str]:
@@ -449,20 +474,20 @@ def get_date_range(creation_ts: datetime,
         end_date = end_date.date()
     return str(start_date), str(end_date)
 
-def get_label_date_ref(feature_date: str, horizon_days: int) -> str:
+def date_add(reference_date: str, add_days: int) -> str:
     """
-    Adds the horizon days to the feature date and returns the label date as a string.
+    Adds the horizon days to the reference date and returns the new date as a string.
 
     Args:
-        feature_date (str): The feature date in the format "YYYY-MM-DD".
-        horizon_days (int): The number of days to add to the feature date.
+        reference_date (str): The Reference date in the format "YYYY-MM-DD".
+        add_days (int): The number of days to add to the reference date.
 
     Returns:
-        str: The resulting label date after adding the horizon_days to the feature_date. The label date is returned as a string in the format "YYYY-MM-DD".
+        str: The new date is returned as a string in the format "YYYY-MM-DD".
     """
-    label_timestamp = datetime.strptime(feature_date, "%Y-%m-%d") + timedelta(days=horizon_days)
-    label_date = label_timestamp.strftime("%Y-%m-%d")
-    return label_date
+    new_timestamp = datetime.strptime(reference_date, "%Y-%m-%d") + timedelta(days=add_days)
+    new_date = new_timestamp.strftime("%Y-%m-%d")
+    return new_date
 
 def get_timestamp_columns(table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
     """
@@ -536,10 +561,10 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
         args = ["pb", "run", "-p", project_folder, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
         if site_config_path is not None:
             args.extend(['-c', site_config_path])
-        print(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
+        logger.info(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
         subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     except Exception as e:
-        print(f"Exception occured while materialising data for date {features_valid_time} ")
+        logger.error(f"Exception occured while materialising data for date {features_valid_time} ")
         print(e)
 
 def is_valid_table(session: snowflake.snowpark.Session, table_name: str) -> bool:
@@ -647,7 +672,7 @@ def get_material_names_(session: snowflake.snowpark.Session,
 
 def get_material_names(session: snowflake.snowpark.Session, material_table: str, start_date: str, end_date: str, 
                        package_name: str, features_profiles_model: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
-                       output_filename: str, site_config_path: str, project_folder: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+                       output_filename: str, site_config_path: str, project_folder: str, input_models: List[str])-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
     """
     Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
     If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
@@ -665,6 +690,7 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
         prediction_horizon_days (int): The period of days for prediction horizon.
         site_config_path (str): path to the siteconfig.yaml file
         project_folder (str): project folder path to pb_project.yaml file
+        input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model. If this is empty, we infer this frmo the package_name and features_profiles_model - for backward compatibility
 
     Returns:
         Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
@@ -677,20 +703,25 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
         if len(material_names) == 0:
             try:
                 # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
-                feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
-                materialise_past_data(start_date, feature_package_path, output_filename, site_config_path, project_folder)
-                start_date_label = get_label_date_ref(start_date, prediction_horizon_days)
-                materialise_past_data(start_date_label, feature_package_path, output_filename, site_config_path, project_folder)
+                if len(input_models) == 0:
+                    logger.warning("No input models provided. Inferring input models from package_name and features_profiles_model, assuming that python model is defined in application project and feature table is imported as a package.")
+                    feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
+                else:
+                    feature_package_path = ','.join(input_models) #Syntax: pb run models/m1,models/m2 
+                feature_date = date_add(start_date, prediction_horizon_days)
+                label_date = date_add(feature_date, prediction_horizon_days)
+                materialise_past_data(feature_date, feature_package_path, output_filename, site_config_path, project_folder)
+                materialise_past_data(label_date, feature_package_path, output_filename, site_config_path, project_folder)
                 material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
                 if len(material_names) == 0:
-                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data")
             except Exception as e:
                 # logger.exception(e)
-                print("Exception occured while materialising data. Please check the logs for more details")
-                raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+                logger.error("Exception occured while materialising data. Please check the logs for more details")
+                raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data")
         return material_names, training_dates
     except Exception as e:
-        print("Exception occured while retrieving material names. Please check the logs for more details")
+        logger.error("Exception occured while retrieving material names. Please check the logs for more details")
         raise e
     
 def get_classification_metrics(y_true: pd.DataFrame, 

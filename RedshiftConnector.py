@@ -235,183 +235,6 @@ class RedshiftConnector(Connector):
                 timestamp_columns.append(row['col_name'])
         return timestamp_columns
 
-    def get_material_names(self, cursor: redshift_connector.cursor.Cursor, material_table: str, start_date: str, end_date: str, 
-                        package_name: str, model_name: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int,
-                        output_filename: str, site_config_path: str, project_folder: str)-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-        """
-        Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
-        If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
-        If no materialized data is found even after materialization, an exception is raised.
-
-        Args:
-            cursor (redshift_connector.cursor.Cursor): A Redshift connection cursor for data warehouse access.
-            material_table (str): The name of the material table (present in constants.py file).
-            start_date (str): The start date for training data.
-            end_date (str): The end date for training data.
-            package_name (str): The name of the package.
-            model_name (str): The name of the model.
-            model_hash (str): The latest model hash.
-            material_table_prefix (str): A constant.
-            prediction_horizon_days (int): The period of days for prediction horizon.
-            site_config_path (str): path to the siteconfig.yaml file
-            project_folder (str): project folder path to pb_project.yaml file
-
-        Returns:
-            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
-                - material_names: A list of tuples containing the names of the feature and label tables.
-                - training_dates: A list of tuples containing the corresponding training dates.
-        """
-        try:
-            material_names, training_dates = self.get_material_names_(cursor, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
-
-            if len(material_names) == 0:
-                try:
-                    feature_package_path = f"packages/{package_name}/models/{model_name}"
-                    utils.materialise_past_data(start_date, feature_package_path, output_filename, site_config_path, project_folder)
-                    start_date_label = utils.get_label_date_ref(start_date, prediction_horizon_days)
-                    utils.materialise_past_data(start_date_label, feature_package_path, output_filename, site_config_path, project_folder)
-                    material_names, training_dates = self.get_material_names_(cursor, material_table, start_date, end_date, model_name, model_hash, material_table_prefix, prediction_horizon_days)
-                    if len(material_names) == 0:
-                        raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
-                except Exception as e:
-                    print("Exception occured while materialising data. Please check the logs for more details")
-                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {model_name} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
-            return material_names, training_dates
-        except Exception as e:
-            print("Exception occured while retrieving material names. Please check the logs for more details")
-            raise e
-
-    def get_latest_material_hash(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str) -> Tuple:
-        """This function will return the model hash that is latest for given model name in material table
-
-        Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
-            material_table (str): name of material registry table
-            model_name (str): model_name from model_configs file
-
-        Returns:
-            Tuple: latest model hash and it's creation timestamp
-        """
-        redshift_df = self.get_material_registry_table(cursor, material_table)
-
-        temp_hash_vector = redshift_df.query(f"model_name == \"{model_name}\"").sort_values(by="creation_ts", ascending=False).reset_index(drop=True)[["model_hash", "creation_ts"]].iloc[0]
-    
-        model_hash = temp_hash_vector["model_hash"]
-        creation_ts = temp_hash_vector["creation_ts"]
-        return model_hash, creation_ts
-
-    def fetch_staged_file(self, *args):
-        """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
-        pass
-
-    def drop_cols(self, table: pd.DataFrame, col_list: list) -> pd.DataFrame:
-        """
-        Drops the columns in the given list from the given table.
-
-        Args:
-            table (pd.DataFrame): The table to be filtered.
-            col_list (list): The list of columns to be dropped.
-
-        Returns:
-            The table after the columns have been dropped as a Pandas DataFrame object.
-        """
-        ignore_features_upper = [col.upper() for col in col_list]
-        ignore_features_lower = [col.lower() for col in col_list]
-        ignore_features_ = [col for col in table.columns if col in ignore_features_upper or col in ignore_features_lower]
-        return table.drop(columns = ignore_features_)
-
-    def sort_feature_table(self, feature_table: pd.DataFrame, entity_column: str, index_timestamp: str) -> pd.DataFrame:
-        """
-        Sorts the given feature table based on the given entity column and index timestamp.
-
-        Args:
-            feature_table (pd.DataFrame): The table to be filtered.
-            entity_column (str): The name of the entity column to be used for sorting.
-            index_timestamp (str): The name of the index timestamp column to be used for sorting.
-
-        Returns:
-            The sorted feature table as a Pandas DataFrame object.
-        """
-        return feature_table.sort_values(by=[entity_column, index_timestamp], ascending=[True, False]).drop(columns=[index_timestamp])
-
-    def add_days_diff(self, table: pd.DataFrame, new_col: str, time_col_1: str, time_col_2: str) -> pd.DataFrame:
-        """
-        Adds a new column to the given table containing the difference in days between the given timestamp columns.
-
-        Args:
-            table (pd.DataFrame): The table to be filtered.
-            new_col (str): The name of the new column to be added.
-            time_col_1 (str): The name of the first timestamp column.
-            time_col_2 (str): The name of the  timestamp column from which to find the difference.
-
-        Returns:
-            The table with the new column added as a Pandas DataFrame object.
-        """
-        table["temp_1"] = pd.to_datetime(table[time_col_1])
-        table["temp_2"] = pd.to_datetime(table[time_col_2])
-        table[new_col] = (table['temp_2'] - table["temp_1"]).dt.days
-        return table.drop(columns = ["temp_1", "temp_2"])
-
-    def join_feature_table_label_table(self, feature_table: pd.DataFrame,label_table: pd.DataFrame,
-                                       entity_column: str, join_type: str='inner') -> pd.DataFrame:
-        """
-        Joins the given feature table and label table based on the given entity column.
-
-        Args:
-            feature_table (pd.DataFrame): The feature table to be joined.
-            label_table (pd.DataFrame): The label table to be joined.
-            entity_column (str): The name of the entity column to be used for joining.
-            join_type (str): How to join the tables | Defaults to 'inner'.
-
-        Returns:
-            The table after the join action as a Pandas DataFrame object.
-        """
-        return feature_table.merge(label_table, on=[entity_column], how=join_type)
-
-    def get_material_registry_name(self, cursor: redshift_connector.cursor.Cursor, table_prefix: str="material_registry") -> str:
-        """This function will return the latest material registry table name
-
-        Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connector cursor for data warehouse access
-            table_name (str): Prefix of the name of the table | Defaults to "material_registry"
-
-        Returns:
-            str: latest material registry table name
-        """
-        material_registry_tables = list()
-        def split_key(item):
-            parts = item.split('_')
-            if len(parts) > 1 and parts[-1].isdigit():
-                return int(parts[-1])
-            return 0
-        cursor.execute(f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';")
-        registry_df = cursor.fetch_dataframe()
-
-        registry_df = registry_df[registry_df['tablename'].str.startswith(f"{table_prefix.lower()}")]
-
-        for _, row in registry_df.iterrows():
-            material_registry_tables.append(row["tablename"])
-        material_registry_tables.sort(reverse=True)
-        sorted_material_registry_tables = sorted(material_registry_tables, key=split_key, reverse=True)
-
-        return sorted_material_registry_tables[0]
-
-    def get_material_registry_table(self, cursor: redshift_connector.cursor.Cursor, material_registry_table_name: str) -> pd.DataFrame:
-        """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
-        Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
-
-        Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
-            material_registry_table_name (str): The material registry table name.
-
-        Returns:
-            pd.DataFrame: The filtered material registry table containing only the successfully materialized data.
-        """
-        material_registry_table = self.get_table_as_dataframe(cursor, material_registry_table_name)
-        material_registry_table["json_metadata"] = material_registry_table["metadata"].apply(lambda x: eval(x))
-        material_registry_table["status"] = material_registry_table["json_metadata"].apply(lambda x: x["complete"]["status"])
-        return material_registry_table[material_registry_table["status"] == 2].drop(columns=["json_metadata"])
-
     def get_material_names_(self, cursor: redshift_connector.cursor.Cursor,
                         material_table: str, 
                         start_time: str, 
@@ -467,6 +290,152 @@ class RedshiftConnector(Connector):
             material_names.append((utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["feature_seq_no"])), utils.generate_material_name(material_table_prefix, model_name, model_hash, str(row["label_seq_no"]))))
             training_dates.append((str(row["feature_end_ts"]), str(row["label_end_ts"])))
         return material_names, training_dates
+
+    def get_latest_material_hash(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str) -> Tuple:
+        """This function will return the model hash that is latest for given model name in material table
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
+            material_table (str): name of material registry table
+            model_name (str): model_name from model_configs file
+
+        Returns:
+            Tuple: latest model hash and it's creation timestamp
+        """
+        redshift_df = self.get_material_registry_table(cursor, material_table)
+
+        temp_hash_vector = redshift_df.query(f"model_name == \"{model_name}\"").sort_values(by="creation_ts", ascending=False).reset_index(drop=True)[["model_hash", "creation_ts"]].iloc[0]
+    
+        model_hash = temp_hash_vector["model_hash"]
+        creation_ts = temp_hash_vector["creation_ts"]
+        return model_hash, creation_ts
+
+    def fetch_staged_file(self, *args):
+        """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
+        pass
+
+    def drop_cols(self, table: pd.DataFrame, col_list: list) -> pd.DataFrame:
+        """
+        Drops the columns in the given list from the given table.
+
+        Args:
+            table (pd.DataFrame): The table to be filtered.
+            col_list (list): The list of columns to be dropped.
+
+        Returns:
+            The table after the columns have been dropped as a Pandas DataFrame object.
+        """
+        ignore_features_upper = [col.upper() for col in col_list]
+        ignore_features_lower = [col.lower() for col in col_list]
+        ignore_features_ = [col for col in table.columns if col in ignore_features_upper or col in ignore_features_lower]
+        return table.drop(columns = ignore_features_)
+
+    def filter_feature_table(self, feature_table: pd.DataFrame, entity_column: str, index_timestamp: str, max_row_count: int) -> pd.DataFrame:
+        """
+        Sorts the given feature table based on the given entity column and index timestamp.
+
+        Args:
+            feature_table (pd.DataFrame): The table to be filtered.
+            entity_column (str): The name of the entity column to be used for sorting.
+            index_timestamp (str): The name of the index timestamp column to be used for sorting.
+
+        Returns:
+            The sorted feature table as a Pandas DataFrame object.
+        """
+        feature_table["row_num"] = feature_table.groupby(entity_column).cumcount() + 1
+        feature_table = feature_table[feature_table["row_num"] == 1]
+        feature_table = feature_table.sort_values(by=[entity_column, index_timestamp], ascending=[True, False]).drop(columns=['row_num', index_timestamp])
+        return feature_table.groupby(entity_column).head(max_row_count)
+
+    def add_days_diff(self, table: pd.DataFrame, new_col: str, time_col_1: str, time_col_2: str) -> pd.DataFrame:
+        """
+        Adds a new column to the given table containing the difference in days between the given timestamp columns.
+
+        Args:
+            table (pd.DataFrame): The table to be filtered.
+            new_col (str): The name of the new column to be added.
+            time_col_1 (str): The name of the first timestamp column.
+            time_col_2 (str): The name of the  timestamp column from which to find the difference.
+
+        Returns:
+            The table with the new column added as a Pandas DataFrame object.
+        """
+        table["temp_1"] = pd.to_datetime(table[time_col_1])
+        table["temp_2"] = pd.to_datetime(table[time_col_2])
+        table[new_col] = (table['temp_2'] - table["temp_1"]).dt.days
+        return table.drop(columns = ["temp_1", "temp_2"])
+
+    def join_feature_table_label_table(self, feature_table: pd.DataFrame,label_table: pd.DataFrame,
+                                       entity_column: str, join_type: str='inner') -> pd.DataFrame:
+        """
+        Joins the given feature table and label table based on the given entity column.
+
+        Args:
+            feature_table (pd.DataFrame): The feature table to be joined.
+            label_table (pd.DataFrame): The label table to be joined.
+            entity_column (str): The name of the entity column to be used for joining.
+            join_type (str): How to join the tables | Defaults to 'inner'.
+
+        Returns:
+            The table after the join action as a Pandas DataFrame object.
+        """
+        return feature_table.merge(label_table, on=[entity_column], how=join_type)
+    
+    def get_distinct_values_in_column(self, table: pd.DataFrame, column_name: str) -> List:
+        """Returns the distinct values in the given column of the given table.
+
+        Args:
+            table (pd.DataFrame): The dataframe from which the distinct values are to be extracted.
+            column_name (str): The name of the column from which the distinct values are to be extracted.
+        
+        Returns:
+            List: The list of distinct values in the given column of the given table.
+        """
+        return table[column_name].unique()
+
+    def get_material_registry_name(self, cursor: redshift_connector.cursor.Cursor, table_prefix: str="material_registry") -> str:
+        """This function will return the latest material registry table name
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): Redshift connector cursor for data warehouse access
+            table_name (str): Prefix of the name of the table | Defaults to "material_registry"
+
+        Returns:
+            str: latest material registry table name
+        """
+        material_registry_tables = list()
+        def split_key(item):
+            parts = item.split('_')
+            if len(parts) > 1 and parts[-1].isdigit():
+                return int(parts[-1])
+            return 0
+        cursor.execute(f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';")
+        registry_df = cursor.fetch_dataframe()
+
+        registry_df = registry_df[registry_df['tablename'].str.startswith(f"{table_prefix.lower()}")]
+
+        for _, row in registry_df.iterrows():
+            material_registry_tables.append(row["tablename"])
+        material_registry_tables.sort(reverse=True)
+        sorted_material_registry_tables = sorted(material_registry_tables, key=split_key, reverse=True)
+
+        return sorted_material_registry_tables[0]
+
+    def get_material_registry_table(self, cursor: redshift_connector.cursor.Cursor, material_registry_table_name: str) -> pd.DataFrame:
+        """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
+        Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
+            material_registry_table_name (str): The material registry table name.
+
+        Returns:
+            pd.DataFrame: The filtered material registry table containing only the successfully materialized data.
+        """
+        material_registry_table = self.get_table_as_dataframe(cursor, material_registry_table_name)
+        material_registry_table["json_metadata"] = material_registry_table["metadata"].apply(lambda x: eval(x))
+        material_registry_table["status"] = material_registry_table["json_metadata"].apply(lambda x: x["complete"]["status"])
+        return material_registry_table[material_registry_table["status"] == 2].drop(columns=["json_metadata"])
 
     def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:
         """Writes the given pandas dataframe to the local storage with the given name.

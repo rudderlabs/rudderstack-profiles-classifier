@@ -139,10 +139,21 @@ def train_and_store_model_results_rs(feature_table_name: str,
     except Exception as e:
         logger.error(f"Could not generate plots {e}")
 
+    database_dtypes = json.loads(constants.rs_dtypes)
+    metrics_table_query = ""
     for col in metrics_df.columns:
         if metrics_df[col].dtype == 'object':
             metrics_df[col] = metrics_df[col].apply(lambda x: json.dumps(x))
-    connector.run_query(session, f"CREATE TABLE IF NOT EXISTS rs_profiles_3.{metrics_table} (model_id character varying(65535),metrics character varying(65535),output_model_name character varying(65535));")
+            metrics_table_query += f"{col} {database_dtypes['text']},"
+        elif metrics_df[col].dtype == 'float64' or metrics_df[col].dtype == 'int64':
+            metrics_table_query += f"{col} {database_dtypes['num']},"
+        elif metrics_df[col].dtype == 'bool':
+            metrics_table_query += f"{col} {database_dtypes['bool']},"
+        elif metrics_df[col].dtype == 'datetime64[ns]':
+            metrics_table_query += f"{col} {database_dtypes['timestamp']},"
+    metrics_table_query = metrics_table_query[:-1]
+        
+    connector.run_query(session, f"CREATE TABLE IF NOT EXISTS {metrics_table} ({metrics_table_query});")
     connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     return results
 

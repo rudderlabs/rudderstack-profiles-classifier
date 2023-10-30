@@ -95,13 +95,11 @@ class RedshiftConnector(Connector):
         Args:
             df (pd.DataFrame): Pandas dataframe to be written to the snowpark session
             table_name (str): Name with which the dataframe is to be written to the snowpark session
-            [From kwargs] s3_config: S3 configuration for the Redshift connector | Defaults to "None"
         Returns:
             Nothing
         """
-        s3_config = kwargs.get("s3_config")
         self.write_table_locally(df, table_name)
-        self.write_pandas(df, table_name, s3_config=s3_config)
+        self.write_pandas(df, table_name, **kwargs)
 
     def write_pandas(self, df: pd.DataFrame, table_name_remote: str, **kwargs) -> None:
         """Writes the given pandas dataframe to the Redshift schema with the given name
@@ -109,7 +107,8 @@ class RedshiftConnector(Connector):
         Args:
             df (pd.DataFrame): Pandas dataframe to be written to the snowpark session
             table_name (str): Name with which the dataframe is to be written to the snowpark session
-            [From kwargs] s3_config: S3 configuration for the Redshift connector | Defaults to "None"
+            [From kwargs]
+                if_exists (str): How to write the dataframe to the Redshift schema | Defaults to "append"
         Returns:
             Nothing
         """

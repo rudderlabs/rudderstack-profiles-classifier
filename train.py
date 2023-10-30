@@ -21,12 +21,17 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 
 import utils
 import constants
-from RedshiftConnector import RedshiftConnector
 from SnowflakeConnector import SnowflakeConnector
 from MLTrainer import MLTrainer, ClassificationTrainer, RegressionTrainer
 
 warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
+
+try:
+    from RedshiftConnector import RedshiftConnector
+except Exception as e:
+        logger.warning(f"Could not import RedshiftConnector")
+
 
 logger.info("Start")
 metrics_table = constants.METRICS_TABLE
@@ -156,7 +161,7 @@ def train_and_store_model_results_rs(feature_table_name: str,
     connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     return results
 
-def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str=None, s3_config: dict=None, project_folder: str=None) -> None:
+def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str=None, project_folder: str=None) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:
@@ -176,7 +181,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "RedshiftConnector.py", "MLTrainer.py")
+    import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py")
     import_paths = []
     for file in import_files:
         import_paths.append(os.path.join(current_dir, file))
@@ -304,7 +309,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
 
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
     filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp, trainer.max_row_count)
-    connector.write_table(filtered_feature_table, feature_table_name_remote, s3_config=s3_config, write_mode="overwrite")
+    connector.write_table(filtered_feature_table, feature_table_name_remote, write_mode="overwrite", if_exists="replace")
     logger.info("Training and fetching the results")
 
     try:
@@ -352,8 +357,6 @@ if __name__ == "__main__":
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
-        # s3_config = yaml.safe_load(f)["connections"]["py_models"]["s3"]
-        s3_config = None
     inputs = None
     output_folder = 'output/dev/seq_no/7'
     output_file_name = f"{output_folder}/train_output.json"
@@ -365,4 +368,4 @@ if __name__ == "__main__":
 
     project_folder = '/Users/admin/Desktop/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
-    train(creds, inputs, output_file_name, None, siteconfig_path, s3_config, project_folder)
+    train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

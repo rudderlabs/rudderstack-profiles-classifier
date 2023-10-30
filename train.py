@@ -189,6 +189,8 @@ class MLTrainer(ABC):
             feature_table = session.table(feature_table_name)#.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
             arraytype_features = utils.get_arraytype_features(feature_table)
             ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
+            high_cardinal_features = utils.get_high_cardinal_features(feature_table, self.entity_column, self.label_column)
+            ignore_features = utils.merge_lists_to_unique(ignore_features, high_cardinal_features)
             if self.eligible_users:
                 feature_table = feature_table.filter(self.eligible_users)
             feature_table = feature_table.drop([self.label_column])

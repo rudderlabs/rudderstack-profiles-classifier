@@ -124,7 +124,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         import_paths.append(os.path.join(current_dir, file))
 
     model_name = f"{output_profiles_ml_model}_{model_file_name}"
-    column_names_path = f"{output_profiles_ml_model}_{train_model_id}_column_names.json"
 
     if creds["type"] == "snowflake":
         udf_name = "prediction_score"
@@ -135,6 +134,9 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     elif creds["type"] == "redshift":
         connector = RedshiftConnector()
         session = connector.build_session(creds)
+    
+    column_names_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_column_names.json")
+    features_path = connector.join_file_path(f"{output_profiles_ml_model}_array_time_feature_names.json")
 
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
@@ -148,12 +150,12 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     else:
         raw_data = connector.get_table(session, f"{features_profiles_model}")
 
-    arraytype_features = connector.get_arraytype_features_from_table(raw_data)
+    arraytype_features = connector.get_arraytype_features_from_table(raw_data, features_path=features_path)
     ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_features)
     predict_data = connector.drop_cols(raw_data, ignore_features)
 
     if len(timestamp_columns) == 0:
-        timestamp_columns = connector.get_timestamp_columns_from_table(predict_data, index_timestamp)
+        timestamp_columns = connector.get_timestamp_columns_from_table(predict_data, index_timestamp, features_path=features_path)
     for col in timestamp_columns:
         predict_data = connector.add_days_diff(predict_data, col, col, index_timestamp)
 

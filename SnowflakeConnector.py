@@ -588,7 +588,7 @@ class SnowflakeConnector(Connector):
             logger.info("All functions with the same name dropped")
             return True
     
-    def get_arraytype_features_from_table(self, table: snowflake.snowpark.Table)-> list:
+    def get_arraytype_features_from_table(self, table: snowflake.snowpark.Table, **kwargs)-> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
             table (snowflake.snowpark.Table): snowpark table.
@@ -617,7 +617,7 @@ class SnowflakeConnector(Connector):
         types = [type_map[d.datatype] for d in sp_df.schema.fields]
         return T.PandasDataFrame[tuple(types)]
     
-    def get_timestamp_columns_from_table(self, table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
+    def get_timestamp_columns_from_table(self, table: snowflake.snowpark.Table, index_timestamp: str, **kwargs)-> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
 

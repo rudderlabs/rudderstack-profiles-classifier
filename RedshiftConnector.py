@@ -1,4 +1,5 @@
 import os
+import json
 import numpy as np
 import pandas as pd
 import redshift_connector
@@ -451,19 +452,20 @@ class RedshiftConnector(Connector):
         table_path = os.path.join(local_folder, f"{table_name}.parquet.gzip")
         df.to_parquet(table_path, compression='gzip')
     
-    def get_arraytype_features_from_table(self, table: pd.DataFrame)-> list:
+    def get_arraytype_features_from_table(self, table: pd.DataFrame, **kwargs)-> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
             table (snowflake.snowpark.Table): snowpark table.
         Returns:
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
+        features_path = kwargs.get("features_path", None)
+        if features_path == None:
+            raise ValueError("features_path argument is required for Redshift")
         arraytype_features = []
-        for column in table.columns:
-            if table[column].dtype == 'super':
-                arraytype_features.append(column)
-        # arraytype_features = ['TOTAL_PRODUCTS_ADDED', 'PRODUCTS_ADDED_IN_PAST_1_DAYS', 'ITEMS_PURCHASED_EVER', 'PRODUCTS_ADDED_IN_PAST_365_DAYS', 'PRODUCTS_ADDED_IN_PAST_7_DAYS']
-        # arraytype_features = [col.lower() for col in arraytype_features]
+        with open(features_path, "r") as f:
+                column_names = json.load(f)
+                arraytype_features = column_names["arraytype_features"]
         return arraytype_features
 
     def generate_type_hint(self, df: pd.DataFrame):        
@@ -483,7 +485,7 @@ class RedshiftConnector(Connector):
                 types.append(float)
         return types
     
-    def get_timestamp_columns_from_table(self, table: pd.DataFrame, index_timestamp: str)-> List[str]:
+    def get_timestamp_columns_from_table(self, table: pd.DataFrame, index_timestamp: str, **kwargs)-> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
 
@@ -495,20 +497,20 @@ class RedshiftConnector(Connector):
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
-        
-        # timestamp_columns = []
-        # for col in table.columns:
-        #     # if table[col].dtype == 'datetime':
-        #     if str(table[col].dtype).startswith('datetime'):
-        #         timestamp_columns.append(col)
-        timestamp_columns = ['first_seen_date', 'last_seen_date']
+        # timestamp_columns = ['first_seen_date', 'last_seen_date']
+        features_path = kwargs.get("features_path", None)
+        if features_path == None:
+            raise ValueError("features_path argument is required for Redshift")
+        with open(features_path, "r") as f:
+                column_names = json.load(f)
+                timestamp_columns = column_names["timestamp_columns"]
+        timestamp_columns = [x for x in timestamp_columns if x.lower() != index_timestamp.lower()]
         return timestamp_columns
-    
+
     def call_prediction_procedure(self, predict_data: pd.DataFrame, prediction_procedure: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
                                   column_names_path: str, prob_th: float, input: pd.DataFrame):
         preds = predict_data[[entity_column, index_timestamp]]
-        column_names_path = self.join_file_path(column_names_path)
         preds[score_column_name] = prediction_procedure(input, column_names_path)
         preds['model_id'] = train_model_id
         preds[output_label_column] = preds[score_column_name].apply(lambda x: True if x >= prob_th else False)

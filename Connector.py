@@ -132,7 +132,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_timestamp_columns_from_table(self, session, table_name: str, index_timestamp: str)-> List[str]:
+    def get_timestamp_columns_from_table(self, session, table_name: str, index_timestamp: str, **kwargs)-> List[str]:
         pass
 
     def get_material_names_(self, session, material_table: str, start_time: str, end_time: str, model_name:str, model_hash: str,

@@ -1,3 +1,4 @@
+import json
 import numpy as np
 import pandas as pd
 import snowflake.snowpark
@@ -176,6 +177,9 @@ class MLTrainer(ABC):
             feature_table = connector.join_feature_table_label_table(feature_table, label_table, self.entity_column, "inner")
             feature_table = connector.drop_cols(feature_table, [label_ts_col])
             feature_table = connector.drop_cols(feature_table, ignore_features_)
+            column_dict = {'arraytype_features': arraytype_features, 'timestamp_columns': timestamp_columns}
+            column_name_file = connector.join_file_path(f"{self.output_profiles_ml_model}_array_time_feature_names.json")
+            json.dump(column_dict, open(column_name_file,"w"))
             return feature_table
         except Exception as e:
             print("Exception occured while preparing feature table. Please check the logs for more details")

@@ -10,3 +10,4 @@ train_output.json
 appmap.yml
 *.ipynb
 pysnowpark/*
+data/*

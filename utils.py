@@ -186,7 +186,7 @@ class TrainerUtils:
 
         return metrics
     
-def split_train_test(feature_table: snowflake.snowpark.Table, 
+def split_train_test(feature_df: pd.DataFrame, 
                     label_column: str, 
                     entity_column: str,
                     train_size:float, 
@@ -196,7 +196,7 @@ def split_train_test(feature_table: snowflake.snowpark.Table,
     """Splits the data in train test and validation according to the their given partition factions.
 
     Args:
-        feature_table (snowflake.snowpark.Table): feature table from the retrieved material_names tuple
+        feature_df (pd.DataFrame): feature table dataframe from the retrieved material_names tuple
         label_column (str): name of label column from feature table
         entity_column (str): name of entity column from feature table
         output_profiles_ml_model (str): output ml model from model_configs file
@@ -207,7 +207,6 @@ def split_train_test(feature_table: snowflake.snowpark.Table,
     Returns:
         Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
     """
-    feature_df = feature_table.to_pandas()
     feature_df.columns = feature_df.columns.str.upper()
     X_train, X_temp = train_test_split(feature_df, train_size=train_size, random_state=42,stratify=feature_df[label_column.upper()].values if isStratify else None)
     X_val, X_test = train_test_split(X_temp, train_size=val_size/(val_size + test_size), random_state=42,stratify=X_temp[label_column.upper()].values if isStratify else None)
@@ -314,12 +313,10 @@ def delete_import_files(session: snowflake.snowpark.Session,
                         import_paths: List[str]) -> None:
     """
     Deletes files from the specified Snowflake stage that match the filenames extracted from the import paths.
-
     Args:
         session (snowflake.snowpark.Session): A Snowflake session object.
         stage_name (str): The name of the Snowflake stage.
         import_paths (List[str]): The paths of the files to be deleted from the stage.
-
     Returns:
         None: The function does not return any value.
     """
@@ -410,10 +407,8 @@ def get_stringtype_features(feature_table: snowflake.snowpark.Table, label_colum
 
 def get_arraytype_features(table: snowflake.snowpark.Table)-> list:
     """Returns the list of features to be ignored from the feature table.
-
     Args:
         table (snowflake.snowpark.Table): snowpark table.
-
     Returns:
         list: The list of features to be ignored based column datatypes as ArrayType.
     """
@@ -438,11 +433,9 @@ def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_col
 
 def get_material_registry_name(session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:
     """This function will return the latest material registry table name
-
     Args:
         session (snowflake.snowpark.Session): snowpark session
         table_name (str): name of the material registry table prefix
-
     Returns:
         str: latest material registry table name
     """
@@ -515,15 +508,13 @@ def date_add(reference_date: str, add_days: int) -> str:
     new_date = new_timestamp.strftime("%Y-%m-%d")
     return new_date
 
-def get_timestamp_columns(session: snowflake.snowpark.Session, table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
+def get_timestamp_columns(table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
     """
     Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
     Args:
         session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
         feature_table (snowflake.snowpark.Table): The feature table from which to retrieve the timestamp columns.
         index_timestamp (str): The name of the column containing the index timestamp information.
-
     Returns:
         List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
     """
@@ -751,9 +742,100 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
     except Exception as e:
         logger.error("Exception occured while retrieving material names. Please check the logs for more details")
         raise e
+    
+def get_classification_metrics(y_true: pd.DataFrame, 
+                               y_pred_proba: np.array, 
+                               th: float =0.5) -> dict:
+    """Generates classification metrics
 
+    Args:
+        y_true (pd.DataFrame): Array of 1s and 0s. True labels
+        y_pred_proba (np.array): Array of predicted probabilities
+        th (float, optional): thresold for classification. Defaults to 0.5.
 
-def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+    Returns:
+        dict: Returns classification metrics in form of a dict for the given thresold
+    """
+    precision, recall, f1, _ = precision_recall_fscore_support(y_true, np.where(y_pred_proba>th,1,0))
+    precision = precision[1]
+    recall = recall[1]
+    f1 = f1[1]
+    roc_auc = roc_auc_score(y_true, y_pred_proba)
+    pr_auc = average_precision_score(y_true, y_pred_proba)
+    user_count = y_true.shape[0]
+    metrics = {"precision": round(precision, 2), "recall": round(recall, 2), "f1_score": round(f1, 2), "roc_auc": round(roc_auc, 2), 'pr_auc': round(pr_auc, 2), 'users': user_count}
+    return metrics
+    
+def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array,train_config: dict) -> Tuple:
+    """This function calculates the thresold that maximizes f1 score based on y_true and y_pred_proba and classication metrics on basis of that.
+
+    Args:
+        y_true (pd.DataFrame): Array of 1s and 0s. True labels
+        y_pred_proba (np.array): Array of predicted probabilities
+
+    Returns:
+        Tuple: Returns the metrics at the threshold and that threshold that maximizes f1 score based on y_true and y_pred_proba
+    """
+
+    metric_to_optimize = train_config["model_params"]["validation_on"]
+
+    metric_functions = {
+        'f1_score': f1_score,
+        'precision': precision_score,
+        'recall': recall_score,
+        'accuracy': accuracy_score
+    }
+
+    if metric_to_optimize not in metric_functions:
+        raise ValueError(f"Unsupported metric: {metric_to_optimize}")
+
+    objective_function = metric_functions[metric_to_optimize]
+    objective = lambda th: -objective_function(y_true, np.where(y_pred_proba > th, 1, 0))
+
+    result = minimize_scalar(objective, bounds=(0, 1), method='bounded')
+    best_th = result.x
+    best_metric_value = -result.fun  
+            
+    best_metrics = get_classification_metrics(y_true, y_pred_proba, best_th)
+    return best_metrics, best_th
+
+def get_metrics(clf,
+                X_train: pd.DataFrame, 
+                y_train: pd.DataFrame,
+                X_test: pd.DataFrame, 
+                y_test: pd.DataFrame,
+                X_val: pd.DataFrame, 
+                y_val: pd.DataFrame,
+                train_config: dict) -> Tuple:
+    """Generates classification metrics and predictions for train, validation and test data along with the best probability thresold
+
+    Args:
+        clf (_type_): classifier to calculate the classification metrics
+        X_train (pd.DataFrame): X_train dataframe
+        y_train (pd.DataFrame): y_train dataframe
+        X_test (pd.DataFrame): X_test dataframe
+        y_test (pd.DataFrame): y_test dataframe
+        X_val (pd.DataFrame): X_val dataframe
+        y_val (pd.DataFrame): y_val dataframe
+
+    Returns:
+        Tuple: Returns the classification metrics and predictions for train, validation and test data along with the best probability thresold.
+    """
+    train_preds = clf.predict_proba(X_train)[:,1]
+    train_metrics, prob_threshold = get_best_th(y_train, train_preds,train_config)
+
+    test_preds = clf.predict_proba(X_test)[:,1]
+    test_metrics = get_classification_metrics(y_test, test_preds, prob_threshold)
+
+    val_preds = clf.predict_proba(X_val)[:,1]
+    val_metrics = get_classification_metrics(y_val, val_preds, prob_threshold)
+
+    metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
+    predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
+    
+    return metrics, predictions, round(prob_threshold, 2)
+
+def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
     """
     Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.
 
@@ -781,12 +863,10 @@ def plot_roc_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, la
     plt.legend(loc="lower right")
     sns.despine()
     plt.grid(True)
-    figure_file = os.path.join('/tmp', f"{chart_name}")
-    plt.savefig(figure_file)
-    session.file.put(figure_file, stage_name, overwrite=True)
+    plt.savefig(roc_auc_file)
     plt.clf()
 
-def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+def plot_pr_auc_curve(pipe, test_x, test_y, pr_auc_file, label_column)-> None:
     """
     Plots a precision-recall curve and saves it as a file.
 
@@ -815,12 +895,10 @@ def plot_pr_auc_curve(session, pipe, stage_name, test_x, test_y, chart_name, lab
     plt.legend(loc="lower left")
     sns.despine()
     plt.grid(True)
-    figure_file = os.path.join('/tmp', f"{chart_name}")
-    plt.savefig(figure_file)
-    session.file.put(figure_file, stage_name, overwrite=True)
+    plt.savefig(pr_auc_file)
     plt.clf()
 
-def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label_column)-> None:
+def plot_lift_chart(pipe, test_x, test_y, lift_chart_file, label_column)-> None:
     """
     Generates a lift chart for a binary classification model.
 
@@ -860,12 +938,10 @@ def plot_lift_chart(session, pipe, stage_name, test_x, test_y, chart_name, label
     plt.xlim([0, 100])
     plt.legend()
     plt.grid(True)
-    figure_file = os.path.join('/tmp', f"{chart_name}")
-    plt.savefig(figure_file)
-    session.file.put(figure_file, stage_name, overwrite=True)
+    plt.savefig(lift_chart_file)
     plt.clf()
 
-def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_columns, categorical_columns, chart_name, top_k_features=5)-> None:
+def plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)-> pd.DataFrame:
     """
     Generates a bar chart to visualize the top k important features in a machine learning model.
 
@@ -899,16 +975,14 @@ def plot_top_k_feature_importance(session, pipe, stage_name, train_x, numeric_co
         feature_names = shap_df.columns
         shap_importance = pd.DataFrame(data = vals, index = feature_names, columns = ["feature_importance_vals"])
         shap_importance.sort_values(by=['feature_importance_vals'],  ascending=False, inplace=True)
-        session.write_pandas(shap_importance, table_name= f"FEATURE_IMPORTANCE", auto_create_table=True, overwrite=True)
         
         ax = shap_importance[:top_k_features][::-1].plot(kind='barh', figsize=(8, 6), color='#86bf91', width=0.3)
         ax.set_xlabel(x_label)
         ax.set_ylabel("Feature Name")
         plt.title(f"Top {top_k_features} Important Features")
-        figure_file = os.path.join('/tmp', f"{chart_name}")
         plt.savefig(figure_file, bbox_inches="tight")
-        session.file.put(figure_file, stage_name, overwrite=True)
         plt.clf()
+        return shap_importance
     except Exception as e:
         print("Exception occured while plotting feature importance")
         print(e)

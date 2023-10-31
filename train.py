@@ -223,7 +223,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         connector.delete_procedures(session)
 
         @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
-            packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.2", "scikit-plot==0.3.7"])
+            packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
                     figure_names: dict,
@@ -273,10 +273,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         connector = RedshiftConnector()
         session = connector.build_session(creds)
 
-    figure_names = {"roc-auc-curve": f"01-test-roc-auc.png",
-                    "pr-auc-curve": f"02-test-pr-auc.png",
-                    "lift-chart": f"03-test-lift-chart.png",
-                    "feature-importance-chart": f"04-feature-importance-chart.png"}
+    #TODO: Remove this and use from trainer.figure_names after support for other warehouses.
+    figure_names = {"roc-auc-curve": f"01-test-roc-auc-{trainer.output_profiles_ml_model}.png",
+                    "pr-auc-curve": f"02-test-pr-auc-{trainer.output_profiles_ml_model}.png",
+                    "lift-chart": f"03-test-lift-chart-{trainer.output_profiles_ml_model}.png",
+                    "feature-importance-chart": f"04-feature-importance-chart-{trainer.output_profiles_ml_model}.png"}
 
     logger.info("Getting past data for training")
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
@@ -347,7 +348,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     summary = trainer.prepare_training_summary(train_results, model_timestamp)
     json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))
     logger.debug("Fetching visualisations to local")
-    for figure_name in trainer.figure_names.values():
+    for figure_name in figure_names.values():
         try:
             connector.fetch_staged_file(session, stage_name, figure_name, target_path)
         except:

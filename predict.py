@@ -1,38 +1,36 @@
+import os
 import sys
-import pandas as pd
-import numpy as np
+import yaml
+import json
+import joblib
+import datetime
+import warnings
 import cachetools
+import numpy as np
+import pandas as pd
+
+from logger import logger
+from xgboost import XGBClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import average_precision_score
-from sklearn.compose import ColumnTransformer
-from xgboost import XGBClassifier
-import joblib
-import os
-from snowflake.snowpark.session import Session
-from snowflake.snowpark.window import Window
-import snowflake.snowpark.functions as F
-import snowflake.snowpark.types as T
-from typing import List
-from snowflake.snowpark.functions import sproc
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+
 import snowflake.snowpark
-import time
-from typing import Tuple, List, Union
-import sys
+import snowflake.snowpark.types as T
+import snowflake.snowpark.functions as F
+from snowflake.snowpark.window import Window
+from snowflake.snowpark.session import Session
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import utils
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
 import constants
-from logger import logger
-import yaml
-import json
-import datetime
 
-import warnings
-from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
 
@@ -132,7 +130,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     predict_data = utils.drop_columns_if_exists(raw_data, ignore_features)
     
     if len(timestamp_columns) == 0:
-        timestamp_columns = utils.get_timestamp_columns(session, predict_data, index_timestamp)
+        timestamp_columns = utils.get_timestamp_columns(predict_data, index_timestamp)
     for col in timestamp_columns:
         predict_data = predict_data.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
 
@@ -190,7 +188,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
+        creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None
         output_folder = 'output/dev/seq_no/7'

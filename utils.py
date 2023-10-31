@@ -415,36 +415,6 @@ def get_arraytype_features(table: snowflake.snowpark.Table)-> list:
     arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
     return arraytype_features
 
-def get_high_cardinal_features(feature_table: snowflake.snowpark.Table, entity_column: str, label_column: str) -> List[str]:
-    """
-    Identify high cardinality features in the feature table based on condition that 
-            the sum of frequency of ten most popular categories is less than 1% of the total row count,.
-
-    Args:
-        feature_table (snowflake.snowpark.Table): A Snowflake table object representing the feature table.
-        entity_column (str): The name of the entity column in the feature table.
-        label_column (str): The name of the label column in the feature table.
-
-    Returns:
-        List[str]: A list of strings representing the names of the high cardinality features in the feature table.
-
-    Example:
-        feature_table = snowflake.snowpark.Table(...)
-        label_column = "label"
-        entity_column = "entity"
-        high_cardinal_features = get_high_cardinal_features(feature_table, label_column, entity_column)
-        print(high_cardinal_features)
-    """
-    high_cardinal_features = list()
-    for field in feature_table.schema.fields:
-        if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-            feature_data = feature_table.select(F.col(field.name)).to_pandas()
-            total_rows = feature_data.shape[0]
-            top_10_freq_sum = sum(feature_data.value_counts().head(10))
-            if top_10_freq_sum < 0.01 * total_rows:
-                high_cardinal_features.append(field.name)
-    return high_cardinal_features
-
 def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str])-> pd.DataFrame:
     """
     Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively.

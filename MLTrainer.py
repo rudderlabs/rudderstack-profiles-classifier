@@ -218,12 +218,13 @@ class ClassificationTrainer(MLTrainer):
 
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
-        self.figure_names = {
-            "roc-auc-curve": f"01-test-roc-auc-{self.output_profiles_ml_model}.png",
-            "pr-auc-curve": f"02-test-pr-auc-{self.output_profiles_ml_model}.png",
-            "lift-chart": f"03-test-lift-chart-{self.output_profiles_ml_model}.png",
-            "feature-importance-chart": f"04-feature-importance-chart-{self.output_profiles_ml_model}.png"
-        }
+        #TODO: uncomment after testing support for redshift
+        # self.figure_names = {
+        #     "roc-auc-curve": f"01-test-roc-auc-{self.output_profiles_ml_model}.png",
+        #     "pr-auc-curve": f"02-test-pr-auc-{self.output_profiles_ml_model}.png",
+        #     "lift-chart": f"03-test-lift-chart-{self.output_profiles_ml_model}.png",
+        #     "feature-importance-chart": f"04-feature-importance-chart-{self.output_profiles_ml_model}.png"
+        # }
 
     def build_model(self, X_train:pd.DataFrame, 
                     y_train:pd.DataFrame,
@@ -370,7 +371,8 @@ class RegressionTrainer(MLTrainer):
 
     def __init__(self,**kwargs):
         super().__init__(**kwargs)
-        self.figure_names = {}
+        #TODO: uncomment after testing support for redshift
+        # self.figure_names = {}
 
     def build_model(
         self,

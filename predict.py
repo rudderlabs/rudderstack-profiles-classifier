@@ -1,15 +1,16 @@
 import os
 import sys
 import yaml
-import json
 import joblib
 import datetime
 import warnings
 import cachetools
 import numpy as np
 import pandas as pd
+import simplejson as json
 
 from typing import Any
+from logger import logger
 from xgboost import XGBClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
@@ -19,7 +20,6 @@ from sklearn.metrics import average_precision_score
 from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
-import snowflake.snowpark
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 
@@ -28,12 +28,15 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import utils
 import constants
-from Connector import Connector
-from RedshiftConnector import RedshiftConnector
 from SnowflakeConnector import SnowflakeConnector
 
 warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
+
+try:
+    from RedshiftConnector import RedshiftConnector
+except Exception as e:
+        logger.warning(f"Could not import RedshiftConnector")
 
 local_folder = "data"
 
@@ -59,7 +62,7 @@ def load_model(filename: str):
         m = joblib.load(file)
         return m
 
-def predict_helper(df: pd.DataFrame, model_name: str, **kwargs) -> Any:
+def predict_helper(df, model_name: str, **kwargs) -> Any:
         trained_model = load_model(model_name)
         df.columns = [x.upper() for x in df.columns]
         column_names_path = kwargs.get("column_names_path", None)
@@ -118,7 +121,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     features_profiles_model = merged_config["data"]["features_profiles_model"]
 
     predict_path = os.path.join(current_dir, 'predict.py')
-    import_files = ("utils.py","constants.py", "Connector.py", "SnowflakeConnector.py", "RedshiftConnector.py")
+    import_files = ["utils.py","constants.py", "Connector.py", "SnowflakeConnector.py", "predict.py"]
     import_paths = []
     for file in import_files:
         import_paths.append(os.path.join(current_dir, file))
@@ -134,7 +137,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     elif creds["type"] == "redshift":
         connector = RedshiftConnector()
         session = connector.build_session(creds)
-    
+
     column_names_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_column_names.json")
     features_path = connector.join_file_path(f"{output_profiles_ml_model}_array_time_feature_names.json")
 
@@ -164,19 +167,19 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     print(model_name)
     print("Caching")
-                 
+
     features = input.columns
 
     if creds['type'] == 'snowflake':
         @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
                 stage_location=stage_name, name=udf_name, 
                 imports= import_paths+[f"{stage_name}/{model_name}"],
-                packages=["snowflake-snowpark-python==0.10.0","typing", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML", "json"])
+                packages=["snowflake-snowpark-python==0.10.0","typing", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML", "simplejson"])
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
             predict_proba = predict_helper(df, model_name)
             return predict_proba
-        
+
         prediction_procedure = predict_scores
     elif creds['type'] == 'redshift':
         def predict_scores_rs(df: pd.DataFrame, column_names_path: str) -> pd.Series:
@@ -187,7 +190,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     preds_with_percentile = connector.call_prediction_procedure(predict_data, prediction_procedure, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite")
-    
 
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")

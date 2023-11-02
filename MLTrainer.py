@@ -38,6 +38,7 @@ class MLTrainer(ABC):
                  train_end_dt: str,
                  prediction_horizon_days: int,
                  inputs: List[str],
+                 entity_key: str,
                  max_row_count: int,
                  prep: utils.PreprocessorConfig):
         self.label_value = label_value
@@ -52,6 +53,7 @@ class MLTrainer(ABC):
         self.train_end_dt = train_end_dt
         self.prediction_horizon_days = prediction_horizon_days
         self.inputs = inputs
+        self.entity_key = entity_key
         self.max_row_count = max_row_count
         self.prep = prep
     hyperopts_expressions_map = {exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]}    

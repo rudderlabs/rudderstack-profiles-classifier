@@ -281,7 +281,8 @@ class SnowflakeConnector(Connector):
                         features_profiles_model:str,
                         model_hash: str,
                         material_table_prefix:str,
-                        prediction_horizon_days: int) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+                        prediction_horizon_days: int,
+                        entity_key : str ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
 
         Args:
@@ -304,13 +305,15 @@ class SnowflakeConnector(Connector):
         snowpark_df = self.get_material_registry_table(session, material_table)
 
         feature_snowpark_df = (snowpark_df
-                    .filter(col("model_name") == features_profiles_model)
+                    .filter(col("model_name") == f"{entity_key}_var_table")
+                    .filter(col("model_type") == 'entity_var_model')
                     .filter(col("model_hash") == model_hash)
                     .filter(f"end_ts between \'{start_time}\' and \'{end_time}\'")
                     .select("seq_no", "end_ts")
                     ).distinct()
         label_snowpark_df = (snowpark_df
-                    .filter(col("model_name") == features_profiles_model)
+                    .filter(col("model_name") == f"{entity_key}_var_table")
+                    .filter(col("model_type") == 'entity_var_model')
                     .filter(col("model_hash") == model_hash) 
                     .filter(f"end_ts between dateadd(day, {prediction_horizon_days}, \'{start_time}\') and dateadd(day, {prediction_horizon_days}, \'{end_time}\')")
                     .select("seq_no", "end_ts")
@@ -326,6 +329,9 @@ class SnowflakeConnector(Connector):
             if utils.is_valid_table(session, feature_table_name_) and utils.is_valid_table(session, label_table_name_):
                 material_names.append((feature_table_name_, label_table_name_))
                 training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
+        
+        print("Material names : ", material_names)
+        print("Training dates : ", training_dates)
         return material_names, training_dates
 
     def get_material_registry_name(self, session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:

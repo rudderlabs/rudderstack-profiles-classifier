@@ -21,7 +21,7 @@ class Connector(ABC):
         return new_creds
     
     def get_material_names(self, session, material_table: str, start_date: str, end_date: str, 
-                        package_name: str, features_profiles_model: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
+                        package_name: str, features_profiles_model: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, entity_key : str, 
                         output_filename: str, site_config_path: str, project_folder: str, input_models: List[str])-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """
         Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
@@ -48,7 +48,7 @@ class Connector(ABC):
                 - training_dates: A list of tuples containing the corresponding training dates.
         """
         try:
-            material_names, training_dates = self.get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
+            material_names, training_dates = self.get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days,entity_key)
 
             if len(material_names) == 0:
                 try:
@@ -62,7 +62,7 @@ class Connector(ABC):
                     label_date = utils.date_add(feature_date, prediction_horizon_days)
                     utils.materialise_past_data(feature_date, feature_package_path, output_filename, site_config_path, project_folder)
                     utils.materialise_past_data(label_date, feature_package_path, output_filename, site_config_path, project_folder)
-                    material_names, training_dates = self.get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
+                    material_names, training_dates = self.get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days,entity_key)
                     if len(material_names) == 0:
                         raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data")
                 except Exception as e:
@@ -133,7 +133,7 @@ class Connector(ABC):
 
     @abstractmethod
     def get_material_names_(self, session, material_table: str, start_time: str, end_time: str, model_name:str, model_hash: str,
-                        material_table_prefix:str, prediction_horizon_days: int) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+                        material_table_prefix:str, prediction_horizon_days: int, entity_key : str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         pass
     
     @abstractmethod

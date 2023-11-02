@@ -292,6 +292,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                                               model_hash, 
                                                               material_table_prefix, 
                                                               trainer.prediction_horizon_days,
+                                                              trainer.entity_key,
                                                               output_filename,
                                                               site_config_path,
                                                               project_folder,
@@ -367,6 +368,8 @@ if __name__ == "__main__":
     path.mkdir(parents=True, exist_ok=True)
     # logger.setLevel(logger.logging.DEBUG)
 
-    project_folder = '/Users/admin/Desktop/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+    project_folder = '/Users/admin/Desktop/Playground/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+
+    train_config = json.loads('{"data":{"eligible_users":"days_since_last_purchase is null or days_since_last_purchase \u003e 30","entity_key":"user","features_profiles_model":"rudder_user_base_features","inputs":["packages/feature_table/models/rudder_user_base_features"],"label_column":"is_churned_7_days","label_value":1,"output_profiles_ml_model":"shopify_churn","package_name":"feature_table","prediction_horizon_days":7,"task":"classification"},"preprocessing":{"ignore_features":["user_email","first_name","last_name"]}}')
        
-    train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)
+    train(creds, inputs, output_file_name, train_config, siteconfig_path, project_folder)

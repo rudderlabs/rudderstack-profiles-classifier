@@ -240,7 +240,8 @@ class RedshiftConnector(Connector):
                         model_name:str,
                         model_hash: str,
                         material_table_prefix:str,
-                        prediction_horizon_days: int) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+                        prediction_horizon_days: int,
+                        entity_key : str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
 
         Args:

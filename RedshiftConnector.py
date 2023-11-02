@@ -291,6 +291,56 @@ class RedshiftConnector(Connector):
             training_dates.append((str(row["feature_end_ts"]), str(row["label_end_ts"])))
         return material_names, training_dates
 
+    def get_material_names(self, cursor: redshift_connector.cursor.Cursor, material_table: str, start_date: str, end_date: str, 
+                        package_name: str, features_profiles_model: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int,
+                        output_filename: str, site_config_path: str, project_folder: str, input_models: List[str])-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+        """
+        Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
+        If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
+        If no materialized data is found even after materialization, an exception is raised.
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): A Redshift connection cursor for data warehouse access.
+            material_table (str): The name of the material table (present in constants.py file).
+            start_date (str): The start date for training data.
+            end_date (str): The end date for training data.
+            package_name (str): The name of the package.
+            model_name (str): The name of the model.
+            model_hash (str): The latest model hash.
+            material_table_prefix (str): A constant.
+            prediction_horizon_days (int): The period of days for prediction horizon.
+            site_config_path (str): path to the siteconfig.yaml file
+            project_folder (str): project folder path to pb_project.yaml file
+            input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model. If this is empty, we infer this frmo the package_name and features_profiles_model - for backward compatibility
+
+        Returns:
+            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
+                - material_names: A list of tuples containing the names of the feature and label tables.
+                - training_dates: A list of tuples containing the corresponding training dates.
+        """
+        try:
+            material_names, training_dates = self.get_material_names_(cursor, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
+
+            if len(material_names) == 0:
+                try:
+                    feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
+                    feature_date = utils.date_add(start_date, prediction_horizon_days)
+                    label_date = utils.date_add(feature_date, prediction_horizon_days)
+                    utils.materialise_past_data(feature_date, feature_package_path, output_filename, site_config_path, project_folder)
+                    utils.materialise_past_data(label_date, feature_package_path, output_filename, site_config_path, project_folder)
+                    material_names, training_dates = self.get_material_names_(cursor, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
+                    if len(material_names) == 0:
+                        raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+                except Exception as e:
+                    print("Exception occured while materialising data. Please check the logs for more details")
+                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
+            print(f"Found {len(material_names)} materialised data for model_hash {model_hash} in the given date range")
+            return material_names, training_dates
+        except Exception as e:
+            print("Exception occured while retrieving material names. Please check the logs for more details")
+            raise e
+
+
     def get_latest_material_hash(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str) -> Tuple:
         """This function will return the model hash that is latest for given model name in material table
 

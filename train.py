@@ -274,10 +274,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         connector = RedshiftConnector()
         session = connector.build_session(creds)
 
-    figure_names = {"roc-auc-curve": f"01-test-roc-auc.png",
-                    "pr-auc-curve": f"02-test-pr-auc.png",
-                    "lift-chart": f"03-test-lift-chart.png",
-                    "feature-importance-chart": f"04-feature-importance-chart.png"}
+    #TODO: Remove this and use from trainer.figure_names after support for other warehouses.
+    figure_names = {"roc-auc-curve": f"01-test-roc-auc-{trainer.output_profiles_ml_model}.png",
+                    "pr-auc-curve": f"02-test-pr-auc-{trainer.output_profiles_ml_model}.png",
+                    "lift-chart": f"03-test-lift-chart-{trainer.output_profiles_ml_model}.png",
+                    "feature-importance-chart": f"04-feature-importance-chart-{trainer.output_profiles_ml_model}.png"}
 
     logger.info("Getting past data for training")
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)

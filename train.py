@@ -180,6 +180,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     """
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
+    positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py")
@@ -223,7 +224,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         connector.delete_procedures(session)
 
         @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
-            packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.2", "scikit-plot==0.3.7"])
+            packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
                     figure_names: dict,
@@ -296,7 +297,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                                               site_config_path,
                                                               project_folder,
                                                               trainer.inputs)
- 
+    
+    if trainer.label_value is None and prediction_task == 'classification':
+        label_value = connector.get_default_label_value(session, material_names[0][0], trainer.label_column, positive_boolean_flags)
+        trainer.label_value = label_value
+
     feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
@@ -347,7 +352,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     summary = trainer.prepare_training_summary(train_results, model_timestamp)
     json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))
     logger.debug("Fetching visualisations to local")
-    for figure_name in trainer.figure_names.values():
+    for figure_name in figure_names.values():
         try:
             connector.fetch_staged_file(session, stage_name, figure_name, target_path)
         except:
@@ -367,6 +372,6 @@ if __name__ == "__main__":
     path.mkdir(parents=True, exist_ok=True)
     # logger.setLevel(logger.logging.DEBUG)
 
-    project_folder = '~/git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+    project_folder = '~/Desktop/Git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

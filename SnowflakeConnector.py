@@ -273,6 +273,35 @@ class SnowflakeConnector(Connector):
             if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
                 timestamp_columns.append(field.name)
         return timestamp_columns
+    
+    def get_default_label_value(self, session, table_name: str, label_column: str, positive_boolean_flags: list):
+        """
+        Returns the default label value for the given label column in the given table.
+
+        Args:
+            session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
+            table_name (str): The name of the table from which to retrieve the default label value.
+            label_column (str): The name of the label column from which to retrieve the default label value.
+            positive_boolean_flags (list): The sample names of the positive labels.
+
+        Returns:
+            The default label value for the given label column in the given table.
+        """
+        label_value = list()
+        table = self.get_table(session, table_name)
+        distinct_labels = table.select(F.col(label_column).alias("distinct_labels")).distinct().collect()
+
+        if len(distinct_labels) != 2:
+            raise Exception("The feature to be predicted should be boolean")
+        for row in distinct_labels:
+            if row.DISTINCT_LABELS in positive_boolean_flags:
+                label_value.append(row.DISTINCT_LABELS)
+        
+        if len(label_value) == 0:
+            raise Exception(f"Label column {label_column} doesn't have any positive flags. Please provide custom label_value from label_column to bypass the error.")
+        elif len(label_value) > 1:
+            raise Exception(f"Label column {label_column} has multiple positive flags. Please provide custom label_value out of {label_value} to bypass the error.")
+        return label_value[0]
 
     def get_material_names_(self, session: snowflake.snowpark.Session,
                         material_table: str, 
@@ -380,7 +409,7 @@ class SnowflakeConnector(Connector):
             None
         """
         file_stage_path = f"{stage_name}/{file_name}"
-        _ = self.get_file(session, file_stage_path, target_folder)
+        self.get_file(session, file_stage_path, target_folder)
         input_file_path = os.path.join(target_folder, f"{file_name}.gz")
         output_file_path = os.path.join(target_folder, file_name)
 
@@ -503,7 +532,7 @@ class SnowflakeConnector(Connector):
         Returns:
             Nothing
         """
-        session.file.get(file_stage_path, target_folder)
+        _ = session.file.get(file_stage_path, target_folder)
 
     def create_stage(self, session: snowflake.snowpark.Session, stage_name: str):
         """

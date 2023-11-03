@@ -128,6 +128,10 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def get_high_cardinal_features(self, session, feature_table_name, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
+        pass
+
+    @abstractmethod
     def get_timestamp_columns(self, session, table_name: str, index_timestamp: str)-> List[str]:
         pass
 

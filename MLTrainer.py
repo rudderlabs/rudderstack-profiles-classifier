@@ -160,7 +160,8 @@ class MLTrainer(ABC):
             if self.eligible_users:
                 feature_table = connector.get_table(session, feature_table_name, filter_condition=self.eligible_users)
             else:
-                feature_table = connector.get_table(session, feature_table_name) #.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
+                default_user_shortlisting = f"{self.label_column} != {self.label_value}"
+                feature_table = connector.get_table(session, feature_table_name, filter_condition=default_user_shortlisting) #.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
             arraytype_features = connector.get_arraytype_features(session, feature_table_name)
             ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
             high_cardinal_features = connector.get_high_cardinal_features(session, feature_table_name, self.label_column, self.entity_column, cardinal_feature_threshold)

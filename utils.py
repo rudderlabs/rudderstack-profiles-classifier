@@ -726,7 +726,7 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
                     logger.warning("No input models provided. Inferring input models from package_name and features_profiles_model, assuming that python model is defined in application project and feature table is imported as a package.")
                     feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
                 else:
-                    feature_package_path = ','.join(input_models) #Syntax: pb run models/m1,models/m2 
+                    feature_package_path = ','.join(input_models) #Syntax: pb run -m models/m1,models/m2 
                 feature_date = date_add(start_date, prediction_horizon_days)
                 label_date = date_add(feature_date, prediction_horizon_days)
                 materialise_past_data(feature_date, feature_package_path, output_filename, site_config_path, project_folder)

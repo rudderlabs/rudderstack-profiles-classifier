@@ -555,7 +555,7 @@ def merge_lists_to_unique(l1: list, l2: list)-> list:
     """
     return list(set(l1 + l2))
 
-def get_pb_command() -> str:
+def get_pb_path() -> str:
     """In Rudder-sources check if pb command works. Else, it returns the exact location where pb installable is present.
 
     Returns:
@@ -591,7 +591,7 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
             path_components = output_path.split(os.path.sep)
             output_index = path_components.index('output')
             project_folder = os.path.sep.join(path_components[:output_index])
-        pb = get_pb_command()
+        pb = get_pb_path()
         args = [pb, "run", "-p", project_folder, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
         if site_config_path is not None:
             args.extend(['-c', site_config_path])

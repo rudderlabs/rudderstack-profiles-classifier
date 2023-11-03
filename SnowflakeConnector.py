@@ -289,14 +289,18 @@ class SnowflakeConnector(Connector):
         """
         label_value = list()
         table = self.get_table(session, table_name)
-        distinct_labels = table.select(F.col(label_column)).distinct().collect()
+        distinct_labels = table.select(F.col(label_column).alias("distinct_labels")).distinct().collect()
+
         if len(distinct_labels) != 2:
             raise Exception("The feature to be predicted should be boolean")
         for row in distinct_labels:
-            if row.IS_CHURNED_7_DAYS in positive_boolean_flags:
-                label_value.append(row.IS_CHURNED_7_DAYS)
-        if len(label_value) != 1:
-            raise Exception("There is some issue with defining the label value. Please check.")
+            if row.DISTINCT_LABELS in positive_boolean_flags:
+                label_value.append(row.DISTINCT_LABELS)
+        
+        if len(label_value) == 0:
+            raise Exception(f"Label column {label_column} doesn't have any positive flags. Please provide custom label_value from label_column to bypass the error.")
+        elif len(label_value) > 1:
+            raise Exception(f"Label column {label_column} has multiple positive flags. Please provide custom label_value out of {label_value} to bypass the error.")
         return label_value[0]
 
     def get_material_names_(self, session: snowflake.snowpark.Session,

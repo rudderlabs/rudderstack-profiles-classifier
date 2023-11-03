@@ -121,7 +121,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     features_profiles_model = merged_config["data"]["features_profiles_model"]
 
     predict_path = os.path.join(current_dir, 'predict.py')
-    import_files = ["utils.py","constants.py", "Connector.py", "SnowflakeConnector.py", "predict.py"]
+    import_files = []
     import_paths = []
     for file in import_files:
         import_paths.append(os.path.join(current_dir, file))

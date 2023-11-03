@@ -34,6 +34,7 @@ class RedshiftConnector(Connector):
         self.creds = credentials
         self.connection_parameters = self.remap_credentials(credentials)
         conn = redshift_connector.connect(**self.connection_parameters)
+        self.creds["schema"] = self.schema
         conn.autocommit = True
         cursor = conn.cursor()
         cursor.execute(f"SET search_path TO {self.schema};")

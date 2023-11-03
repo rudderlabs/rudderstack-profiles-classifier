@@ -255,7 +255,7 @@ class SnowflakeConnector(Connector):
         arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
         return arraytype_features
     
-    def get_high_cardinal_features(self, session: snowflake.snowpark.Session, feature_table_name: str, label_column: str, entity_column: str) -> List[str]:
+    def get_high_cardinal_features(self, session: snowflake.snowpark.Session, feature_table_name: str, label_column: str, entity_column: str, cardinal_feature_threshold: float) -> List[str]:
         """
         Identify high cardinality features in the feature table based on condition that 
                 the sum of frequency of ten most popular categories is less than 1% of the total row count,.
@@ -279,12 +279,14 @@ class SnowflakeConnector(Connector):
         """
         high_cardinal_features = list()
         feature_table = self.get_table(session, feature_table_name)
+        total_rows = feature_table.count()
         for field in feature_table.schema.fields:
+            top_10_freq_sum = 0
             if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-                feature_data = feature_table.select(F.col(field.name)).to_pandas()
-                total_rows = feature_data.shape[0]
-                top_10_freq_sum = sum(feature_data.value_counts().head(10))
-                if top_10_freq_sum < 0.01 * total_rows:
+                feature_data = feature_table.filter(F.col(field.name) != '').group_by(F.col(field.name)).count().sort(F.col('count').desc()).first(10)
+                for row in feature_data:
+                    top_10_freq_sum += row.COUNT
+                if top_10_freq_sum < (cardinal_feature_threshold * total_rows):
                     high_cardinal_features.append(field.name)
         return high_cardinal_features
 

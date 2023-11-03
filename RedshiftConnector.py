@@ -213,7 +213,7 @@ class RedshiftConnector(Connector):
                 arraytype_features.append(row['col_name'])
         return arraytype_features
     
-    def get_high_cardinal_features(self, cursor: redshift_connector.cursor.Cursor, table_name, label_column, entity_column) -> List[str]:
+    def get_high_cardinal_features(self, cursor: redshift_connector.cursor.Cursor, table_name, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
         return []
 
     def get_timestamp_columns(self, cursor: redshift_connector.cursor.Cursor, table_name: str, index_timestamp: str)-> List[str]:

@@ -144,7 +144,8 @@ class MLTrainer(ABC):
 
     def prepare_feature_table(self, connector: Connector, session,
                             feature_table_name: str, 
-                            label_table_name: str) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
+                            label_table_name: str,
+                            cardinal_feature_threshold: float) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
         """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
 
         Args:
@@ -162,7 +163,7 @@ class MLTrainer(ABC):
                 feature_table = connector.get_table(session, feature_table_name) #.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
             arraytype_features = connector.get_arraytype_features(session, feature_table_name)
             ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
-            high_cardinal_features = connector.get_high_cardinal_features(session, feature_table_name, self.label_column, self.entity_column)
+            high_cardinal_features = connector.get_high_cardinal_features(session, feature_table_name, self.label_column, self.entity_column, cardinal_feature_threshold)
             ignore_features = utils.merge_lists_to_unique(ignore_features, high_cardinal_features)
             feature_table = connector.drop_cols(feature_table, [self.label_column])
             timestamp_columns = self.prep.timestamp_columns

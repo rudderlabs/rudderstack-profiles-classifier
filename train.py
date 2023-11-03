@@ -180,6 +180,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     """
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
+    cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESOLD
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py")
@@ -303,7 +304,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         feature_table_name, label_table_name = row
         feature_table_instance = trainer.prepare_feature_table(connector, session,
                                                                feature_table_name, 
-                                                               label_table_name)
+                                                               label_table_name,
+                                                               cardinal_feature_threshold)
         if feature_table is None:
             feature_table = feature_table_instance
         else:

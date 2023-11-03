@@ -235,6 +235,9 @@ class RedshiftConnector(Connector):
             if row['col_type'] in ['timestamp without time zone', 'date', 'time without time zone'] and row['col_name'].lower() != index_timestamp.lower():
                 timestamp_columns.append(row['col_name'])
         return timestamp_columns
+    
+    def get_default_label_value(self, cursor, table_name: str, label_column: str, positive_boolean_flags: list):
+        pass
 
     def get_material_names_(self, cursor: redshift_connector.cursor.Cursor,
                         material_table: str, 

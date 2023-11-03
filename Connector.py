@@ -136,6 +136,10 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def get_default_label_value(self, session, table_name: str, label_column: str, positive_boolean_flags: list):
+        pass
+
+    @abstractmethod
     def get_material_names_(self, session, material_table: str, start_time: str, end_time: str, model_name:str, model_hash: str,
                         material_table_prefix:str, prediction_horizon_days: int) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         pass

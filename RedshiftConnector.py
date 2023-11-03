@@ -12,12 +12,13 @@ from typing import List, Tuple, Any, Union
 import utils
 import constants
 from Connector import Connector
-from profiles_rudderstack.wh import ProfilesConnector
 from wh import ProfilesConnector
 local_folder = constants.LOCAL_STORAGE_DIR
 
 class RedshiftConnector(Connector):
     def __init__(self) -> None:
+        self.local_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), local_folder)
+        Path(self.local_dir).mkdir(parents=True, exist_ok=True)
         return
 
     def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
@@ -48,7 +49,7 @@ class RedshiftConnector(Connector):
         Returns:
             The joined file path as a string.
         """
-        return os.path.join(local_folder, file_name)
+        return os.path.join(self.local_dir, file_name)
 
     def run_query(self, cursor: redshift_connector.cursor.Cursor, query: str) -> None:
         """Runs the given query on the redshift connection
@@ -497,8 +498,7 @@ class RedshiftConnector(Connector):
         Returns:
             Nothing
         """
-        Path(local_folder).mkdir(parents=True, exist_ok=True)
-        table_path = os.path.join(local_folder, f"{table_name}.parquet.gzip")
+        table_path = os.path.join(self.local_dir, f"{table_name}.parquet.gzip")
         df.to_parquet(table_path, compression='gzip')
     
     def get_arraytype_features_from_table(self, table: pd.DataFrame, **kwargs)-> list:

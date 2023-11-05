@@ -40,44 +40,6 @@ except Exception as e:
 
 local_folder = "data"
 
-@cachetools.cached(cache={})
-def load_model(filename: str):
-    """session.import adds the staged model file to an import directory. We load the model file from this location
-
-    Args:
-        filename (str): path for the model_name
-
-    Returns:
-        _type_: return the trained model after loading it
-    """
-    import_dir = sys._xoptions.get("snowflake_import_directory")
-
-    if import_dir:
-        assert import_dir.startswith('/home/udf/')
-        filename = os.path.join(import_dir, filename)
-    else:
-        filename = os.path.join(local_folder, filename)
-
-    with open(filename, 'rb') as file:
-        m = joblib.load(file)
-        return m
-
-def predict_helper(df, model_name: str, **kwargs) -> Any:
-        trained_model = load_model(model_name)
-        df.columns = [x.upper() for x in df.columns]
-        column_names_path = kwargs.get("column_names_path", None)
-        if column_names_path:
-            with open(column_names_path, "r") as f:
-                column_names = json.load(f)
-                categorical_columns = column_names["categorical_columns"]
-                numeric_columns = column_names["numeric_columns"]
-        else:
-            categorical_columns = list(df.select_dtypes(include='object'))
-            numeric_columns = list(df.select_dtypes(exclude='object'))
-        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
-        return trained_model.predict_proba(df)[:,1]
-
 def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_tablename : str, config: dict) -> None:
     """Generates the prediction probabilities and save results for given model_path
 
@@ -167,6 +129,43 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     print(model_name)
     print("Caching")
+    @cachetools.cached(cache={})
+    def load_model(filename: str):
+        """session.import adds the staged model file to an import directory. We load the model file from this location
+
+        Args:
+            filename (str): path for the model_name
+
+        Returns:
+            _type_: return the trained model after loading it
+        """
+        import_dir = sys._xoptions.get("snowflake_import_directory")
+
+        if import_dir:
+            assert import_dir.startswith('/home/udf/')
+            filename = os.path.join(import_dir, filename)
+        else:
+            filename = os.path.join(local_folder, filename)
+
+        with open(filename, 'rb') as file:
+            m = joblib.load(file)
+            return m
+    
+    def predict_helper(df, model_name: str, **kwargs) -> Any:
+        trained_model = load_model(model_name)
+        df.columns = [x.upper() for x in df.columns]
+        column_names_path = kwargs.get("column_names_path", None)
+        if column_names_path:
+            with open(column_names_path, "r") as f:
+                column_names = json.load(f)
+                categorical_columns = column_names["categorical_columns"]
+                numeric_columns = column_names["numeric_columns"]
+        else:
+            categorical_columns = list(df.select_dtypes(include='object'))
+            numeric_columns = list(df.select_dtypes(exclude='object'))
+        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
+        return trained_model.predict_proba(df)[:,1]
 
     features = input.columns
 

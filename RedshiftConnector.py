@@ -336,7 +336,6 @@ class RedshiftConnector(Connector):
                 except Exception as e:
                     print("Exception occured while materialising data. Please check the logs for more details")
                     raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}")
-            print(f"Found {len(material_names)} materialised data for model_hash {model_hash} in the given date range")
             return material_names, training_dates
         except Exception as e:
             print("Exception occured while retrieving material names. Please check the logs for more details")

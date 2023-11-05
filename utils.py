@@ -217,18 +217,6 @@ def split_train_test(feature_df: pd.DataFrame,
     test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
     test_y = X_test[[label_column.upper()]]
     return train_x, train_y, test_x, test_y, val_x, val_y
-    
-def remap_credentials(credentials: dict) -> dict:
-    """Remaps credentials from profiles siteconfig to the expected format from snowflake session
-
-    Args:
-        credentials (dict): Data warehouse credentials from profiles siteconfig
-
-    Returns:
-        dict: Data warehouse creadentials remapped in format that is required to create a snowpark session
-    """
-    new_creds = {k if k != 'dbname' else 'database': v for k, v in credentials.items() if k != 'type'}
-    return new_creds
 
 def load_yaml(file_path: str) -> dict:
     """Loads the yaml file for any given filename
@@ -273,66 +261,6 @@ def combine_config(notebook_config: dict, profiles_config:dict= None) -> dict:
             merged_config[key] = notebook_config[key]
     return merged_config
 
-def drop_columns_if_exists(df: snowflake.snowpark.Table, 
-                          ignore_features: list) -> snowflake.snowpark.Table:
-    """Returns the snowpark DataFrame after dropping the features that are to be ignored.
-
-    Args:
-        df (snowflake.snowpark.Table): snowpark DataFrame
-        ignore_features (list): list of features that we want to drop from the dataframe
-
-    Returns:
-        snowflake.snowpark.Table: snowpark DataFrame after dropping the ignored features
-    """
-    ignore_features_upper = [col.upper() for col in ignore_features]
-    ignore_features_lower = [col.lower() for col in ignore_features]
-    ignore_features_ = [col for col in df.columns if col in ignore_features_upper or col in ignore_features_lower]
-    return df.drop(ignore_features_)
-
-def delete_import_files(session: snowflake.snowpark.Session, 
-                        stage_name: str, 
-                        import_paths: List[str]) -> None:
-    """
-    Deletes files from the specified Snowflake stage that match the filenames extracted from the import paths.
-    Args:
-        session (snowflake.snowpark.Session): A Snowflake session object.
-        stage_name (str): The name of the Snowflake stage.
-        import_paths (List[str]): The paths of the files to be deleted from the stage.
-    Returns:
-        None: The function does not return any value.
-    """
-    import_files = [element.split('/')[-1] for element in import_paths]
-    files = session.sql(f"list {stage_name}").collect()
-    for row in files:
-        if any(substring in row.name for substring in import_files):
-            session.sql(f"remove @{row.name}").collect()
-
-def delete_procedures(session: snowflake.snowpark.Session, train_procedure: str) -> None:
-    """
-    Deletes Snowflake train procedures based on a given name.
-
-    Args:
-        session (snowflake.snowpark.Session): A Snowflake session object.
-        train_procedure (str): The name of the train procedures to be deleted.
-
-    Returns:
-        None
-
-    Example:
-        session = snowflake.snowpark.Session(...)
-        delete_procedures(session, 'train_model')
-
-    This function retrieves a list of procedures that match the given train procedure name using a SQL query. 
-    It then iterates over each procedure and attempts to drop it using another SQL query. If an error occurs during the drop operation, it throws an exception.
-    """
-    procedures = session.sql(f"show procedures like '{train_procedure}'").collect()
-    for row in procedures:
-        try:
-            procedure_arguments = row.arguments.split('RETURN')[0].strip()
-            session.sql(f"drop procedure if exists {procedure_arguments}").collect()
-        except:
-            raise Exception(f"Error while deleting procedure {row.name}")
-
 def get_column_names(onehot_encoder: OneHotEncoder, 
                      col_names: List[str]) -> List[str]:
     """Assigning new column names for the one-hot encoded columns.
@@ -350,52 +278,6 @@ def get_column_names(onehot_encoder: OneHotEncoder,
             category_names.append(f"{col}_{value}")
     return category_names
 
-def get_non_stringtype_features(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str) -> List[str]:
-    """
-    Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
-
-    Args:
-        feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
-        label_column (str): A string representing the name of the label column.
-        entity_column (str): A string representing the name of the entity column.
-
-    Returns:
-        List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
-    """
-    non_stringtype_features = []
-    for field in feature_table.schema.fields:
-        if field.datatype != T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-            non_stringtype_features.append(field.name)
-    return non_stringtype_features
-
-def get_stringtype_features(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str)-> List[str]:
-    """
-    Extracts the names of StringType(categorical) columns from a given feature table schema.
-
-    Args:
-        feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
-        label_column (str): The name of the label column.
-        entity_column (str): The name of the entity column.
-
-    Returns:
-        List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
-    """
-    stringtype_features = []
-    for field in feature_table.schema.fields:
-        if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-            stringtype_features.append(field.name)
-    return stringtype_features
-
-def get_arraytype_features(table: snowflake.snowpark.Table)-> list:
-    """Returns the list of features to be ignored from the feature table.
-    Args:
-        table (snowflake.snowpark.Table): snowpark table.
-    Returns:
-        list: The list of features to be ignored based column datatypes as ArrayType.
-    """
-    arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
-    return arraytype_features
-
 def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str])-> pd.DataFrame:
     """
     Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively.
@@ -411,29 +293,6 @@ def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_col
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
     df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
     return df
-
-def get_material_registry_name(session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:
-    """This function will return the latest material registry table name
-    Args:
-        session (snowflake.snowpark.Session): snowpark session
-        table_name (str): name of the material registry table prefix
-    Returns:
-        str: latest material registry table name
-    """
-    material_registry_tables = list()
-
-    def split_key(item):
-        parts = item.split('_')
-        if len(parts) > 1 and parts[-1].isdigit():
-            return int(parts[-1])
-        return 0
-
-    registry_df = session.sql(f"show tables starts with '{table_prefix}'")
-    for row in registry_df.collect():
-        material_registry_tables.append(row.name)
-    material_registry_tables.sort(reverse=True)
-    sorted_material_registry_tables = sorted(material_registry_tables, key=split_key, reverse=True)
-    return sorted_material_registry_tables[0]
 
 def get_output_directory(folder_path: str)-> str:
     """This function will return the output directory path
@@ -505,25 +364,6 @@ def get_timestamp_columns(table: snowflake.snowpark.Table, index_timestamp: str)
             timestamp_columns.append(field.name)
     return timestamp_columns
 
-def get_latest_material_hash(session: snowflake.snowpark.Session,
-                       material_table: str,
-                       features_profiles_model:str) -> Tuple:
-    """This function will return the model hash that is latest for given model name in material table
-
-    Args:
-        session (snowflake.snowpark.Session): snowpark session
-        material_table (str): name of material registry table
-        features_profiles_model (str): feature profiles model name from model_configs file
-
-    Returns:
-        Tuple: latest model hash and it's creation timestamp
-    """
-    snowpark_df = get_material_registry_table(session, material_table)
-    temp_hash_vector = snowpark_df.filter(col("model_name") == features_profiles_model).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
-    model_hash = temp_hash_vector.MODEL_HASH
-    creation_ts = temp_hash_vector.CREATION_TS
-    return model_hash, creation_ts
-
 def merge_lists_to_unique(l1: list, l2: list)-> list:
     """Merges two lists and returns a unique list of elements.
 
@@ -548,8 +388,7 @@ def get_pb_path() -> str:
     except:
         logger.warning("pb command not found in the path. Using the default rudder-sources path /venv/bin/pb")
         return constants.PB
-    
-    
+
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> None:
     """
     Materializes past data for a given date using the 'pb' command-line tool.
@@ -598,24 +437,6 @@ def is_valid_table(session: snowflake.snowpark.Session, table_name: str) -> bool
         return True
     except:
         return False
-    
-def get_material_registry_table(session: snowflake.snowpark.Session, material_registry_table_name: str) -> snowflake.snowpark.Table:
-    """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
-    Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
-
-    Args:
-        session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-        material_registry_table_name (str): The material registry table name.
-
-    Returns:
-        snowflake.snowpark.Table: The filtered material registry table containing only the successfully materialized data.
-    """
-    material_registry_table = (session.table(material_registry_table_name)
-                               .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
-                               .filter(F.col("status")==2)
-                               )
-    return material_registry_table
-
 
 def generate_material_name(material_table_prefix: str, model_name: str, model_hash: str, seq_no: str) -> str:
     """Generates a valid table name from the model hash, model name, and seq no. 
@@ -630,114 +451,6 @@ def generate_material_name(material_table_prefix: str, model_name: str, model_ha
         str: name of the material table in warehouse 
     """
     return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'
-
-def get_material_names_(session: snowflake.snowpark.Session,
-                       material_table: str, 
-                       start_time: str, 
-                       end_time: str, 
-                       features_profiles_model:str,
-                       model_hash: str,
-                       material_table_prefix:str,
-                       prediction_horizon_days: int) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-    """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
-
-    Args:
-        session (snowflake.snowpark.Session): Snowpark session for data warehouse access
-        material_table (str): Name of the material table(present in constants.py file)
-        start_time (str): train_start_dt
-        end_time (str): train_end_dt
-        features_profiles_model (str): Present in model_configs file
-        model_hash (str) : latest model hash
-        material_table_prefix (str): constant
-        prediction_horizon_days (int): period of days
-
-    Returns:
-        Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
-        ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
-    """
-    material_names = list()
-    training_dates = list()
-
-    snowpark_df = get_material_registry_table(session, material_table)
-
-    feature_snowpark_df = (snowpark_df
-                .filter(col("model_name") == features_profiles_model)
-                .filter(col("model_hash") == model_hash)
-                .filter(f"end_ts between \'{start_time}\' and \'{end_time}\'")
-                .select("seq_no", "end_ts")
-                ).distinct()
-    label_snowpark_df = (snowpark_df
-                .filter(col("model_name") == features_profiles_model)
-                .filter(col("model_hash") == model_hash) 
-                .filter(f"end_ts between dateadd(day, {prediction_horizon_days}, \'{start_time}\') and dateadd(day, {prediction_horizon_days}, \'{end_time}\')")
-                .select("seq_no", "end_ts")
-                ).distinct()
-    
-    feature_label_snowpark_df = feature_snowpark_df.join(label_snowpark_df,
-                                                            F.datediff("day", feature_snowpark_df.end_ts, label_snowpark_df.end_ts)==prediction_horizon_days
-                                                            ).select(feature_snowpark_df.seq_no.alias("feature_seq_no"),feature_snowpark_df.end_ts.alias("feature_end_ts"),
-                                                                    label_snowpark_df.seq_no.alias("label_seq_no"), label_snowpark_df.end_ts.alias("label_end_ts"))
-    for row in feature_label_snowpark_df.collect():
-        feature_table_name_ = generate_material_name(material_table_prefix, features_profiles_model, model_hash, str(row.FEATURE_SEQ_NO))
-        label_table_name_ = generate_material_name(material_table_prefix, features_profiles_model, model_hash, str(row.LABEL_SEQ_NO))
-        if is_valid_table(session, feature_table_name_) and is_valid_table(session, label_table_name_):
-            material_names.append((feature_table_name_, label_table_name_))
-            training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
-    return material_names, training_dates
-
-def get_material_names(session: snowflake.snowpark.Session, material_table: str, start_date: str, end_date: str, 
-                       package_name: str, features_profiles_model: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
-                       output_filename: str, site_config_path: str, project_folder: str, input_models: List[str])-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-    """
-    Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
-    If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
-    If no materialized data is found even after materialization, an exception is raised.
-
-    Args:
-        session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-        material_table (str): The name of the material table (present in constants.py file).
-        start_date (str): The start date for training data.
-        end_date (str): The end date for training data.
-        package_name (str): The name of the package.
-        features_profiles_model (str): The name of the model.
-        model_hash (str): The latest model hash.
-        material_table_prefix (str): A constant.
-        prediction_horizon_days (int): The period of days for prediction horizon.
-        site_config_path (str): path to the siteconfig.yaml file
-        project_folder (str): project folder path to pb_project.yaml file
-        input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model. If this is empty, we infer this frmo the package_name and features_profiles_model - for backward compatibility
-
-    Returns:
-        Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
-            - material_names: A list of tuples containing the names of the feature and label tables.
-            - training_dates: A list of tuples containing the corresponding training dates.
-    """
-    try:
-        material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
-
-        if len(material_names) == 0:
-            try:
-                # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
-                if len(input_models) == 0:
-                    logger.warning("No input models provided. Inferring input models from package_name and features_profiles_model, assuming that python model is defined in application project and feature table is imported as a package.")
-                    feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
-                else:
-                    feature_package_path = ','.join(input_models) #Syntax: pb run -m models/m1,models/m2 
-                feature_date = date_add(start_date, prediction_horizon_days)
-                label_date = date_add(feature_date, prediction_horizon_days)
-                materialise_past_data(feature_date, feature_package_path, output_filename, site_config_path, project_folder)
-                materialise_past_data(label_date, feature_package_path, output_filename, site_config_path, project_folder)
-                material_names, training_dates = get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
-                if len(material_names) == 0:
-                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data")
-            except Exception as e:
-                # logger.exception(e)
-                logger.error("Exception occured while materialising data. Please check the logs for more details")
-                raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data")
-        return material_names, training_dates
-    except Exception as e:
-        logger.error("Exception occured while retrieving material names. Please check the logs for more details")
-        raise e
     
 def get_classification_metrics(y_true: pd.DataFrame, 
                                y_pred_proba: np.array, 

@@ -179,6 +179,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     """
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
+    positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS
+    cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESOLD
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py")
@@ -296,13 +298,18 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                                               site_config_path,
                                                               project_folder,
                                                               trainer.inputs)
- 
+    
+    if trainer.label_value is None and prediction_task == 'classification':
+        label_value = connector.get_default_label_value(session, material_names[0][0], trainer.label_column, positive_boolean_flags)
+        trainer.label_value = label_value
+
     feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
         feature_table_instance = trainer.prepare_feature_table(connector, session,
                                                                feature_table_name, 
-                                                               label_table_name)
+                                                               label_table_name,
+                                                               cardinal_feature_threshold)
         if feature_table is None:
             feature_table = feature_table_instance
         else:

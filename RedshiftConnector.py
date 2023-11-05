@@ -216,6 +216,9 @@ class RedshiftConnector(Connector):
             if row['col_type'] == 'super':
                 arraytype_features.append(row['col_name'])
         return arraytype_features
+    
+    def get_high_cardinal_features(self, cursor: redshift_connector.cursor.Cursor, table_name, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
+        return []
 
     def get_timestamp_columns(self, cursor: redshift_connector.cursor.Cursor, table_name: str, index_timestamp: str)-> List[str]:
         """
@@ -236,6 +239,9 @@ class RedshiftConnector(Connector):
             if row['col_type'] in ['timestamp without time zone', 'date', 'time without time zone'] and row['col_name'].lower() != index_timestamp.lower():
                 timestamp_columns.append(row['col_name'])
         return timestamp_columns
+    
+    def get_default_label_value(self, cursor, table_name: str, label_column: str, positive_boolean_flags: list):
+        pass
 
     def get_material_names_(self, cursor: redshift_connector.cursor.Cursor,
                         material_table: str, 

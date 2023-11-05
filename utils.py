@@ -536,6 +536,20 @@ def merge_lists_to_unique(l1: list, l2: list)-> list:
     """
     return list(set(l1 + l2))
 
+def get_pb_path() -> str:
+    """In Rudder-sources check if pb command works. Else, it returns the exact location where pb installable is present.
+
+    Returns:
+        str: _description_
+    """
+    try:
+        _ = subprocess.check_output(["which", "pb"])
+        return "pb"
+    except:
+        logger.warning("pb command not found in the path. Using the default rudder-sources path /venv/bin/pb")
+        return constants.PB
+    
+    
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> None:
     """
     Materializes past data for a given date using the 'pb' command-line tool.
@@ -558,7 +572,8 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
             path_components = output_path.split(os.path.sep)
             output_index = path_components.index('output')
             project_folder = os.path.sep.join(path_components[:output_index])
-        args = ["pb", "run", "-p", project_folder, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
+        pb = get_pb_path()
+        args = [pb, "run", "-p", project_folder, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
         if site_config_path is not None:
             args.extend(['-c', site_config_path])
         logger.info(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
@@ -707,7 +722,7 @@ def get_material_names(session: snowflake.snowpark.Session, material_table: str,
                     logger.warning("No input models provided. Inferring input models from package_name and features_profiles_model, assuming that python model is defined in application project and feature table is imported as a package.")
                     feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
                 else:
-                    feature_package_path = ','.join(input_models) #Syntax: pb run models/m1,models/m2 
+                    feature_package_path = ','.join(input_models) #Syntax: pb run -m models/m1,models/m2 
                 feature_date = date_add(start_date, prediction_horizon_days)
                 label_date = date_add(feature_date, prediction_horizon_days)
                 materialise_past_data(feature_date, feature_package_path, output_filename, site_config_path, project_folder)

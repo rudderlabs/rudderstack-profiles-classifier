@@ -254,6 +254,41 @@ class SnowflakeConnector(Connector):
         table = self.get_table(session, table_name)
         arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
         return arraytype_features
+    
+    def get_high_cardinal_features(self, session: snowflake.snowpark.Session, feature_table_name: str, label_column: str, entity_column: str, cardinal_feature_threshold: float) -> List[str]:
+        """
+        Identify high cardinality features in the feature table based on condition that 
+                the sum of frequency of ten most popular categories is less than 1% of the total row count,.
+
+        Args:
+            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
+            feature_table_name (str): name of the feature table.
+            label_column (str): The name of the label column in the feature table.
+            entity_column (str): The name of the entity column in the feature table.
+
+        Returns:
+            List[str]: A list of strings representing the names of the high cardinality features in the feature table.
+
+        Example:
+            session = snowflake.snowpark.Session(...)
+            feature_table_name = "..."
+            label_column = "label"
+            entity_column = "entity"
+            high_cardinal_features = get_high_cardinal_features(session, feature_table_name, label_column, entity_column)
+            print(high_cardinal_features)
+        """
+        high_cardinal_features = list()
+        feature_table = self.get_table(session, feature_table_name)
+        total_rows = feature_table.count()
+        for field in feature_table.schema.fields:
+            top_10_freq_sum = 0
+            if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
+                feature_data = feature_table.filter(F.col(field.name) != '').group_by(F.col(field.name)).count().sort(F.col('count').desc()).first(10)
+                for row in feature_data:
+                    top_10_freq_sum += row.COUNT
+                if top_10_freq_sum < (cardinal_feature_threshold * total_rows):
+                    high_cardinal_features.append(field.name)
+        return high_cardinal_features
 
     def get_timestamp_columns(self, session: snowflake.snowpark.Session, table_name: str, index_timestamp: str)-> List[str]:
         """
@@ -273,6 +308,35 @@ class SnowflakeConnector(Connector):
             if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
                 timestamp_columns.append(field.name)
         return timestamp_columns
+    
+    def get_default_label_value(self, session, table_name: str, label_column: str, positive_boolean_flags: list):
+        """
+        Returns the default label value for the given label column in the given table.
+
+        Args:
+            session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
+            table_name (str): The name of the table from which to retrieve the default label value.
+            label_column (str): The name of the label column from which to retrieve the default label value.
+            positive_boolean_flags (list): The sample names of the positive labels.
+
+        Returns:
+            The default label value for the given label column in the given table.
+        """
+        label_value = list()
+        table = self.get_table(session, table_name)
+        distinct_labels = table.select(F.col(label_column).alias("distinct_labels")).distinct().collect()
+
+        if len(distinct_labels) != 2:
+            raise Exception("The feature to be predicted should be boolean")
+        for row in distinct_labels:
+            if row.DISTINCT_LABELS in positive_boolean_flags:
+                label_value.append(row.DISTINCT_LABELS)
+        
+        if len(label_value) == 0:
+            raise Exception(f"Label column {label_column} doesn't have any positive flags. Please provide custom label_value from label_column to bypass the error.")
+        elif len(label_value) > 1:
+            raise Exception(f"Label column {label_column} has multiple positive flags. Please provide custom label_value out of {label_value} to bypass the error.")
+        return label_value[0]
 
     def get_material_names_(self, session: snowflake.snowpark.Session,
                         material_table: str, 
@@ -433,7 +497,7 @@ class SnowflakeConnector(Connector):
             None
         """
         file_stage_path = f"{stage_name}/{file_name}"
-        _ = self.get_file(session, file_stage_path, target_folder)
+        self.get_file(session, file_stage_path, target_folder)
         input_file_path = os.path.join(target_folder, f"{file_name}.gz")
         output_file_path = os.path.join(target_folder, file_name)
 
@@ -559,7 +623,7 @@ class SnowflakeConnector(Connector):
         Returns:
             Nothing
         """
-        session.file.get(file_stage_path, target_folder)
+        _ = session.file.get(file_stage_path, target_folder)
 
     def create_stage(self, session: snowflake.snowpark.Session, stage_name: str):
         """

@@ -88,9 +88,9 @@ class RedshiftConnector(Connector):
         """
         filter_condition = kwargs.get("filter_condition", "")
         if filter_condition:
-            cursor.execute(f"SELECT * FROM \"{table_name.lower()}\" WHERE {filter_condition};")
+            cursor.execute(f"SELECT * FROM {table_name.lower()} WHERE {filter_condition};")
         else:
-            cursor.execute(f"SELECT * FROM \"{table_name.lower()}\";")
+            cursor.execute(f"SELECT * FROM {table_name.lower()};")
         return cursor.fetch_dataframe()
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
@@ -241,7 +241,24 @@ class RedshiftConnector(Connector):
         return timestamp_columns
     
     def get_default_label_value(self, cursor, table_name: str, label_column: str, positive_boolean_flags: list):
-        pass
+        # label_value = list()
+        # table = self.get_table(cursor, table_name)
+        # # distinct_labels = table.select(F.col(label_column).alias("distinct_labels")).distinct().collect()
+        # distinct_labels = table[label_column].unique()
+
+        # if len(distinct_labels) != 2:
+        #     raise Exception("The feature to be predicted should be boolean")
+        # for row in distinct_labels:
+        #     if row.DISTINCT_LABELS in positive_boolean_flags:
+        #         label_value.append(row.DISTINCT_LABELS)
+        
+        
+        # if len(label_value) == 0:
+        #     raise Exception(f"Label column {label_column} doesn't have any positive flags. Please provide custom label_value from label_column to bypass the error.")
+        # elif len(label_value) > 1:
+        #     raise Exception(f"Label column {label_column} has multiple positive flags. Please provide custom label_value out of {label_value} to bypass the error.")
+        # return label_value[0]
+        return 1
 
     def get_material_names_(self, cursor: redshift_connector.cursor.Cursor,
                         material_table: str, 

@@ -348,22 +348,6 @@ def date_add(reference_date: str, add_days: int) -> str:
     new_date = new_timestamp.strftime("%Y-%m-%d")
     return new_date
 
-def get_timestamp_columns(table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
-    """
-    Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-    Args:
-        session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
-        feature_table (snowflake.snowpark.Table): The feature table from which to retrieve the timestamp columns.
-        index_timestamp (str): The name of the column containing the index timestamp information.
-    Returns:
-        List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-    """
-    timestamp_columns = []
-    for field in table.schema.fields:
-        if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
-            timestamp_columns.append(field.name)
-    return timestamp_columns
-
 def merge_lists_to_unique(l1: list, l2: list)-> list:
     """Merges two lists and returns a unique list of elements.
 

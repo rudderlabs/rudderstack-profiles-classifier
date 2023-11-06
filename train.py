@@ -204,7 +204,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config)
     elif prediction_task == 'regression':
         trainer = RegressionTrainer(**merged_config["data"], prep=prep_config)
-    
+
     logger.info(f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}")
     if trainer.eligible_users:
         logger.info(f"Only following users are considered for training: {trainer.eligible_users}")

@@ -243,7 +243,6 @@ class RedshiftConnector(Connector):
     def get_default_label_value(self, cursor, table_name: str, label_column: str, positive_boolean_flags: list):
         label_value = list()
         table = self.get_table(cursor, table_name)
-        # distinct_labels = table.select(F.col(label_column).alias("distinct_labels")).distinct().collect()
         distinct_labels = table[label_column].unique()
 
         if len(distinct_labels) != 2:
@@ -460,19 +459,6 @@ class RedshiftConnector(Connector):
         material_registry_table["status"] = material_registry_table["json_metadata"].apply(lambda x: x["complete"]["status"])
         return material_registry_table[material_registry_table["status"] == 2].drop(columns=["json_metadata"])
 
-    def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:
-        """Writes the given pandas dataframe to the local storage with the given name.
-
-        Args:
-            df (pd.DataFrame): Pandas dataframe to be written to the local storage
-            table_name (str): Name with which the dataframe is to be written to the local storage
-
-        Returns:
-            Nothing
-        """
-        table_path = os.path.join(self.local_dir, f"{table_name}.parquet.gzip")
-        df.to_parquet(table_path, compression='gzip')
-    
     def get_arraytype_features_from_table(self, table: pd.DataFrame, **kwargs)-> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
@@ -518,7 +504,6 @@ class RedshiftConnector(Connector):
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
-        # timestamp_columns = ['first_seen_date', 'last_seen_date']
         features_path = kwargs.get("features_path", None)
         if features_path == None:
             raise ValueError("features_path argument is required for Redshift")
@@ -531,9 +516,41 @@ class RedshiftConnector(Connector):
     def call_prediction_procedure(self, predict_data: pd.DataFrame, prediction_procedure: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
                                   column_names_path: str, prob_th: float, input: pd.DataFrame):
+        """Calls the given function for prediction
+
+        Args:
+            predict_data (pd.DataFrame): Dataframe to be predicted
+            prediction_procedure (Any): Function for prediction
+            entity_column (str): Name of the entity column
+            index_timestamp (str): Name of the index timestamp column
+            score_column_name (str): Name of the score column
+            percentile_column_name (str): Name of the percentile column
+            output_label_column (str): Name of the output label column
+            train_model_id (str): Model id
+            column_names_path (str): Path to the column names file
+            prob_th (float): Probability threshold
+            input (pd.DataFrame): Input dataframe
+        Returns:
+            Results of the predict function
+        """
         preds = predict_data[[entity_column, index_timestamp]]
         preds[score_column_name] = prediction_procedure(input, column_names_path)
         preds['model_id'] = train_model_id
         preds[output_label_column] = preds[score_column_name].apply(lambda x: True if x >= prob_th else False)
         preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
         return preds
+
+    """ The following functions are only specific to Redshift Connector and not used by any other connector."""
+    def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:
+        """Writes the given pandas dataframe to the local storage with the given name.
+
+        Args:
+            df (pd.DataFrame): Pandas dataframe to be written to the local storage
+            table_name (str): Name with which the dataframe is to be written to the local storage
+
+        Returns:
+            Nothing
+        """
+        table_path = os.path.join(self.local_dir, f"{table_name}.parquet.gzip")
+        df.to_parquet(table_path, compression='gzip')
+    

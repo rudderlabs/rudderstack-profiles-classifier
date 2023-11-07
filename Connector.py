@@ -180,3 +180,25 @@ class Connector(ABC):
     @abstractmethod
     def get_distinct_values_in_column(self, table, column_name: str) -> List:
         pass
+
+    @abstractmethod
+    def get_material_registry_table(self, session: Any, material_registry_table_name: str) -> pd.DataFrame:
+        pass
+
+    @abstractmethod
+    def get_arraytype_features_from_table(self, table: Any, **kwargs)-> list:
+        pass
+
+    @abstractmethod
+    def generate_type_hint(self, df: Any):        
+        pass
+
+    @abstractmethod
+    def get_timestamp_columns_from_table(self, table: Any, index_timestamp: str, **kwargs)-> List[str]:
+        pass
+
+    @abstractmethod
+    def call_prediction_procedure(self, predict_data: Any, prediction_procedure: Any, entity_column: str, index_timestamp: str,
+                                  score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
+                                  column_names_path: str, prob_th: float, input: Any):
+        pass

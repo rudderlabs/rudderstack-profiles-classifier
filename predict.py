@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import yaml
 import joblib
 import datetime
@@ -7,7 +8,6 @@ import warnings
 import cachetools
 import numpy as np
 import pandas as pd
-import simplejson as json
 
 from typing import Any
 from logger import logger

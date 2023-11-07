@@ -52,7 +52,6 @@ class Connector(ABC):
 
             if len(material_names) == 0:
                 try:
-                    # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
                     if len(input_models) == 0:
                         logger.warning("No input models provided. Inferring input models from package_name and features_profiles_model, assuming that python model is defined in application project and feature table is imported as a package.")
                         feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
@@ -71,7 +70,8 @@ class Connector(ABC):
                     raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data")
             return material_names, training_dates
         except Exception as e:
-            logger.error("Exception occured while retrieving material names. Please check the logs for more details")
+            logger.error(e)
+            raise Exception("Exception occured while retrieving material names. Please check the logs for more details")
 
     @abstractmethod
     def build_session(self, credentials: dict):

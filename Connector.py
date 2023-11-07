@@ -52,7 +52,6 @@ class Connector(ABC):
 
             if len(material_names) == 0:
                 try:
-                    # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
                     if len(input_models) == 0:
                         logger.warning("No input models provided. Inferring input models from package_name and features_profiles_model, assuming that python model is defined in application project and feature table is imported as a package.")
                         feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"

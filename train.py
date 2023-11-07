@@ -32,8 +32,6 @@ try:
 except Exception as e:
         logger.warning(f"Could not import RedshiftConnector")
 
-
-logger.info("Start")
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 stage_name = constants.STAGE_NAME
@@ -193,7 +191,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     target_path = utils.get_output_directory(folder_path)
 
     """ Initialising trainer """
-    logger.info("Initialising trainer")
+    logger.info("Initialising trainer - with pandas 2.0.3")
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
     
@@ -210,13 +208,12 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     if trainer.eligible_users:
         logger.info(f"Only following users are considered for training: {trainer.eligible_users}")
     else:
-        logger.warning("All users are used for training. Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc.")
+        logger.warning("Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc.")
 
     """ Building session """
     warehouse = creds['type']
-    logger.info("Building session")
+    logger.info(f"Building session for {warehouse}")
     if warehouse == 'snowflake':
-        logger.info("Building session for Snowflake")
         train_procedure = 'train_and_store_model_results_sf'
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
@@ -270,7 +267,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             connector.write_pandas(metrics_df, table_name=f"{metrics_table}", session=session, auto_create_table=True, overwrite=False)
             return results
     elif warehouse == 'redshift':
-        logger.info("Building session for RedShift")
         train_procedure = train_and_store_model_results_rs
         connector = RedshiftConnector()
         session = connector.build_session(creds)
@@ -322,7 +318,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp, trainer.max_row_count)
     connector.write_table(filtered_feature_table, feature_table_name_remote, write_mode="overwrite", if_exists="replace")
     logger.info("Training and fetching the results")
-
+    
+    print(f"feature table name remote: {feature_table_name_remote}")
+    print(f"config: {merged_config}")
     try:
         train_results_json = connector.call_procedure(train_procedure,
                                             feature_table_name_remote,

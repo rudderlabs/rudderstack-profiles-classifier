@@ -373,6 +373,16 @@ def get_pb_path() -> str:
         logger.warning("pb command not found in the path. Using the default rudder-sources path /venv/bin/pb")
         return constants.PB
 
+def subprocess_run(args):
+    response = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if response.returncode == 0:
+        return True
+    else:
+        logger.warning("Error occurred. Exit code:", response.returncode)
+        logger.warning("Standard Output:\n", response.stdout)
+        logger.warning("Standard Error:\n", response.stderr)
+        return False
+    
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> None:
     """
     Materializes past data for a given date using the 'pb' command-line tool.
@@ -400,7 +410,12 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
         if site_config_path is not None:
             args.extend(['-c', site_config_path])
         logger.info(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
-        subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        pb_run_for_past_data = subprocess_run(args)
+        #subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        if pb_run_for_past_data:
+            logger.info(f"Successfully materialised data for date {features_valid_time} ")
+        else:
+            logger.warning(f"Error occurred while materialising data for date {features_valid_time} ")
     except Exception as e:
         logger.error(f"Exception occured while materialising data for date {features_valid_time} ")
         print(e)

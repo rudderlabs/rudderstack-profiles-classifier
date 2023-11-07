@@ -191,7 +191,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     target_path = utils.get_output_directory(folder_path)
 
     """ Initialising trainer """
-    logger.info("Initialising trainer - with pandas 2.0.3")
+    logger.info("Initialising trainer")
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
     
@@ -318,9 +318,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp, trainer.max_row_count)
     connector.write_table(filtered_feature_table, feature_table_name_remote, write_mode="overwrite", if_exists="replace")
     logger.info("Training and fetching the results")
-    
-    print(f"feature table name remote: {feature_table_name_remote}")
-    print(f"config: {merged_config}")
+
     try:
         train_results_json = connector.call_procedure(train_procedure,
                                             feature_table_name_remote,

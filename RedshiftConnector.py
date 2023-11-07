@@ -216,7 +216,23 @@ class RedshiftConnector(Connector):
             if row['col_type'] == 'super':
                 arraytype_features.append(row['col_name'])
         return arraytype_features
-    
+
+    def get_arraytype_features_from_table(self, table: pd.DataFrame, **kwargs)-> list:
+        """Returns the list of features to be ignored from the feature table.
+        Args:
+            table (snowflake.snowpark.Table): snowpark table.
+        Returns:
+            list: The list of features to be ignored based column datatypes as ArrayType.
+        """
+        features_path = kwargs.get("features_path", None)
+        if features_path == None:
+            raise ValueError("features_path argument is required for Redshift")
+        arraytype_features = []
+        with open(features_path, "r") as f:
+                column_names = json.load(f)
+                arraytype_features = column_names["arraytype_features"]
+        return arraytype_features
+
     def get_high_cardinal_features(self, cursor: redshift_connector.cursor.Cursor, table_name, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
         return []
 
@@ -239,7 +255,28 @@ class RedshiftConnector(Connector):
             if row['col_type'] in ['timestamp without time zone', 'date', 'time without time zone'] and row['col_name'].lower() != index_timestamp.lower():
                 timestamp_columns.append(row['col_name'])
         return timestamp_columns
-    
+
+    def get_timestamp_columns_from_table(self, table: pd.DataFrame, index_timestamp: str, **kwargs)-> List[str]:
+        """
+        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): The Snowpark session for data warehouse access.
+            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
+            index_timestamp (str): The name of the column containing the index timestamp information.
+
+        Returns:
+            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+        """
+        features_path = kwargs.get("features_path", None)
+        if features_path == None:
+            raise ValueError("features_path argument is required for Redshift")
+        with open(features_path, "r") as f:
+                column_names = json.load(f)
+                timestamp_columns = column_names["timestamp_columns"]
+        timestamp_columns = [x for x in timestamp_columns if x.lower() != index_timestamp.lower()]
+        return timestamp_columns
+
     def get_default_label_value(self, cursor, table_name: str, label_column: str, positive_boolean_flags: list):
         label_value = list()
         table = self.get_table(cursor, table_name)
@@ -459,22 +496,6 @@ class RedshiftConnector(Connector):
         material_registry_table["status"] = material_registry_table["json_metadata"].apply(lambda x: x["complete"]["status"])
         return material_registry_table[material_registry_table["status"] == 2].drop(columns=["json_metadata"])
 
-    def get_arraytype_features_from_table(self, table: pd.DataFrame, **kwargs)-> list:
-        """Returns the list of features to be ignored from the feature table.
-        Args:
-            table (snowflake.snowpark.Table): snowpark table.
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
-        features_path = kwargs.get("features_path", None)
-        if features_path == None:
-            raise ValueError("features_path argument is required for Redshift")
-        arraytype_features = []
-        with open(features_path, "r") as f:
-                column_names = json.load(f)
-                arraytype_features = column_names["arraytype_features"]
-        return arraytype_features
-
     def generate_type_hint(self, df: pd.DataFrame):        
         """Returns the type hints for given pandas DataFrame's fields
 
@@ -491,27 +512,6 @@ class RedshiftConnector(Connector):
             else:
                 types.append(float)
         return types
-    
-    def get_timestamp_columns_from_table(self, table: pd.DataFrame, index_timestamp: str, **kwargs)-> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            cursor (redshift_connector.cursor.Cursor): The Snowpark session for data warehouse access.
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-            index_timestamp (str): The name of the column containing the index timestamp information.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        features_path = kwargs.get("features_path", None)
-        if features_path == None:
-            raise ValueError("features_path argument is required for Redshift")
-        with open(features_path, "r") as f:
-                column_names = json.load(f)
-                timestamp_columns = column_names["timestamp_columns"]
-        timestamp_columns = [x for x in timestamp_columns if x.lower() != index_timestamp.lower()]
-        return timestamp_columns
 
     def call_prediction_procedure(self, predict_data: pd.DataFrame, prediction_procedure: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,

@@ -128,6 +128,10 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def get_arraytype_features_from_table(self, table: Any, **kwargs)-> list:
+        pass
+
+    @abstractmethod
     def get_high_cardinal_features(self, session, feature_table_name, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
         pass
 
@@ -185,15 +189,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_arraytype_features_from_table(self, table: Any, **kwargs)-> list:
-        pass
-
-    @abstractmethod
     def generate_type_hint(self, df: Any):        
-        pass
-
-    @abstractmethod
-    def get_timestamp_columns_from_table(self, table: Any, index_timestamp: str, **kwargs)-> List[str]:
         pass
 
     @abstractmethod

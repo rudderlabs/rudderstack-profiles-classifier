@@ -254,7 +254,17 @@ class SnowflakeConnector(Connector):
         table = self.get_table(session, table_name)
         arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
         return arraytype_features
-    
+
+    def get_arraytype_features_from_table(self, table: snowflake.snowpark.Table, **kwargs)-> list:
+        """Returns the list of features to be ignored from the feature table.
+        Args:
+            table (snowflake.snowpark.Table): snowpark table.
+        Returns:
+            list: The list of features to be ignored based column datatypes as ArrayType.
+        """
+        arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
+        return arraytype_features
+
     def get_high_cardinal_features(self, session: snowflake.snowpark.Session, feature_table_name: str, label_column: str, entity_column: str, cardinal_feature_threshold: float) -> List[str]:
         """
         Identify high cardinality features in the feature table based on condition that 
@@ -308,7 +318,25 @@ class SnowflakeConnector(Connector):
             if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
                 timestamp_columns.append(field.name)
         return timestamp_columns
-    
+
+    def get_timestamp_columns_from_table(self, table: snowflake.snowpark.Table, index_timestamp: str, **kwargs)-> List[str]:
+        """
+        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+
+        Args:
+            session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
+            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
+            index_timestamp (str): The name of the column containing the index timestamp information.
+
+        Returns:
+            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+        """
+        timestamp_columns = []
+        for field in table.schema.fields:
+            if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
+                timestamp_columns.append(field.name)
+        return timestamp_columns
+
     def get_default_label_value(self, session, table_name: str, label_column: str, positive_boolean_flags: list):
         """
         Returns the default label value for the given label column in the given table.
@@ -562,16 +590,6 @@ class SnowflakeConnector(Connector):
                                 )
         return material_registry_table
 
-    def get_arraytype_features_from_table(self, table: snowflake.snowpark.Table, **kwargs)-> list:
-        """Returns the list of features to be ignored from the feature table.
-        Args:
-            table (snowflake.snowpark.Table): snowpark table.
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
-        arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
-        return arraytype_features
-    
     def generate_type_hint(self, df: snowflake.snowpark.Table):        
         """Returns the type hints for given snowpark DataFrame's fields
 
@@ -590,25 +608,7 @@ class SnowflakeConnector(Connector):
         }
         types = [type_map[d.datatype] for d in df.schema.fields]
         return T.PandasDataFrame[tuple(types)]
-    
-    def get_timestamp_columns_from_table(self, table: snowflake.snowpark.Table, index_timestamp: str, **kwargs)-> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
 
-        Args:
-            session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-            index_timestamp (str): The name of the column containing the index timestamp information.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        timestamp_columns = []
-        for field in table.schema.fields:
-            if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
-                timestamp_columns.append(field.name)
-        return timestamp_columns
-    
     def call_prediction_procedure(self, predict_data: snowflake.snowpark.Table, prediction_procedure: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
                                   column_names_path: str, prob_th: float, input: snowflake.snowpark.Table):

@@ -32,8 +32,6 @@ try:
 except Exception as e:
         logger.warning(f"Could not import RedshiftConnector")
 
-
-logger.info("Start")
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 stage_name = constants.STAGE_NAME
@@ -209,13 +207,12 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     if trainer.eligible_users:
         logger.info(f"Only following users are considered for training: {trainer.eligible_users}")
     else:
-        logger.warning("All users are used for training. Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc.")
+        logger.warning("Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc.")
 
     """ Building session """
     warehouse = creds['type']
-    logger.info("Building session")
+    logger.info(f"Building session for {warehouse}")
     if warehouse == 'snowflake':
-        logger.info("Building session for Snowflake")
         train_procedure = 'train_and_store_model_results_sf'
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
@@ -269,7 +266,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             connector.write_pandas(metrics_df, table_name=f"{metrics_table}", session=session, auto_create_table=True, overwrite=False)
             return results
     elif warehouse == 'redshift':
-        logger.info("Building session for RedShift")
         train_procedure = train_and_store_model_results_rs
         connector = RedshiftConnector()
         session = connector.build_session(creds)

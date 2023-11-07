@@ -409,13 +409,12 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
         args = [pb, "run", "-p", project_folder, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
         if site_config_path is not None:
             args.extend(['-c', site_config_path])
-        logger.info(f"Running following pb command for the date {features_valid_time}: {' '.join(args)} ")
+        logger.info(f"Materialising historic data for {features_valid_time} using pb: {' '.join(args)} ")
         pb_run_for_past_data = subprocess_run(args)
-        #subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if pb_run_for_past_data:
             logger.info(f"Successfully materialised data for date {features_valid_time} ")
         else:
-            logger.warning(f"Error occurred while materialising data for date {features_valid_time} ")
+            raise Exception(f"Error occurred while materialising data for date {features_valid_time} ")
     except Exception as e:
         logger.error(f"Exception occured while materialising data for date {features_valid_time} ")
         print(e)
@@ -450,98 +449,6 @@ def generate_material_name(material_table_prefix: str, model_name: str, model_ha
         str: name of the material table in warehouse 
     """
     return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'
-    
-def get_classification_metrics(y_true: pd.DataFrame, 
-                               y_pred_proba: np.array, 
-                               th: float =0.5) -> dict:
-    """Generates classification metrics
-
-    Args:
-        y_true (pd.DataFrame): Array of 1s and 0s. True labels
-        y_pred_proba (np.array): Array of predicted probabilities
-        th (float, optional): thresold for classification. Defaults to 0.5.
-
-    Returns:
-        dict: Returns classification metrics in form of a dict for the given thresold
-    """
-    precision, recall, f1, _ = precision_recall_fscore_support(y_true, np.where(y_pred_proba>th,1,0))
-    precision = precision[1]
-    recall = recall[1]
-    f1 = f1[1]
-    roc_auc = roc_auc_score(y_true, y_pred_proba)
-    pr_auc = average_precision_score(y_true, y_pred_proba)
-    user_count = y_true.shape[0]
-    metrics = {"precision": round(precision, 2), "recall": round(recall, 2), "f1_score": round(f1, 2), "roc_auc": round(roc_auc, 2), 'pr_auc': round(pr_auc, 2), 'users': user_count}
-    return metrics
-    
-def get_best_th(y_true: pd.DataFrame, y_pred_proba: np.array,train_config: dict) -> Tuple:
-    """This function calculates the thresold that maximizes f1 score based on y_true and y_pred_proba and classication metrics on basis of that.
-
-    Args:
-        y_true (pd.DataFrame): Array of 1s and 0s. True labels
-        y_pred_proba (np.array): Array of predicted probabilities
-
-    Returns:
-        Tuple: Returns the metrics at the threshold and that threshold that maximizes f1 score based on y_true and y_pred_proba
-    """
-
-    metric_to_optimize = train_config["model_params"]["validation_on"]
-
-    metric_functions = {
-        'f1_score': f1_score,
-        'precision': precision_score,
-        'recall': recall_score,
-        'accuracy': accuracy_score
-    }
-
-    if metric_to_optimize not in metric_functions:
-        raise ValueError(f"Unsupported metric: {metric_to_optimize}")
-
-    objective_function = metric_functions[metric_to_optimize]
-    objective = lambda th: -objective_function(y_true, np.where(y_pred_proba > th, 1, 0))
-
-    result = minimize_scalar(objective, bounds=(0, 1), method='bounded')
-    best_th = result.x
-    best_metric_value = -result.fun  
-            
-    best_metrics = get_classification_metrics(y_true, y_pred_proba, best_th)
-    return best_metrics, best_th
-
-def get_metrics(clf,
-                X_train: pd.DataFrame, 
-                y_train: pd.DataFrame,
-                X_test: pd.DataFrame, 
-                y_test: pd.DataFrame,
-                X_val: pd.DataFrame, 
-                y_val: pd.DataFrame,
-                train_config: dict) -> Tuple:
-    """Generates classification metrics and predictions for train, validation and test data along with the best probability thresold
-
-    Args:
-        clf (_type_): classifier to calculate the classification metrics
-        X_train (pd.DataFrame): X_train dataframe
-        y_train (pd.DataFrame): y_train dataframe
-        X_test (pd.DataFrame): X_test dataframe
-        y_test (pd.DataFrame): y_test dataframe
-        X_val (pd.DataFrame): X_val dataframe
-        y_val (pd.DataFrame): y_val dataframe
-
-    Returns:
-        Tuple: Returns the classification metrics and predictions for train, validation and test data along with the best probability thresold.
-    """
-    train_preds = clf.predict_proba(X_train)[:,1]
-    train_metrics, prob_threshold = get_best_th(y_train, train_preds,train_config)
-
-    test_preds = clf.predict_proba(X_test)[:,1]
-    test_metrics = get_classification_metrics(y_test, test_preds, prob_threshold)
-
-    val_preds = clf.predict_proba(X_val)[:,1]
-    val_metrics = get_classification_metrics(y_val, val_preds, prob_threshold)
-
-    metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
-    predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
-    
-    return metrics, predictions, round(prob_threshold, 2)
 
 def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
     """

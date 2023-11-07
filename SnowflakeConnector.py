@@ -425,7 +425,10 @@ class SnowflakeConnector(Connector):
             Tuple: latest model hash and it's creation timestamp
         """
         snowpark_df = self.get_material_registry_table(session, material_table)
-        temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
+        try:
+            temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
+        except IndexError:
+            raise Exception(f"Unable to fetch the latest model hash. model name: {model_name}, material table: {material_table}")
         model_hash = temp_hash_vector.MODEL_HASH
         creation_ts = temp_hash_vector.CREATION_TS
         return model_hash, creation_ts

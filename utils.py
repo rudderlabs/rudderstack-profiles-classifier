@@ -652,6 +652,35 @@ def load_stage_file_from_local(session: snowflake.snowpark.Session, stage_name: 
     os.remove(os.path.join(target_folder, file_name))
     return output_file
 
+#### Kept here for explain_prediction function ####
+def remap_credentials(credentials: dict) -> dict:
+    """Remaps credentials from profiles siteconfig to the expected format from snowflake session
+
+    Args:
+        credentials (dict): Data warehouse credentials from profiles siteconfig
+
+    Returns:
+        dict: Data warehouse creadentials remapped in format that is required to create a snowpark session
+    """
+    new_creds = {k if k != 'dbname' else 'database': v for k, v in credentials.items() if k != 'type'}
+    return new_creds
+
+def get_timestamp_columns(table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
+    """
+    Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+    Args:
+        session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
+        feature_table (snowflake.snowpark.Table): The feature table from which to retrieve the timestamp columns.
+        index_timestamp (str): The name of the column containing the index timestamp information.
+    Returns:
+        List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+    """
+    timestamp_columns = []
+    for field in table.schema.fields:
+        if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
+            timestamp_columns.append(field.name)
+    return timestamp_columns
+
 ####  Not being called currently. Functions for saving feature-importance score for top_k and bottom_k users as per their prediction scores. ####
 def explain_prediction(creds: dict, user_main_id: str, predictions_table_name: str, feature_table_name: str, predict_config: dict)-> None:
     """

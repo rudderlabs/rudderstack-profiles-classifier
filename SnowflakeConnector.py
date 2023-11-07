@@ -392,59 +392,6 @@ class SnowflakeConnector(Connector):
                 training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
         return material_names, training_dates
 
-    def get_material_names(self, session: snowflake.snowpark.Session, material_table: str, start_date: str, end_date: str, 
-                        package_name: str, features_profiles_model: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
-                        output_filename: str, site_config_path: str, project_folder: str, input_models: List[str])-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-        """
-        Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
-        If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
-        If no materialized data is found even after materialization, an exception is raised.
-
-        Args:
-            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-            material_table (str): The name of the material table (present in constants.py file).
-            start_date (str): The start date for training data.
-            end_date (str): The end date for training data.
-            package_name (str): The name of the package.
-            features_profiles_model (str): The name of the model.
-            model_hash (str): The latest model hash.
-            material_table_prefix (str): A constant.
-            prediction_horizon_days (int): The period of days for prediction horizon.
-            site_config_path (str): path to the siteconfig.yaml file
-            project_folder (str): project folder path to pb_project.yaml file
-            input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model. If this is empty, we infer this frmo the package_name and features_profiles_model - for backward compatibility
-
-        Returns:
-            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
-                - material_names: A list of tuples containing the names of the feature and label tables.
-                - training_dates: A list of tuples containing the corresponding training dates.
-        """
-        try:
-            material_names, training_dates = self.get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
-
-            if len(material_names) == 0:
-                try:
-                    # logger.info("No materialised data found in the given date range. So materialising feature data and label data")
-                    if len(input_models) == 0:
-                        logger.warning("No input models provided. Inferring input models from package_name and features_profiles_model, assuming that python model is defined in application project and feature table is imported as a package.")
-                        feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
-                    else:
-                        feature_package_path = ','.join(input_models) #Syntax: pb run models/m1,models/m2 
-                    feature_date = utils.date_add(start_date, prediction_horizon_days)
-                    label_date = utils.date_add(feature_date, prediction_horizon_days)
-                    utils.materialise_past_data(feature_date, feature_package_path, output_filename, site_config_path, project_folder)
-                    utils.materialise_past_data(label_date, feature_package_path, output_filename, site_config_path, project_folder)
-                    material_names, training_dates = self.get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
-                    if len(material_names) == 0:
-                        raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data")
-                except Exception as e:
-                    # logger.exception(e)
-                    logger.error("Exception occured while materialising data. Please check the logs for more details")
-                    raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data")
-            return material_names, training_dates
-        except Exception as e:
-            logger.error("Exception occured while retrieving material names. Please check the logs for more details")
-
     def get_material_registry_name(self, session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:
         """This function will return the latest material registry table name
         Args:

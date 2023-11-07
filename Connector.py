@@ -141,12 +141,6 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_material_names(self, session, material_table: str, start_date: str, end_date: str, 
-                        package_name: str, features_profiles_model: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
-                        output_filename: str, site_config_path: str, project_folder: str, input_models: List[str])-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-        pass
-
-    @abstractmethod
     def get_default_label_value(self, session, table_name: str, label_column: str, positive_boolean_flags: list):
         pass
 

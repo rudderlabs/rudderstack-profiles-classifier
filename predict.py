@@ -101,7 +101,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         session = connector.build_session(creds)
 
     column_names_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_column_names.json")
-    features_path = connector.join_file_path(f"{output_profiles_ml_model}_array_time_feature_names.json")
+    features_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_array_time_feature_names.json")
 
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)

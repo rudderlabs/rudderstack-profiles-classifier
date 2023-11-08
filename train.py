@@ -304,7 +304,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
-        feature_table_instance = trainer.prepare_feature_table(connector, session,
+        feature_table_instance, arraytype_features, timestamp_columns = trainer.prepare_feature_table(connector, session,
                                                                feature_table_name, 
                                                                label_table_name,
                                                                cardinal_feature_threshold)
@@ -336,6 +336,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     else:
         train_results = train_results_json
     model_id = train_results["model_id"]
+
+    column_dict = {'arraytype_features': arraytype_features, 'timestamp_columns': timestamp_columns}
+    column_name_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_id}_array_time_feature_names.json")
+    json.dump(column_dict, open(column_name_file,"w"))
     
     results = {"config": {'training_dates': training_dates,
                         'material_names': material_names,
@@ -372,6 +376,6 @@ if __name__ == "__main__":
     path.mkdir(parents=True, exist_ok=True)
     # logger.setLevel(logger.logging.DEBUG)
 
-    project_folder = '~/Desktop/Git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+    project_folder = '/Users/admin/Desktop/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

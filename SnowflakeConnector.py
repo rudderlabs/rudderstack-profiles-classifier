@@ -252,7 +252,7 @@ class SnowflakeConnector(Connector):
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
         table = self.get_table(session, table_name)
-        arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
+        arraytype_features = self.get_arraytype_features_from_table(table)
         return arraytype_features
 
     def get_arraytype_features_from_table(self, table: snowflake.snowpark.Table, **kwargs)-> list:
@@ -313,10 +313,7 @@ class SnowflakeConnector(Connector):
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
         table = self.get_table(session, table_name)
-        timestamp_columns = []
-        for field in table.schema.fields:
-            if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
-                timestamp_columns.append(field.name)
+        timestamp_columns = self.get_timestamp_columns_from_table(table, index_timestamp)
         return timestamp_columns
 
     def get_timestamp_columns_from_table(self, table: snowflake.snowpark.Table, index_timestamp: str, **kwargs)-> List[str]:
@@ -609,14 +606,14 @@ class SnowflakeConnector(Connector):
         types = [type_map[d.datatype] for d in df.schema.fields]
         return T.PandasDataFrame[tuple(types)]
 
-    def call_prediction_procedure(self, predict_data: snowflake.snowpark.Table, prediction_procedure: Any, entity_column: str, index_timestamp: str,
+    def call_prediction_udf(self, predict_data: snowflake.snowpark.Table, prediction_udf: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
-                                  column_names_path: str, prob_th: float, input: snowflake.snowpark.Table):
+                                  column_names_path: str, prob_th: float, input: snowflake.snowpark.Table) -> pd.DataFrame:
         """Calls the given function for prediction
 
         Args:
             predict_data (pd.DataFrame): Dataframe to be predicted
-            prediction_procedure (Any): Function for prediction
+            prediction_udf (Any): Function for prediction
             entity_column (str): Name of the entity column
             index_timestamp (str): Name of the index timestamp column
             score_column_name (str): Name of the score column
@@ -629,7 +626,7 @@ class SnowflakeConnector(Connector):
         Returns:
             Results of the predict function
         """
-        preds = (predict_data.select(entity_column, index_timestamp, prediction_procedure(*input).alias(score_column_name))
+        preds = (predict_data.select(entity_column, index_timestamp, prediction_udf(*input).alias(score_column_name))
              .withColumn("model_id", F.lit(train_model_id)))
         preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))
         preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(

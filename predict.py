@@ -110,10 +110,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     if latest_model_hash != train_model_hash:
         raise ValueError(f"Model hash {train_model_hash} does not match with the latest model hash {latest_model_hash} in the material registry table. Please retrain the model")
 
-    if eligible_users:
-        raw_data = connector.get_table(session, f"{features_profiles_model}", filter_condition=eligible_users)
-    else:
-        raw_data = connector.get_table(session, f"{features_profiles_model}")
+    raw_data = connector.get_table(session, f"{features_profiles_model}", filter_condition=eligible_users)
 
     arraytype_features = connector.get_arraytype_features_from_table(raw_data, features_path=features_path)
     ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_features)
@@ -179,15 +176,15 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
             predict_proba = predict_helper(df, model_name)
             return predict_proba
 
-        prediction_procedure = predict_scores
+        prediction_udf = predict_scores
     elif creds['type'] == 'redshift':
         def predict_scores_rs(df: pd.DataFrame, column_names_path: str) -> pd.Series:
             df.columns = features
             predict_proba = predict_helper(df, model_name, column_names_path=column_names_path)
             return predict_proba
-        prediction_procedure = predict_scores_rs
+        prediction_udf = predict_scores_rs
 
-    preds_with_percentile = connector.call_prediction_procedure(predict_data, prediction_procedure, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
+    preds_with_percentile = connector.call_prediction_udf(predict_data, prediction_udf, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite")
 
 if __name__ == "__main__":

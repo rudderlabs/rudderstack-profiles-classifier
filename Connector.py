@@ -193,7 +193,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def call_prediction_procedure(self, predict_data: Any, prediction_procedure: Any, entity_column: str, index_timestamp: str,
+    def call_prediction_udf(self, predict_data: Any, prediction_udf: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
-                                  column_names_path: str, prob_th: float, input: Any):
+                                  column_names_path: str, prob_th: float, input: Any) -> pd.DataFrame:
         pass

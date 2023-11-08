@@ -1,5 +1,6 @@
 import os
 import json
+import shutil
 import numpy as np
 import pandas as pd
 import redshift_connector
@@ -19,6 +20,7 @@ class RedshiftConnector(Connector):
     def __init__(self) -> None:
         self.local_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), local_folder)
         Path(self.local_dir).mkdir(parents=True, exist_ok=True)
+        self.array_time_features = {}
         return
 
     def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
@@ -87,10 +89,11 @@ class RedshiftConnector(Connector):
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
         filter_condition = kwargs.get("filter_condition", "")
+        query = f"SELECT * FROM {table_name.lower()}"
         if filter_condition:
-            cursor.execute(f"SELECT * FROM {table_name.lower()} WHERE {filter_condition};")
-        else:
-            cursor.execute(f"SELECT * FROM {table_name.lower()};")
+            query += f" WHERE {filter_condition}"
+        query += ";"
+        self.run_query(cursor, query)
         return cursor.fetch_dataframe()
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
@@ -224,13 +227,8 @@ class RedshiftConnector(Connector):
         Returns:
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
-        features_path = kwargs.get("features_path", None)
-        if features_path == None:
-            raise ValueError("features_path argument is required for Redshift")
-        arraytype_features = []
-        with open(features_path, "r") as f:
-                column_names = json.load(f)
-                arraytype_features = column_names["arraytype_features"]
+        self.get_array_time_features_from_file(**kwargs)
+        arraytype_features = self.array_time_features["arraytype_features"]
         return arraytype_features
 
     def get_high_cardinal_features(self, cursor: redshift_connector.cursor.Cursor, table_name, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
@@ -268,12 +266,8 @@ class RedshiftConnector(Connector):
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
-        features_path = kwargs.get("features_path", None)
-        if features_path == None:
-            raise ValueError("features_path argument is required for Redshift")
-        with open(features_path, "r") as f:
-                column_names = json.load(f)
-                timestamp_columns = column_names["timestamp_columns"]
+        self.get_array_time_features_from_file(**kwargs)
+        timestamp_columns = self.array_time_features["timestamp_columns"]
         timestamp_columns = [x for x in timestamp_columns if x.lower() != index_timestamp.lower()]
         return timestamp_columns
 
@@ -369,9 +363,21 @@ class RedshiftConnector(Connector):
         creation_ts = temp_hash_vector["creation_ts"]
         return model_hash, creation_ts
 
-    def fetch_staged_file(self, *args):
-        """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
-        pass
+    def fetch_staged_file(self, cursor: redshift_connector.cursor.Cursor, stage_name: str, file_name: str, target_folder: str) -> None:
+        """Fetches the given file from the given stage and saves it to the given target folder.
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
+            stage_name (str): Name of the stage from which to fetch the file.
+            file_name (str): Name of the file to be fetched.
+            target_folder (str): Path to the folder where the fetched file is to be saved.
+
+        Returns:
+            Nothing
+        """
+        source_path = self.join_file_path(file_name)
+        target_path = os.path.join(target_folder, file_name)
+        shutil.move(source_path, target_path)
 
     def drop_cols(self, table: pd.DataFrame, col_list: list) -> pd.DataFrame:
         """
@@ -513,14 +519,14 @@ class RedshiftConnector(Connector):
                 types.append(float)
         return types
 
-    def call_prediction_procedure(self, predict_data: pd.DataFrame, prediction_procedure: Any, entity_column: str, index_timestamp: str,
+    def call_prediction_udf(self, predict_data: pd.DataFrame, prediction_udf: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
-                                  column_names_path: str, prob_th: float, input: pd.DataFrame):
+                                  column_names_path: str, prob_th: float, input: pd.DataFrame) -> pd.DataFrame:
         """Calls the given function for prediction
 
         Args:
             predict_data (pd.DataFrame): Dataframe to be predicted
-            prediction_procedure (Any): Function for prediction
+            prediction_udf (Any): Function for prediction
             entity_column (str): Name of the entity column
             index_timestamp (str): Name of the index timestamp column
             score_column_name (str): Name of the score column
@@ -534,7 +540,7 @@ class RedshiftConnector(Connector):
             Results of the predict function
         """
         preds = predict_data[[entity_column, index_timestamp]]
-        preds[score_column_name] = prediction_procedure(input, column_names_path)
+        preds[score_column_name] = prediction_udf(input, column_names_path)
         preds['model_id'] = train_model_id
         preds[output_label_column] = preds[score_column_name].apply(lambda x: True if x >= prob_th else False)
         preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
@@ -553,4 +559,15 @@ class RedshiftConnector(Connector):
         """
         table_path = os.path.join(self.local_dir, f"{table_name}.parquet.gzip")
         df.to_parquet(table_path, compression='gzip')
-    
+
+    def get_array_time_features_from_file(self, **kwargs):
+        """This function will read the arraytype features and timestamp columns from the given file."""
+        if len(self.array_time_features) != 0:
+            return
+        features_path = kwargs.get("features_path", None)
+        if features_path == None:
+            raise ValueError("features_path argument is required for Redshift")
+        with open(features_path, "r") as f:
+                column_names = json.load(f)
+                self.array_time_features["arraytype_features"] = column_names["arraytype_features"]
+                self.array_time_features["timestamp_columns"] = column_names["timestamp_columns"]

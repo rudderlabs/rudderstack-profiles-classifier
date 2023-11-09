@@ -267,10 +267,14 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             connector.write_pandas(metrics_df, table_name=f"{metrics_table}", session=session, auto_create_table=True, overwrite=False)
             return results
     elif warehouse == 'redshift':
+        try:
+            shutil.rmtree(constants.LOCAL_STORAGE_DIR)
+            logger.info("Local directory removed successfully")
+        except OSError as o:
+            logger.info("Local directory not present")
         train_procedure = train_and_store_model_results_rs
         connector = RedshiftConnector()
         session = connector.build_session(creds)
-    connector.clean_up()
 
     #TODO: Remove this and use from trainer.figure_names after support for other warehouses.
     figure_names = {"roc-auc-curve": f"01-test-roc-auc-{trainer.output_profiles_ml_model}.png",

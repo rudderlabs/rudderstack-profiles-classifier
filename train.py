@@ -134,7 +134,6 @@ def train_and_store_model_results_rs(feature_table_name: str,
     json.dump(column_dict, open(column_name_file,"w"))
 
     trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
-    trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
     try:
         figure_file = connector.join_file_path(figure_names['feature-importance-chart'])
         shap_importance = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)
@@ -255,7 +254,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
             connector.save_file(session, model_file, stage_name, overwrite=True)
             connector.save_file(session, column_name_file, stage_name, overwrite=True)
-            trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
             try:
                 figure_file = os.path.join('tmp', figure_names['feature-importance-chart'])
                 shap_importance = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)

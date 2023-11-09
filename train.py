@@ -5,6 +5,7 @@ import json
 import time
 import yaml
 import joblib
+import shutil
 import pandas as pd
 
 from typing import List
@@ -266,6 +267,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             connector.write_pandas(metrics_df, table_name=f"{metrics_table}", session=session, auto_create_table=True, overwrite=False)
             return results
     elif warehouse == 'redshift':
+        try:
+            shutil.rmtree('data')
+            logger.info("Local directory removed successfully")
+        except OSError as o:
+            logger.info(f"Local directory not present")
         train_procedure = train_and_store_model_results_rs
         connector = RedshiftConnector()
         session = connector.build_session(creds)

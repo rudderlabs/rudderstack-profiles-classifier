@@ -12,6 +12,7 @@ from typing import List, Tuple, Any, Union
 
 import utils
 import constants
+from logger import logger
 from Connector import Connector
 from wh import ProfilesConnector
 local_folder = constants.LOCAL_STORAGE_DIR
@@ -545,6 +546,14 @@ class RedshiftConnector(Connector):
         preds[output_label_column] = preds[score_column_name].apply(lambda x: True if x >= prob_th else False)
         preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
         return preds
+
+    def clean_up(self) -> None:
+        """Deletes the local data folder."""
+        try:
+            shutil.rmtree(self.local_dir)
+            logger.info("Local directory removed successfully")
+        except OSError as o:
+            logger.info("Local directory not present")
 
     """ The following functions are only specific to Redshift Connector and not used by any other connector."""
     def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:

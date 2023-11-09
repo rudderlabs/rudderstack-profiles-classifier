@@ -633,6 +633,10 @@ class SnowflakeConnector(Connector):
                                                         entity_column, index_timestamp, "model_id", score_column_name, percentile_column_name, output_label_column)
         return preds_with_percentile
 
+    def clean_up(self) -> None:
+        pass
+
+
     """ The following functions are only specific to Snowflake Connector and not used by any other connector."""
     def create_stage(self, session: snowflake.snowpark.Session, stage_name: str):
         """

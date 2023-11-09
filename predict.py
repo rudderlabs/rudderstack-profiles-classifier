@@ -3,6 +3,7 @@ import sys
 import json
 import yaml
 import joblib
+import shutil
 import datetime
 import warnings
 import cachetools
@@ -38,7 +39,7 @@ try:
 except Exception as e:
         logger.warning(f"Could not import RedshiftConnector")
 
-local_folder = "data"
+local_folder = constants.LOCAL_STORAGE_DIR
 
 def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_tablename : str, config: dict) -> None:
     """Generates the prediction probabilities and save results for given model_path
@@ -186,6 +187,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     preds_with_percentile = connector.call_prediction_udf(predict_data, prediction_udf, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite")
+    connector.clean_up()
 
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")

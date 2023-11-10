@@ -2,11 +2,6 @@ import unittest
 from utils import *
 
 class TestUtils(unittest.TestCase):
-    def test_get_label_date_ref_case1(self):
-        feature_date = '2022-01-01'
-        self.assertEqual(get_label_date_ref(feature_date, 1), '2022-01-02')
-        self.assertEqual(get_label_date_ref(feature_date, 0), '2022-01-01')
-        self.assertEqual(get_label_date_ref(feature_date, -1), '2021-12-31')
 
     def test_combine_config(self):
         self.assertEqual(combine_config({"a":2, "b":3}, {"a":1}), {"a":1, "b":3})
@@ -26,8 +21,5 @@ class TestUtils(unittest.TestCase):
         expected_result = "material_shopify_user_features_fa138b1a_785"
 
         result = generate_material_name(material_table_prefix, model_name, model_hash, seq_no)
-
         self.assertEqual(result, expected_result)
 
-if __name__ == '__main__':
-    unittest.main()

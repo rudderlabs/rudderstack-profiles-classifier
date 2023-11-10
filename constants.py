@@ -3,6 +3,7 @@ MATERIAL_TABLE_PREFIX = "material_"
 MODEL_FILE_NAME = 'classifier.joblib'
 STAGE_NAME = "@ml_models"
 CARDINAL_FEATURE_THRESOLD = 0.01
+MIN_SAMPLES_FOR_TRAINING = 10
 METRICS_TABLE = "TRAINING_METRICS_v4"
 POSITIVE_BOOLEAN_FLAGS = ["1", 1, "TRUE", "True", "true", "T", "t", True, "YES", "Yes", "yes", "Y", "y"]
 LOCAL_STORAGE_DIR = "data"

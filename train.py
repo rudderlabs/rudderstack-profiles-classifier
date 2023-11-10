@@ -180,6 +180,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
     positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS
     cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESOLD
+    min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py")
@@ -316,6 +317,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
 
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
     filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp, trainer.max_row_count)
+    if filtered_feature_table.count() < min_sample_for_training:
+        logger.error(f"Insufficient data for training. Only {filtered_feature_table.count()} rows found")
+        raise Exception(f"Insufficient data for training. Only {filtered_feature_table.count()} rows found")
     connector.write_table(filtered_feature_table, feature_table_name_remote, write_mode="overwrite", if_exists="replace")
     logger.info("Training and fetching the results")
 

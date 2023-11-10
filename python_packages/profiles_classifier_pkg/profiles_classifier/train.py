@@ -74,7 +74,10 @@ def train(session: snowflake.snowpark.Session, inputs: str, output_filename: str
     current_dir = os.path.dirname(os.path.abspath(__file__))
     utils_path = os.path.join(current_dir, 'utils.py')
     constants_path = os.path.join(current_dir, 'constants.py')
-    # logger_path = os.path.join(current_dir, "logger.py")
+    logger_path = os.path.join(current_dir, "logger.py")
+    connector_path = os.path.join(current_dir, "Connector.py")
+    # sf_connector_path = os.path.join(current_dir, "SnowflakeConnector.py")
+    rs_connector_path = os.path.join(current_dir, "RedshiftConnector.py")
     config_path = os.path.join(current_dir, 'config', 'model_configs.yaml')
     folder_path = os.path.dirname(output_filename)
     target_path = utils.get_output_directory(folder_path, this.name())
@@ -96,7 +99,7 @@ def train(session: snowflake.snowpark.Session, inputs: str, output_filename: str
                     "feature-importance-chart": f"04-feature-importance-chart-{trainer.output_profiles_ml_model}.png"}
     train_procedure = 'train_sproc'
 
-    import_paths = [utils_path, constants_path]
+    import_paths = [utils_path, constants_path, logger_path, connector_path, rs_connector_path]
     utils.delete_import_files(session, stage_name, import_paths)
     utils.delete_procedures(session, train_procedure)
 
@@ -123,6 +126,10 @@ def train(session: snowflake.snowpark.Session, inputs: str, output_filename: str
         """
         from constants import constants
         from utils import utils
+        from logger import logger
+        from Connector import SnowflakeConnector
+
+        connector = SnowflakeConnector()
 
         if prediction_task == 'classification':
             trainer_sproc = utils.ClassificationTrainer(**merged_config["data"], **merged_config["preprocessing"])
@@ -180,7 +187,7 @@ def train(session: snowflake.snowpark.Session, inputs: str, output_filename: str
         results = trainer_sproc.get_metrics(pipe, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
         results["model_id"] = model_id
         metrics_df = pd.DataFrame.from_dict(results).reset_index()
-        session.write_pandas(metrics_df, table_name=f"{metrics_table}", auto_create_table=True, overwrite=False)
+        connector.write_pandas(metrics_df, table_name=f"metric_pywht_test", session=session, auto_create_table=True, overwrite=False)
         return results
     
     logger.info("Getting past data for training")
@@ -211,7 +218,7 @@ def train(session: snowflake.snowpark.Session, inputs: str, output_filename: str
     #     else:
     #         feature_table = feature_table.unionAllByName(feature_table_instance)
 
-    feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
+    feature_table_name_remote = f"LTV_TEST_FEATURES_2k_users"
     # sorted_feature_table = feature_table.sort(col(trainer.entity_column).asc(), col(trainer.index_timestamp).desc()).drop([trainer.index_timestamp])
     # sorted_feature_table.write.mode("overwrite").save_as_table(feature_table_name_remote)
     logger.info("Training and fetching the results")
@@ -254,6 +261,8 @@ if __name__ == "__main__":
     homedir = os.path.expanduser("~") 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+    connection_parameters = utils.remap_credentials(creds)
+    session = Session.builder.configs(connection_parameters).create()
     inputs = None
     output_folder = 'output/dev/seq_no/7'
     output_file_name = f"{output_folder}/train_output.json"
@@ -261,4 +270,4 @@ if __name__ == "__main__":
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
        
-    train(creds, inputs, output_file_name, None)
+    train(session, inputs, output_file_name, None)

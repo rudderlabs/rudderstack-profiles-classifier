@@ -21,6 +21,5 @@ class TestUtils(unittest.TestCase):
         expected_result = "material_shopify_user_features_fa138b1a_785"
 
         result = generate_material_name(material_table_prefix, model_name, model_hash, seq_no)
-
         self.assertEqual(result, expected_result)
 

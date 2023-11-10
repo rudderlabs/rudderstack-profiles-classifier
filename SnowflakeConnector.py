@@ -265,7 +265,7 @@ class SnowflakeConnector(Connector):
         arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
         return arraytype_features
 
-    def get_high_cardinal_features(self, session: snowflake.snowpark.Session, feature_table_name: str, label_column: str, entity_column: str, cardinal_feature_threshold: float) -> List[str]:
+    def get_high_cardinal_features(self, feature_table: str, label_column: str, entity_column: str, cardinal_feature_threshold: float) -> List[str]:
         """
         Identify high cardinality features in the feature table based on condition that 
                 the sum of frequency of ten most popular categories is less than 1% of the total row count,.
@@ -288,7 +288,6 @@ class SnowflakeConnector(Connector):
             print(high_cardinal_features)
         """
         high_cardinal_features = list()
-        feature_table = self.get_table(session, feature_table_name)
         total_rows = feature_table.count()
         for field in feature_table.schema.fields:
             top_10_freq_sum = 0

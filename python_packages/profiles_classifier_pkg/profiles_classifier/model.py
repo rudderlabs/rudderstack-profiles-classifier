@@ -7,8 +7,8 @@ from typing import List
 import pandas as pd
 from pathlib import Path
 
-from .train import train
-from .predict import predict
+from .training_pkg.train import train
+from .training_pkg.predict import predict
 
 class ChurnModel(BaseModelType):
     TypeName = "churn_prediction"
@@ -71,7 +71,7 @@ class ChurnRecipe(PyNativeRecipe):
         # wh_type = this.wht_ctx.client.__wh_type     ## warehouse type from configs to differ the snowpark session with redshift connection
 
         self.logger.info(f"Training script initiation ================")
-        train(snowpark_session, inputs, training_json_file, self.model_info.get('config'), this)
+        train(snowpark_session, inputs, training_json_file, self.model_info.get('config'), "snowflake")
         self.logger.info(f"Predictions script initiation ================")
         predict(snowpark_session, aws_config, training_json_file, None, self.model_info.get('config'), this)
 

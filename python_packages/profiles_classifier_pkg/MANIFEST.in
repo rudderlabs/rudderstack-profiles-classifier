@@ -1,3 +1,4 @@
 include README.rst COPYING version.txt requirements.txt
 recursive-include docs *.rst *.png *.ico *.txt *.yaml
-graft profiles_classifier/config
+graft profiles_classifier/training_pkg
+graft profiles_classifier/training_pkg/config

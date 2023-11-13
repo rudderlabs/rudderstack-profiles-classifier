@@ -1,42 +1,40 @@
+import os
 import sys
-import pandas as pd
-import numpy as np
+import yaml
+import json
+import joblib
+import datetime
+import warnings
 import cachetools
+import numpy as np
+import pandas as pd
+
+from logger import logger
+from xgboost import XGBClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
+from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.metrics import average_precision_score
-from sklearn.compose import ColumnTransformer
-from xgboost import XGBClassifier
-import joblib
-import os
-from snowflake.snowpark.session import Session
-from snowflake.snowpark.window import Window
-import snowflake.snowpark.functions as F
-import snowflake.snowpark.types as T
-from typing import List
-from snowflake.snowpark.functions import sproc
+from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
+from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+
 import snowflake.snowpark
-import time
-from typing import Tuple, List, Union
-import sys
+import snowflake.snowpark.types as T
+import snowflake.snowpark.functions as F
+from snowflake.snowpark.window import Window
+from snowflake.snowpark.session import Session
+
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+import utils
+import constants
 from profiles_rudderstack.material import WhtMaterial
-from .utils import utils
-from .constants import constants
-from logger import logger
 
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
-import yaml
-import json
-import datetime
-
-import warnings
-from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
+
 
 def drop_fn_if_exists(session: snowflake.snowpark.Session, 
                       fn_name: str) -> bool:
@@ -61,8 +59,6 @@ def drop_fn_if_exists(session: snowflake.snowpark.Session,
             logger.info(drop.collect()[0].status)
         logger.info("All functions with the same name dropped")
         return True
-    
-
 
 def predict(session: snowflake.snowpark.Session, aws_config: dict, model_path: str, inputs: str, config: dict, this: WhtMaterial) -> None:
     """Generates the prediction probabilities and save results for given model_path
@@ -87,14 +83,17 @@ def predict(session: snowflake.snowpark.Session, aws_config: dict, model_path: s
 
     with open(model_path, "r") as f:
         results = json.load(f)
-    model_hash = results["config"]["material_hash"]
-    model_id = results["model_info"]["model_id"]
+    train_model_hash = results["config"]["material_hash"]
+    train_model_id = results["model_info"]["model_id"]
+    prob_th = results["model_info"]["threshold"]
     current_ts = datetime.datetime.now()
 
     score_column_name = merged_config['outputs']['column_names']['score']
     percentile_column_name = merged_config['outputs']['column_names']['percentile']
+    output_label_column = merged_config['outputs']['column_names']['output_label_column']
     output_profiles_ml_model = merged_config["data"]["output_profiles_ml_model"]
     label_column = merged_config["data"]["label_column"]
+    label_value = merged_config["data"]["label_value"]
     index_timestamp = merged_config["data"]["index_timestamp"]
     eligible_users = merged_config["data"]["eligible_users"]
     ignore_features = merged_config["preprocessing"]["ignore_features"]
@@ -114,11 +113,12 @@ def predict(session: snowflake.snowpark.Session, aws_config: dict, model_path: s
 
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table = utils.get_material_registry_name(session, material_registry_table_prefix)
-    latest_hash_df = session.table(material_table).filter(F.col("model_hash") == model_hash)
-    
-    material_table_prefix = constants.MATERIAL_TABLE_PREFIX
-    latest_seq_no = latest_hash_df.sort(F.col("end_ts"), ascending=False).select("seq_no").collect()[0].SEQ_NO
-    raw_data = session.table(f"{material_table_prefix}{features_profiles_model}_{model_hash}_{latest_seq_no}")
+
+    latest_model_hash, _ = utils.get_latest_material_hash(session, material_table, features_profiles_model)
+    if latest_model_hash != train_model_hash:
+        raise ValueError(f"Model hash {train_model_hash} does not match with the latest model hash {latest_model_hash} in the material registry table. Please retrain the model")
+
+    raw_data = session.table(f"{features_profiles_model}")
 
     if eligible_users:
         raw_data = raw_data.filter(eligible_users)
@@ -128,7 +128,7 @@ def predict(session: snowflake.snowpark.Session, aws_config: dict, model_path: s
     predict_data = utils.drop_columns_if_exists(raw_data, ignore_features)
     
     if len(timestamp_columns) == 0:
-        timestamp_columns = utils.get_timestamp_columns(session, predict_data, index_timestamp)
+        timestamp_columns = utils.get_timestamp_columns(predict_data, index_timestamp)
     for col in timestamp_columns:
         predict_data = predict_data.withColumn(col, F.datediff("day", F.col(col), F.col(index_timestamp)))
 
@@ -168,13 +168,18 @@ def predict(session: snowflake.snowpark.Session, aws_config: dict, model_path: s
         categorical_columns = list(df.select_dtypes(include='object'))
         numeric_columns = list(df.select_dtypes(exclude='object'))
         df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
-        return trained_model.predict_proba(df)[:,1]
+        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})   
+
+        if hasattr(trained_model, 'predict_proba'):
+            return trained_model.predict_proba(df)[:,1]
+        else:
+            return trained_model.predict(df)
     
     preds = (predict_data.select(entity_column, index_timestamp, predict_scores(*input).alias(score_column_name))
-             .withColumn("model_id", F.lit(model_id)))
-
-    preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(entity_column, index_timestamp, score_column_name, percentile_column_name, "model_id")
+             .withColumn("model_id", F.lit(train_model_id)))
+    preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))
+    preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(
+                                                    entity_column, index_timestamp, "model_id", score_column_name, percentile_column_name, output_label_column)
     this.write_output(preds_with_percentile.to_pandas())
     
 

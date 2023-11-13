@@ -8,12 +8,14 @@ data:
   output_profiles_ml_model: 'shopify_churn_test'
   task: classification # classification or regression; Can support a few other tasks in the future, like ltv, churn etc which can be super classes of classification/regression.
   index_timestamp: valid_at
-  eligible_users: '' # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'
+  eligible_users: 1=1 # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'
   # train_start_dt: '2023-04-24'
   train_start_dt: # The start and end dates can be left empty. If not, the model uses these dates to get historic data for training. 
   # train_end_dt: '2023-05-01'
   train_end_dt:
   prediction_horizon_days: 7 # Days in advance to predict the label_column. 
+  inputs: 
+  max_row_count: 500000
   # sample_data: 1. # Keep 1 if all data during train_start_dt, train_end_dt and eligible_users should be selected; Else, give the percent as the number between 0 and 1; Ex, 0.25 indicates 25% data gets sampled
 
   # top_k: 5
@@ -39,7 +41,7 @@ preprocessing:
         # keep_empty_features: False
 
   categorical_pipeline:
-    categorical_columns: ['STATE', 'COUNTRY']
+    categorical_columns: []
     pipeline:
       - name: SimpleImputer
         strategy: constant
@@ -50,6 +52,7 @@ preprocessing:
       - name: OneHotEncoder
         handle_unknown: ignore
         sparse: False
+        max_categories: 5 # perform onehot encoding by keeping maximum of these categories per feature. If None, all categories are kept.
   feature_selectors:
     # Feature selectors that get applied after normalizing is done. Has to be from `VarianceThreshold`, `GenericUnivariateSelect`, `chi2`, `f_classif`
     # ToDo: This section is not implemented in the notebook.
@@ -188,6 +191,96 @@ train:
               - [64, 32]
               - [16, 32, 64]
               - [64, 32, 16, 4]
+      - name: XGBRegressor
+        evaluation_metric: mean_squared_error  # Evaluation metric for regression tasks
+        modelparams:
+          objective: reg:squarederror  # Objective for regression
+          subsample: 0.7
+          use_label_encoder: False
+          eval_metric: rmse  # Evaluation metric for early stopping
+          early_stopping_rounds: 10
+        fitparams:
+          verbose: False
+        hyperopts_config:
+          max_evals: 10
+        hyperopts:
+          - name: max_depth
+            type: choice
+            options: [3, 4, 5, 6, 7]
+          - name: eta
+            type: quniform
+            low: 0.05
+            high: 0.5
+            q: 0.05
+          - name: gamma
+            type: quniform
+            low: 0.25
+            high: 1
+            q: 0.05
+          - name: colsample_bytree
+            type: uniform
+            low: 0.5
+            high: 1
+          - name: min_child_weight
+            type: choice
+            options: [1, 3, 5, 7, 9]
+          - name: n_estimators
+            type: choice
+            options:
+              low: 50
+              high: 500
+              step: 50
+      - name: RandomForestRegressor
+        evaluation_metric: mean_squared_error  # Evaluation metric for regression tasks
+        modelparams:
+          n_jobs: 4
+          random_state: 42
+          criterion: mse  # Criterion for regression
+        hyperopts_config:
+          max_evals: 10
+        hyperopts:
+          - name: max_depth
+            type: choice
+            options: [3, 4, 5, 6, 7]
+          - name: n_estimators
+            type: choice
+            options:
+              low: 50
+              high: 500
+              step: 50
+      - name: MLPRegressor
+        evaluation_metric: mean_squared_error  # Evaluation metric for regression tasks
+        modelparams:
+          activation: 'relu'
+          solver: 'adam'
+          alpha: 0.0001
+          batch_size: 'auto'
+          learning_rate: 'constant'
+          learning_rate_init: 0.001
+          power_t: 0.5
+          max_iter: 200
+          shuffle: True
+          random_state: 42
+          tol: 0.0001
+          verbose: False
+          warm_start: False
+          momentum: 0.9
+          nesterovs_momentum: True
+          early_stopping: False
+          validation_fraction: 0.1
+          beta_1: 0.9
+          beta_2: 0.999
+          n_iter_no_change: 10
+          max_fun: 15000
+        hyperopts_config:
+          max_evals: 10
+        hyperopts:
+          - name: hidden_layer_sizes
+            type: choice
+            options:
+              - [64, 32]
+              - [16, 32, 64]
+              - [64, 32, 16, 4]
     validation_on: f1_score
     evaluation_metrics:
       - average_precision
@@ -197,8 +290,9 @@ train:
 outputs:
   # Related to the output of the data prep step
   column_names:
-    percentile: &percentile_name percentile_churn_score_7_days
-    score: churn_score_7_days
+    percentile: &percentile_name percentile_score
+    score: probability_score
+    output_label_column: output_label
   feature_meta_data: 
     features:
       - name: *percentile_name

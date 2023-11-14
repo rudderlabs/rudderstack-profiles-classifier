@@ -118,7 +118,7 @@ def train(session: snowflake.snowpark.Session, inputs: str, output_filename: str
         connector.delete_import_files(session, stage_name, import_paths)
         connector.delete_procedures(session)
 
-        @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= import_paths, 
+        @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports=[current_dir]+import_paths, 
             packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
@@ -135,13 +135,7 @@ def train(session: snowflake.snowpark.Session, inputs: str, output_filename: str
             Returns:
                 dict: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
             """
-            import constants
-            import utils
-            from logger import logger
-            from SnowflakeConnector import SnowflakeConnector
-
-            connector = SnowflakeConnector()
-
+            
             def train_model(trainer: MLTrainer, feature_df: pd.DataFrame,
                             categorical_columns: List[str], numeric_columns: List[str], merged_config: dict, model_file: str):
                 """Creates and saves the trained model pipeline after performing preprocessing and classification

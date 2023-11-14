@@ -276,6 +276,7 @@ class ClassificationTrainer(MLTrainer):
     models_map = { model.__name__: model for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]}  
 
     def __init__(self,**kwargs):
+        self.recall_to_precision_importance = kwargs.pop("recall_to_precision_importance")
         super().__init__(**kwargs)
         #TODO: uncomment after testing support for redshift
         # self.figure_names = {
@@ -403,7 +404,7 @@ class ClassificationTrainer(MLTrainer):
         pass
 
     def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config) -> dict:
-        model_metrics, _, prob_th = trainer_utils.get_metrics_classifier(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config)
+        model_metrics, _, prob_th = trainer_utils.get_metrics_classifier(model, train_x, train_y, test_x, test_y, val_x, val_y, train_config, self.recall_to_precision_importance)
         model_metrics['prob_th'] = prob_th
         result_dict = {"output_model_name": self.output_profiles_ml_model,
                        "prob_th": prob_th,

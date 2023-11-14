@@ -69,7 +69,8 @@ def create_site_config_file(creds, siteconfig_path):
 
 
 def test_classification_training():
-    creds = os.environ["SNOWFLAKE_SITE_CONFIG"]
+    creds_str = os.environ["SNOWFLAKE_SITE_CONFIG"]
+    creds = json.loads(creds_str)
     print(creds['warehouse'])
     print(creds['schema'])
     inputs = None

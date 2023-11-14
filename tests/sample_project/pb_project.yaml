@@ -1,0 +1,7 @@
+schema_version: 42
+connection: test
+include_untimed: true
+
+packages:
+  - name: feature_table
+    url: https://github.com/rudderlabs/rudderstack-profiles-shopify-features/tag/schema_40

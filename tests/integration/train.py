@@ -32,7 +32,7 @@ def validate_training_summary():
         assert threshold, "threshold is empty"
         keys = ['test', 'train', 'val']
         for key in keys:
-            innerKeys = ["f1_score", "pr_auc", "precision", "recall", "roc_auc", "user"]
+            innerKeys = ["f1_score", "pr_auc", "precision", "recall", "roc_auc", "users"]
             for innerKey in innerKeys:
                 assert metrics[key][innerKey], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 

@@ -430,6 +430,7 @@ class RegressionTrainer(MLTrainer):
     }
 
     def __init__(self,**kwargs):
+        _ = kwargs.pop("recall_to_precision_importance",0.0)
         super().__init__(**kwargs)
         #TODO: uncomment after testing support for redshift
         # self.figure_names = {}

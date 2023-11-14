@@ -222,10 +222,10 @@ class ClassificationTrainer(MLTrainer):
         super().__init__(**kwargs)
         #TODO: uncomment after testing support for redshift
         # self.figure_names = {
-        #     "roc-auc-curve": f"01-test-roc-auc-{self.output_profiles_ml_model}.png",
-        #     "pr-auc-curve": f"02-test-pr-auc-{self.output_profiles_ml_model}.png",
-        #     "lift-chart": f"03-test-lift-chart-{self.output_profiles_ml_model}.png",
-        #     "feature-importance-chart": f"04-feature-importance-chart-{self.output_profiles_ml_model}.png"
+        #     "roc-auc-curve": f"04-test-roc-auc-{self.output_profiles_ml_model}.png",
+        #     "pr-auc-curve": f"03-test-pr-auc-{self.output_profiles_ml_model}.png",
+        #     "lift-chart": f"02-test-lift-chart-{self.output_profiles_ml_model}.png",
+        #     "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png"
         # }
 
     def build_model(self, X_train:pd.DataFrame, 

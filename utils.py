@@ -374,42 +374,6 @@ def get_column_names(onehot_encoder: OneHotEncoder,
             category_names.append(f"{col}_{value}")
     return category_names
 
-def get_non_stringtype_features(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str) -> List[str]:
-    """
-    Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
-
-    Args:
-        feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
-        label_column (str): A string representing the name of the label column.
-        entity_column (str): A string representing the name of the entity column.
-
-    Returns:
-        List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
-    """
-    non_stringtype_features = []
-    for field in feature_table.schema.fields:
-        if field.datatype != T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-            non_stringtype_features.append(field.name)
-    return non_stringtype_features
-
-def get_stringtype_features(feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str)-> List[str]:
-    """
-    Extracts the names of StringType(categorical) columns from a given feature table schema.
-
-    Args:
-        feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
-        label_column (str): The name of the label column.
-        entity_column (str): The name of the entity column.
-
-    Returns:
-        List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
-    """
-    stringtype_features = []
-    for field in feature_table.schema.fields:
-        if field.datatype == T.StringType() and field.name.lower() not in (label_column.lower(), entity_column.lower()):
-            stringtype_features.append(field.name)
-    return stringtype_features
-
 def get_arraytype_features(table: snowflake.snowpark.Table)-> list:
     """Returns the list of features to be ignored from the feature table.
     Args:
@@ -543,7 +507,10 @@ def get_latest_material_hash(session: snowflake.snowpark.Session,
         Tuple: latest model hash and it's creation timestamp
     """
     snowpark_df = get_material_registry_table(session, material_table)
-    temp_hash_vector = snowpark_df.filter(col("model_name") == features_profiles_model).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
+    try:
+        temp_hash_vector = snowpark_df.filter(col("model_name") == features_profiles_model).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
+    except IndexError:
+        raise Exception(f"Unable to fetch the latest model hash. model name: {features_profiles_model}, material table: {material_table}")
     model_hash = temp_hash_vector.MODEL_HASH
     creation_ts = temp_hash_vector.CREATION_TS
     return model_hash, creation_ts
@@ -767,8 +734,8 @@ def plot_lift_chart(pipe, test_x, test_y, lift_chart_file, label_column)-> None:
     plt.plot([0, 100], [0, 100], color="black", linestyle="--", label="Baseline", linewidth=1.5)
 
     plt.title("Cumulative Gain Curve")
-    plt.xlabel("Percentage of Data Targeted")
-    plt.ylabel("Percent of target users covered")
+    plt.xlabel("Percentage of Predicted Target Users")
+    plt.ylabel("Percent of Actual Target Users")
     plt.ylim([0, 100])
     plt.xlim([0, 100])
     plt.legend()

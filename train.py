@@ -241,11 +241,13 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             """
             feature_df = connector.get_table_as_dataframe(session, feature_table_name)
             model_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_file_name}")
-            stringtype_features = connector.get_stringtype_features(feature_table_name, trainer.label_column, trainer.entity_column, session=session)
-            categorical_columns = utils.merge_lists_to_unique(trainer.prep.categorical_pipeline['categorical_columns'], stringtype_features)
+            categorical_columns_inferred = connector.get_stringtype_features(feature_table_name, trainer.label_column, trainer.entity_column, session=session)
+            categorical_columns_config = [col for col in trainer.prep.categorical_pipeline['categorical_columns'] if col.upper() in feature_df.columns]
+            categorical_columns = utils.merge_lists_to_unique(categorical_columns_config, categorical_columns_inferred)
 
-            non_stringtype_features = connector.get_non_stringtype_features(feature_table_name, trainer.label_column, trainer.entity_column, session=session)
-            numeric_columns = utils.merge_lists_to_unique(trainer.prep.numeric_pipeline['numeric_columns'], non_stringtype_features)
+            numeric_columns_inferred = connector.get_non_stringtype_features(feature_table_name, trainer.label_column, trainer.entity_column, session=session)
+            numeric_columns_config = [col for col in trainer.prep.numeric_pipeline['numeric_columns'] if col.upper() in feature_df.columns]
+            numeric_columns = utils.merge_lists_to_unique(numeric_columns_config, numeric_columns_inferred)
 
             train_x, test_x, test_y, pipe, model_id, metrics_df, results = train_model(trainer, feature_df, categorical_columns, numeric_columns, merged_config, model_file)
 
@@ -273,10 +275,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         session = connector.build_session(creds)
 
     #TODO: Remove this and use from trainer.figure_names after support for other warehouses.
-    figure_names = {"roc-auc-curve": f"01-test-roc-auc-{trainer.output_profiles_ml_model}.png",
-                    "pr-auc-curve": f"02-test-pr-auc-{trainer.output_profiles_ml_model}.png",
-                    "lift-chart": f"03-test-lift-chart-{trainer.output_profiles_ml_model}.png",
-                    "feature-importance-chart": f"04-feature-importance-chart-{trainer.output_profiles_ml_model}.png"}
+    figure_names = {"roc-auc-curve": f"04-test-roc-auc-{trainer.output_profiles_ml_model}.png",
+                    "pr-auc-curve": f"03-test-pr-auc-{trainer.output_profiles_ml_model}.png",
+                    "lift-chart": f"02-test-lift-chart-{trainer.output_profiles_ml_model}.png",
+                    "feature-importance-chart": f"01-feature-importance-chart-{trainer.output_profiles_ml_model}.png"}
 
     logger.info("Getting past data for training")
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)

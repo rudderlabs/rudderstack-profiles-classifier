@@ -4,7 +4,7 @@ data:
   label_value: # Value of the label_column when the entity does the event. Not required for regression tasks
   entity_column: user_main_id # Name of the entity defined in the profiles project. Ex: user_id, user_main_id, rudder_id etc
   package_name: feature_table # Name of the package where the profiles feature table is defined (declared in pb_project.yaml packages)
-  features_profiles_model: 'shopify_user_features' # Name of the feature table model
+  features_profiles_model: '' # Name of the feature table model
   output_profiles_ml_model: 'ltv_test'
   task: classification # classification or regression; Can support a few other tasks in the future, like ltv, churn etc which can be super classes of classification/regression.
   index_timestamp: valid_at
@@ -42,7 +42,7 @@ preprocessing:
         # keep_empty_features: False
 
   categorical_pipeline:
-    categorical_columns: ['STATE', 'COUNTRY']
+    categorical_columns: []
     pipeline:
       - name: SimpleImputer
         strategy: constant

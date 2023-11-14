@@ -69,11 +69,7 @@ def create_site_config_file(creds, siteconfig_path):
 
 
 def test_classification_training():
-    creds_str = os.environ["SNOWFLAKE_SITE_CONFIG"]
-    creds = json.loads(creds_str)
-    print(creds['warehouse'])
-    print(creds['schema'])
-    inputs = None
+    creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_directory = os.path.abspath(os.path.join(current_dir, os.pardir))
     project_path = os.path.join(parent_directory, "sample_project")
@@ -90,7 +86,7 @@ def test_classification_training():
     folders = [folder for folder in os.listdir(current_dir) if os.path.isdir(folder)]
     reports_folders = [folder for folder in folders if folder.endswith('_reports')]
     try:
-        train(creds, inputs, output_filename, config, siteconfig_path, project_path)
+        train(creds, None, output_filename, config, siteconfig_path, project_path)
         validate_training_summary()
         validate_reports()
     except Exception as e:

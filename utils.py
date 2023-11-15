@@ -64,18 +64,20 @@ class TrainerUtils:
     def get_classification_metrics(self,
                                    y_true: pd.DataFrame, 
                                    y_pred_proba: np.array, 
-                                   th: float =0.5) -> dict:
+                                   th: float =0.5,
+                                   recall_to_precision_importance: float = 1.0) -> dict:
         """Generates classification metrics
 
         Args:
             y_true (pd.DataFrame): Array of 1s and 0s. True labels
             y_pred_proba (np.array): Array of predicted probabilities
             th (float, optional): thresold for classification. Defaults to 0.5.
+            recall_to_precision_importance (float, optional): Importance of recall to precision. Defaults to 1.0
 
         Returns:
             dict: Returns classification metrics in form of a dict for the given thresold
         """
-        precision, recall, f1, _ = precision_recall_fscore_support(y_true, np.where(y_pred_proba>th,1,0))
+        precision, recall, f1, _ = precision_recall_fscore_support(y_true, np.where(y_pred_proba>th,1,0), beta=recall_to_precision_importance)
         precision = precision[1]
         recall = recall[1]
         f1 = f1[1]
@@ -85,12 +87,13 @@ class TrainerUtils:
         metrics = {"precision": precision, "recall": recall, "f1_score": f1, "roc_auc": roc_auc, 'pr_auc': pr_auc, 'users': user_count}
         return metrics
         
-    def get_best_th(self, y_true: pd.DataFrame, y_pred_proba: np.array, metric_to_optimize: str) -> Tuple:
+    def get_best_th(self, y_true: pd.DataFrame, y_pred_proba: np.array, metric_to_optimize: str, recall_to_precision_importance: float=1.0) -> Tuple:
         """This function calculates the thresold that maximizes f1 score based on y_true and y_pred_proba and classication metrics on basis of that.
 
         Args:
             y_true (pd.DataFrame): Array of 1s and 0s. True labels
             y_pred_proba (np.array): Array of predicted probabilities
+            recall_to_precision_importance (float, optional): Importance of recall to precision.
 
         Returns:
             Tuple: Returns the metrics at the threshold and that threshold that maximizes f1 score based on y_true and y_pred_proba
@@ -112,7 +115,7 @@ class TrainerUtils:
 
         result = minimize_scalar(objective, bounds=(0, 1), method='bounded')
         best_th = result.x                
-        best_metrics = self.get_classification_metrics(y_true, y_pred_proba, best_th)
+        best_metrics = self.get_classification_metrics(y_true, y_pred_proba, best_th, recall_to_precision_importance)
         return best_metrics, best_th
     
     def get_metrics_classifier(self,clf,
@@ -122,7 +125,8 @@ class TrainerUtils:
                 y_test: pd.DataFrame,
                 X_val: pd.DataFrame, 
                 y_val: pd.DataFrame,
-                train_config: dict) -> Tuple:
+                train_config: dict,
+                recall_to_precision_importance: float = 1.0) -> Tuple:
         """Generates classification metrics and predictions for train, validation and test data along with the best probability thresold
 
         Args:
@@ -133,19 +137,20 @@ class TrainerUtils:
             y_test (pd.DataFrame): y_test dataframe
             X_val (pd.DataFrame): X_val dataframe
             y_val (pd.DataFrame): y_val dataframe
+            recall_to_precision_importance (float, optional): Importance of recall to precision. Defaults to 1.0
 
         Returns:
             Tuple: Returns the classification metrics and predictions for train, validation and test data along with the best probability thresold.
         """
         train_preds = clf.predict_proba(X_train)[:,1]
         metric_to_optimize = train_config["model_params"]["validation_on"]
-        train_metrics, prob_threshold = self.get_best_th(y_train, train_preds,metric_to_optimize)
+        train_metrics, prob_threshold = self.get_best_th(y_train, train_preds, metric_to_optimize, recall_to_precision_importance)
 
         test_preds = clf.predict_proba(X_test)[:,1]
-        test_metrics = self.get_classification_metrics(y_test, test_preds, prob_threshold)
+        test_metrics = self.get_classification_metrics(y_test, test_preds, prob_threshold,recall_to_precision_importance)
 
         val_preds = clf.predict_proba(X_val)[:,1]
-        val_metrics = self.get_classification_metrics(y_val, val_preds, prob_threshold)
+        val_metrics = self.get_classification_metrics(y_val, val_preds, prob_threshold, recall_to_precision_importance)
 
         metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
         predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
@@ -547,8 +552,8 @@ def plot_lift_chart(pipe, test_x, test_y, lift_chart_file, label_column)-> None:
     plt.plot([0, 100], [0, 100], color="black", linestyle="--", label="Baseline", linewidth=1.5)
 
     plt.title("Cumulative Gain Curve")
-    plt.xlabel("Percentage of Data Targeted")
-    plt.ylabel("Percent of target users covered")
+    plt.xlabel("Percentage of Predicted Target Users")
+    plt.ylabel("Percent of Actual Target Users")
     plt.ylim([0, 100])
     plt.xlim([0, 100])
     plt.legend()

@@ -1,4 +1,6 @@
 import os
+import json
+import shutil
 import numpy as np
 import pandas as pd
 import redshift_connector
@@ -10,12 +12,15 @@ from typing import List, Tuple, Any, Union
 
 import utils
 import constants
+from logger import logger
 from Connector import Connector
 from wh import ProfilesConnector
 local_folder = constants.LOCAL_STORAGE_DIR
 
 class RedshiftConnector(Connector):
     def __init__(self) -> None:
+        self.local_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), local_folder)
+        self.array_time_features = {}
         return
 
     def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
@@ -31,6 +36,7 @@ class RedshiftConnector(Connector):
         self.creds = credentials
         self.connection_parameters = self.remap_credentials(credentials)
         conn = redshift_connector.connect(**self.connection_parameters)
+        self.creds["schema"] = self.schema
         conn.autocommit = True
         cursor = conn.cursor()
         cursor.execute(f"SET search_path TO {self.schema};")
@@ -46,9 +52,9 @@ class RedshiftConnector(Connector):
         Returns:
             The joined file path as a string.
         """
-        return os.path.join(local_folder, file_name)
+        return os.path.join(self.local_dir, file_name)
 
-    def run_query(self, cursor: redshift_connector.cursor.Cursor, query: str) -> Any:
+    def run_query(self, cursor: redshift_connector.cursor.Cursor, query: str) -> None:
         """Runs the given query on the redshift connection
 
         Args:
@@ -83,10 +89,11 @@ class RedshiftConnector(Connector):
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
         filter_condition = kwargs.get("filter_condition", "")
+        query = f"SELECT * FROM {table_name.lower()}"
         if filter_condition:
-            cursor.execute(f"SELECT * FROM \"{table_name.lower()}\" WHERE {filter_condition};")
-        else:
-            cursor.execute(f"SELECT * FROM \"{table_name.lower()}\";")
+            query += f" WHERE {filter_condition}"
+        query += ";"
+        self.run_query(cursor, query)
         return cursor.fetch_dataframe()
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
@@ -212,7 +219,18 @@ class RedshiftConnector(Connector):
             if row['col_type'] == 'super':
                 arraytype_features.append(row['col_name'])
         return arraytype_features
-    
+
+    def get_arraytype_features_from_table(self, table: pd.DataFrame, **kwargs)-> list:
+        """Returns the list of features to be ignored from the feature table.
+        Args:
+            table (snowflake.snowpark.Table): snowpark table.
+        Returns:
+            list: The list of features to be ignored based column datatypes as ArrayType.
+        """
+        self.get_array_time_features_from_file(**kwargs)
+        arraytype_features = self.array_time_features["arraytype_features"]
+        return arraytype_features
+
     def get_high_cardinal_features(self, cursor: redshift_connector.cursor.Cursor, table_name, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
         return []
 
@@ -235,9 +253,40 @@ class RedshiftConnector(Connector):
             if row['col_type'] in ['timestamp without time zone', 'date', 'time without time zone'] and row['col_name'].lower() != index_timestamp.lower():
                 timestamp_columns.append(row['col_name'])
         return timestamp_columns
-    
+
+    def get_timestamp_columns_from_table(self, table: pd.DataFrame, index_timestamp: str, **kwargs)-> List[str]:
+        """
+        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): The Snowpark session for data warehouse access.
+            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
+            index_timestamp (str): The name of the column containing the index timestamp information.
+
+        Returns:
+            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+        """
+        self.get_array_time_features_from_file(**kwargs)
+        timestamp_columns = self.array_time_features["timestamp_columns"]
+        timestamp_columns = [x for x in timestamp_columns if x.lower() != index_timestamp.lower()]
+        return timestamp_columns
+
     def get_default_label_value(self, cursor, table_name: str, label_column: str, positive_boolean_flags: list):
-        pass
+        label_value = list()
+        table = self.get_table(cursor, table_name)
+        distinct_labels = table[label_column].unique()
+
+        if len(distinct_labels) != 2:
+            raise Exception("The feature to be predicted should be boolean")
+        for e in distinct_labels:
+            if e in positive_boolean_flags:
+                label_value.append(e)
+        
+        if len(label_value) == 0:
+            raise Exception(f"Label column {label_column} doesn't have any positive flags. Please provide custom label_value from label_column to bypass the error.")
+        elif len(label_value) > 1:
+            raise Exception(f"Label column {label_column} has multiple positive flags. Please provide custom label_value out of {label_value} to bypass the error.")
+        return label_value[0]
 
     def get_material_names_(self, cursor: redshift_connector.cursor.Cursor,
                         material_table: str, 
@@ -314,9 +363,21 @@ class RedshiftConnector(Connector):
         creation_ts = temp_hash_vector["creation_ts"]
         return model_hash, creation_ts
 
-    def fetch_staged_file(self, *args):
-        """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
-        pass
+    def fetch_staged_file(self, cursor: redshift_connector.cursor.Cursor, stage_name: str, file_name: str, target_folder: str) -> None:
+        """Fetches the given file from the given stage and saves it to the given target folder.
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
+            stage_name (str): Name of the stage from which to fetch the file.
+            file_name (str): Name of the file to be fetched.
+            target_folder (str): Path to the folder where the fetched file is to be saved.
+
+        Returns:
+            Nothing
+        """
+        source_path = self.join_file_path(file_name)
+        target_path = os.path.join(target_folder, file_name)
+        shutil.move(source_path, target_path)
 
     def drop_cols(self, table: pd.DataFrame, col_list: list) -> pd.DataFrame:
         """
@@ -329,7 +390,10 @@ class RedshiftConnector(Connector):
         Returns:
             The table after the columns have been dropped as a Pandas DataFrame object.
         """
-        return table.drop(columns = col_list)
+        ignore_features_upper = [col.upper() for col in col_list]
+        ignore_features_lower = [col.lower() for col in col_list]
+        ignore_features_ = [col for col in table.columns if col in ignore_features_upper or col in ignore_features_lower]
+        return table.drop(columns = ignore_features_)
 
     def filter_feature_table(self, feature_table: pd.DataFrame, entity_column: str, index_timestamp: str, max_row_count: int) -> pd.DataFrame:
         """
@@ -438,6 +502,59 @@ class RedshiftConnector(Connector):
         material_registry_table["status"] = material_registry_table["json_metadata"].apply(lambda x: x["complete"]["status"])
         return material_registry_table[material_registry_table["status"] == 2].drop(columns=["json_metadata"])
 
+    def generate_type_hint(self, df: pd.DataFrame):        
+        """Returns the type hints for given pandas DataFrame's fields
+
+        Args:
+            sp_df (snowflake.snowpark.Table): pandas DataFrame
+
+        Returns:
+            _type_: Returns the type hints for given snowpark DataFrame's fields
+        """
+        types = []
+        for col in df.columns:
+            if df[col].dtype == 'object':
+                types.append(str)
+            else:
+                types.append(float)
+        return types
+
+    def call_prediction_udf(self, predict_data: pd.DataFrame, prediction_udf: Any, entity_column: str, index_timestamp: str,
+                                  score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
+                                  column_names_path: str, prob_th: float, input: pd.DataFrame) -> pd.DataFrame:
+        """Calls the given function for prediction
+
+        Args:
+            predict_data (pd.DataFrame): Dataframe to be predicted
+            prediction_udf (Any): Function for prediction
+            entity_column (str): Name of the entity column
+            index_timestamp (str): Name of the index timestamp column
+            score_column_name (str): Name of the score column
+            percentile_column_name (str): Name of the percentile column
+            output_label_column (str): Name of the output label column
+            train_model_id (str): Model id
+            column_names_path (str): Path to the column names file
+            prob_th (float): Probability threshold
+            input (pd.DataFrame): Input dataframe
+        Returns:
+            Results of the predict function
+        """
+        preds = predict_data[[entity_column, index_timestamp]]
+        preds[score_column_name] = prediction_udf(input, column_names_path)
+        preds['model_id'] = train_model_id
+        preds[output_label_column] = preds[score_column_name].apply(lambda x: True if x >= prob_th else False)
+        preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
+        return preds
+
+    def clean_up(self) -> None:
+        """Deletes the local data folder."""
+        try:
+            shutil.rmtree(self.local_dir)
+            logger.info("Local directory removed successfully")
+        except OSError as o:
+            logger.info("Local directory not present")
+
+    """ The following functions are only specific to Redshift Connector and not used by any other connector."""
     def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:
         """Writes the given pandas dataframe to the local storage with the given name.
 
@@ -448,6 +565,21 @@ class RedshiftConnector(Connector):
         Returns:
             Nothing
         """
-        Path(local_folder).mkdir(parents=True, exist_ok=True)
-        table_path = os.path.join(local_folder, f"{table_name}.parquet.gzip")
+        table_path = os.path.join(self.local_dir, f"{table_name}.parquet.gzip")
         df.to_parquet(table_path, compression='gzip')
+
+    def get_array_time_features_from_file(self, **kwargs):
+        """This function will read the arraytype features and timestamp columns from the given file."""
+        if len(self.array_time_features) != 0:
+            return
+        features_path = kwargs.get("features_path", None)
+        if features_path == None:
+            raise ValueError("features_path argument is required for Redshift")
+        with open(features_path, "r") as f:
+                column_names = json.load(f)
+                self.array_time_features["arraytype_features"] = column_names["arraytype_features"]
+                self.array_time_features["timestamp_columns"] = column_names["timestamp_columns"]
+
+    def make_local_dir(self) -> None:
+        "Created a local directory to store temporary files"
+        Path(self.local_dir).mkdir(parents=True, exist_ok=True)

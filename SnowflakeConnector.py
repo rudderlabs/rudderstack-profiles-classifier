@@ -252,9 +252,19 @@ class SnowflakeConnector(Connector):
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
         table = self.get_table(session, table_name)
+        arraytype_features = self.get_arraytype_features_from_table(table)
+        return arraytype_features
+
+    def get_arraytype_features_from_table(self, table: snowflake.snowpark.Table, **kwargs)-> list:
+        """Returns the list of features to be ignored from the feature table.
+        Args:
+            table (snowflake.snowpark.Table): snowpark table.
+        Returns:
+            list: The list of features to be ignored based column datatypes as ArrayType.
+        """
         arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
         return arraytype_features
-    
+
     def get_high_cardinal_features(self, session: snowflake.snowpark.Session, feature_table_name: str, label_column: str, entity_column: str, cardinal_feature_threshold: float) -> List[str]:
         """
         Identify high cardinality features in the feature table based on condition that 
@@ -303,12 +313,27 @@ class SnowflakeConnector(Connector):
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
         table = self.get_table(session, table_name)
+        timestamp_columns = self.get_timestamp_columns_from_table(table, index_timestamp)
+        return timestamp_columns
+
+    def get_timestamp_columns_from_table(self, table: snowflake.snowpark.Table, index_timestamp: str, **kwargs)-> List[str]:
+        """
+        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+
+        Args:
+            session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
+            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
+            index_timestamp (str): The name of the column containing the index timestamp information.
+
+        Returns:
+            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+        """
         timestamp_columns = []
         for field in table.schema.fields:
             if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
                 timestamp_columns.append(field.name)
         return timestamp_columns
-    
+
     def get_default_label_value(self, session, table_name: str, label_column: str, positive_boolean_flags: list):
         """
         Returns the default label value for the given label column in the given table.
@@ -480,7 +505,10 @@ class SnowflakeConnector(Connector):
         Returns:
             The table after the columns have been dropped as a snowpark table object.
         """
-        return table.drop(col_list)
+        ignore_features_upper = [col.upper() for col in col_list]
+        ignore_features_lower = [col.lower() for col in col_list]
+        ignore_features_ = [col for col in table.columns if col in ignore_features_upper or col in ignore_features_lower]
+        return table.drop(ignore_features_)
 
     def filter_feature_table(self, feature_table: snowflake.snowpark.Table, entity_column: str, index_timestamp: str, max_row_count: int) -> snowflake.snowpark.Table:
         """
@@ -559,19 +587,57 @@ class SnowflakeConnector(Connector):
                                 )
         return material_registry_table
 
-    def get_file(self, session:snowflake.snowpark.Session, file_stage_path: str, target_folder: str):
-        """Fetches the file with the given path from the snowpark session to the target folder
+    def generate_type_hint(self, df: snowflake.snowpark.Table):        
+        """Returns the type hints for given snowpark DataFrame's fields
 
         Args:
-            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
-            file_stage_path (str): Path of the file to be fetched from the snowpark session
-            target_folder (str): Folder to which the file is to be fetched
+            df (snowflake.snowpark.Table): snowpark DataFrame
 
         Returns:
-            Nothing
+            _type_: Returns the type hints for given snowpark DataFrame's fields
         """
-        _ = session.file.get(file_stage_path, target_folder)
+        type_map = {
+            T.BooleanType(): float,
+            T.DoubleType(): float,
+            T.DecimalType(36,6): float,
+            T.LongType(): float,
+            T.StringType(): str
+        }
+        types = [type_map[d.datatype] for d in df.schema.fields]
+        return T.PandasDataFrame[tuple(types)]
 
+    def call_prediction_udf(self, predict_data: snowflake.snowpark.Table, prediction_udf: Any, entity_column: str, index_timestamp: str,
+                                  score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
+                                  column_names_path: str, prob_th: float, input: snowflake.snowpark.Table) -> pd.DataFrame:
+        """Calls the given function for prediction
+
+        Args:
+            predict_data (pd.DataFrame): Dataframe to be predicted
+            prediction_udf (Any): Function for prediction
+            entity_column (str): Name of the entity column
+            index_timestamp (str): Name of the index timestamp column
+            score_column_name (str): Name of the score column
+            percentile_column_name (str): Name of the percentile column
+            output_label_column (str): Name of the output label column
+            train_model_id (str): Model id
+            column_names_path (str): Path to the column names file
+            prob_th (float): Probability threshold
+            input (pd.DataFrame): Input dataframe
+        Returns:
+            Results of the predict function
+        """
+        preds = (predict_data.select(entity_column, index_timestamp, prediction_udf(*input).alias(score_column_name))
+             .withColumn("model_id", F.lit(train_model_id)))
+        preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))
+        preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(
+                                                        entity_column, index_timestamp, "model_id", score_column_name, percentile_column_name, output_label_column)
+        return preds_with_percentile
+
+    def clean_up(self) -> None:
+        pass
+
+
+    """ The following functions are only specific to Snowflake Connector and not used by any other connector."""
     def create_stage(self, session: snowflake.snowpark.Session, stage_name: str):
         """
         Creates a Snowflake stage with the given name if it does not exist.
@@ -628,3 +694,39 @@ class SnowflakeConnector(Connector):
                 self.run_query(session, f"drop procedure if exists {procedure_arguments}")
             except:
                 pass
+
+    def drop_fn_if_exists(self, session: snowflake.snowpark.Session, fn_name: str) -> bool:
+        """Snowflake caches the functions and it reuses these next time. To avoid the caching, we manually search for the same function name and drop it before we create the udf.
+
+        Args:
+            session (snowflake.snowpark.Session): snowpark session to access warehouse
+            fn_name (str): Name of the function to be dropped
+
+        Returns:
+            bool
+        """
+        fn_list = session.sql(f"show user functions like '{fn_name}'").collect()
+        if len(fn_list) == 0:
+            logger.info(f"Function {fn_name} does not exist")
+            return True
+        else:
+            logger.info("Function name match found. Dropping all functions with the same name")
+            for fn in fn_list:
+                fn_signature = fn["arguments"].split("RETURN")[0]
+                drop = session.sql(f"DROP FUNCTION IF EXISTS {fn_signature}")
+                logger.info(drop.collect()[0].status)
+            logger.info("All functions with the same name dropped")
+            return True
+
+    def get_file(self, session:snowflake.snowpark.Session, file_stage_path: str, target_folder: str):
+        """Fetches the file with the given path from the snowpark session to the target folder
+
+        Args:
+            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
+            file_stage_path (str): Path of the file to be fetched from the snowpark session
+            target_folder (str): Folder to which the file is to be fetched
+
+        Returns:
+            Nothing
+        """
+        _ = session.file.get(file_stage_path, target_folder)

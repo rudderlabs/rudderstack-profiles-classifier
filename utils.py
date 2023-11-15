@@ -222,18 +222,6 @@ def split_train_test(feature_df: pd.DataFrame,
     test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
     test_y = X_test[[label_column.upper()]]
     return train_x, train_y, test_x, test_y, val_x, val_y
-    
-def remap_credentials(credentials: dict) -> dict:
-    """Remaps credentials from profiles siteconfig to the expected format from snowflake session
-
-    Args:
-        credentials (dict): Data warehouse credentials from profiles siteconfig
-
-    Returns:
-        dict: Data warehouse creadentials remapped in format that is required to create a snowpark session
-    """
-    new_creds = {k if k != 'dbname' else 'database': v for k, v in credentials.items() if k != 'type'}
-    return new_creds
 
 def load_yaml(file_path: str) -> dict:
     """Loads the yaml file for any given filename
@@ -278,85 +266,6 @@ def combine_config(notebook_config: dict, profiles_config:dict= None) -> dict:
             merged_config[key] = notebook_config[key]
     return merged_config
 
-def generate_type_hint(sp_df: snowflake.snowpark.Table):        
-    """Returns the type hints for given snowpark DataFrame's fields
-
-    Args:
-        sp_df (snowflake.snowpark.Table): snowpark DataFrame
-
-    Returns:
-        _type_: Returns the type hints for given snowpark DataFrame's fields
-    """
-    type_map = {
-        T.BooleanType(): float,
-        T.DoubleType(): float,
-        T.DecimalType(36,6): float,
-        T.LongType(): float,
-        T.StringType(): str
-    }
-    types = [type_map[d.datatype] for d in sp_df.schema.fields]
-    return T.PandasDataFrame[tuple(types)]
-
-def drop_columns_if_exists(df: snowflake.snowpark.Table, 
-                          ignore_features: list) -> snowflake.snowpark.Table:
-    """Returns the snowpark DataFrame after dropping the features that are to be ignored.
-
-    Args:
-        df (snowflake.snowpark.Table): snowpark DataFrame
-        ignore_features (list): list of features that we want to drop from the dataframe
-
-    Returns:
-        snowflake.snowpark.Table: snowpark DataFrame after dropping the ignored features
-    """
-    ignore_features_upper = [col.upper() for col in ignore_features]
-    ignore_features_lower = [col.lower() for col in ignore_features]
-    ignore_features_ = [col for col in df.columns if col in ignore_features_upper or col in ignore_features_lower]
-    return df.drop(ignore_features_)
-
-def delete_import_files(session: snowflake.snowpark.Session, 
-                        stage_name: str, 
-                        import_paths: List[str]) -> None:
-    """
-    Deletes files from the specified Snowflake stage that match the filenames extracted from the import paths.
-    Args:
-        session (snowflake.snowpark.Session): A Snowflake session object.
-        stage_name (str): The name of the Snowflake stage.
-        import_paths (List[str]): The paths of the files to be deleted from the stage.
-    Returns:
-        None: The function does not return any value.
-    """
-    import_files = [element.split('/')[-1] for element in import_paths]
-    files = session.sql(f"list {stage_name}").collect()
-    for row in files:
-        if any(substring in row.name for substring in import_files):
-            session.sql(f"remove @{row.name}").collect()
-
-def delete_procedures(session: snowflake.snowpark.Session, train_procedure: str) -> None:
-    """
-    Deletes Snowflake train procedures based on a given name.
-
-    Args:
-        session (snowflake.snowpark.Session): A Snowflake session object.
-        train_procedure (str): The name of the train procedures to be deleted.
-
-    Returns:
-        None
-
-    Example:
-        session = snowflake.snowpark.Session(...)
-        delete_procedures(session, 'train_model')
-
-    This function retrieves a list of procedures that match the given train procedure name using a SQL query. 
-    It then iterates over each procedure and attempts to drop it using another SQL query. If an error occurs during the drop operation, it throws an exception.
-    """
-    procedures = session.sql(f"show procedures like '{train_procedure}'").collect()
-    for row in procedures:
-        try:
-            procedure_arguments = row.arguments.split('RETURN')[0].strip()
-            session.sql(f"drop procedure if exists {procedure_arguments}").collect()
-        except:
-            raise Exception(f"Error while deleting procedure {row.name}")
-
 def get_column_names(onehot_encoder: OneHotEncoder, 
                      col_names: List[str]) -> List[str]:
     """Assigning new column names for the one-hot encoded columns.
@@ -374,16 +283,6 @@ def get_column_names(onehot_encoder: OneHotEncoder,
             category_names.append(f"{col}_{value}")
     return category_names
 
-def get_arraytype_features(table: snowflake.snowpark.Table)-> list:
-    """Returns the list of features to be ignored from the feature table.
-    Args:
-        table (snowflake.snowpark.Table): snowpark table.
-    Returns:
-        list: The list of features to be ignored based column datatypes as ArrayType.
-    """
-    arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
-    return arraytype_features
-
 def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str])-> pd.DataFrame:
     """
     Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively.
@@ -399,29 +298,6 @@ def transform_null(df: pd.DataFrame, numeric_columns: List[str], categorical_col
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
     df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
     return df
-
-def get_material_registry_name(session: snowflake.snowpark.Session, table_prefix: str='MATERIAL_REGISTRY') -> str:
-    """This function will return the latest material registry table name
-    Args:
-        session (snowflake.snowpark.Session): snowpark session
-        table_name (str): name of the material registry table prefix
-    Returns:
-        str: latest material registry table name
-    """
-    material_registry_tables = list()
-
-    def split_key(item):
-        parts = item.split('_')
-        if len(parts) > 1 and parts[-1].isdigit():
-            return int(parts[-1])
-        return 0
-
-    registry_df = session.sql(f"show tables starts with '{table_prefix}'")
-    for row in registry_df.collect():
-        material_registry_tables.append(row.name)
-    material_registry_tables.sort(reverse=True)
-    sorted_material_registry_tables = sorted(material_registry_tables, key=split_key, reverse=True)
-    return sorted_material_registry_tables[0]
 
 def get_output_directory(folder_path: str)-> str:
     """This function will return the output directory path
@@ -477,44 +353,6 @@ def date_add(reference_date: str, add_days: int) -> str:
     new_date = new_timestamp.strftime("%Y-%m-%d")
     return new_date
 
-def get_timestamp_columns(table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
-    """
-    Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-    Args:
-        session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
-        feature_table (snowflake.snowpark.Table): The feature table from which to retrieve the timestamp columns.
-        index_timestamp (str): The name of the column containing the index timestamp information.
-    Returns:
-        List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-    """
-    timestamp_columns = []
-    for field in table.schema.fields:
-        if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
-            timestamp_columns.append(field.name)
-    return timestamp_columns
-
-def get_latest_material_hash(session: snowflake.snowpark.Session,
-                       material_table: str,
-                       features_profiles_model:str) -> Tuple:
-    """This function will return the model hash that is latest for given model name in material table
-
-    Args:
-        session (snowflake.snowpark.Session): snowpark session
-        material_table (str): name of material registry table
-        features_profiles_model (str): feature profiles model name from model_configs file
-
-    Returns:
-        Tuple: latest model hash and it's creation timestamp
-    """
-    snowpark_df = get_material_registry_table(session, material_table)
-    try:
-        temp_hash_vector = snowpark_df.filter(col("model_name") == features_profiles_model).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
-    except IndexError:
-        raise Exception(f"Unable to fetch the latest model hash. model name: {features_profiles_model}, material table: {material_table}")
-    model_hash = temp_hash_vector.MODEL_HASH
-    creation_ts = temp_hash_vector.CREATION_TS
-    return model_hash, creation_ts
-
 def merge_lists_to_unique(l1: list, l2: list)-> list:
     """Merges two lists and returns a unique list of elements.
 
@@ -539,7 +377,6 @@ def get_pb_path() -> str:
     except:
         logger.warning("pb command not found in the path. Using the default rudder-sources path /venv/bin/pb")
         return constants.PB
-    
 
 def subprocess_run(args):
     response = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
@@ -603,24 +440,6 @@ def is_valid_table(session: snowflake.snowpark.Session, table_name: str) -> bool
         return True
     except:
         return False
-    
-def get_material_registry_table(session: snowflake.snowpark.Session, material_registry_table_name: str) -> snowflake.snowpark.Table:
-    """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
-    Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
-
-    Args:
-        session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-        material_registry_table_name (str): The material registry table name.
-
-    Returns:
-        snowflake.snowpark.Table: The filtered material registry table containing only the successfully materialized data.
-    """
-    material_registry_table = (session.table(material_registry_table_name)
-                               .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
-                               .filter(F.col("status")==2)
-                               )
-    return material_registry_table
-
 
 def generate_material_name(material_table_prefix: str, model_name: str, model_hash: str, seq_no: str) -> str:
     """Generates a valid table name from the model hash, model name, and seq no. 
@@ -635,7 +454,6 @@ def generate_material_name(material_table_prefix: str, model_name: str, model_ha
         str: name of the material table in warehouse 
     """
     return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'
-
 
 def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
     """
@@ -838,6 +656,35 @@ def load_stage_file_from_local(session: snowflake.snowpark.Session, stage_name: 
         output_file = joblib.load(os.path.join(target_folder, file_name))
     os.remove(os.path.join(target_folder, file_name))
     return output_file
+
+#### Kept here for explain_prediction function ####
+def remap_credentials(credentials: dict) -> dict:
+    """Remaps credentials from profiles siteconfig to the expected format from snowflake session
+
+    Args:
+        credentials (dict): Data warehouse credentials from profiles siteconfig
+
+    Returns:
+        dict: Data warehouse creadentials remapped in format that is required to create a snowpark session
+    """
+    new_creds = {k if k != 'dbname' else 'database': v for k, v in credentials.items() if k != 'type'}
+    return new_creds
+
+def get_timestamp_columns(table: snowflake.snowpark.Table, index_timestamp: str)-> List[str]:
+    """
+    Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+    Args:
+        session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
+        feature_table (snowflake.snowpark.Table): The feature table from which to retrieve the timestamp columns.
+        index_timestamp (str): The name of the column containing the index timestamp information.
+    Returns:
+        List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+    """
+    timestamp_columns = []
+    for field in table.schema.fields:
+        if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()] and field.name.lower() != index_timestamp.lower():
+            timestamp_columns.append(field.name)
+    return timestamp_columns
 
 ####  Not being called currently. Functions for saving feature-importance score for top_k and bottom_k users as per their prediction scores. ####
 def explain_prediction(creds: dict, user_main_id: str, predictions_table_name: str, feature_table_name: str, predict_config: dict)-> None:

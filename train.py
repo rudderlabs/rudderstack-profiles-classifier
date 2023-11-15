@@ -3,6 +3,7 @@
 import os
 import json
 import yaml
+import shutil
 import pandas as pd
 import sys
 
@@ -79,7 +80,6 @@ def train_and_store_model_results_rs(feature_table_name: str,
     json.dump(column_dict, open(column_name_file,"w"))
 
     trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
-    trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
     try:
         figure_file = connector.join_file_path(figure_names['feature-importance-chart'])
         shap_importance = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)
@@ -149,7 +149,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config)
     elif prediction_task == 'regression':
         trainer = RegressionTrainer(**merged_config["data"], prep=prep_config)
-    
+
     logger.info(f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}")
     if trainer.eligible_users:
         logger.info(f"Only following users are considered for training: {trainer.eligible_users}")
@@ -203,7 +203,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
             connector.save_file(session, model_file, stage_name, overwrite=True)
             connector.save_file(session, column_name_file, stage_name, overwrite=True)
-            trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
             try:
                 figure_file = os.path.join('tmp', figure_names['feature-importance-chart'])
                 shap_importance = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)
@@ -218,6 +217,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         train_procedure = train_and_store_model_results_rs
         connector = RedshiftConnector()
         session = connector.build_session(creds)
+        connector.clean_up()
+        connector.make_local_dir()
 
     #TODO: Remove this and use from trainer.figure_names after support for other warehouses.
     figure_names = {"roc-auc-curve": f"04-test-roc-auc-{trainer.output_profiles_ml_model}.png",
@@ -253,7 +254,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
-        feature_table_instance = trainer.prepare_feature_table(connector, session,
+        feature_table_instance, arraytype_features, timestamp_columns = trainer.prepare_feature_table(connector, session,
                                                                feature_table_name, 
                                                                label_table_name,
                                                                cardinal_feature_threshold)
@@ -289,6 +290,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     else:
         train_results = train_results_json
     model_id = train_results["model_id"]
+
+    column_dict = {'arraytype_features': arraytype_features, 'timestamp_columns': timestamp_columns}
+    column_name_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_id}_array_time_feature_names.json")
+    json.dump(column_dict, open(column_name_file,"w"))
     
     results = {"config": {'training_dates': training_dates,
                         'material_names': material_names,
@@ -325,6 +330,6 @@ if __name__ == "__main__":
     path.mkdir(parents=True, exist_ok=True)
     # logger.setLevel(logger.logging.DEBUG)
 
-    project_folder = '~/Desktop/Git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+    project_folder = '/Users/admin/Desktop/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

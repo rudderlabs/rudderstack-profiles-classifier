@@ -1,5 +1,6 @@
 import joblib
 import time
+import json
 import numpy as np
 import pandas as pd
 import snowflake.snowpark
@@ -90,7 +91,6 @@ class MLTrainer(ABC):
                 error_message = f"Invalid num_params_name: {num_params_name} for numeric pipeline."
                 logger.error(error_message)
                 raise ValueError(error_message)
-
         num_pipeline = Pipeline([
             ('imputer', SimpleImputer(**num_imputer_params)),
         ])
@@ -147,7 +147,7 @@ class MLTrainer(ABC):
     def prepare_feature_table(self, connector: Connector, session,
                             feature_table_name: str, 
                             label_table_name: str,
-                            cardinal_feature_threshold: float) -> Union[snowflake.snowpark.Table, pd.DataFrame]:
+                            cardinal_feature_threshold: float) -> tuple:
         """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
 
         Args:
@@ -183,7 +183,7 @@ class MLTrainer(ABC):
             feature_table = connector.join_feature_table_label_table(feature_table, label_table, self.entity_column, "inner")
             feature_table = connector.drop_cols(feature_table, [label_ts_col])
             feature_table = connector.drop_cols(feature_table, ignore_features_)
-            return feature_table
+            return feature_table, arraytype_features, timestamp_columns
         except Exception as e:
             print("Exception occured while preparing feature table. Please check the logs for more details")
             raise e

@@ -19,7 +19,7 @@ class Connector(ABC):
         """
         new_creds = {k if k != 'dbname' else 'database': v for k, v in credentials.items() if k != 'type'}
         return new_creds
-    
+
     def get_material_names(self, session, material_table: str, start_date: str, end_date: str, 
                         package_name: str, features_profiles_model: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
                         output_filename: str, site_config_path: str, project_folder: str, input_models: List[str])-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
@@ -82,7 +82,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def run_query(self, session, query: str) -> Any:
+    def run_query(self, session, query: str) -> Union[Any, None]:
         pass
     
     @abstractmethod
@@ -128,11 +128,19 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def get_arraytype_features_from_table(self, table: Any, **kwargs)-> list:
+        pass
+
+    @abstractmethod
     def get_high_cardinal_features(self, session, feature_table_name, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
         pass
 
     @abstractmethod
     def get_timestamp_columns(self, session, table_name: str, index_timestamp: str)-> List[str]:
+        pass
+
+    @abstractmethod
+    def get_timestamp_columns_from_table(self, session, table_name: str, index_timestamp: str, **kwargs)-> List[str]:
         pass
 
     @abstractmethod
@@ -174,4 +182,22 @@ class Connector(ABC):
 
     @abstractmethod
     def get_distinct_values_in_column(self, table, column_name: str) -> List:
+        pass
+
+    @abstractmethod
+    def get_material_registry_table(self, session: Any, material_registry_table_name: str) -> pd.DataFrame:
+        pass
+
+    @abstractmethod
+    def generate_type_hint(self, df: Any):        
+        pass
+
+    @abstractmethod
+    def call_prediction_udf(self, predict_data: Any, prediction_udf: Any, entity_column: str, index_timestamp: str,
+                                  score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
+                                  column_names_path: str, prob_th: float, input: Any) -> pd.DataFrame:
+        pass
+
+    @abstractmethod
+    def clean_up(self) -> None:
         pass

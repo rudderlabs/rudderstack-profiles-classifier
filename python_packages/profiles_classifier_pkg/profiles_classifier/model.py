@@ -7,8 +7,8 @@ from typing import List
 import pandas as pd
 from pathlib import Path
 
-from .training_pkg.train import train
-from .training_pkg.predict import predict
+from .src.train import train
+from .src.predict import predict
 
 class ChurnModel(BaseModelType):
     TypeName = "churn_prediction"

@@ -62,16 +62,15 @@ class ChurnRecipe(PyNativeRecipe):
     def execute(self, this: WhtMaterial):
         self.logger.info("Executing ChurnRecipe ================ Start")
         snowpark_session = this.wht_ctx.snowpark_session
+        wh_type = this.wht_ctx.client.wh_type   ## warehouse type from configs to differ the snowpark session with redshift connection 
         model_name = this.model.name()
         output_folder = this.get_output_folder()
         training_json_file = f"{output_folder}/{model_name}_training_file.json"
         aws_config=None
         inputs = None
 
-        # wh_type = this.wht_ctx.client.__wh_type     ## warehouse type from configs to differ the snowpark session with redshift connection
-
         self.logger.info(f"Training script initiation ================")
-        train(snowpark_session, inputs, training_json_file, self.model_info.get('config'), "snowflake")
+        train(snowpark_session, inputs, training_json_file, self.model_info.get('config'), wh_type, this)
         self.logger.info(f"Predictions script initiation ================")
         predict(snowpark_session, aws_config, training_json_file, None, self.model_info.get('config'), this)
 

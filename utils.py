@@ -383,9 +383,9 @@ def subprocess_run(args):
     if response.returncode == 0:
         return True
     else:
-        logger.warning("Error occurred. Exit code:", response.returncode)
-        logger.warning("Standard Output:\n", response.stdout)
-        logger.warning("Standard Error:\n", response.stderr)
+        logger.warning(f"Error occurred. Exit code:{response.returncode}")
+        logger.warning(f"Subprocess Output: {response.stdout}")
+        logger.warning(f"Subprocess Error: {response.stderr}")
         return False
     
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> bool:
@@ -453,8 +453,8 @@ def generate_material_name(material_table_prefix: str, model_name: str, model_ha
     Returns:
         str: name of the material table in warehouse 
     """
-    return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'    
-    
+    return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'
+
 def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
     """
     Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.

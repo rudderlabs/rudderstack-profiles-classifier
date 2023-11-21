@@ -232,6 +232,8 @@ class RedshiftConnector(Connector):
         return arraytype_features
 
     def get_high_cardinal_features(self, table: pd.DataFrame, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
+        #TODO: remove this logger.info
+        logger.info(f"Identifying high cardinality features in the Redshift feature table.")
         high_cardinal_features = list()
         for field in table.columns:
             if (table[field].dtype != 'int64' and table[field].dtype != 'float64') and (field.lower() not in (label_column.lower(), entity_column.lower())):

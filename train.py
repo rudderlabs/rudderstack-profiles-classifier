@@ -311,6 +311,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                                                cardinal_feature_threshold)
         if feature_table is None:
             feature_table = feature_table_instance
+            break
         else:
             feature_table = feature_table.unionAllByName(feature_table_instance)
 

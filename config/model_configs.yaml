@@ -41,7 +41,7 @@ preprocessing:
         # keep_empty_features: False
 
   categorical_pipeline:
-    categorical_columns: ['STATE', 'COUNTRY']
+    categorical_columns: []
     pipeline:
       - name: SimpleImputer
         strategy: constant

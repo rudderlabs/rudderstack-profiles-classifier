@@ -265,26 +265,26 @@ class SnowflakeConnector(Connector):
         arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
         return arraytype_features
 
-    def get_high_cardinal_features(self, feature_table: str, label_column: str, entity_column: str, cardinal_feature_threshold: float) -> List[str]:
+    def get_high_cardinal_features(self, feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str, cardinal_feature_threshold: float) -> List[str]:
         """
         Identify high cardinality features in the feature table based on condition that 
                 the sum of frequency of ten most popular categories is less than 1% of the total row count,.
 
         Args:
-            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-            feature_table_name (str): name of the feature table.
+            feature_table (snowflake.snowpark.Table): feature table.
             label_column (str): The name of the label column in the feature table.
             entity_column (str): The name of the entity column in the feature table.
+            cardinal_feature_threshold (float): The threshold value for the cardinality of the feature.
 
         Returns:
             List[str]: A list of strings representing the names of the high cardinality features in the feature table.
 
         Example:
-            session = snowflake.snowpark.Session(...)
-            feature_table_name = "..."
+            feature_table_name = snowflake.snowpark.Table(...)
             label_column = "label"
             entity_column = "entity"
-            high_cardinal_features = get_high_cardinal_features(session, feature_table_name, label_column, entity_column)
+            cardinal_feature_threshold = 0.01
+            high_cardinal_features = get_high_cardinal_features(feature_table, label_column, entity_column, cardinal_feature_threshold)
             print(high_cardinal_features)
         """
         high_cardinal_features = list()

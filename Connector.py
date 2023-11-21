@@ -1,7 +1,7 @@
 import pandas as pd
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Tuple, Union, Sequence
 
 import utils
 from logger import logger
@@ -19,7 +19,7 @@ class Connector(ABC):
         """
         new_creds = {k if k != 'dbname' else 'database': v for k, v in credentials.items() if k != 'type'}
         return new_creds
-
+ 
     def get_material_names(self, session, material_table: str, start_date: str, end_date: str, 
                         package_name: str, features_profiles_model: str, model_hash: str, material_table_prefix: str, prediction_horizon_days: int, 
                         output_filename: str, site_config_path: str, project_folder: str, input_models: List[str])-> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
@@ -72,7 +72,79 @@ class Connector(ABC):
         except Exception as e:
             logger.error(e)
             raise Exception("Exception occured while retrieving material names. Please check the logs for more details")
+        
+    def generate_training_materials(self, 
+                                    start_date: str, 
+                                    package_name: str, 
+                                    features_profiles_model: str, 
+                                    prediction_horizon_days: int, 
+                                    output_filename: str, 
+                                    site_config_path: str, 
+                                    project_folder: str, 
+                                    input_models: List[str])-> Tuple[str, str]:
+        """
+        Generates training dataset from start_date and end_date, and fetches the resultant table names from the material_table. 
+        Args:
+            start_date (str): Start date for training data.
+            package_name (str): The name of the package.
+            features_profiles_model (str): The name of the model.
+            prediction_horizon_days (int): The period of days for prediction horizon.
+            site_config_path (str): path to the siteconfig.yaml file
+            project_folder (str): project folder path to pb_project.yaml file
+            input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model. If this is empty, we infer this frmo the package_name and features_profiles_model - for backward compatibility
 
+        Returns:
+            Tuple[str, str]: A tuple containing feature table date and label table date strings
+        """
+        if len(input_models) == 0:
+            logger.warning("No input models provided. Inferring input models from package_name and features_profiles_model, assuming that python model is defined in application project and feature table is imported as a package.")
+            feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
+        else:
+            feature_package_path = ','.join(input_models) #Syntax: pb run models/m1,models/m2 
+        feature_date = utils.date_add(start_date, prediction_horizon_days)
+        label_date = utils.date_add(feature_date, prediction_horizon_days)
+        materialise_feature_data = utils.materialise_past_data(feature_date, feature_package_path, output_filename, site_config_path, project_folder)
+        materialise_label_data = utils.materialise_past_data(label_date, feature_package_path, output_filename, site_config_path, project_folder)
+        if materialise_feature_data and materialise_label_data:
+            logger.info(f"Materialised feature and label data successfully, for dates {feature_date} and {label_date}")
+            return feature_date, label_date
+        
+    def fetch_training_material_names(self, 
+                                      session, 
+                                      feature_date,
+                                      label_date,
+                                      material_registry_table, 
+                                      features_profiles_model,
+                                      material_table_prefix) -> Tuple[str, str]:
+        """Fetches the materialised table names of feature table and label table from warehouse registry table, based on the end_ts field in the registry table. 
+        If there are more than one materialised table names with the same end_ts, it returns the most recently created one, using creation_ts.
+        Args:
+            session (_type_): _description_
+            feature_date (_type_): _description_
+            label_date (_type_): _description_
+            material_registry_table (_type_): _description_
+            features_profiles_model (_type_): _description_
+            material_table_prefix (_type_): _description_
+
+        Returns:
+            Tuple[str, str]: _description_
+        """
+        for dt in [feature_date, label_date]:
+            query = f"select seq_no, model_hash from {material_registry_table} where end_ts = '{dt}' and model_name = '{features_profiles_model}' order by creation_ts desc"
+            table_instance_details = self.run_query(session, query)
+            for row in table_instance_details:
+                seq_no = row[0]
+                model_hash = row[1]
+                table_name = utils.generate_material_name(material_table_prefix, features_profiles_model, model_hash, str(seq_no))
+                if utils.is_valid_table(session, table_name):
+                    if dt == feature_date:
+                        feature_table_name = table_name
+                    else:
+                        label_table_name = table_name
+                    break
+        return feature_table_name, label_table_name                    
+        
+        
     @abstractmethod
     def build_session(self, credentials: dict):
         pass
@@ -82,7 +154,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def run_query(self, session, query: str) -> Union[Any, None]:
+    def run_query(self, session, query: str) -> Sequence:
         pass
     
     @abstractmethod

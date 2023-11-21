@@ -388,7 +388,7 @@ def subprocess_run(args):
         logger.warning("Standard Error:\n", response.stderr)
         return False
     
-def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> None:
+def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> bool:
     """
     Materializes past data for a given date using the 'pb' command-line tool.
 
@@ -417,7 +417,7 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
         logger.info(f"Materialising historic data for {features_valid_time} using pb: {' '.join(args)} ")
         pb_run_for_past_data = subprocess_run(args)
         if pb_run_for_past_data:
-            logger.info(f"Successfully materialised data for date {features_valid_time} ")
+            return True
         else:
             raise Exception(f"Error occurred while materialising data for date {features_valid_time} ")
     except Exception as e:
@@ -453,8 +453,8 @@ def generate_material_name(material_table_prefix: str, model_name: str, model_ha
     Returns:
         str: name of the material table in warehouse 
     """
-    return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'
-
+    return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'    
+    
 def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
     """
     Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.

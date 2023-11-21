@@ -384,8 +384,8 @@ def subprocess_run(args):
         return True
     else:
         logger.warning(f"Error occurred. Exit code:{response.returncode}")
-        logger.warning(f"Subprocess Output:\n {response.stdout}")
-        logger.warning(f"Subprocess Error:\n {response.stderr}")
+        logger.warning(f"Subprocess Output: {response.stdout}")
+        logger.warning(f"Subprocess Error: {response.stderr}")
         return False
     
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> bool:

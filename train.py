@@ -234,16 +234,34 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     if start_date == None or end_date == None:
         start_date, end_date = utils.get_date_range(creation_ts, trainer.prediction_horizon_days)
     try:
-        material_names, training_dates = connector.get_material_names(session, material_table, start_date, end_date, 
-                                                                trainer.package_name, 
-                                                                trainer.features_profiles_model, 
-                                                                model_hash, 
-                                                                material_table_prefix, 
-                                                                trainer.prediction_horizon_days,
-                                                                output_filename,
-                                                                site_config_path,
-                                                                project_folder,
-                                                                trainer.inputs)
+        # material_names, training_dates = connector.get_material_names(session, material_table, start_date, end_date, 
+        #                                                         trainer.package_name, 
+        #                                                         trainer.features_profiles_model, 
+        #                                                         model_hash, 
+        #                                                         material_table_prefix, 
+        #                                                         trainer.prediction_horizon_days,
+        #                                                         output_filename,
+        #                                                         site_config_path,
+        #                                                         project_folder,
+        #                                                         trainer.inputs)
+        feature_dt, label_dt = connector.generate_training_materials(start_date, 
+                                                                     trainer.package_name, 
+                                                                     trainer.features_profiles_model,
+                                                                     trainer.prediction_horizon_days,
+                                                                     output_filename,
+                                                                     site_config_path, 
+                                                                     project_folder,
+                                                                     trainer.inputs)
+        feature_tbl_name, label_tbl_name = connector.fetch_training_material_names(session, 
+                                                                                   feature_dt,
+                                                                                   label_dt,
+                                                                                   material_table, 
+                                                                                   trainer.features_profiles_model,
+                                                                                   material_table_prefix)
+        training_dates = [(feature_dt, label_dt)]
+        material_names = [(feature_tbl_name, label_tbl_name)]
+        del feature_tbl_name, label_tbl_name, feature_dt, label_dt
+        
     except TypeError:
         raise Exception("Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly")
 

@@ -107,7 +107,9 @@ class Connector(ABC):
         materialise_label_data = utils.materialise_past_data(label_date, feature_package_path, output_filename, site_config_path, project_folder)
         if materialise_feature_data and materialise_label_data:
             logger.info(f"Materialised feature and label data successfully, for dates {feature_date} and {label_date}")
-            return feature_date, label_date
+        else:
+            logger.warning("Failed to materialise feature and label data. Will attempt to fetch materialised data from warehouse registry table")
+        return feature_date, label_date
         
     def fetch_training_material_names(self, 
                                       session, 

@@ -421,8 +421,8 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
         else:
             raise Exception(f"Error occurred while materialising data for date {features_valid_time} ")
     except Exception as e:
-        logger.error(f"Exception occured while materialising data for date {features_valid_time} ")
         print(e)
+        return False
 
 def is_valid_table(session: snowflake.snowpark.Session, table_name: str) -> bool:
     """

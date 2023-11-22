@@ -383,12 +383,12 @@ def subprocess_run(args):
     if response.returncode == 0:
         return True
     else:
-        logger.warning("Error occurred. Exit code:", response.returncode)
-        logger.warning("Standard Output:\n", response.stdout)
-        logger.warning("Standard Error:\n", response.stderr)
+        logger.warning(f"Error occurred. Exit code:{response.returncode}")
+        logger.warning(f"Subprocess Output: {response.stdout}")
+        logger.warning(f"Subprocess Error: {response.stderr}")
         return False
     
-def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> None:
+def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> bool:
     """
     Materializes past data for a given date using the 'pb' command-line tool.
 
@@ -417,12 +417,12 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
         logger.info(f"Materialising historic data for {features_valid_time} using pb: {' '.join(args)} ")
         pb_run_for_past_data = subprocess_run(args)
         if pb_run_for_past_data:
-            logger.info(f"Successfully materialised data for date {features_valid_time} ")
+            return True
         else:
             raise Exception(f"Error occurred while materialising data for date {features_valid_time} ")
     except Exception as e:
-        logger.error(f"Exception occured while materialising data for date {features_valid_time} ")
         print(e)
+        return False
 
 def is_valid_table(session: snowflake.snowpark.Session, table_name: str) -> bool:
     """

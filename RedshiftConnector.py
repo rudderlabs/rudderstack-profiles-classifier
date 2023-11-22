@@ -54,7 +54,7 @@ class RedshiftConnector(Connector):
         """
         return os.path.join(self.local_dir, file_name)
 
-    def run_query(self, cursor: redshift_connector.cursor.Cursor, query: str) -> None:
+    def run_query(self, cursor: redshift_connector.cursor.Cursor, query: str) -> Tuple:
         """Runs the given query on the redshift connection
 
         Args:
@@ -64,7 +64,7 @@ class RedshiftConnector(Connector):
         Returns:
             Results of the query run on the Redshift connection
         """
-        cursor.execute(query)
+        return cursor.execute(query).fetchall()
 
     def get_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
@@ -93,8 +93,7 @@ class RedshiftConnector(Connector):
         if filter_condition:
             query += f" WHERE {filter_condition}"
         query += ";"
-        self.run_query(cursor, query)
-        return cursor.fetch_dataframe()
+        return cursor.execute(query).fetch_dataframe()
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
         """Writes the given pandas dataframe to the Redshift schema with the given name as well as saves it locally.

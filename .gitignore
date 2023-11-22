@@ -11,3 +11,4 @@ appmap.yml
 *.ipynb
 pysnowpark/*
 data/*
+testenv/*

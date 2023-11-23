@@ -52,21 +52,11 @@ class Connector(ABC):
 
             if len(material_names) == 0:
                 try:
-                    if len(input_models) == 0:
-                        logger.warning("No input models provided. Inferring input models from package_name and features_profiles_model, assuming that python model is defined in application project and feature table is imported as a package.")
-                        feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
-                    else:
-                        feature_package_path = ','.join(input_models) #Syntax: pb run models/m1,models/m2 
-                    feature_date = utils.date_add(start_date, prediction_horizon_days)
-                    label_date = utils.date_add(feature_date, prediction_horizon_days)
-                    utils.materialise_past_data(feature_date, feature_package_path, output_filename, site_config_path, project_folder)
-                    utils.materialise_past_data(label_date, feature_package_path, output_filename, site_config_path, project_folder)
+                    _ = self.generate_training_materials(start_date, package_name, features_profiles_model, prediction_horizon_days, output_filename, site_config_path, project_folder, input_models)
                     material_names, training_dates = self.get_material_names_(session, material_table, start_date, end_date, features_profiles_model, model_hash, material_table_prefix, prediction_horizon_days)
                     if len(material_names) == 0:
                         raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data")
                 except Exception as e:
-                    # logger.exception(e)
-                    logger.error("Exception occured while materialising data. Please check the logs for more details")
                     raise Exception(f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data")
             return material_names, training_dates
         except Exception as e:
@@ -120,6 +110,8 @@ class Connector(ABC):
                                       material_table_prefix) -> Tuple[str, str]:
         """Fetches the materialised table names of feature table and label table from warehouse registry table, based on the end_ts field in the registry table. 
         If there are more than one materialised table names with the same end_ts, it returns the most recently created one, using creation_ts.
+        Imp Note: It does not do any check on model hash, so it is possible that the materialised tables are not consistent.
+        Currently this is not being in use. This was created as a back up for pb versions inconsistency on rudder-sources
         Args:
             session (_type_): _description_
             feature_date (_type_): _description_

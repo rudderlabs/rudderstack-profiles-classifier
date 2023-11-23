@@ -132,7 +132,7 @@ class Connector(ABC):
             Tuple[str, str]: _description_
         """
         for dt in [feature_date, label_date]:
-            query = f"select seq_no, model_hash from {material_registry_table} where end_ts = '{dt}' and model_name = '{features_profiles_model}' order by creation_ts desc"
+            query = f"select seq_no, model_hash from {material_registry_table} where DATE(end_ts) = '{dt}' and model_name = '{features_profiles_model}' order by creation_ts desc"
             table_instance_details = self.run_query(session, query)
             for row in table_instance_details:
                 seq_no = row[0]
@@ -145,7 +145,6 @@ class Connector(ABC):
                         label_table_name = table_name
                     break
         return feature_table_name, label_table_name                    
-        
         
     @abstractmethod
     def build_session(self, credentials: dict):

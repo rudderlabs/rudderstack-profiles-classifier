@@ -39,8 +39,6 @@ try:
 except Exception as e:
         logger.warning(f"Could not import RedshiftConnector")
 
-local_folder = constants.LOCAL_STORAGE_DIR
-
 def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_tablename : str, config: dict) -> None:
     """Generates the prediction probabilities and save results for given model_path
 
@@ -59,6 +57,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     stage_name = constants.STAGE_NAME
     model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    folder_path = os.path.dirname(model_path)
 
     notebook_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
     merged_config = utils.combine_config(notebook_config, config)
@@ -100,6 +99,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     elif creds["type"] == "redshift":
         connector = RedshiftConnector()
         session = connector.build_session(creds)
+        local_folder = connector.modify_local_directory(folder_path)
 
     column_names_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_column_names.json")
     features_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_array_time_feature_names.json")

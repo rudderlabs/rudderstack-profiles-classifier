@@ -579,6 +579,13 @@ class RedshiftConnector(Connector):
                 self.array_time_features["arraytype_features"] = column_names["arraytype_features"]
                 self.array_time_features["timestamp_columns"] = column_names["timestamp_columns"]
 
-    def make_local_dir(self) -> None:
-        "Created a local directory to store temporary files"
+    def modify_local_directory(self, folder_path: str) -> str:
+        "Created a directory in output pb folder to store temporary files"
+        self.local_dir = os.path.join(folder_path, local_folder)    # overwriting the local_dir to output pb folder
         Path(self.local_dir).mkdir(parents=True, exist_ok=True)
+        return self.local_dir
+    
+    def fetch_feature_df_path(self, feature_table_name: str) -> str:
+        """This function will return the feature_df_path"""
+        feature_df_path = os.path.join(self.local_dir, f"{feature_table_name}.parquet.gzip")
+        return feature_df_path

@@ -343,24 +343,26 @@ class RedshiftConnector(Connector):
             training_dates.append((str(row["feature_end_ts"]), str(row["label_end_ts"])))
         return material_names, training_dates
 
-    def get_latest_material_hash(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str) -> Tuple:
+    def get_creation_ts(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str, model_hash:str):
         """This function will return the model hash that is latest for given model name in material table
 
         Args:
             cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
             material_table (str): name of material registry table
             model_name (str): model_name from model_configs file
+            model_hash (str): latest model hash
 
         Returns:
-            Tuple: latest model hash and it's creation timestamp
+            (): it's latest creation timestamp
         """
         redshift_df = self.get_material_registry_table(cursor, material_table)
-
-        temp_hash_vector = redshift_df.query(f"model_name == \"{model_name}\"").sort_values(by="creation_ts", ascending=False).reset_index(drop=True)[["model_hash", "creation_ts"]].iloc[0]
-    
-        model_hash = temp_hash_vector["model_hash"]
-        creation_ts = temp_hash_vector["creation_ts"]
-        return model_hash, creation_ts
+        try:
+            temp_hash_vector = redshift_df.query(f"model_name == \"{model_name}\"").query(f"model_hash == \"{model_hash}\"").sort_values(by="creation_ts", ascending=False).reset_index(drop=True)[["creation_ts"]].iloc[0]
+            creation_ts = temp_hash_vector["creation_ts"]
+        except:
+            logger.info(f"Model name {model_name} or model hash {model_hash} not found in material registry table.")
+            creation_ts = datetime.now()
+        return creation_ts
 
     def fetch_staged_file(self, cursor: redshift_connector.cursor.Cursor, stage_name: str, file_name: str, target_folder: str) -> None:
         """Fetches the given file from the given stage and saves it to the given target folder.

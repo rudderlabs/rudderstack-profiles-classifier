@@ -377,16 +377,50 @@ def get_pb_path() -> str:
     except:
         logger.warning("pb command not found in the path. Using the default rudder-sources path /venv/bin/pb")
         return constants.PB
+    
+def get_project_folder(project_folder: str, output_path: str)-> str:
+    """Returns the project folder path
+
+    Args:
+        project_folder (str): project folder path to pb_project.yaml file
+        output_path (str): The path to the feature package.
+
+    Returns:
+        str: project folder path
+    """
+    if project_folder is None:
+        path_components = output_path.split(os.path.sep)
+        output_index = path_components.index('output')
+        project_folder = os.path.sep.join(path_components[:output_index])
+    return project_folder
+
+def get_feature_package_path(package_name:str, features_profiles_model:str, input_models: List[str])-> str:
+    """Returns the feature package path
+
+    Args:
+        package_name (str): name of the feature package
+        features_profiles_model (str): name of the features profiles model
+        input_models (List[str]): list of input models
+
+    Returns:
+        str: feature package path
+    """
+    if len(input_models) == 0:
+        logger.warning("No input models provided. Inferring input models from package_name and features_profiles_model, assuming that python model is defined in application project and feature table is imported as a package.")
+        feature_package_path = f"packages/{package_name}/models/{features_profiles_model}"
+    else:
+        feature_package_path = ','.join(input_models) #Syntax: pb run -m models/m1,models/m2
+    return feature_package_path
 
 def subprocess_run(args):
     response = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     if response.returncode == 0:
-        return True
+        return response.stdout
     else:
         logger.warning(f"Error occurred. Exit code:{response.returncode}")
         logger.warning(f"Subprocess Output: {response.stdout}")
         logger.warning(f"Subprocess Error: {response.stderr}")
-        return False
+        return response.stdout
     
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> bool:
     """
@@ -406,10 +440,7 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
     """
     try:
         features_valid_time_unix = int(datetime.strptime(features_valid_time, "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp())
-        if project_folder is None:
-            path_components = output_path.split(os.path.sep)
-            output_index = path_components.index('output')
-            project_folder = os.path.sep.join(path_components[:output_index])
+        project_folder = get_project_folder(project_folder, output_path)
         pb = get_pb_path()
         args = [pb, "run", "-p", project_folder, "-m", feature_package_path, "--migrate_on_load=True", "--end_time", str(features_valid_time_unix)]
         if site_config_path is not None:

@@ -3,6 +3,7 @@ import gzip
 import shutil
 import pandas as pd
 
+from datetime import datetime
 from typing import Any, List, Tuple, Union
 
 import snowflake.snowpark
@@ -438,25 +439,26 @@ class SnowflakeConnector(Connector):
         sorted_material_registry_tables = sorted(material_registry_tables, key=split_key, reverse=True)
         return sorted_material_registry_tables[0]
 
-    def get_latest_material_hash(self, session: snowflake.snowpark.Session, material_table: str, model_name:str) -> Tuple:
+    def get_creation_ts(self, session: snowflake.snowpark.Session, material_table: str, model_name:str, model_hash:str):
         """This function will return the model hash that is latest for given model name in material table
 
         Args:
             session (snowflake.snowpark.Session): snowpark session
             material_table (str): name of material registry table
             model_name (str): model_name from model_configs file
+            model_hash (str): latest model hash
 
         Returns:
-            Tuple: latest model hash and it's creation timestamp
+            (): it's latest creation timestamp
         """
         snowpark_df = self.get_material_registry_table(session, material_table)
         try:
-            temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
-        except IndexError:
-            raise Exception(f"Unable to fetch the latest model hash. model name: {model_name}, material table: {material_table}")
-        model_hash = temp_hash_vector.MODEL_HASH
-        creation_ts = temp_hash_vector.CREATION_TS
-        return model_hash, creation_ts
+            temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).filter(col("model_hash") == model_hash).sort(col("creation_ts"), ascending=False).select(col("creation_ts")).collect()[0]
+            creation_ts = temp_hash_vector.CREATION_TS
+        except:
+            logger.info(f"Model name {model_name} or model hash {model_hash} not found in material registry table")
+            creation_ts = datetime.now()
+        return creation_ts
 
     def fetch_staged_file(self, session: snowflake.snowpark.Session, stage_name: str, file_name: str, target_folder: str)-> None:
         """

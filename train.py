@@ -226,13 +226,19 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                     "lift-chart": f"02-test-lift-chart-{trainer.output_profiles_ml_model}.png",
                     "feature-importance-chart": f"01-feature-importance-chart-{trainer.output_profiles_ml_model}.png"}
 
-    logger.info("Getting past data for training")
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
 
-    model_hash, creation_ts = connector.get_latest_material_hash(session, material_table, trainer.features_profiles_model)
+    model_hash = connector.get_latest_material_hash(trainer.package_name, 
+                                                    trainer.features_profiles_model, 
+                                                    output_filename, 
+                                                    site_config_path, 
+                                                    trainer.inputs, 
+                                                    project_folder)
+    creation_ts = connector.get_creation_ts(session, material_table, trainer.features_profiles_model, model_hash)
     start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
     if start_date == None or end_date == None:
         start_date, end_date = utils.get_date_range(creation_ts, trainer.prediction_horizon_days)
+    logger.info("Getting past data for training")
     try:
         material_names, training_dates = connector.get_material_names(session, material_table, start_date, end_date, 
                                                                 trainer.package_name, 

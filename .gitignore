@@ -12,3 +12,4 @@ appmap.yml
 pysnowpark/*
 data/*
 python_packages/*
+testenv/

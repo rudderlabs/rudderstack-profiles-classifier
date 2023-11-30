@@ -1,0 +1,48 @@
+models :
+  - name: &model_name shopify_churn
+    model_type: python_model
+    model_spec:
+      occurred_at_col: insert_ts
+      entity_key: user
+      validity_time: 2m # 1 day
+      py_repo_url: /Users/admin/Desktop/Playground/rudderstack_profiles_classifier
+
+      train:
+        file_extension: .json
+        file_validity: 2m # If the last trained model is older than this, then the model will be trained again,
+        inputs: &inputs
+          - ../../base_features # inputs to materialise the required data for model
+        config:
+          data: &model_data_configs
+            label_column: is_churned_90_days # Name of column for which we want to find predictions
+            label_value: 1 # Value of label column for which prediction is generated
+            package_name: feature_table # Name of the package where the profiles feature table is defined (declared in pb_project.yaml packages)
+            prediction_horizon_days: 90 # Number of days in future for which we want to predict
+            features_profiles_model: 'rudder_user_base_features' # Model name
+            output_profiles_ml_model: *model_name # Name of output model based on current model to dinstinguish between multiple models
+            eligible_users: days_since_last_purchase is null or days_since_last_purchase > 90
+            inputs: *inputs
+
+          
+          preprocessing: &model_prep_configs
+            ignore_features:
+              - user_email
+              - first_name
+              - last_name
+
+      predict:
+        inputs:
+          - ./../base_features
+        config:
+          data: *model_data_configs # Use the same config as training
+          preprocessing: *model_prep_configs # Use the same config as training
+          outputs:
+            column_names:
+              percentile: &percentile_name percentile_churn_score_90_days # Name of column in output table having percentile score
+              score: churn_score_90_days # Name of column in output table having probabilistic score
+            feature_meta_data: &feature_meta_data
+              features:
+                - name: *percentile_name
+                  description: 'Percentile of churn score. Higher the percentile, higher the probability of churn'
+
+      <<: *feature_meta_data

@@ -360,8 +360,7 @@ class RedshiftConnector(Connector):
             temp_hash_vector = redshift_df.query(f"model_name == \"{model_name}\"").query(f"model_hash == \"{model_hash}\"").sort_values(by="creation_ts", ascending=False).reset_index(drop=True)[["creation_ts"]].iloc[0]
             creation_ts = temp_hash_vector["creation_ts"]
         except:
-            logger.info(f"Model name {model_name} or model hash {model_hash} not found in material registry table.")
-            creation_ts = datetime.now()
+            raise Exception(f"Project is never materialzied with model name {model_name} and model hash {model_hash}.")
         return creation_ts
 
     def fetch_staged_file(self, cursor: redshift_connector.cursor.Cursor, stage_name: str, file_name: str, target_folder: str) -> None:

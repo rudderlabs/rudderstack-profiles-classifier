@@ -134,7 +134,21 @@ class Connector(ABC):
                     break
         return feature_table_name, label_table_name                    
         
-        
+    def get_latest_material_hash(self, package_name:str, features_profiles_model: str, output_filename:str, 
+                                        site_config_path: str = None, inputs: List[str] = None, project_folder: str = None) -> str:
+        project_folder = utils.get_project_folder(project_folder, output_filename)
+        feature_package_path = utils.get_feature_package_path(package_name, features_profiles_model, inputs)
+        pb = utils.get_pb_path()
+        args = [pb, "compile", "-p", project_folder, "-m", feature_package_path, "--migrate_on_load=True"]
+        if site_config_path is not None:
+            args.extend(['-c', site_config_path])
+        logger.info(f"Fetching latest model hash by running command: {' '.join(args)}")
+        pb_compile_output_response = utils.subprocess_run(args)
+        pb_compile_output = (pb_compile_output_response.stdout).lower()
+        material_file_prefix = (constants.MATERIAL_TABLE_PREFIX + features_profiles_model + '_').lower()
+        model_hash = pb_compile_output[pb_compile_output.index(material_file_prefix) + len(material_file_prefix):].split('_')[0]
+        return model_hash
+
     @abstractmethod
     def build_session(self, credentials: dict):
         pass
@@ -217,20 +231,6 @@ class Connector(ABC):
     @abstractmethod
     def get_material_registry_name(self, session, table_prefix: str) -> str:
         pass
-
-    def get_latest_material_hash(self, package_name:str, features_profiles_model: str, output_filename:str, 
-                                        site_config_path: str = None, inputs: List[str] = None, project_folder: str = None) -> str:
-        project_folder = utils.get_project_folder(project_folder, output_filename)
-        feature_package_path = utils.get_feature_package_path(package_name, features_profiles_model, inputs)
-        pb = utils.get_pb_path()
-        args = [pb, "compile", "-p", project_folder, "-m", feature_package_path, "--migrate_on_load=True"]
-        if site_config_path is not None:
-            args.extend(['-c', site_config_path])
-        logger.info(f"Fetching latest model hash by running command: {' '.join(args)}")
-        pb_compile_output = (utils.subprocess_run(args)).lower()
-        material_file_prefix = (constants.MATERIAL_TABLE_PREFIX + features_profiles_model + '_').lower()
-        model_hash = pb_compile_output[pb_compile_output.index(material_file_prefix) + len(material_file_prefix):].split('_')[0]
-        return model_hash
     
     @abstractmethod
     def get_creation_ts(self, session, material_table: str, model_name:str, model_hash:str):

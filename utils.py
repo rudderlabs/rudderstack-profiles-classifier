@@ -414,13 +414,11 @@ def get_feature_package_path(package_name:str, features_profiles_model:str, inpu
 
 def subprocess_run(args):
     response = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    if response.returncode == 0:
-        return response.stdout
-    else:
+    if response.returncode != 0:
         logger.warning(f"Error occurred. Exit code:{response.returncode}")
         logger.warning(f"Subprocess Output: {response.stdout}")
         logger.warning(f"Subprocess Error: {response.stderr}")
-        return response.stdout
+    return response
     
 def materialise_past_data(features_valid_time: str, feature_package_path: str, output_path: str, site_config_path: str, project_folder: str)-> bool:
     """
@@ -446,8 +444,8 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
         if site_config_path is not None:
             args.extend(['-c', site_config_path])
         logger.info(f"Materialising historic data for {features_valid_time} using pb: {' '.join(args)} ")
-        pb_run_for_past_data = subprocess_run(args)
-        if pb_run_for_past_data:
+        response_for_past_pb_data = subprocess_run(args)
+        if response_for_past_pb_data.returncode == 0:
             return True
         else:
             raise Exception(f"Error occurred while materialising data for date {features_valid_time} ")

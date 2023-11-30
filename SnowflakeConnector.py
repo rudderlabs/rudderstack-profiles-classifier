@@ -456,8 +456,7 @@ class SnowflakeConnector(Connector):
             temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).filter(col("model_hash") == model_hash).sort(col("creation_ts"), ascending=False).select(col("creation_ts")).collect()[0]
             creation_ts = temp_hash_vector.CREATION_TS
         except:
-            logger.info(f"Model name {model_name} or model hash {model_hash} not found in material registry table")
-            creation_ts = datetime.now()
+            raise Exception(f"Project is never materialzied with model name {model_name} and model hash {model_hash}.")
         return creation_ts
 
     def fetch_staged_file(self, session: snowflake.snowpark.Session, stage_name: str, file_name: str, target_folder: str)-> None:

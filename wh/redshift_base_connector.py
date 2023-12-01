@@ -73,10 +73,9 @@ class RedShiftConnector(ConnectorBase):
                     append=if_exists == "append",
                 )
         except Exception as e:
-            self.logger.error(f"Error while writing to Redshift: {e}")
-
             #Check for non existing schema
             if "cannot copy into nonexistent table" in str(e).lower():
+                self.logger.info(f"{table_name} not found. Creating it")
                 self.create_table(df, table_name, schema)
                 # Try again
                 self.logger.info("Trying again")

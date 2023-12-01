@@ -329,7 +329,8 @@ class ClassificationTrainer(MLTrainer):
                                 max_evals = model_config["hyperopts_config"]["max_evals"],
                                 return_argmin=False,
                                 trials = trials)
-
+        if "early_stopping_rounds" in model_config["modelparams"]:
+            del model_config["modelparams"]["early_stopping_rounds"]
         clf = model_class(**best_hyperparams, **model_config["modelparams"])
         return clf, trials
     

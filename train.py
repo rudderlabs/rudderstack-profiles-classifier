@@ -101,7 +101,7 @@ def train_and_store_model_results_rs(feature_table_name: str,
             metrics_table_query += f"{col} {database_dtypes['timestamp']},"
     metrics_table_query = metrics_table_query[:-1]
         
-    connector.run_query(session, f"CREATE TABLE IF NOT EXISTS {metrics_table} ({metrics_table_query});")
+    connector.run_query(session, f"CREATE TABLE IF NOT EXISTS {metrics_table} ({metrics_table_query});", response=False)
     connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     return results
 
@@ -137,28 +137,27 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     target_path = utils.get_output_directory(folder_path)
 
     """ Initialising trainer """
-    logger.info("Initialising trainer")
+    logger.debug("Initialising trainer")
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
     
     prediction_task = merged_config['data'].pop('task', 'classification') # Assuming default as classification
 
-    logger.debug("Initialising trainer")
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == 'classification':    
         trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config)
     elif prediction_task == 'regression':
         trainer = RegressionTrainer(**merged_config["data"], prep=prep_config)
 
-    logger.info(f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}")
+    logger.debug(f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}")
     if trainer.eligible_users:
-        logger.info(f"Only following users are considered for training: {trainer.eligible_users}")
+        logger.debug(f"Only following users are considered for training: {trainer.eligible_users}")
     else:
-        logger.warning("Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc.")
+        logger.debug("Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc.")
 
     """ Building session """
     warehouse = creds['type']
-    logger.info(f"Building session for {warehouse}")
+    logger.debug(f"Building session for {warehouse}")
     if warehouse == 'snowflake':
         train_procedure = 'train_and_store_model_results_sf'
         connector = SnowflakeConnector()
@@ -226,41 +225,30 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                     "lift-chart": f"02-test-lift-chart-{trainer.output_profiles_ml_model}.png",
                     "feature-importance-chart": f"01-feature-importance-chart-{trainer.output_profiles_ml_model}.png"}
 
-    logger.info("Getting past data for training")
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
 
-    model_hash, creation_ts = connector.get_latest_material_hash(session, material_table, trainer.features_profiles_model)
+    model_hash = connector.get_latest_material_hash(trainer.package_name, 
+                                                    trainer.features_profiles_model, 
+                                                    output_filename, 
+                                                    site_config_path, 
+                                                    trainer.inputs, 
+                                                    project_folder)
+    creation_ts = connector.get_creation_ts(session, material_table, trainer.features_profiles_model, model_hash)
     start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
     if start_date == None or end_date == None:
         start_date, end_date = utils.get_date_range(creation_ts, trainer.prediction_horizon_days)
+    logger.info("Getting past data for training")
     try:
-        # material_names, training_dates = connector.get_material_names(session, material_table, start_date, end_date, 
-        #                                                         trainer.package_name, 
-        #                                                         trainer.features_profiles_model, 
-        #                                                         model_hash, 
-        #                                                         material_table_prefix, 
-        #                                                         trainer.prediction_horizon_days,
-        #                                                         output_filename,
-        #                                                         site_config_path,
-        #                                                         project_folder,
-        #                                                         trainer.inputs)
-        feature_dt, label_dt = connector.generate_training_materials(start_date, 
-                                                                     trainer.package_name, 
-                                                                     trainer.features_profiles_model,
-                                                                     trainer.prediction_horizon_days,
-                                                                     output_filename,
-                                                                     site_config_path, 
-                                                                     project_folder,
-                                                                     trainer.inputs)
-        feature_tbl_name, label_tbl_name = connector.fetch_training_material_names(session, 
-                                                                                   feature_dt,
-                                                                                   label_dt,
-                                                                                   material_table, 
-                                                                                   trainer.features_profiles_model,
-                                                                                   material_table_prefix)
-        training_dates = [(feature_dt, label_dt)]
-        material_names = [(feature_tbl_name, label_tbl_name)]
-        del feature_tbl_name, label_tbl_name, feature_dt, label_dt
+        material_names, training_dates = connector.get_material_names(session, material_table, start_date, end_date, 
+                                                                trainer.package_name, 
+                                                                trainer.features_profiles_model, 
+                                                                model_hash, 
+                                                                material_table_prefix, 
+                                                                trainer.prediction_horizon_days,
+                                                                output_filename,
+                                                                site_config_path,
+                                                                project_folder,
+                                                                trainer.inputs)
         
     except TypeError:
         raise Exception("Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly")
@@ -272,6 +260,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     feature_table = None
     for row in material_names:
         feature_table_name, label_table_name = row
+        logger.info(f"Preparing training dataset using {feature_table_name} and {label_table_name} as feature and label tables respectively")
         feature_table_instance, arraytype_features, timestamp_columns = trainer.prepare_feature_table(connector, session,
                                                                feature_table_name, 
                                                                label_table_name,
@@ -283,10 +272,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             feature_table = feature_table.unionAllByName(feature_table_instance)
 
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
-    filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp, trainer.max_row_count)
-    if filtered_feature_table.count() < min_sample_for_training:
-        logger.error(f"Insufficient data for training. Only {filtered_feature_table.count()} rows found")
-        raise Exception(f"Insufficient data for training. Only {filtered_feature_table.count()} rows found")
+    filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp, trainer.max_row_count, min_sample_for_training)
     connector.write_table(filtered_feature_table, feature_table_name_remote, write_mode="overwrite", if_exists="replace")
     logger.info("Training and fetching the results")
 

@@ -107,10 +107,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
 
-    latest_model_hash, _ = connector.get_latest_material_hash(session, material_table, features_profiles_model)
-    if latest_model_hash != train_model_hash:
-        raise ValueError(f"Model hash {train_model_hash} does not match with the latest model hash {latest_model_hash} in the material registry table. Please retrain the model")
-
     raw_data = connector.get_table(session, f"{features_profiles_model}", filter_condition=eligible_users)
 
     arraytype_features = connector.get_arraytype_features_from_table(raw_data, features_path=features_path)

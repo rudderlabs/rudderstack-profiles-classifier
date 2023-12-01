@@ -3,6 +3,7 @@ import gzip
 import shutil
 import pandas as pd
 
+from datetime import datetime
 from typing import Any, List, Tuple, Union
 
 import snowflake.snowpark
@@ -48,7 +49,7 @@ class SnowflakeConnector(Connector):
         """
         return os.path.join(local_folder, file_name)
 
-    def run_query(self, session: snowflake.snowpark.Session, query: str) -> Any:
+    def run_query(self, session: snowflake.snowpark.Session, query: str, **args) -> List:
         """Runs the given query on the snowpark session
 
         Args:
@@ -71,6 +72,8 @@ class SnowflakeConnector(Connector):
             table (snowflake.snowpark.Table): The table as a snowpark table object
         """
         filter_condition = kwargs.get('filter_condition', None)
+        if not utils.is_valid_table(session, table_name):
+            raise Exception(f"Table {table_name} does not exist or not authorized")
         table = session.table(table_name)
         if filter_condition:
             table = self.filter_table(table, filter_condition)
@@ -142,11 +145,11 @@ class SnowflakeConnector(Connector):
             label_table (snowflake.snowpark.Table): The labelled table as a snowpark table object
         """
         if label_value == None:
-            table = (session.table(label_table_name)
+            table = (self.get_table(session, label_table_name)
                      .select(entity_column, label_column, index_timestamp)
                      .withColumnRenamed(F.col(index_timestamp), label_ts_col))
         else:
-            table = (session.table(label_table_name)
+            table = (self.get_table(session, label_table_name)
                         .withColumn(label_column, F.when(F.col(label_column)==label_value, F.lit(1)).otherwise(F.lit(0)))
                         .select(entity_column, label_column, index_timestamp)
                         .withColumnRenamed(F.col(index_timestamp), label_ts_col))
@@ -438,25 +441,25 @@ class SnowflakeConnector(Connector):
         sorted_material_registry_tables = sorted(material_registry_tables, key=split_key, reverse=True)
         return sorted_material_registry_tables[0]
 
-    def get_latest_material_hash(self, session: snowflake.snowpark.Session, material_table: str, model_name:str) -> Tuple:
+    def get_creation_ts(self, session: snowflake.snowpark.Session, material_table: str, model_name:str, model_hash:str):
         """This function will return the model hash that is latest for given model name in material table
 
         Args:
             session (snowflake.snowpark.Session): snowpark session
             material_table (str): name of material registry table
             model_name (str): model_name from model_configs file
+            model_hash (str): latest model hash
 
         Returns:
-            Tuple: latest model hash and it's creation timestamp
+            (): it's latest creation timestamp
         """
         snowpark_df = self.get_material_registry_table(session, material_table)
         try:
-            temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).sort(col("creation_ts"), ascending=False).select(col("model_hash"), col("creation_ts")).collect()[0]
-        except IndexError:
-            raise Exception(f"Unable to fetch the latest model hash. model name: {model_name}, material table: {material_table}")
-        model_hash = temp_hash_vector.MODEL_HASH
-        creation_ts = temp_hash_vector.CREATION_TS
-        return model_hash, creation_ts
+            temp_hash_vector = snowpark_df.filter(col("model_name") == model_name).filter(col("model_hash") == model_hash).sort(col("creation_ts"), ascending=False).select(col("creation_ts")).collect()[0]
+            creation_ts = temp_hash_vector.CREATION_TS
+        except:
+            raise Exception(f"Project is never materialzied with model name {model_name} and model hash {model_hash}.")
+        return creation_ts
 
     def fetch_staged_file(self, session: snowflake.snowpark.Session, stage_name: str, file_name: str, target_folder: str)-> None:
         """
@@ -510,7 +513,7 @@ class SnowflakeConnector(Connector):
         ignore_features_ = [col for col in table.columns if col in ignore_features_upper or col in ignore_features_lower]
         return table.drop(ignore_features_)
 
-    def filter_feature_table(self, feature_table: snowflake.snowpark.Table, entity_column: str, index_timestamp: str, max_row_count: int) -> snowflake.snowpark.Table:
+    def filter_feature_table(self, feature_table: snowflake.snowpark.Table, entity_column: str, index_timestamp: str, max_row_count: int, min_sample_for_training: int) -> snowflake.snowpark.Table:
         """
         Sorts the given feature table based on the given entity column and index timestamp.
 
@@ -522,9 +525,15 @@ class SnowflakeConnector(Connector):
         Returns:
             The sorted feature table as a snowpark table object.
         """
-        table = feature_table.withColumn('row_num', F.row_number().over(Window.partition_by(F.col(entity_column)).order_by(
-                                                        F.col(index_timestamp).desc()))).filter(F.col('row_num') == 1).drop(
-                                                            ['row_num', index_timestamp]).sample(n = int(max_row_count))
+        table = (feature_table.withColumn('row_num', 
+                                          F.row_number()
+                                          .over(Window.partition_by(F.col(entity_column))
+                                                .order_by(F.col(index_timestamp).desc())))
+                 .filter(F.col('row_num') == 1)
+                 .drop(['row_num', index_timestamp])
+                 .sample(n = int(max_row_count)))
+        if table.count() < min_sample_for_training:
+            raise Exception(f"Insufficient data for training. Only {table.count()} user records found. Required minimum {min_sample_for_training} user records.")
         return table
 
     def add_days_diff(self, table: snowflake.snowpark.Table, new_col, time_col_1, time_col_2) -> snowflake.snowpark.Table:
@@ -581,7 +590,7 @@ class SnowflakeConnector(Connector):
         Returns:
             snowflake.snowpark.Table: The filtered material registry table containing only the successfully materialized data.
         """
-        material_registry_table = (session.table(material_registry_table_name)
+        material_registry_table = (self.get_table(session, material_registry_table_name)
                                 .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
                                 .filter(F.col("status")==2)
                                 )

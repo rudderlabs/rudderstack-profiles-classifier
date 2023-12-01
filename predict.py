@@ -97,9 +97,9 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         connector.delete_import_files(session, stage_name, import_paths)
         connector.drop_fn_if_exists(session, udf_name)
     elif creds["type"] == "redshift":
-        connector = RedshiftConnector()
+        connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
-        local_folder = connector.modify_local_directory(folder_path)
+        local_folder = connector.get_local_dir()
 
     column_names_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_column_names.json")
     features_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_array_time_feature_names.json")

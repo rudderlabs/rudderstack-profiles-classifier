@@ -18,10 +18,13 @@ from wh import ProfilesConnector
 local_folder = constants.LOCAL_STORAGE_DIR
 
 class RedshiftConnector(Connector):
-    def __init__(self) -> None:
-        self.local_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), local_folder)
+    def __init__(self, folder_path: str) -> None:
+        self.local_dir = os.path.join(folder_path, local_folder)
         self.array_time_features = {}
         return
+    
+    def get_local_dir(self) -> str:
+        return self.local_dir
 
     def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
         """Builds the redshift connection cursor with given credentials (creds) 
@@ -597,11 +600,9 @@ class RedshiftConnector(Connector):
                 self.array_time_features["arraytype_features"] = column_names["arraytype_features"]
                 self.array_time_features["timestamp_columns"] = column_names["timestamp_columns"]
 
-    def modify_local_directory(self, folder_path: str) -> str:
-        "Created a directory in output pb folder to store temporary files"
-        self.local_dir = os.path.join(folder_path, local_folder)    # overwriting the local_dir to output pb folder
+    def make_local_dir(self) -> None:
+        "Created a local directory to store temporary files"
         Path(self.local_dir).mkdir(parents=True, exist_ok=True)
-        return self.local_dir
     
     def fetch_feature_df_path(self, feature_table_name: str) -> str:
         """This function will return the feature_df_path"""

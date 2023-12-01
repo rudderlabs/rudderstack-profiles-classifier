@@ -213,10 +213,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             return results
     elif warehouse == 'redshift':
         train_procedure = train_and_store_model_results_rs
-        connector = RedshiftConnector()
+        connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
         connector.clean_up()
-        _ = connector.modify_local_directory(folder_path)
+        connector.make_local_dir()
 
     #TODO: Remove this and use from trainer.figure_names after support for other warehouses.
     figure_names = {"roc-auc-curve": f"04-test-roc-auc-{trainer.output_profiles_ml_model}.png",

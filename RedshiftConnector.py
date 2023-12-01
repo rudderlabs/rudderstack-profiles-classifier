@@ -234,8 +234,18 @@ class RedshiftConnector(Connector):
         arraytype_features = self.array_time_features["arraytype_features"]
         return arraytype_features
 
-    def get_high_cardinal_features(self, cursor: redshift_connector.cursor.Cursor, table_name, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
-        return []
+    def get_high_cardinal_features(self, table: pd.DataFrame, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
+        #TODO: remove this logger.info
+        logger.info(f"Identifying high cardinality features in the Redshift feature table.")
+        high_cardinal_features = list()
+        for field in table.columns:
+            if (table[field].dtype != 'int64' and table[field].dtype != 'float64') and (field.lower() not in (label_column.lower(), entity_column.lower())):
+                feature_data = table[field]
+                total_rows = len(feature_data)
+                top_10_freq_sum = sum(feature_data.value_counts().head(10))
+                if top_10_freq_sum < cardinal_feature_threshold * total_rows:
+                    high_cardinal_features.append(field)
+        return high_cardinal_features
 
     def get_timestamp_columns(self, cursor: redshift_connector.cursor.Cursor, table_name: str, index_timestamp: str)-> List[str]:
         """

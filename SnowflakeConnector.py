@@ -72,6 +72,8 @@ class SnowflakeConnector(Connector):
             table (snowflake.snowpark.Table): The table as a snowpark table object
         """
         filter_condition = kwargs.get('filter_condition', None)
+        if not utils.is_valid_table(session, table_name):
+            raise Exception(f"Table {table_name} does not exist or not authorized")
         table = session.table(table_name)
         if filter_condition:
             table = self.filter_table(table, filter_condition)
@@ -143,11 +145,11 @@ class SnowflakeConnector(Connector):
             label_table (snowflake.snowpark.Table): The labelled table as a snowpark table object
         """
         if label_value == None:
-            table = (session.table(label_table_name)
+            table = (self.get_table(session, label_table_name)
                      .select(entity_column, label_column, index_timestamp)
                      .withColumnRenamed(F.col(index_timestamp), label_ts_col))
         else:
-            table = (session.table(label_table_name)
+            table = (self.get_table(session, label_table_name)
                         .withColumn(label_column, F.when(F.col(label_column)==label_value, F.lit(1)).otherwise(F.lit(0)))
                         .select(entity_column, label_column, index_timestamp)
                         .withColumnRenamed(F.col(index_timestamp), label_ts_col))
@@ -588,7 +590,7 @@ class SnowflakeConnector(Connector):
         Returns:
             snowflake.snowpark.Table: The filtered material registry table containing only the successfully materialized data.
         """
-        material_registry_table = (session.table(material_registry_table_name)
+        material_registry_table = (self.get_table(session, material_registry_table_name)
                                 .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
                                 .filter(F.col("status")==2)
                                 )

@@ -49,7 +49,7 @@ class SnowflakeConnector(Connector):
         """
         return os.path.join(local_folder, file_name)
 
-    def run_query(self, session: snowflake.snowpark.Session, query: str) -> Any:
+    def run_query(self, session: snowflake.snowpark.Session, query: str, **args) -> List:
         """Runs the given query on the snowpark session
 
         Args:
@@ -511,7 +511,7 @@ class SnowflakeConnector(Connector):
         ignore_features_ = [col for col in table.columns if col in ignore_features_upper or col in ignore_features_lower]
         return table.drop(ignore_features_)
 
-    def filter_feature_table(self, feature_table: snowflake.snowpark.Table, entity_column: str, index_timestamp: str, max_row_count: int) -> snowflake.snowpark.Table:
+    def filter_feature_table(self, feature_table: snowflake.snowpark.Table, entity_column: str, index_timestamp: str, max_row_count: int, min_sample_for_training: int) -> snowflake.snowpark.Table:
         """
         Sorts the given feature table based on the given entity column and index timestamp.
 
@@ -523,9 +523,15 @@ class SnowflakeConnector(Connector):
         Returns:
             The sorted feature table as a snowpark table object.
         """
-        table = feature_table.withColumn('row_num', F.row_number().over(Window.partition_by(F.col(entity_column)).order_by(
-                                                        F.col(index_timestamp).desc()))).filter(F.col('row_num') == 1).drop(
-                                                            ['row_num', index_timestamp]).sample(n = int(max_row_count))
+        table = (feature_table.withColumn('row_num', 
+                                          F.row_number()
+                                          .over(Window.partition_by(F.col(entity_column))
+                                                .order_by(F.col(index_timestamp).desc())))
+                 .filter(F.col('row_num') == 1)
+                 .drop(['row_num', index_timestamp])
+                 .sample(n = int(max_row_count)))
+        if table.count() < min_sample_for_training:
+            raise Exception(f"Insufficient data for training. Only {table.count()} user records found. Required minimum {min_sample_for_training} user records.")
         return table
 
     def add_days_diff(self, table: snowflake.snowpark.Table, new_col, time_col_1, time_col_2) -> snowflake.snowpark.Table:

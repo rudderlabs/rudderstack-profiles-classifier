@@ -8,7 +8,7 @@ import redshift_connector.cursor
 
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import List, Tuple, Any, Union
+from typing import List, Tuple, Any, Union, Optional
 
 import utils
 import constants
@@ -54,17 +54,21 @@ class RedshiftConnector(Connector):
         """
         return os.path.join(self.local_dir, file_name)
 
-    def run_query(self, cursor: redshift_connector.cursor.Cursor, query: str) -> Tuple:
+    def run_query(self, cursor: redshift_connector.cursor.Cursor, query: str, response=True) -> Optional[Tuple]:
         """Runs the given query on the redshift connection
 
         Args:
             cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
             query (str): Query to be executed on the Redshift connection
+            response (bool): Whether to fetch the results of the query or not | Defaults to True
 
         Returns:
             Results of the query run on the Redshift connection
         """
-        return cursor.execute(query).fetchall()
+        if response:
+            return cursor.execute(query).fetchall()
+        else:
+            return cursor.execute(query)
 
     def get_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
@@ -395,7 +399,7 @@ class RedshiftConnector(Connector):
         ignore_features_ = [col for col in table.columns if col in ignore_features_upper or col in ignore_features_lower]
         return table.drop(columns = ignore_features_)
 
-    def filter_feature_table(self, feature_table: pd.DataFrame, entity_column: str, index_timestamp: str, max_row_count: int) -> pd.DataFrame:
+    def filter_feature_table(self, feature_table: pd.DataFrame, entity_column: str, index_timestamp: str, max_row_count: int, min_sample_for_training: int) -> pd.DataFrame:
         """
         Sorts the given feature table based on the given entity column and index timestamp.
 
@@ -410,7 +414,10 @@ class RedshiftConnector(Connector):
         feature_table["row_num"] = feature_table.groupby(entity_column).cumcount() + 1
         feature_table = feature_table[feature_table["row_num"] == 1]
         feature_table = feature_table.sort_values(by=[entity_column, index_timestamp], ascending=[True, False]).drop(columns=['row_num', index_timestamp])
-        return feature_table.groupby(entity_column).head(max_row_count)
+        feature_table_filtered = feature_table.groupby(entity_column).head(max_row_count)
+        if len(feature_table_filtered) < min_sample_for_training:
+            raise Exception(f"Insufficient data for training. Only {len(feature_table_filtered)} user records found. Required minimum {min_sample_for_training} user records.")
+        return feature_table_filtered
 
     def add_days_diff(self, table: pd.DataFrame, new_col: str, time_col_1: str, time_col_2: str) -> pd.DataFrame:
         """

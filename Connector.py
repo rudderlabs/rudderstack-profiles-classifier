@@ -1,7 +1,7 @@
 import pandas as pd
 
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple, Union, Sequence
+from typing import Any, List, Tuple, Union, Sequence, Optional
 
 import utils
 import constants
@@ -158,7 +158,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def run_query(self, session, query: str) -> Sequence:
+    def run_query(self, session, query: str, response: bool) -> Optional[Sequence]:
         pass
     
     @abstractmethod
@@ -245,7 +245,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def filter_feature_table(self, feature_table, entity_column: str, index_timestamp: str, max_row_count: int):
+    def filter_feature_table(self, feature_table, entity_column: str, index_timestamp: str, max_row_count: int, min_sample_for_training: int):
         pass
 
     @abstractmethod

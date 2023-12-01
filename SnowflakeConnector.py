@@ -72,6 +72,8 @@ class SnowflakeConnector(Connector):
             table (snowflake.snowpark.Table): The table as a snowpark table object
         """
         filter_condition = kwargs.get('filter_condition', None)
+        if not utils.is_valid_table(session, table_name):
+            raise Exception(f"Table {table_name} does not exist or not authorized")
         table = session.table(table_name)
         if filter_condition:
             table = self.filter_table(table, filter_condition)
@@ -143,11 +145,11 @@ class SnowflakeConnector(Connector):
             label_table (snowflake.snowpark.Table): The labelled table as a snowpark table object
         """
         if label_value == None:
-            table = (session.table(label_table_name)
+            table = (self.get_table(session, label_table_name)
                      .select(entity_column, label_column, index_timestamp)
                      .withColumnRenamed(F.col(index_timestamp), label_ts_col))
         else:
-            table = (session.table(label_table_name)
+            table = (self.get_table(session, label_table_name)
                         .withColumn(label_column, F.when(F.col(label_column)==label_value, F.lit(1)).otherwise(F.lit(0)))
                         .select(entity_column, label_column, index_timestamp)
                         .withColumnRenamed(F.col(index_timestamp), label_ts_col))
@@ -266,30 +268,31 @@ class SnowflakeConnector(Connector):
         arraytype_features = [row.name for row in table.schema.fields if row.datatype == T.ArrayType()]
         return arraytype_features
 
-    def get_high_cardinal_features(self, session: snowflake.snowpark.Session, feature_table_name: str, label_column: str, entity_column: str, cardinal_feature_threshold: float) -> List[str]:
+    def get_high_cardinal_features(self, feature_table: snowflake.snowpark.Table, label_column: str, entity_column: str, cardinal_feature_threshold: float) -> List[str]:
         """
         Identify high cardinality features in the feature table based on condition that 
                 the sum of frequency of ten most popular categories is less than 1% of the total row count,.
 
         Args:
-            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-            feature_table_name (str): name of the feature table.
+            feature_table (snowflake.snowpark.Table): feature table.
             label_column (str): The name of the label column in the feature table.
             entity_column (str): The name of the entity column in the feature table.
+            cardinal_feature_threshold (float): The threshold value for the cardinality of the feature.
 
         Returns:
             List[str]: A list of strings representing the names of the high cardinality features in the feature table.
 
         Example:
-            session = snowflake.snowpark.Session(...)
-            feature_table_name = "..."
+            feature_table_name = snowflake.snowpark.Table(...)
             label_column = "label"
             entity_column = "entity"
-            high_cardinal_features = get_high_cardinal_features(session, feature_table_name, label_column, entity_column)
+            cardinal_feature_threshold = 0.01
+            high_cardinal_features = get_high_cardinal_features(feature_table, label_column, entity_column, cardinal_feature_threshold)
             print(high_cardinal_features)
         """
+        #TODO: remove this logger.info
+        logger.info(f"Identifying high cardinality features in the Snowflake feature table.")
         high_cardinal_features = list()
-        feature_table = self.get_table(session, feature_table_name)
         total_rows = feature_table.count()
         for field in feature_table.schema.fields:
             top_10_freq_sum = 0
@@ -588,7 +591,7 @@ class SnowflakeConnector(Connector):
         Returns:
             snowflake.snowpark.Table: The filtered material registry table containing only the successfully materialized data.
         """
-        material_registry_table = (session.table(material_registry_table_name)
+        material_registry_table = (self.get_table(session, material_registry_table_name)
                                 .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
                                 .filter(F.col("status")==2)
                                 )

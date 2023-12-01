@@ -208,7 +208,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_high_cardinal_features(self, session, feature_table_name, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
+    def get_high_cardinal_features(self, feature_table, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
         pass
 
     @abstractmethod

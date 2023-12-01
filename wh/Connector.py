@@ -265,7 +265,8 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def generate_type_hint(self, df: Any):        
+    def generate_type_hint(self, df: Any):  
+        test = 1      
         pass
 
     @abstractmethod

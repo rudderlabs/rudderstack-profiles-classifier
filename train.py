@@ -219,11 +219,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         connector.make_local_dir()
 
     #TODO: Remove this and use from trainer.figure_names after support for other warehouses.
-    figure_names = {"roc-auc-curve": f"04-test-roc-auc-{trainer.output_profiles_ml_model}.png",
-                    "pr-auc-curve": f"03-test-pr-auc-{trainer.output_profiles_ml_model}.png",
-                    "lift-chart": f"02-test-lift-chart-{trainer.output_profiles_ml_model}.png",
-                    "feature-importance-chart": f"01-feature-importance-chart-{trainer.output_profiles_ml_model}.png"}
-
+    figure_names = trainer.figure_names
+    
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
 
     model_hash = connector.get_latest_material_hash(trainer.package_name, 
@@ -313,6 +310,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     summary = trainer.prepare_training_summary(train_results, model_timestamp)
     json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))
     logger.debug("Fetching visualisations to local")
+    print(figure_names)
     for figure_name in figure_names.values():
         try:
             connector.fetch_staged_file(session, stage_name, figure_name, target_path)
@@ -322,10 +320,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
 if __name__ == "__main__":
     homedir = os.path.expanduser("~") 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
     inputs = None
-    output_folder = 'output/dev/seq_no/7'
+    output_folder = 'output/dev/seq_no/8'
     output_file_name = f"{output_folder}/train_output.json"
     siteconfig_path = os.path.join(homedir, ".pb/siteconfig.yaml")
 
@@ -333,6 +331,6 @@ if __name__ == "__main__":
     path.mkdir(parents=True, exist_ok=True)
     # logger.setLevel(logger.logging.DEBUG)
 
-    project_folder = '/Users/admin/Desktop/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+    project_folder = '/Users/admin/Desktop/Playground/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

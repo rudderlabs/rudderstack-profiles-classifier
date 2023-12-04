@@ -484,6 +484,33 @@ def generate_material_name(material_table_prefix: str, model_name: str, model_ha
     """
     return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'
 
+def plot_regression_residuals(model, x, y, residuals_file, label_column):
+    """
+    Plots regression residuals and saves it as a file.
+
+    Args:
+        model (object): A trained regression model.
+        x (pd.DataFrame): Test data features.
+        y (pd.DataFrame): Test data labels.
+        residuals_file (str): File path to save the residuals plot.
+        label_column (str): Name of the label column.
+
+    Returns:
+        None. The function only saves the residuals plot as a file.
+    """
+    residuals = y[label_column] - model.predict(x)
+    sns.set(style="ticks", context='notebook')
+    plt.figure(figsize=(8, 6))
+    plt.scatter(model.predict(x), residuals, color="b", alpha=0.5)
+    plt.axhline(y=0, color='r', linestyle='--', linewidth=2)
+    plt.title("Residuals Plot (Test data)")
+    plt.xlabel("Predicted Values")
+    plt.ylabel("Residuals")
+    sns.despine()
+    plt.grid(True)
+    plt.savefig(residuals_file)
+    plt.clf()
+    
 def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
     """
     Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.

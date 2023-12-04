@@ -1,0 +1,5 @@
+models:
+  - name: test_csv_eph
+    model_type: feature_table_model
+    model_spec:
+      entity_key: user

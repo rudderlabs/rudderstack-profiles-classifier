@@ -1,8 +1,8 @@
-schema_version: 42
+schema_version: 44
 connection: test
 include_untimed: true
 model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/rudderstack-profiles-shopify-features/tag/schema_40
+    url: https://github.com/rudderlabs/rudderstack-profiles-shopify-features/tag/schema_{{best_schema_version}}

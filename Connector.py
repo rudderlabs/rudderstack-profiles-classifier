@@ -133,7 +133,7 @@ class Connector(ABC):
                         label_table_name = table_name
                     break
         return feature_table_name, label_table_name                    
-        
+
     def get_latest_material_hash(self, package_name:str, features_profiles_model: str, output_filename:str, 
                                         site_config_path: str = None, inputs: List[str] = None, project_folder: str = None) -> str:
         project_folder = utils.get_project_folder(project_folder, output_filename)

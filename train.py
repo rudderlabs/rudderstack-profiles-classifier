@@ -56,14 +56,13 @@ def train_and_store_model_results_rs(feature_table_name: str,
     Returns:
         dict: returns the model_id which is basically the time converted to key at which results were generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
     """
-    local_folder = constants.LOCAL_STORAGE_DIR
     session = kwargs.get("session")
     connector = kwargs.get("connector")
     trainer = kwargs.get("trainer")
     if session == None or connector == None or trainer == None:
         raise ValueError("session, connector and trainer are required in kwargs for training in Redshift")
     model_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_file_name}")
-    feature_df_path = os.path.join(local_folder, f"{feature_table_name}.parquet.gzip")
+    feature_df_path = connector.fetch_feature_df_path(feature_table_name)
     feature_df = pd.read_parquet(feature_df_path)
     feature_df.columns = [col.upper() for col in feature_df.columns]
 
@@ -214,7 +213,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             return results
     elif warehouse == 'redshift':
         train_procedure = train_and_store_model_results_rs
-        connector = RedshiftConnector()
+        connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
         connector.clean_up()
         connector.make_local_dir()

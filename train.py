@@ -217,8 +217,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         session = connector.build_session(creds)
         connector.clean_up()
         connector.make_local_dir()
-
-    #TODO: Remove this and use from trainer.figure_names after support for other warehouses.
     
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
 
@@ -327,7 +325,7 @@ if __name__ == "__main__":
 
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
-    logger.setLevel(logging.DEBUG)
+    # logger.setLevel(logging.DEBUG)
 
     project_folder = '/Users/admin/Desktop/Playground/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        

@@ -472,7 +472,7 @@ class RegressionTrainer(MLTrainer):
         # Objective method to run for different hyper-parameter space
         def objective(space):
             reg = model_class(**model_config["modelparams"], **space)
-            reg.fit(X_train, y_train)
+            reg.fit(X_train, y_train,**fit_params)            
             pred = reg.predict(X_val)
             eval_metric_name = model_config["evaluation_metric"]
             loss = self.evalution_metrics_map[eval_metric_name](y_val, pred)

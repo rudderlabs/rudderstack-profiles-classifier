@@ -87,7 +87,7 @@ train:
           subsample: 0.7
           use_label_encoder: False
           eval_metric: logloss
-          # early_stopping_rounds: 10
+          early_stopping_rounds: 10
         fitparams:
           verbose: False
         # Configuration for hyperopt minimization function (fmin)
@@ -199,7 +199,7 @@ train:
           subsample: 0.7
           use_label_encoder: False
           eval_metric: rmse  # Evaluation metric for early stopping
-          # early_stopping_rounds: 10
+          early_stopping_rounds: 10
         fitparams:
           verbose: False
         hyperopts_config:

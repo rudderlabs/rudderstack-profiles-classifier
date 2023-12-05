@@ -6,6 +6,7 @@ import yaml
 import shutil
 import pandas as pd
 import sys
+import logging 
 
 from pathlib import Path
 from logger import logger
@@ -326,7 +327,7 @@ if __name__ == "__main__":
 
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
-    # logger.setLevel(logger.logging.DEBUG)
+    logger.setLevel(logging.DEBUG)
 
     project_folder = '/Users/admin/Desktop/Playground/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        

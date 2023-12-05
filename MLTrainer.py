@@ -202,7 +202,6 @@ class MLTrainer(ABC):
                         stage_name: str, 
                         x: pd.DataFrame, 
                         y: pd.DataFrame, 
-                        figure_names: dict, 
                         label_column: str):
         pass
 
@@ -374,7 +373,6 @@ class ClassificationTrainer(MLTrainer):
                         stage_name: str, 
                         x: pd.DataFrame, 
                         y: pd.DataFrame, 
-                        figure_names: dict, 
                         label_column: str) -> None:
         """Plots the diagnostics for the given model
 
@@ -389,15 +387,15 @@ class ClassificationTrainer(MLTrainer):
             label_column (str): name of the label column
         """
         try:
-            roc_auc_file = connector.join_file_path(figure_names['roc-auc-curve'])
+            roc_auc_file = connector.join_file_path(self.figure_names['roc-auc-curve'])
             utils.plot_roc_auc_curve(model, x, y, roc_auc_file, label_column)
             connector.save_file(session, roc_auc_file, stage_name, overwrite=True)
 
-            pr_auc_file = connector.join_file_path(figure_names['pr-auc-curve'])
+            pr_auc_file = connector.join_file_path(self.figure_names['pr-auc-curve'])
             utils.plot_pr_auc_curve(model, x, y, pr_auc_file, label_column)
             connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
 
-            lift_chart_file = connector.join_file_path(figure_names['lift-chart'])
+            lift_chart_file = connector.join_file_path(self.figure_names['lift-chart'])
             utils.plot_lift_chart(model, x, y, lift_chart_file, label_column)
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
@@ -534,10 +532,9 @@ class RegressionTrainer(MLTrainer):
                         stage_name: str, 
                         x: pd.DataFrame, 
                         y: pd.DataFrame, 
-                        figure_names: dict, 
                         label_column: str):
         try:
-            residuals_file = connector.join_file_path(figure_names['residuals-chart'])
+            residuals_file = connector.join_file_path(self.figure_names['residuals-chart'])
             utils.plot_regression_residuals(model, x, y, residuals_file, label_column)
             connector.save_file(session, residuals_file, stage_name, overwrite=True)
         except Exception as e:

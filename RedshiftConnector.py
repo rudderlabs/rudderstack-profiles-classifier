@@ -8,7 +8,7 @@ import redshift_connector.cursor
 
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import List, Tuple, Any, Union
+from typing import List, Tuple, Any, Union, Optional
 
 import utils
 import constants
@@ -18,10 +18,13 @@ from wh import ProfilesConnector
 local_folder = constants.LOCAL_STORAGE_DIR
 
 class RedshiftConnector(Connector):
-    def __init__(self) -> None:
-        self.local_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), local_folder)
+    def __init__(self, folder_path: str) -> None:
+        self.local_dir = os.path.join(folder_path, local_folder)
         self.array_time_features = {}
         return
+    
+    def get_local_dir(self) -> str:
+        return self.local_dir
 
     def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
         """Builds the redshift connection cursor with given credentials (creds) 
@@ -54,17 +57,21 @@ class RedshiftConnector(Connector):
         """
         return os.path.join(self.local_dir, file_name)
 
-    def run_query(self, cursor: redshift_connector.cursor.Cursor, query: str) -> Tuple:
+    def run_query(self, cursor: redshift_connector.cursor.Cursor, query: str, response=True) -> Optional[Tuple]:
         """Runs the given query on the redshift connection
 
         Args:
             cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
             query (str): Query to be executed on the Redshift connection
+            response (bool): Whether to fetch the results of the query or not | Defaults to True
 
         Returns:
             Results of the query run on the Redshift connection
         """
-        return cursor.execute(query).fetchall()
+        if response:
+            return cursor.execute(query).fetchall()
+        else:
+            return cursor.execute(query)
 
     def get_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
@@ -230,8 +237,18 @@ class RedshiftConnector(Connector):
         arraytype_features = self.array_time_features["arraytype_features"]
         return arraytype_features
 
-    def get_high_cardinal_features(self, cursor: redshift_connector.cursor.Cursor, table_name, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
-        return []
+    def get_high_cardinal_features(self, table: pd.DataFrame, label_column, entity_column, cardinal_feature_threshold) -> List[str]:
+        #TODO: remove this logger.info
+        logger.info(f"Identifying high cardinality features in the Redshift feature table.")
+        high_cardinal_features = list()
+        for field in table.columns:
+            if (table[field].dtype != 'int64' and table[field].dtype != 'float64') and (field.lower() not in (label_column.lower(), entity_column.lower())):
+                feature_data = table[field]
+                total_rows = len(feature_data)
+                top_10_freq_sum = sum(feature_data.value_counts().head(10))
+                if top_10_freq_sum < cardinal_feature_threshold * total_rows:
+                    high_cardinal_features.append(field)
+        return high_cardinal_features
 
     def get_timestamp_columns(self, cursor: redshift_connector.cursor.Cursor, table_name: str, index_timestamp: str)-> List[str]:
         """
@@ -343,24 +360,25 @@ class RedshiftConnector(Connector):
             training_dates.append((str(row["feature_end_ts"]), str(row["label_end_ts"])))
         return material_names, training_dates
 
-    def get_latest_material_hash(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str) -> Tuple:
+    def get_creation_ts(self, cursor: redshift_connector.cursor.Cursor, material_table: str, model_name:str, model_hash:str):
         """This function will return the model hash that is latest for given model name in material table
 
         Args:
             cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
             material_table (str): name of material registry table
             model_name (str): model_name from model_configs file
+            model_hash (str): latest model hash
 
         Returns:
-            Tuple: latest model hash and it's creation timestamp
+            (): it's latest creation timestamp
         """
         redshift_df = self.get_material_registry_table(cursor, material_table)
-
-        temp_hash_vector = redshift_df.query(f"model_name == \"{model_name}\"").sort_values(by="creation_ts", ascending=False).reset_index(drop=True)[["model_hash", "creation_ts"]].iloc[0]
-    
-        model_hash = temp_hash_vector["model_hash"]
-        creation_ts = temp_hash_vector["creation_ts"]
-        return model_hash, creation_ts
+        try:
+            temp_hash_vector = redshift_df.query(f"model_name == \"{model_name}\"").query(f"model_hash == \"{model_hash}\"").sort_values(by="creation_ts", ascending=False).reset_index(drop=True)[["creation_ts"]].iloc[0]
+            creation_ts = temp_hash_vector["creation_ts"]
+        except:
+            raise Exception(f"Project is never materialzied with model name {model_name} and model hash {model_hash}.")
+        return creation_ts
 
     def fetch_staged_file(self, cursor: redshift_connector.cursor.Cursor, stage_name: str, file_name: str, target_folder: str) -> None:
         """Fetches the given file from the given stage and saves it to the given target folder.
@@ -394,7 +412,7 @@ class RedshiftConnector(Connector):
         ignore_features_ = [col for col in table.columns if col in ignore_features_upper or col in ignore_features_lower]
         return table.drop(columns = ignore_features_)
 
-    def filter_feature_table(self, feature_table: pd.DataFrame, entity_column: str, index_timestamp: str, max_row_count: int) -> pd.DataFrame:
+    def filter_feature_table(self, feature_table: pd.DataFrame, entity_column: str, index_timestamp: str, max_row_count: int, min_sample_for_training: int) -> pd.DataFrame:
         """
         Sorts the given feature table based on the given entity column and index timestamp.
 
@@ -409,7 +427,10 @@ class RedshiftConnector(Connector):
         feature_table["row_num"] = feature_table.groupby(entity_column).cumcount() + 1
         feature_table = feature_table[feature_table["row_num"] == 1]
         feature_table = feature_table.sort_values(by=[entity_column, index_timestamp], ascending=[True, False]).drop(columns=['row_num', index_timestamp])
-        return feature_table.groupby(entity_column).head(max_row_count)
+        feature_table_filtered = feature_table.groupby(entity_column).head(max_row_count)
+        if len(feature_table_filtered) < min_sample_for_training:
+            raise Exception(f"Insufficient data for training. Only {len(feature_table_filtered)} user records found. Required minimum {min_sample_for_training} user records.")
+        return feature_table_filtered
 
     def add_days_diff(self, table: pd.DataFrame, new_col: str, time_col_1: str, time_col_2: str) -> pd.DataFrame:
         """
@@ -582,3 +603,8 @@ class RedshiftConnector(Connector):
     def make_local_dir(self) -> None:
         "Created a local directory to store temporary files"
         Path(self.local_dir).mkdir(parents=True, exist_ok=True)
+    
+    def fetch_feature_df_path(self, feature_table_name: str) -> str:
+        """This function will return the feature_df_path"""
+        feature_df_path = os.path.join(self.local_dir, f"{feature_table_name}.parquet.gzip")
+        return feature_df_path

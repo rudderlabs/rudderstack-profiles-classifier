@@ -166,7 +166,7 @@ class MLTrainer(ABC):
                 feature_table = connector.get_table(session, feature_table_name, filter_condition=default_user_shortlisting) #.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
             arraytype_features = connector.get_arraytype_features(session, feature_table_name)
             ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
-            high_cardinal_features = connector.get_high_cardinal_features(session, feature_table_name, self.label_column, self.entity_column, cardinal_feature_threshold)
+            high_cardinal_features = connector.get_high_cardinal_features(feature_table, self.label_column, self.entity_column, cardinal_feature_threshold)
             ignore_features = utils.merge_lists_to_unique(ignore_features, high_cardinal_features)
             feature_table = connector.drop_cols(feature_table, [self.label_column])
             timestamp_columns = self.prep.timestamp_columns
@@ -329,7 +329,8 @@ class ClassificationTrainer(MLTrainer):
                                 max_evals = model_config["hyperopts_config"]["max_evals"],
                                 return_argmin=False,
                                 trials = trials)
-
+        if "early_stopping_rounds" in model_config["modelparams"]:
+            del model_config["modelparams"]["early_stopping_rounds"]
         clf = model_class(**best_hyperparams, **model_config["modelparams"])
         return clf, trials
     

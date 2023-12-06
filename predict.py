@@ -39,8 +39,6 @@ try:
 except Exception as e:
         logger.warning(f"Could not import RedshiftConnector")
 
-local_folder = constants.LOCAL_STORAGE_DIR
-
 def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_tablename : str, config: dict) -> None:
     """Generates the prediction probabilities and save results for given model_path
 
@@ -59,6 +57,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     stage_name = constants.STAGE_NAME
     model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    folder_path = os.path.dirname(model_path)
 
     notebook_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
     merged_config = utils.combine_config(notebook_config, config)
@@ -98,18 +97,15 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         connector.delete_import_files(session, stage_name, import_paths)
         connector.drop_fn_if_exists(session, udf_name)
     elif creds["type"] == "redshift":
-        connector = RedshiftConnector()
+        connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
+        local_folder = connector.get_local_dir()
 
     column_names_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_column_names.json")
     features_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_array_time_feature_names.json")
 
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
-
-    latest_model_hash, _ = connector.get_latest_material_hash(session, material_table, features_profiles_model)
-    if latest_model_hash != train_model_hash:
-        raise ValueError(f"Model hash {train_model_hash} does not match with the latest model hash {latest_model_hash} in the material registry table. Please retrain the model")
 
     raw_data = connector.get_table(session, f"{features_profiles_model}", filter_condition=eligible_users)
 
@@ -171,7 +167,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
                 stage_location=stage_name, name=udf_name, 
                 imports= import_paths+[f"{stage_name}/{model_name}"],
-                packages=["snowflake-snowpark-python==0.10.0","typing", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas","joblib", "cachetools", "PyYAML", "simplejson"])
+                packages=["snowflake-snowpark-python>=0.10.0","typing", "scikit-learn>=1.1.1", "xgboost>=1.5.0", "numpy>=1.23.1","pandas","joblib", "cachetools", "PyYAML", "simplejson"])
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
             predict_proba = predict_helper(df, model_name)

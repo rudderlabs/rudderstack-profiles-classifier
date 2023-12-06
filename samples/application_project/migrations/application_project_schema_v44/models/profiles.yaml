@@ -8,6 +8,6 @@ models:
         - entity_var:
             name: max_timestamp_bw_tracks_pages_1
             select: max(timestamp)
-            from: inputs/rsIdentifies
+            from: inputs/rsTracks
       features:
         - max_timestamp_bw_tracks_pages_1

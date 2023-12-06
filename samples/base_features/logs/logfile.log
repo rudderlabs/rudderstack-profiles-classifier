@@ -279,3 +279,15 @@
 
 2023-12-05T20:52:22.993+0530	INFO	base/material.go:604	Running material Material_churn_90_days_model_6791854e_2328
 
+2023-12-06T16:22:38.427+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-12-06T16:22:41.595+0530	ERROR	core/project.go:1469	loading project environment dev: checking common tables version: getting common tables version: checking if common tables version table exists: checking if MATERIAL_REGISTRY exists: unable to get database name: context canceled
+
+2023-12-06T16:22:41.595+0530	ERROR	core/project.go:1419	loading project environment dev: checking common tables version: getting common tables version: checking if common tables version table exists: checking if MATERIAL_REGISTRY exists: unable to get database name: context canceled
+
+2023-12-06T16:22:41.595+0530	INFO	utils/errors.go:38	Context canceled, terminating gracefully!
+
+2023-12-06T16:22:43.438+0530	ERROR	core/project.go:1419	setting current schema for env dev: executing template: context canceled
+
+2023-12-06T16:22:43.438+0530	ERROR	core/project.go:2090	getting project env dev: %!w(*fmt.wrapError=&{setting current schema for env dev: executing template: context canceled 0xc00158abe0})
+

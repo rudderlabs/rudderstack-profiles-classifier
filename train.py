@@ -6,7 +6,6 @@ import yaml
 import shutil
 import pandas as pd
 import sys
-import logging 
 
 from pathlib import Path
 from logger import logger

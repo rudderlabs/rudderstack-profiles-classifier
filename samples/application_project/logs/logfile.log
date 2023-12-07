@@ -374,3 +374,548 @@ GRANT USAGE, SELECT, CREATE TABLE, CREATE VIEW ON SCHEMA RS360 TO ROLE RS360_TES
 
 2023-12-06T18:36:20.541+0530	INFO	base/material.go:604	Running material Material_shopify_churn_54bfddf0_2341
 
+2023-12-08T00:09:37.202+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to max_timestamp_bw_tracks_pages in days_since_last_seen
+
+2023-12-08T00:09:37.205+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to days_since_last_seen in is_churned_90_days
+
+2023-12-08T00:09:37.306+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-12-08T00:10:04.908+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_id_stitcher_9f838bb3_2371 to output/dev/seq_no/2371. 
+
+
+2023-12-08T00:10:05.813+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_id_stitcher_9f838bb3_2371
+
+2023-12-08T00:10:08.213+0530	INFO	base/material.go:604	Running material Material_rudder_user_id_stitcher_9f838bb3_2371
+
+2023-12-08T00:10:30.093+0530	INFO	base/material.go:622	Material Material_rudder_user_id_stitcher_9f838bb3_2371 ran in 21.879780198s
+
+2023-12-08T00:10:37.258+0530	INFO	base/interfaces.go:274	Compiled model. Material_rsTracks_var_table_1955c7e1_2371 to output/dev/seq_no/2371. 
+
+
+2023-12-08T00:10:38.319+0530	INFO	base/material.go:532	Preparing material Material_rsTracks_var_table_1955c7e1_2371
+
+2023-12-08T00:10:40.643+0530	INFO	base/material.go:604	Running material Material_rsTracks_var_table_1955c7e1_2371
+
+2023-12-08T00:10:42.484+0530	INFO	base/material.go:622	Material Material_rsTracks_var_table_1955c7e1_2371 ran in 1.84130514s
+
+2023-12-08T00:10:48.246+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_79cc6be9_2371 to output/dev/seq_no/2371. 
+
+
+2023-12-08T00:10:49.434+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_79cc6be9_2371
+
+2023-12-08T00:10:51.622+0530	INFO	base/material.go:604	Running material Material_user_var_table_79cc6be9_2371
+
+2023-12-08T00:10:52.791+0530	INFO	base/material.go:622	Material Material_user_var_table_79cc6be9_2371 ran in 1.168407657s
+
+2023-12-08T00:10:58.167+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_16ab88ad_2371 to output/dev/seq_no/2371. 
+
+
+2023-12-08T00:10:59.216+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_16ab88ad_2371
+
+2023-12-08T00:11:00.561+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_16ab88ad_2371
+
+2023-12-08T00:11:03.977+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_16ab88ad_2371 ran in 3.415494934s
+
+2023-12-08T00:11:06.646+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_last_seen_0ef5ca13_2371 to output/dev/seq_no/2371. 
+
+
+2023-12-08T00:11:07.657+0530	INFO	base/material.go:532	Preparing material Material_days_since_last_seen_0ef5ca13_2371
+
+2023-12-08T00:11:08.969+0530	INFO	base/material.go:604	Running material Material_days_since_last_seen_0ef5ca13_2371
+
+2023-12-08T00:11:12.048+0530	INFO	base/material.go:622	Material Material_days_since_last_seen_0ef5ca13_2371 ran in 3.078681921s
+
+2023-12-08T00:11:14.673+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_account_creation_16ab88ad_2371 to output/dev/seq_no/2371. 
+
+
+2023-12-08T00:11:15.870+0530	INFO	base/material.go:532	Preparing material Material_days_since_account_creation_16ab88ad_2371
+
+2023-12-08T00:11:17.316+0530	INFO	base/material.go:604	Running material Material_days_since_account_creation_16ab88ad_2371
+
+2023-12-08T00:11:21.412+0530	INFO	base/material.go:622	Material Material_days_since_account_creation_16ab88ad_2371 ran in 4.09554676s
+
+2023-12-08T00:11:24.200+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_90_days_876b40ce_2371 to output/dev/seq_no/2371. 
+
+
+2023-12-08T00:11:25.273+0530	INFO	base/material.go:532	Preparing material Material_is_churned_90_days_876b40ce_2371
+
+2023-12-08T00:11:26.581+0530	INFO	base/material.go:604	Running material Material_is_churned_90_days_876b40ce_2371
+
+2023-12-08T00:11:29.517+0530	INFO	base/material.go:622	Material Material_is_churned_90_days_876b40ce_2371 ran in 2.9351354s
+
+2023-12-08T00:11:32.132+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_a4f5aa3d_2371 to output/dev/seq_no/2371. 
+
+
+2023-12-08T00:11:33.158+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_a4f5aa3d_2371
+
+2023-12-08T00:11:35.414+0530	INFO	base/material.go:604	Running material Material_user_var_table_a4f5aa3d_2371
+
+2023-12-08T00:11:36.580+0530	INFO	base/material.go:622	Material Material_user_var_table_a4f5aa3d_2371 ran in 1.165792371s
+
+2023-12-08T00:11:42.310+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_base_features_a9623d6c_2371 to output/dev/seq_no/2371. 
+
+
+2023-12-08T00:11:43.338+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_base_features_a9623d6c_2371
+
+2023-12-08T00:11:45.505+0530	INFO	base/material.go:604	Running material Material_rudder_user_base_features_a9623d6c_2371
+
+2023-12-08T00:11:46.894+0530	INFO	base/material.go:622	Material Material_rudder_user_base_features_a9623d6c_2371 ran in 1.38900354s
+
+2023-12-08T00:11:54.022+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_1_5106d588_2371 to output/dev/seq_no/2371. 
+
+
+2023-12-08T00:11:55.010+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_1_5106d588_2371
+
+2023-12-08T00:11:56.188+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_1_5106d588_2371
+
+2023-12-08T00:11:59.797+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_1_5106d588_2371 ran in 3.608839698s
+
+2023-12-08T00:12:02.213+0530	INFO	base/interfaces.go:274	Compiled model. Material_shopify_churn_54bfddf0_2371 to output/dev/seq_no/2371. 
+
+
+2023-12-08T00:12:03.238+0530	INFO	base/material.go:532	Preparing material Material_shopify_churn_54bfddf0_2371
+
+2023-12-08T00:12:05.738+0530	INFO	base/material.go:604	Running material Material_shopify_churn_54bfddf0_2371
+
+2023-12-08T00:18:12.366+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to max_timestamp_bw_tracks_pages in days_since_last_seen
+
+2023-12-08T00:18:12.371+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to days_since_last_seen in is_churned_90_days
+
+2023-12-08T00:18:12.461+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-12-08T00:20:09.975+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to max_timestamp_bw_tracks_pages in days_since_last_seen
+
+2023-12-08T00:20:09.979+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to days_since_last_seen in is_churned_90_days
+
+2023-12-08T00:20:10.069+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-12-08T00:20:38.386+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_id_stitcher_9f838bb3_2376 to output/dev/seq_no/2376. 
+
+
+2023-12-08T00:20:39.378+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_id_stitcher_9f838bb3_2376
+
+2023-12-08T00:20:41.577+0530	INFO	base/material.go:604	Running material Material_rudder_user_id_stitcher_9f838bb3_2376
+
+2023-12-08T00:21:00.456+0530	INFO	base/material.go:622	Material Material_rudder_user_id_stitcher_9f838bb3_2376 ran in 18.878229909s
+
+2023-12-08T00:21:07.458+0530	INFO	base/interfaces.go:274	Compiled model. Material_rsTracks_var_table_1955c7e1_2376 to output/dev/seq_no/2376. 
+
+
+2023-12-08T00:21:08.419+0530	INFO	base/material.go:532	Preparing material Material_rsTracks_var_table_1955c7e1_2376
+
+2023-12-08T00:21:10.705+0530	INFO	base/material.go:604	Running material Material_rsTracks_var_table_1955c7e1_2376
+
+2023-12-08T00:21:12.523+0530	INFO	base/material.go:622	Material Material_rsTracks_var_table_1955c7e1_2376 ran in 1.817576381s
+
+2023-12-08T00:21:18.183+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_79cc6be9_2376 to output/dev/seq_no/2376. 
+
+
+2023-12-08T00:21:19.199+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_79cc6be9_2376
+
+2023-12-08T00:21:21.477+0530	INFO	base/material.go:604	Running material Material_user_var_table_79cc6be9_2376
+
+2023-12-08T00:21:22.579+0530	INFO	base/material.go:622	Material Material_user_var_table_79cc6be9_2376 ran in 1.101971046s
+
+2023-12-08T00:21:28.052+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_16ab88ad_2376 to output/dev/seq_no/2376. 
+
+
+2023-12-08T00:21:29.122+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_16ab88ad_2376
+
+2023-12-08T00:21:30.396+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_16ab88ad_2376
+
+2023-12-08T00:21:34.157+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_16ab88ad_2376 ran in 3.760504077s
+
+2023-12-08T00:21:36.861+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_last_seen_0ef5ca13_2376 to output/dev/seq_no/2376. 
+
+
+2023-12-08T00:21:37.905+0530	INFO	base/material.go:532	Preparing material Material_days_since_last_seen_0ef5ca13_2376
+
+2023-12-08T00:21:39.282+0530	INFO	base/material.go:604	Running material Material_days_since_last_seen_0ef5ca13_2376
+
+2023-12-08T00:21:42.477+0530	INFO	base/material.go:622	Material Material_days_since_last_seen_0ef5ca13_2376 ran in 3.194739511s
+
+2023-12-08T00:21:44.997+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_account_creation_16ab88ad_2376 to output/dev/seq_no/2376. 
+
+
+2023-12-08T00:21:45.972+0530	INFO	base/material.go:532	Preparing material Material_days_since_account_creation_16ab88ad_2376
+
+2023-12-08T00:21:47.312+0530	INFO	base/material.go:604	Running material Material_days_since_account_creation_16ab88ad_2376
+
+2023-12-08T00:21:50.731+0530	INFO	base/material.go:622	Material Material_days_since_account_creation_16ab88ad_2376 ran in 3.418989567s
+
+2023-12-08T00:21:53.230+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_90_days_876b40ce_2376 to output/dev/seq_no/2376. 
+
+
+2023-12-08T00:21:54.220+0530	INFO	base/material.go:532	Preparing material Material_is_churned_90_days_876b40ce_2376
+
+2023-12-08T00:21:55.594+0530	INFO	base/material.go:604	Running material Material_is_churned_90_days_876b40ce_2376
+
+2023-12-08T00:21:58.668+0530	INFO	base/material.go:622	Material Material_is_churned_90_days_876b40ce_2376 ran in 3.074327795s
+
+2023-12-08T00:22:01.223+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_a4f5aa3d_2376 to output/dev/seq_no/2376. 
+
+
+2023-12-08T00:22:02.336+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_a4f5aa3d_2376
+
+2023-12-08T00:22:04.581+0530	INFO	base/material.go:604	Running material Material_user_var_table_a4f5aa3d_2376
+
+2023-12-08T00:22:05.727+0530	INFO	base/material.go:622	Material Material_user_var_table_a4f5aa3d_2376 ran in 1.145297465s
+
+2023-12-08T00:22:11.128+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_base_features_a9623d6c_2376 to output/dev/seq_no/2376. 
+
+
+2023-12-08T00:22:12.100+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_base_features_a9623d6c_2376
+
+2023-12-08T00:22:14.432+0530	INFO	base/material.go:604	Running material Material_rudder_user_base_features_a9623d6c_2376
+
+2023-12-08T00:22:15.557+0530	INFO	base/material.go:622	Material Material_rudder_user_base_features_a9623d6c_2376 ran in 1.124879682s
+
+2023-12-08T00:22:21.675+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_1_5106d588_2376 to output/dev/seq_no/2376. 
+
+
+2023-12-08T00:22:22.703+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_1_5106d588_2376
+
+2023-12-08T00:22:24.137+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_1_5106d588_2376
+
+2023-12-08T00:22:27.664+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_1_5106d588_2376 ran in 3.526899041s
+
+2023-12-08T00:22:30.155+0530	INFO	base/interfaces.go:274	Compiled model. Material_shopify_churn_54bfddf0_2376 to output/dev/seq_no/2376. 
+
+
+2023-12-08T00:22:31.146+0530	INFO	base/material.go:532	Preparing material Material_shopify_churn_54bfddf0_2376
+
+2023-12-08T00:22:33.484+0530	INFO	base/material.go:604	Running material Material_shopify_churn_54bfddf0_2376
+
+2023-12-08T00:25:00.238+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to max_timestamp_bw_tracks_pages in days_since_last_seen
+
+2023-12-08T00:25:00.242+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to days_since_last_seen in is_churned_7_days
+
+2023-12-08T00:25:00.245+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to days_since_last_seen in is_churned_90_days
+
+2023-12-08T00:25:00.335+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-12-08T00:25:28.339+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_id_stitcher_9f838bb3_2378 to output/dev/seq_no/2378. 
+
+
+2023-12-08T00:25:29.231+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_id_stitcher_9f838bb3_2378
+
+2023-12-08T00:25:31.432+0530	INFO	base/material.go:604	Running material Material_rudder_user_id_stitcher_9f838bb3_2378
+
+2023-12-08T00:25:51.111+0530	INFO	base/material.go:622	Material Material_rudder_user_id_stitcher_9f838bb3_2378 ran in 19.67867905s
+
+2023-12-08T00:25:58.116+0530	INFO	base/interfaces.go:274	Compiled model. Material_rsTracks_var_table_1955c7e1_2378 to output/dev/seq_no/2378. 
+
+
+2023-12-08T00:25:59.060+0530	INFO	base/material.go:532	Preparing material Material_rsTracks_var_table_1955c7e1_2378
+
+2023-12-08T00:26:01.442+0530	INFO	base/material.go:604	Running material Material_rsTracks_var_table_1955c7e1_2378
+
+2023-12-08T00:26:03.186+0530	INFO	base/material.go:622	Material Material_rsTracks_var_table_1955c7e1_2378 ran in 1.744352138s
+
+2023-12-08T00:26:09.088+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_79cc6be9_2378 to output/dev/seq_no/2378. 
+
+
+2023-12-08T00:26:10.101+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_79cc6be9_2378
+
+2023-12-08T00:26:12.716+0530	INFO	base/material.go:604	Running material Material_user_var_table_79cc6be9_2378
+
+2023-12-08T00:26:13.893+0530	INFO	base/material.go:622	Material Material_user_var_table_79cc6be9_2378 ran in 1.176397952s
+
+2023-12-08T00:26:19.708+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_16ab88ad_2378 to output/dev/seq_no/2378. 
+
+
+2023-12-08T00:26:20.773+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_16ab88ad_2378
+
+2023-12-08T00:26:22.046+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_16ab88ad_2378
+
+2023-12-08T00:26:25.594+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_16ab88ad_2378 ran in 3.547826471s
+
+2023-12-08T00:26:28.059+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_last_seen_0ef5ca13_2378 to output/dev/seq_no/2378. 
+
+
+2023-12-08T00:26:29.183+0530	INFO	base/material.go:532	Preparing material Material_days_since_last_seen_0ef5ca13_2378
+
+2023-12-08T00:26:30.471+0530	INFO	base/material.go:604	Running material Material_days_since_last_seen_0ef5ca13_2378
+
+2023-12-08T00:26:33.675+0530	INFO	base/material.go:622	Material Material_days_since_last_seen_0ef5ca13_2378 ran in 3.204688219s
+
+2023-12-08T00:26:36.135+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_account_creation_16ab88ad_2378 to output/dev/seq_no/2378. 
+
+
+2023-12-08T00:26:37.256+0530	INFO	base/material.go:532	Preparing material Material_days_since_account_creation_16ab88ad_2378
+
+2023-12-08T00:26:38.835+0530	INFO	base/material.go:604	Running material Material_days_since_account_creation_16ab88ad_2378
+
+2023-12-08T00:26:42.142+0530	INFO	base/material.go:622	Material Material_days_since_account_creation_16ab88ad_2378 ran in 3.306933412s
+
+2023-12-08T00:26:44.822+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_90_days_876b40ce_2378 to output/dev/seq_no/2378. 
+
+
+2023-12-08T00:26:45.818+0530	INFO	base/material.go:532	Preparing material Material_is_churned_90_days_876b40ce_2378
+
+2023-12-08T00:26:47.220+0530	INFO	base/material.go:604	Running material Material_is_churned_90_days_876b40ce_2378
+
+2023-12-08T00:26:50.541+0530	INFO	base/material.go:622	Material Material_is_churned_90_days_876b40ce_2378 ran in 3.32019961s
+
+2023-12-08T00:26:52.908+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_a4f5aa3d_2378 to output/dev/seq_no/2378. 
+
+
+2023-12-08T00:26:53.939+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_a4f5aa3d_2378
+
+2023-12-08T00:26:56.296+0530	INFO	base/material.go:604	Running material Material_user_var_table_a4f5aa3d_2378
+
+2023-12-08T00:26:57.438+0530	INFO	base/material.go:622	Material Material_user_var_table_a4f5aa3d_2378 ran in 1.142129628s
+
+2023-12-08T00:27:02.922+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_base_features_a9623d6c_2378 to output/dev/seq_no/2378. 
+
+
+2023-12-08T00:27:04.033+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_base_features_a9623d6c_2378
+
+2023-12-08T00:27:06.483+0530	INFO	base/material.go:604	Running material Material_rudder_user_base_features_a9623d6c_2378
+
+2023-12-08T00:27:07.545+0530	INFO	base/material.go:622	Material Material_rudder_user_base_features_a9623d6c_2378 ran in 1.061974937s
+
+2023-12-08T00:27:13.855+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_1_5106d588_2378 to output/dev/seq_no/2378. 
+
+
+2023-12-08T00:27:14.907+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_1_5106d588_2378
+
+2023-12-08T00:27:16.376+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_1_5106d588_2378
+
+2023-12-08T00:27:19.670+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_1_5106d588_2378 ran in 3.293526017s
+
+2023-12-08T00:27:22.160+0530	INFO	base/interfaces.go:274	Compiled model. Material_shopify_churn_54bfddf0_2378 to output/dev/seq_no/2378. 
+
+
+2023-12-08T00:27:23.269+0530	INFO	base/material.go:532	Preparing material Material_shopify_churn_54bfddf0_2378
+
+2023-12-08T00:27:25.504+0530	INFO	base/material.go:604	Running material Material_shopify_churn_54bfddf0_2378
+
+2023-12-08T00:31:45.701+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to max_timestamp_bw_tracks_pages in days_since_last_seen
+
+2023-12-08T00:31:45.711+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to days_since_last_seen in is_churned_7_days
+
+2023-12-08T00:31:45.715+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to days_since_last_seen in is_churned_90_days
+
+2023-12-08T00:31:45.812+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-12-08T00:32:13.240+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_id_stitcher_9f838bb3_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:32:14.263+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_id_stitcher_9f838bb3_2380
+
+2023-12-08T00:32:16.778+0530	INFO	base/material.go:604	Running material Material_rudder_user_id_stitcher_9f838bb3_2380
+
+2023-12-08T00:32:35.720+0530	INFO	base/material.go:622	Material Material_rudder_user_id_stitcher_9f838bb3_2380 ran in 18.942103763s
+
+2023-12-08T00:32:42.888+0530	INFO	base/interfaces.go:274	Compiled model. Material_rsTracks_var_table_1955c7e1_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:32:43.903+0530	INFO	base/material.go:532	Preparing material Material_rsTracks_var_table_1955c7e1_2380
+
+2023-12-08T00:32:46.223+0530	INFO	base/material.go:604	Running material Material_rsTracks_var_table_1955c7e1_2380
+
+2023-12-08T00:32:48.145+0530	INFO	base/material.go:622	Material Material_rsTracks_var_table_1955c7e1_2380 ran in 1.921763803s
+
+2023-12-08T00:32:53.699+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_79cc6be9_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:32:54.679+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_79cc6be9_2380
+
+2023-12-08T00:32:56.929+0530	INFO	base/material.go:604	Running material Material_user_var_table_79cc6be9_2380
+
+2023-12-08T00:32:58.066+0530	INFO	base/material.go:622	Material Material_user_var_table_79cc6be9_2380 ran in 1.137083202s
+
+2023-12-08T00:33:03.350+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_16ab88ad_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:33:04.347+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_16ab88ad_2380
+
+2023-12-08T00:33:05.697+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_16ab88ad_2380
+
+2023-12-08T00:33:09.235+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_16ab88ad_2380 ran in 3.537287427s
+
+2023-12-08T00:33:11.985+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_last_seen_0ef5ca13_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:33:12.975+0530	INFO	base/material.go:532	Preparing material Material_days_since_last_seen_0ef5ca13_2380
+
+2023-12-08T00:33:14.315+0530	INFO	base/material.go:604	Running material Material_days_since_last_seen_0ef5ca13_2380
+
+2023-12-08T00:33:17.998+0530	INFO	base/material.go:622	Material Material_days_since_last_seen_0ef5ca13_2380 ran in 3.682985905s
+
+2023-12-08T00:33:20.955+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_7_days_876b40ce_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:33:22.001+0530	INFO	base/material.go:532	Preparing material Material_is_churned_7_days_876b40ce_2380
+
+2023-12-08T00:33:23.410+0530	INFO	base/material.go:604	Running material Material_is_churned_7_days_876b40ce_2380
+
+2023-12-08T00:33:26.696+0530	INFO	base/material.go:622	Material Material_is_churned_7_days_876b40ce_2380 ran in 3.286099399s
+
+2023-12-08T00:33:29.223+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_account_creation_16ab88ad_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:33:30.229+0530	INFO	base/material.go:532	Preparing material Material_days_since_account_creation_16ab88ad_2380
+
+2023-12-08T00:33:31.688+0530	INFO	base/material.go:604	Running material Material_days_since_account_creation_16ab88ad_2380
+
+2023-12-08T00:33:35.292+0530	INFO	base/material.go:622	Material Material_days_since_account_creation_16ab88ad_2380 ran in 3.603666817s
+
+2023-12-08T00:33:37.903+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_90_days_876b40ce_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:33:38.901+0530	INFO	base/material.go:532	Preparing material Material_is_churned_90_days_876b40ce_2380
+
+2023-12-08T00:33:40.090+0530	INFO	base/material.go:604	Running material Material_is_churned_90_days_876b40ce_2380
+
+2023-12-08T00:33:43.737+0530	INFO	base/material.go:622	Material Material_is_churned_90_days_876b40ce_2380 ran in 3.646591603s
+
+2023-12-08T00:33:46.688+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_a4f5aa3d_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:33:47.707+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_a4f5aa3d_2380
+
+2023-12-08T00:33:49.995+0530	INFO	base/material.go:604	Running material Material_user_var_table_a4f5aa3d_2380
+
+2023-12-08T00:33:51.242+0530	INFO	base/material.go:622	Material Material_user_var_table_a4f5aa3d_2380 ran in 1.246264698s
+
+2023-12-08T00:33:56.886+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_base_features_3576fcbd_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:33:57.889+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_base_features_3576fcbd_2380
+
+2023-12-08T00:34:00.328+0530	INFO	base/material.go:604	Running material Material_rudder_user_base_features_3576fcbd_2380
+
+2023-12-08T00:34:01.729+0530	INFO	base/material.go:622	Material Material_rudder_user_base_features_3576fcbd_2380 ran in 1.40101355s
+
+2023-12-08T00:34:07.727+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_1_5106d588_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:34:08.771+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_1_5106d588_2380
+
+2023-12-08T00:34:10.306+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_1_5106d588_2380
+
+2023-12-08T00:34:13.895+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_1_5106d588_2380 ran in 3.588930226s
+
+2023-12-08T00:34:16.563+0530	INFO	base/interfaces.go:274	Compiled model. Material_shopify_churn_05fc2870_2380 to output/dev/seq_no/2380. 
+
+
+2023-12-08T00:34:17.489+0530	INFO	base/material.go:532	Preparing material Material_shopify_churn_05fc2870_2380
+
+2023-12-08T00:34:19.874+0530	INFO	base/material.go:604	Running material Material_shopify_churn_05fc2870_2380
+
+2023-12-08T00:40:14.734+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to max_timestamp_bw_tracks_pages in days_since_last_seen
+
+2023-12-08T00:40:14.737+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to days_since_last_seen in is_churned_7_days
+
+2023-12-08T00:40:14.740+0530	WARN	core/project.go:1538	recommended to use dot var syntax to refer to days_since_last_seen in is_churned_90_days
+
+2023-12-08T00:40:14.832+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-12-08T00:40:41.089+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_id_stitcher_9f838bb3_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:40:41.942+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_id_stitcher_9f838bb3_2382
+
+2023-12-08T00:40:44.105+0530	INFO	base/material.go:604	Running material Material_rudder_user_id_stitcher_9f838bb3_2382
+
+2023-12-08T00:41:01.814+0530	INFO	base/material.go:622	Material Material_rudder_user_id_stitcher_9f838bb3_2382 ran in 17.707908821s
+
+2023-12-08T00:41:08.359+0530	INFO	base/interfaces.go:274	Compiled model. Material_rsTracks_var_table_1955c7e1_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:41:09.360+0530	INFO	base/material.go:532	Preparing material Material_rsTracks_var_table_1955c7e1_2382
+
+2023-12-08T00:41:11.526+0530	INFO	base/material.go:604	Running material Material_rsTracks_var_table_1955c7e1_2382
+
+2023-12-08T00:41:13.490+0530	INFO	base/material.go:622	Material Material_rsTracks_var_table_1955c7e1_2382 ran in 1.964049725s
+
+2023-12-08T00:41:19.176+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_79cc6be9_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:41:20.239+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_79cc6be9_2382
+
+2023-12-08T00:41:22.398+0530	INFO	base/material.go:604	Running material Material_user_var_table_79cc6be9_2382
+
+2023-12-08T00:41:23.609+0530	INFO	base/material.go:622	Material Material_user_var_table_79cc6be9_2382 ran in 1.210534122s
+
+2023-12-08T00:41:29.119+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_16ab88ad_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:41:30.188+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_16ab88ad_2382
+
+2023-12-08T00:41:31.691+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_16ab88ad_2382
+
+2023-12-08T00:41:36.043+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_16ab88ad_2382 ran in 4.35169575s
+
+2023-12-08T00:41:38.689+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_last_seen_0ef5ca13_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:41:39.734+0530	INFO	base/material.go:532	Preparing material Material_days_since_last_seen_0ef5ca13_2382
+
+2023-12-08T00:41:41.023+0530	INFO	base/material.go:604	Running material Material_days_since_last_seen_0ef5ca13_2382
+
+2023-12-08T00:41:44.949+0530	INFO	base/material.go:622	Material Material_days_since_last_seen_0ef5ca13_2382 ran in 3.925935928s
+
+2023-12-08T00:41:49.713+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_7_days_876b40ce_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:41:51.531+0530	INFO	base/material.go:532	Preparing material Material_is_churned_7_days_876b40ce_2382
+
+2023-12-08T00:41:52.859+0530	INFO	base/material.go:604	Running material Material_is_churned_7_days_876b40ce_2382
+
+2023-12-08T00:41:56.202+0530	INFO	base/material.go:622	Material Material_is_churned_7_days_876b40ce_2382 ran in 3.343063858s
+
+2023-12-08T00:41:58.668+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_account_creation_16ab88ad_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:41:59.789+0530	INFO	base/material.go:532	Preparing material Material_days_since_account_creation_16ab88ad_2382
+
+2023-12-08T00:42:01.392+0530	INFO	base/material.go:604	Running material Material_days_since_account_creation_16ab88ad_2382
+
+2023-12-08T00:42:05.368+0530	INFO	base/material.go:622	Material Material_days_since_account_creation_16ab88ad_2382 ran in 3.975921186s
+
+2023-12-08T00:42:07.824+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_90_days_876b40ce_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:42:08.770+0530	INFO	base/material.go:532	Preparing material Material_is_churned_90_days_876b40ce_2382
+
+2023-12-08T00:42:09.889+0530	INFO	base/material.go:604	Running material Material_is_churned_90_days_876b40ce_2382
+
+2023-12-08T00:42:12.795+0530	INFO	base/material.go:622	Material Material_is_churned_90_days_876b40ce_2382 ran in 2.905494146s
+
+2023-12-08T00:42:15.364+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_a4f5aa3d_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:42:16.393+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_a4f5aa3d_2382
+
+2023-12-08T00:42:18.539+0530	INFO	base/material.go:604	Running material Material_user_var_table_a4f5aa3d_2382
+
+2023-12-08T00:42:19.860+0530	INFO	base/material.go:622	Material Material_user_var_table_a4f5aa3d_2382 ran in 1.320764361s
+
+2023-12-08T00:42:25.416+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_base_features_3576fcbd_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:42:26.449+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_base_features_3576fcbd_2382
+
+2023-12-08T00:42:28.532+0530	INFO	base/material.go:604	Running material Material_rudder_user_base_features_3576fcbd_2382
+
+2023-12-08T00:42:29.803+0530	INFO	base/material.go:622	Material Material_rudder_user_base_features_3576fcbd_2382 ran in 1.270447086s
+
+2023-12-08T00:42:36.630+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_1_5106d588_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:42:37.583+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_1_5106d588_2382
+
+2023-12-08T00:42:38.916+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_1_5106d588_2382
+
+2023-12-08T00:42:42.413+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_1_5106d588_2382 ran in 3.496927301s
+
+2023-12-08T00:42:44.752+0530	INFO	base/interfaces.go:274	Compiled model. Material_shopify_churn_05fc2870_2382 to output/dev/seq_no/2382. 
+
+
+2023-12-08T00:42:45.751+0530	INFO	base/material.go:532	Preparing material Material_shopify_churn_05fc2870_2382
+
+2023-12-08T00:42:47.924+0530	INFO	base/material.go:604	Running material Material_shopify_churn_05fc2870_2382
+

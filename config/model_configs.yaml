@@ -21,7 +21,7 @@ data:
 
   # top_k: 5
   # bottom_k: 5
-
+  
 preprocessing:
   # Related to various preprocessing steps of the data
 
@@ -236,7 +236,7 @@ train:
         modelparams:
           n_jobs: 4
           random_state: 42
-          criterion: mse  # Criterion for regression
+          criterion: squared_error  # Criterion for regression
         hyperopts_config:
           max_evals: 10
         hyperopts:

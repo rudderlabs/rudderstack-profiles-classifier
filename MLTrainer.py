@@ -439,6 +439,7 @@ class RegressionTrainer(MLTrainer):
         super().__init__(**kwargs)
 
         self.figure_names = {
+                "deciles-plot" : f"03-deciles-plot-{self.output_profiles_ml_model}.png",
                 "residuals-chart": f"02-residuals-chart-{self.output_profiles_ml_model}.png",
                 "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png"
             }
@@ -545,6 +546,11 @@ class RegressionTrainer(MLTrainer):
             residuals_file = connector.join_file_path(self.figure_names['residuals-chart'])
             utils.plot_regression_residuals(y_pred, y, residuals_file, label_column)
             connector.save_file(session, residuals_file, stage_name, overwrite=True)
+
+            deciles_file = connector.join_file_path(self.figure_names['deciles-plot'])
+            utils.plot_regression_deciles(y_pred, y, deciles_file, label_column)
+            connector.save_file(session, deciles_file, stage_name, overwrite=True)
+            
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
 

@@ -167,7 +167,11 @@ class MLTrainer(ABC):
             arraytype_features = connector.get_arraytype_features(session, feature_table_name)
             ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
             high_cardinal_features = connector.get_high_cardinal_features(feature_table, self.label_column, self.entity_column, cardinal_feature_threshold)
+
+            print("Ignoring features")
             ignore_features = utils.merge_lists_to_unique(ignore_features, high_cardinal_features)
+
+            
             feature_table = connector.drop_cols(feature_table, [self.label_column])
             timestamp_columns = self.prep.timestamp_columns
             if len(timestamp_columns) == 0:

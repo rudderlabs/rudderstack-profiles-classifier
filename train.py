@@ -136,7 +136,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     target_path = utils.get_output_directory(folder_path)
 
     """ Initialising trainer """
-    logger.debug("Initialising trainer")
+    print("Initialising trainer")
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
     
@@ -148,15 +148,15 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     elif prediction_task == 'regression':
         trainer = RegressionTrainer(**merged_config["data"], prep=prep_config)
 
-    logger.debug(f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}")
+    print(f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}")
     if trainer.eligible_users:
-        logger.debug(f"Only following users are considered for training: {trainer.eligible_users}")
+        print(f"Only following users are considered for training: {trainer.eligible_users}")
     else:
-        logger.debug("Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc.")
+        print("Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc.")
 
     """ Building session """
     warehouse = creds['type']
-    logger.debug(f"Building session for {warehouse}")
+    print(f"Building session for {warehouse}")
     if warehouse == 'snowflake':
         train_procedure = 'train_and_store_model_results_sf'
         connector = SnowflakeConnector()
@@ -165,8 +165,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         connector.delete_import_files(session, stage_name, import_paths)
         connector.delete_procedures(session)
 
-        @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
-            packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn>=1.1.1", "xgboost>=1.5.0", "PyYAML", "numpy>=1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
+        # @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
+        #     packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn>=1.1.1", "xgboost>=1.5.0", "PyYAML", "numpy>=1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
                     merged_config: dict) -> dict:
@@ -217,6 +217,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         connector.clean_up()
         connector.make_local_dir()
     
+
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
 
     model_hash = connector.get_latest_material_hash(trainer.package_name, 
@@ -229,7 +230,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
     if start_date == None or end_date == None:
         start_date, end_date = utils.get_date_range(creation_ts, trainer.prediction_horizon_days)
-    logger.info("Getting past data for training")
+    print("Getting past data for training")
     try:
         material_names, training_dates = connector.get_material_names(session, material_table, start_date, end_date, 
                                                                 trainer.package_name, 
@@ -250,9 +251,14 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         trainer.label_value = label_value
 
     feature_table = None
+    print("--------------====================-------------")
+    print(material_names)
+
     for row in material_names:
         feature_table_name, label_table_name = row
-        logger.info(f"Preparing training dataset using {feature_table_name} and {label_table_name} as feature and label tables respectively")
+        print("--------------====================-------------")
+        print(feature_table_name)
+        print(f"Preparing training dataset using {feature_table_name} and {label_table_name} as feature and label tables respectively")
         feature_table_instance, arraytype_features, timestamp_columns = trainer.prepare_feature_table(connector, session,
                                                                feature_table_name, 
                                                                label_table_name,
@@ -266,20 +272,23 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
     filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp, trainer.max_row_count, min_sample_for_training)
     connector.write_table(filtered_feature_table, feature_table_name_remote, write_mode="overwrite", if_exists="replace")
-    logger.info("Training and fetching the results")
+    print("Training and fetching the results")
 
     try:
-        train_results_json = connector.call_procedure(train_procedure,
-                                            feature_table_name_remote,
+        train_results_json = train_and_store_model_results_sf(session,feature_table_name_remote,
                                             merged_config,
-                                            session=session,
-                                            connector=connector,
-                                            trainer=trainer)
+                                            )
+        # train_results_json = connector.call_procedure(train_procedure,
+        #                                     feature_table_name_remote,
+        #                                     merged_config,
+        #                                     session=session,
+        #                                     connector=connector,
+        #                                     trainer=trainer)
     except Exception as e:
         logger.error(f"Error while training the model: {e}")
         raise e
 
-    logger.info("Saving train results to file")
+    print("Saving train results to file")
     if not isinstance(train_results_json, dict):
         train_results = json.loads(train_results_json)
     else:
@@ -304,7 +313,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     model_timestamp = datetime.utcfromtimestamp(int(model_id)).strftime('%Y-%m-%dT%H:%M:%SZ')
     summary = trainer.prepare_training_summary(train_results, model_timestamp)
     json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))
-    logger.debug("Fetching visualisations to local")
+    print("Fetching visualisations to local")
 
     for figure_name in trainer.figure_names.values():
         try:

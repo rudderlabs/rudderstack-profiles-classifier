@@ -202,7 +202,6 @@ class MLTrainer(ABC):
                         stage_name: str, 
                         x: pd.DataFrame, 
                         y: pd.DataFrame, 
-                        figure_names: dict, 
                         label_column: str):
         pass
 
@@ -278,13 +277,13 @@ class ClassificationTrainer(MLTrainer):
     def __init__(self,**kwargs):
         self.recall_to_precision_importance = kwargs.pop("recall_to_precision_importance")
         super().__init__(**kwargs)
-        #TODO: uncomment after testing support for redshift
-        # self.figure_names = {
-        #     "roc-auc-curve": f"04-test-roc-auc-{self.output_profiles_ml_model}.png",
-        #     "pr-auc-curve": f"03-test-pr-auc-{self.output_profiles_ml_model}.png",
-        #     "lift-chart": f"02-test-lift-chart-{self.output_profiles_ml_model}.png",
-        #     "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png"
-        # }
+
+        self.figure_names = {
+            "roc-auc-curve": f"04-test-roc-auc-{self.output_profiles_ml_model}.png",
+            "pr-auc-curve": f"03-test-pr-auc-{self.output_profiles_ml_model}.png",
+            "lift-chart": f"02-test-lift-chart-{self.output_profiles_ml_model}.png",
+            "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png"
+        }
 
     def build_model(self, X_train:pd.DataFrame, 
                     y_train:pd.DataFrame,
@@ -374,7 +373,6 @@ class ClassificationTrainer(MLTrainer):
                         stage_name: str, 
                         x: pd.DataFrame, 
                         y: pd.DataFrame, 
-                        figure_names: dict, 
                         label_column: str) -> None:
         """Plots the diagnostics for the given model
 
@@ -389,15 +387,15 @@ class ClassificationTrainer(MLTrainer):
             label_column (str): name of the label column
         """
         try:
-            roc_auc_file = connector.join_file_path(figure_names['roc-auc-curve'])
+            roc_auc_file = connector.join_file_path(self.figure_names['roc-auc-curve'])
             utils.plot_roc_auc_curve(model, x, y, roc_auc_file, label_column)
             connector.save_file(session, roc_auc_file, stage_name, overwrite=True)
 
-            pr_auc_file = connector.join_file_path(figure_names['pr-auc-curve'])
+            pr_auc_file = connector.join_file_path(self.figure_names['pr-auc-curve'])
             utils.plot_pr_auc_curve(model, x, y, pr_auc_file, label_column)
             connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
 
-            lift_chart_file = connector.join_file_path(figure_names['lift-chart'])
+            lift_chart_file = connector.join_file_path(self.figure_names['lift-chart'])
             utils.plot_lift_chart(model, x, y, lift_chart_file, label_column)
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
@@ -433,8 +431,11 @@ class RegressionTrainer(MLTrainer):
     def __init__(self,**kwargs):
         _ = kwargs.pop("recall_to_precision_importance",0.0)
         super().__init__(**kwargs)
-        #TODO: uncomment after testing support for redshift
-        # self.figure_names = {}
+
+        self.figure_names = {
+                "residuals-chart": f"02-residuals-chart-{self.output_profiles_ml_model}.png",
+                "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png"
+            }
 
     def build_model(
         self,
@@ -471,7 +472,7 @@ class RegressionTrainer(MLTrainer):
         # Objective method to run for different hyper-parameter space
         def objective(space):
             reg = model_class(**model_config["modelparams"], **space)
-            reg.fit(X_train, y_train)
+            reg.fit(X_train, y_train,**fit_params)            
             pred = reg.predict(X_val)
             eval_metric_name = model_config["evaluation_metric"]
             loss = self.evalution_metrics_map[eval_metric_name](y_val, pred)
@@ -487,7 +488,8 @@ class RegressionTrainer(MLTrainer):
             return_argmin=False,
             trials=trials,
         )
-
+        if "early_stopping_rounds" in model_config["modelparams"]:
+            del model_config["modelparams"]["early_stopping_rounds"]
         reg = model_class(**best_hyperparams, **model_config["modelparams"])
         return reg, trials
     
@@ -530,10 +532,13 @@ class RegressionTrainer(MLTrainer):
                         stage_name: str, 
                         x: pd.DataFrame, 
                         y: pd.DataFrame, 
-                        figure_names: dict, 
                         label_column: str):
-        # To implemenet for regression - can be residual plot, binned lift chart adjusted to quantiles etc
-        pass
+        try:
+            residuals_file = connector.join_file_path(self.figure_names['residuals-chart'])
+            utils.plot_regression_residuals(model, x, y, residuals_file, label_column)
+            connector.save_file(session, residuals_file, stage_name, overwrite=True)
+        except Exception as e:
+            logger.error(f"Could not generate plots. {e}")
 
     def get_metrics(self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config) -> dict:
         model_metrics = trainer_utils.get_metrics_regressor(model, train_x, train_y, test_x, test_y, val_x, val_y)

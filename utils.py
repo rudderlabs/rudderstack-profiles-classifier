@@ -484,7 +484,7 @@ def generate_material_name(material_table_prefix: str, model_name: str, model_ha
     """
     return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'
 
-def plot_regression_residuals(pipe, test_x, test_y, residuals_file, label_column):
+def plot_regression_residuals(y_pred, y_true, residuals_file, label_column):
     """
     Plots regression residuals and saves it as a file.
 
@@ -498,10 +498,10 @@ def plot_regression_residuals(pipe, test_x, test_y, residuals_file, label_column
     Returns:
         None. The function only saves the residuals plot as a file.
     """
-    residuals = test_y[label_column.upper()] - pipe.predict(test_x)
+    residuals = y_true[label_column.upper()] - y_pred
     sns.set(style="ticks", context='notebook')
     plt.figure(figsize=(8, 6))
-    plt.scatter(pipe.predict(test_x), residuals, color="b", alpha=0.5)
+    plt.scatter(y_pred, residuals, color="b", alpha=0.5)
     plt.axhline(y=0, color='r', linestyle='--', linewidth=2)
     plt.title("Residuals Plot (Test data)")
     plt.xlabel("Predicted Values")
@@ -511,7 +511,7 @@ def plot_regression_residuals(pipe, test_x, test_y, residuals_file, label_column
     plt.savefig(residuals_file)
     plt.clf()
     
-def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
+def plot_roc_auc_curve( y_pred, y_true, roc_auc_file, label_column)-> None:
     """
     Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.
 
@@ -527,7 +527,7 @@ def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
     Returns:
     None. The function does not return any value. The generated ROC curve plot is saved as an image file and uploaded to the session's file storage.
     """
-    fpr, tpr, _ = roc_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
+    fpr, tpr, _ = roc_curve(y_true[label_column.upper()].values, y_pred)
     roc_auc = auc(fpr, tpr)
     sns.set(style="ticks",  context='notebook')
     plt.figure(figsize=(8, 6))
@@ -542,7 +542,7 @@ def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
     plt.savefig(roc_auc_file)
     plt.clf()
 
-def plot_pr_auc_curve(pipe, test_x, test_y, pr_auc_file, label_column)-> None:
+def plot_pr_auc_curve(y_pred, y_true, pr_auc_file, label_column)-> None:
     """
     Plots a precision-recall curve and saves it as a file.
 
@@ -558,7 +558,7 @@ def plot_pr_auc_curve(pipe, test_x, test_y, pr_auc_file, label_column)-> None:
     Returns:
         None. The function only saves the precision-recall curve plot as a file.
     """
-    precision, recall, _ = precision_recall_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
+    precision, recall, _ = precision_recall_curve(y_true[label_column.upper()].values, y_pred)
     pr_auc = auc(recall, precision)
     sns.set(style="ticks",  context='notebook')
     plt.figure(figsize=(8, 6))
@@ -574,7 +574,7 @@ def plot_pr_auc_curve(pipe, test_x, test_y, pr_auc_file, label_column)-> None:
     plt.savefig(pr_auc_file)
     plt.clf()
 
-def plot_lift_chart(pipe, test_x, test_y, lift_chart_file, label_column)-> None:
+def plot_lift_chart(y_pred, y_true, lift_chart_file, label_column)-> None:
     """
     Generates a lift chart for a binary classification model.
 
@@ -591,8 +591,8 @@ def plot_lift_chart(pipe, test_x, test_y, lift_chart_file, label_column)-> None:
         None. The function does not return any value, but it saves the lift chart as an image file in the specified location.
     """
     data = pd.DataFrame()
-    data['label'] = test_y[label_column.upper()].values
-    data['pred'] = pipe.predict_proba(test_x)[:,1]
+    data['label'] = y_true[label_column.upper()].values
+    data['pred'] = y_pred
 
     sorted_indices = np.argsort(data["pred"].values, kind="heapsort")[::-1]
     cumulative_actual = np.cumsum(data["label"][sorted_indices].values)

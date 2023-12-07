@@ -387,16 +387,18 @@ class ClassificationTrainer(MLTrainer):
             label_column (str): name of the label column
         """
         try:
+            y_pred = model.predict_proba(x)[:,1]
+
             roc_auc_file = connector.join_file_path(self.figure_names['roc-auc-curve'])
-            utils.plot_roc_auc_curve(model, x, y, roc_auc_file, label_column)
+            utils.plot_roc_auc_curve(y_pred, y, roc_auc_file, label_column)
             connector.save_file(session, roc_auc_file, stage_name, overwrite=True)
 
             pr_auc_file = connector.join_file_path(self.figure_names['pr-auc-curve'])
-            utils.plot_pr_auc_curve(model, x, y, pr_auc_file, label_column)
+            utils.plot_pr_auc_curve(y_pred, y, pr_auc_file, label_column)
             connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
 
             lift_chart_file = connector.join_file_path(self.figure_names['lift-chart'])
-            utils.plot_lift_chart(model, x, y, lift_chart_file, label_column)
+            utils.plot_lift_chart(y_pred, y, lift_chart_file, label_column)
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
@@ -534,8 +536,10 @@ class RegressionTrainer(MLTrainer):
                         y: pd.DataFrame, 
                         label_column: str):
         try:
+            y_pred = model.predict(x)
+
             residuals_file = connector.join_file_path(self.figure_names['residuals-chart'])
-            utils.plot_regression_residuals(model, x, y, residuals_file, label_column)
+            utils.plot_regression_residuals(y_pred, y, residuals_file, label_column)
             connector.save_file(session, residuals_file, stage_name, overwrite=True)
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")

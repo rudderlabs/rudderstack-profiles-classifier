@@ -375,7 +375,7 @@ def get_pb_path() -> str:
         _ = subprocess.check_output(["which", "pb"])
         return "pb"
     except:
-        logger.warning("pb command not found in the path. Using the default rudder-sources path /venv/bin/pb")
+        logger.info("pb command not found in the path. Using the default rudder-sources path /venv/bin/pb")
         return constants.PB
     
 def get_project_folder(project_folder: str, output_path: str)-> str:

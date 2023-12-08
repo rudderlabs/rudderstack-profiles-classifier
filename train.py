@@ -169,7 +169,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn>=1.1.1", "xgboost>=1.5.0", "PyYAML", "numpy>=1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
-                    figure_names: dict,
                     merged_config: dict) -> dict:
             """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
 
@@ -198,11 +197,11 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             column_name_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json")
             json.dump(column_dict, open(column_name_file,"w"))
 
-            trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
+            trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, trainer.label_column)
             connector.save_file(session, model_file, stage_name, overwrite=True)
             connector.save_file(session, column_name_file, stage_name, overwrite=True)
             try:
-                figure_file = os.path.join('tmp', figure_names['feature-importance-chart'])
+                figure_file = os.path.join('tmp', trainer.figure_names['feature-importance-chart'])
                 shap_importance = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)
                 connector.write_pandas(shap_importance, f"FEATURE_IMPORTANCE", session=session, auto_create_table=True, overwrite=True)
                 connector.save_file(session, figure_file, stage_name, overwrite=True)
@@ -217,13 +216,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         session = connector.build_session(creds)
         connector.clean_up()
         connector.make_local_dir()
-
-    #TODO: Remove this and use from trainer.figure_names after support for other warehouses.
-    figure_names = {"roc-auc-curve": f"04-test-roc-auc-{trainer.output_profiles_ml_model}.png",
-                    "pr-auc-curve": f"03-test-pr-auc-{trainer.output_profiles_ml_model}.png",
-                    "lift-chart": f"02-test-lift-chart-{trainer.output_profiles_ml_model}.png",
-                    "feature-importance-chart": f"01-feature-importance-chart-{trainer.output_profiles_ml_model}.png"}
-
+    
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
 
     model_hash = connector.get_latest_material_hash(trainer.package_name, 
@@ -278,7 +271,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     try:
         train_results_json = connector.call_procedure(train_procedure,
                                             feature_table_name_remote,
-                                            figure_names,
                                             merged_config,
                                             session=session,
                                             connector=connector,
@@ -313,7 +305,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     summary = trainer.prepare_training_summary(train_results, model_timestamp)
     json.dump(summary, open(os.path.join(target_path, 'training_summary.json'), "w"))
     logger.debug("Fetching visualisations to local")
-    for figure_name in figure_names.values():
+
+    for figure_name in trainer.figure_names.values():
         try:
             connector.fetch_staged_file(session, stage_name, figure_name, target_path)
         except:
@@ -325,14 +318,14 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
     inputs = None
-    output_folder = 'output/dev/seq_no/7'
+    output_folder = 'output/dev/seq_no/9'
     output_file_name = f"{output_folder}/train_output.json"
     siteconfig_path = os.path.join(homedir, ".pb/siteconfig.yaml")
 
     path = Path(output_folder)
     path.mkdir(parents=True, exist_ok=True)
-    # logger.setLevel(logger.logging.DEBUG)
+    # logger.setLevel(logging.DEBUG)
 
-    project_folder = '/Users/admin/Desktop/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+    project_folder = '/Users/admin/Desktop/Playground/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

@@ -21,7 +21,7 @@ models:
             prediction_horizon_days: 90 # Number of days in future for which we want to predict
             features_profiles_model: 'rudder_user_base_features' # Model name
             output_profiles_ml_model: *model_name_90_days # Name of output model based on current model to dinstinguish between multiple models
-            eligible_users:
+            eligible_users: 1=1
             inputs: *inputs_90_days
 
           

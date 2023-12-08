@@ -24,6 +24,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import utils
 import constants
+from localProcessor import localProcessor
+from snowflakeProcessor import snowflakeProcessor
 from SnowflakeConnector import SnowflakeConnector
 from MLTrainer import ClassificationTrainer, RegressionTrainer
 
@@ -127,7 +129,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py")
+    import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py", "processor.py", "localProcessor.py", "snowflakeProcessor.py")
     import_paths = []
     for file in import_files:
         import_paths.append(os.path.join(current_dir, file))
@@ -249,24 +251,15 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         label_value = connector.get_default_label_value(session, material_names[0][0], trainer.label_column, positive_boolean_flags)
         trainer.label_value = label_value
 
-    feature_table = None
-    for row in material_names:
-        feature_table_name, label_table_name = row
-        logger.info(f"Preparing training dataset using {feature_table_name} and {label_table_name} as feature and label tables respectively")
-        feature_table_instance, arraytype_features, timestamp_columns = trainer.prepare_feature_table(connector, session,
-                                                               feature_table_name, 
-                                                               label_table_name,
-                                                               cardinal_feature_threshold)
-        if feature_table is None:
-            feature_table = feature_table_instance
-            break
-        else:
-            feature_table = feature_table.unionAllByName(feature_table_instance)
+    if trainer.mode == "local":
+        processor = localProcessor(trainer, connector, session)
+    elif trainer.mode == "snowflake":
+        processor = snowflakeProcessor(trainer, connector, session)
+
+    # train_results_json = processor.prepare_and_train(material_names)
+    arraytype_features, timestamp_columns = processor.prepare_and_train(material_names)
 
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
-    filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp, trainer.max_row_count, min_sample_for_training)
-    connector.write_table(filtered_feature_table, feature_table_name_remote, write_mode="overwrite", if_exists="replace")
-    logger.info("Training and fetching the results")
 
     try:
         train_results_json = connector.call_procedure(train_procedure,

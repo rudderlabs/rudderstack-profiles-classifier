@@ -484,7 +484,36 @@ def generate_material_name(material_table_prefix: str, model_name: str, model_ha
     """
     return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'
 
-def plot_regression_residuals(y_pred, y_true, residuals_file):
+def plot_regression_deciles(y_predicted, y, deciles_file, label_column):
+    """
+    Plots y-actual vs y-predicted using deciles and saves it as a file.
+    Args:
+        y_actual (pd.Series): Actual labels.
+        y_predicted (pd.Series): Predicted labels.
+        deciles_file (str): File path to save the deciles plot.
+    Returns:
+        None. The function only saves the deciles plot as a file.
+    """
+
+    y_actual = y[label_column.upper()]
+    deciles = pd.qcut(y_predicted, q=10, labels=False, duplicates='drop')
+    deciles_df = pd.DataFrame({'Actual': y_actual, 'Predicted': y_predicted, 'Deciles': deciles})
+    deciles_agg = deciles_df.groupby('Deciles').agg({'Actual': 'mean', 'Predicted': 'mean'}).reset_index()
+
+    sns.set(style="ticks", context='notebook')
+    plt.figure(figsize=(8, 6))
+    plt.scatter(deciles_agg['Predicted'], deciles_agg['Actual'], color="b", alpha=0.5)
+    plt.plot([deciles_agg['Predicted'].min(), deciles_agg['Predicted'].max()],
+             [deciles_agg['Predicted'].min(), deciles_agg['Predicted'].max()], color='r', linestyle='--', linewidth=2)
+    plt.title("Y-Actual vs Y-Predicted (Deciles)")
+    plt.xlabel("Predicted Values")
+    plt.ylabel("Actual Values")
+    sns.despine()
+    plt.grid(True)
+    plt.savefig(deciles_file)
+    plt.clf()
+
+def plot_regression_residuals(y_pred, y_true, residuals_file, label_column):
     """
     Plots regression residuals and saves it as a file.
 

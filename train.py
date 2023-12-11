@@ -275,6 +275,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                             session=session,
                                             connector=connector,
                                             trainer=trainer)
+
     except Exception as e:
         logger.error(f"Error while training the model: {e}")
         raise e

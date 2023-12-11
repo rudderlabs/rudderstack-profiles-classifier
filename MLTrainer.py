@@ -548,7 +548,7 @@ class RegressionTrainer(MLTrainer):
             connector.save_file(session, residuals_file, stage_name, overwrite=True)
 
             deciles_file = connector.join_file_path(self.figure_names['deciles-plot'])
-            utils.plot_regression_deciles(y_pred, y, deciles_file, label_column)
+            utils.plot_regression_deciles(y_pred, y_true, deciles_file)
             connector.save_file(session, deciles_file, stage_name, overwrite=True)
             
         except Exception as e:

@@ -484,21 +484,19 @@ def generate_material_name(material_table_prefix: str, model_name: str, model_ha
     """
     return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'
 
-def plot_regression_residuals(y_pred, y_true, residuals_file, label_column):
+def plot_regression_residuals(y_pred, y_true, residuals_file):
     """
     Plots regression residuals and saves it as a file.
 
     Args:
-        pipe (object): The trained pipeline model.
-        test_x (array-like): The test data features.
-        test_y (array-like): The test data labels.
-        residuals_file (str): File path to save the residuals plot.
-        label_column (str): Name of the label column.
+        y_true (array-like): The test data true values.
+        y_pred (array-like): The predicted data values.
+        chart_name (str): The name of the plot file.
 
     Returns:
         None. The function only saves the residuals plot as a file.
     """
-    residuals = y_true[label_column.upper()] - y_pred
+    residuals = y_true - y_pred
     sns.set(style="ticks", context='notebook')
     plt.figure(figsize=(8, 6))
     plt.scatter(y_pred, residuals, color="b", alpha=0.5)
@@ -511,23 +509,19 @@ def plot_regression_residuals(y_pred, y_true, residuals_file, label_column):
     plt.savefig(residuals_file)
     plt.clf()
     
-def plot_roc_auc_curve( y_pred, y_true, roc_auc_file, label_column)-> None:
+def plot_roc_auc_curve( y_pred, y_true, roc_auc_file)-> None:
     """
     Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.
 
     Parameters:
-    session (object): The session object that provides access to the file storage.
-    pipe (object): The trained pipeline model.
-    stage_name (str): The name of the stage.
-    test_x (array-like): The test data features.
-    test_y (array-like): The test data labels.
-    chart_name (str): The name of the chart.
-    label_column (str): The name of the label column in the test data.
+    y_true (array-like): The test data true labels.
+    y_pred (array-like): The predicted data labels.
+    chart_name (str): The name of the plot file.
 
     Returns:
     None. The function does not return any value. The generated ROC curve plot is saved as an image file and uploaded to the session's file storage.
     """
-    fpr, tpr, _ = roc_curve(y_true[label_column.upper()].values, y_pred)
+    fpr, tpr, _ = roc_curve(y_true, y_pred)
     roc_auc = auc(fpr, tpr)
     sns.set(style="ticks",  context='notebook')
     plt.figure(figsize=(8, 6))
@@ -542,23 +536,19 @@ def plot_roc_auc_curve( y_pred, y_true, roc_auc_file, label_column)-> None:
     plt.savefig(roc_auc_file)
     plt.clf()
 
-def plot_pr_auc_curve(y_pred, y_true, pr_auc_file, label_column)-> None:
+def plot_pr_auc_curve(y_pred, y_true, pr_auc_file)-> None:
     """
     Plots a precision-recall curve and saves it as a file.
 
     Args:
-        session (object): A session object used to upload the plot file.
-        pipe (object): A pipeline object used to predict probabilities.
-        stage_name (str): The name of the stage where the plot file will be uploaded.
-        test_x (array-like): The test data features.
-        test_y (array-like): The test data labels.
+        y_true (array-like): The test data true labels.
+        y_pred (array-like): The predicted data labels.
         chart_name (str): The name of the plot file.
-        label_column (str): The column name of the label in the test data.
 
     Returns:
         None. The function only saves the precision-recall curve plot as a file.
     """
-    precision, recall, _ = precision_recall_curve(y_true[label_column.upper()].values, y_pred)
+    precision, recall, _ = precision_recall_curve(y_true, y_pred)
     pr_auc = auc(recall, precision)
     sns.set(style="ticks",  context='notebook')
     plt.figure(figsize=(8, 6))
@@ -574,24 +564,20 @@ def plot_pr_auc_curve(y_pred, y_true, pr_auc_file, label_column)-> None:
     plt.savefig(pr_auc_file)
     plt.clf()
 
-def plot_lift_chart(y_pred, y_true, lift_chart_file, label_column)-> None:
+def plot_lift_chart(y_pred, y_true, lift_chart_file)-> None:
     """
     Generates a lift chart for a binary classification model.
 
     Args:
-        session (object): The session object used to save the chart file.
-        pipe (object): The trained model pipeline.
-        stage_name (string): The name of the stage where the chart will be saved.
-        test_x (DataFrame): The test data features.
-        test_y (DataFrame): The test data labels.
-        chart_name (string): The name of the chart file.
-        label_column (string): The column name of the label in the test data.
+        y_true (array-like): The test data true labels.
+        y_pred (array-like): The predicted data labels.
+        chart_name (str): The name of the plot file.
 
     Returns:
         None. The function does not return any value, but it saves the lift chart as an image file in the specified location.
     """
     data = pd.DataFrame()
-    data['label'] = y_true[label_column.upper()].values
+    data['label'] = y_true
     data['pred'] = y_pred
 
     sorted_indices = np.argsort(data["pred"].values, kind="heapsort")[::-1]

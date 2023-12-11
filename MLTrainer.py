@@ -167,8 +167,6 @@ class MLTrainer(ABC):
             arraytype_features = connector.get_arraytype_features(session, feature_table_name)
             ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
             high_cardinal_features = connector.get_high_cardinal_features(feature_table, self.label_column, self.entity_column, cardinal_feature_threshold)
-
-            print("Ignoring features")
             ignore_features = utils.merge_lists_to_unique(ignore_features, high_cardinal_features)
 
             
@@ -392,17 +390,18 @@ class ClassificationTrainer(MLTrainer):
         """
         try:
             y_pred = model.predict_proba(x)[:,1]
+            y_true = y[label_column.upper()]
 
             roc_auc_file = connector.join_file_path(self.figure_names['roc-auc-curve'])
-            utils.plot_roc_auc_curve(y_pred, y, roc_auc_file, label_column)
+            utils.plot_roc_auc_curve(y_pred, y_true, roc_auc_file)
             connector.save_file(session, roc_auc_file, stage_name, overwrite=True)
 
             pr_auc_file = connector.join_file_path(self.figure_names['pr-auc-curve'])
-            utils.plot_pr_auc_curve(y_pred, y, pr_auc_file, label_column)
+            utils.plot_pr_auc_curve(y_pred, y_true, pr_auc_file)
             connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
 
             lift_chart_file = connector.join_file_path(self.figure_names['lift-chart'])
-            utils.plot_lift_chart(y_pred, y, lift_chart_file, label_column)
+            utils.plot_lift_chart(y_pred, y_true, lift_chart_file)
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
@@ -543,7 +542,8 @@ class RegressionTrainer(MLTrainer):
             y_pred = model.predict(x)
 
             residuals_file = connector.join_file_path(self.figure_names['residuals-chart'])
-            utils.plot_regression_residuals(y_pred, y, residuals_file, label_column)
+            y_true = y[label_column.upper()]
+            utils.plot_regression_residuals(y_pred, y_true, residuals_file)
             connector.save_file(session, residuals_file, stage_name, overwrite=True)
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")

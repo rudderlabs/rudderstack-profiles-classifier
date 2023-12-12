@@ -18,3 +18,5 @@ dataflow.png
 *.log
 
 testenv/
+testenv2/
+tmp/

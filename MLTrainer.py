@@ -438,7 +438,7 @@ class RegressionTrainer(MLTrainer):
         super().__init__(**kwargs)
 
         self.figure_names = {
-                "regression-lift-chart" : f"04-regression-chart-{self.output_profiles_ml_model}.png",
+                # "regression-lift-chart" : f"04-regression-chart-{self.output_profiles_ml_model}.png",
                 "deciles-plot" : f"03-deciles-plot-{self.output_profiles_ml_model}.png",
                 "residuals-chart": f"02-residuals-chart-{self.output_profiles_ml_model}.png",
                 "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png"
@@ -552,10 +552,10 @@ class RegressionTrainer(MLTrainer):
             utils.plot_regression_deciles(y_pred, y_true, deciles_file, label_column)
             connector.save_file(session, deciles_file, stage_name, overwrite=True)
 
-            regression_chart_file = connector.join_file_path(self.figure_names['regression-lift-chart'])
-            print(regression_chart_file)
-            utils.regression_evaluation_plot(y_pred, y_true, regression_chart_file)
-            connector.save_file(session, regression_chart_file, stage_name, overwrite=True)
+            # For future reference 
+            # regression_chart_file = connector.join_file_path(self.figure_names['regression-lift-chart'])
+            # utils.regression_evaluation_plot(y_pred, y_true, regression_chart_file)
+            # connector.save_file(session, regression_chart_file, stage_name, overwrite=True)
 
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")

@@ -328,6 +328,6 @@ if __name__ == "__main__":
     path.mkdir(parents=True, exist_ok=True)
     # logger.setLevel(logging.DEBUG)
 
-    project_folder = '/Users/admin/Desktop/Profiles/rudderstack_profiles_classifier/samples/application_project'    #change path of project directory as per your system
+    project_folder = ''    #change path of project directory as per your system
        
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

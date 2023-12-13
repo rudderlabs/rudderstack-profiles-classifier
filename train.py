@@ -165,8 +165,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         connector.delete_import_files(session, stage_name, import_paths)
         connector.delete_procedures(session)
 
-        # @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
-        #     packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
+        @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
+            packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
                     merged_config: dict) -> dict:
@@ -269,15 +269,13 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     logger.info("Training and fetching the results")
 
     try:
-        # train_results_json = connector.call_procedure(train_procedure,
-        #                                     feature_table_name_remote,
-        #                                     merged_config,
-        #                                     session=session,
-        #                                     connector=connector,
-        #                                     trainer=trainer)
+        train_results_json = connector.call_procedure(train_procedure,
+                                            feature_table_name_remote,
+                                            merged_config,
+                                            session=session,
+                                            connector=connector,
+                                            trainer=trainer)
         
-        train_results_json = train_and_store_model_results_sf(session,feature_table_name_remote,merged_config)
-
 
     except Exception as e:
         logger.error(f"Error while training the model: {e}")
@@ -319,7 +317,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
 if __name__ == "__main__":
     homedir = os.path.expanduser("~") 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
+        creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
     inputs = None
     output_folder = 'output/dev/seq_no/8'

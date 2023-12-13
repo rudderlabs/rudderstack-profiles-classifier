@@ -13,8 +13,8 @@ pysnowpark/*
 data/*
 testenv/*
 python_packages/*
-# **/migrations/*
-# **/logs/*
+**/migrations/*
+**/logs/*
 dataflow.png
 *.log
 

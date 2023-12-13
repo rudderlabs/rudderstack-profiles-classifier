@@ -13,3 +13,6 @@ pysnowpark/*
 data/*
 testenv/*
 python_packages/*
+testenv2/
+tmp/
+

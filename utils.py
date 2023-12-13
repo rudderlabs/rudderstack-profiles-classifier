@@ -484,17 +484,17 @@ def generate_material_name(material_table_prefix: str, model_name: str, model_ha
     """
     return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'
 
-def plot_regression_deciles(y_pred, y_true, deciles_file):
+def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
     """
     Plots y-actual vs y-predicted using deciles and saves it as a file.
     Args:
-        y_actual (pd.Series): Actual labels.
-        y_predicted (pd.Series): Predicted labels.
+        y_pred (pd.Series): Predicted labels.
+        y_true (pd.Series): Actual labels.
         deciles_file (str): File path to save the deciles plot.
+        label_column (str): Name of the label column.
     Returns:
         None. The function only saves the deciles plot as a file.
     """
-
     deciles = pd.qcut(y_pred, q=10, labels=False, duplicates='drop')
     deciles_df = pd.DataFrame({'Actual': y_true, 'Predicted': y_pred, 'Deciles': deciles})
     deciles_agg = deciles_df.groupby('Deciles').agg({'Actual': 'mean', 'Predicted': 'mean'}).reset_index()
@@ -504,13 +504,14 @@ def plot_regression_deciles(y_pred, y_true, deciles_file):
     plt.scatter(deciles_agg['Predicted'], deciles_agg['Actual'], color="b", alpha=0.5)
     plt.plot([deciles_agg['Predicted'].min(), deciles_agg['Predicted'].max()],
              [deciles_agg['Predicted'].min(), deciles_agg['Predicted'].max()], color='r', linestyle='--', linewidth=2)
-    plt.title("Y-Actual vs Y-Predicted (Deciles)")
-    plt.xlabel("Predicted Values")
-    plt.ylabel("Actual Values")
+    plt.title(f"Y-Actual vs Y-Predicted (Deciles) for {label_column}")
+    plt.xlabel(f"Mean Predicted {label_column}")
+    plt.ylabel(f"Mean Actual {label_column}")
     sns.despine()
     plt.grid(True)
     plt.savefig(deciles_file)
     plt.clf()
+
 
 def plot_regression_residuals(y_pred, y_true, residuals_file):
     """
@@ -536,7 +537,42 @@ def plot_regression_residuals(y_pred, y_true, residuals_file):
     plt.grid(True)
     plt.savefig(residuals_file)
     plt.clf()
-    
+
+def regression_evaluation_plot(y_pred, y_true, regression_chart_file, num_bins=10):
+    """
+    Create a plot between the percentage of targeted data and the percentage of actual labels covered.
+
+    Parameters:
+    - y_pred (array-like): Predicted values.
+    - y_true (array-like): True values.
+    - regression_chart_file (str): The file path to save the regression chart.
+    - num_bins (int, optional): Number of bins for dividing the continuous labels. Default is 10.
+
+    Returns:
+    - None
+    """
+    # Calculate deciles for y_true
+    deciles = np.percentile(y_true, np.arange(0, 100, 100/num_bins))
+
+    # Calculate the percentage of targeted data
+    percentage_targeted = [np.sum(y_pred <= decile) / len(y_pred) * 100 for decile in deciles]
+
+    # Calculate the percentage of actual labels covered
+    percentage_covered = [np.sum(y_true[y_pred <= decile] <= decile) / len(y_true) * 100 for decile in deciles]
+
+    # Plot the results
+    plt.plot(percentage_targeted, percentage_covered, marker='o', linestyle='-', label='Regression Evaluation')
+
+    # Plot the base case line
+    plt.plot([0, 100], [0, 100], linestyle='--', color='gray', label='Base Case')
+
+    plt.xlabel('Percentage of Data Targeted')
+    plt.ylabel('Percentage of Target Data Covered')
+    plt.title('Regression Evaluation Plot')
+    plt.legend()
+    plt.savefig(regression_chart_file)
+    plt.clf()
+
 def plot_roc_auc_curve( y_pred, y_true, roc_auc_file)-> None:
     """
     Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.

@@ -72,7 +72,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     entity_column = merged_config["data"]["entity_column"]
     features_profiles_model = merged_config["data"]["features_profiles_model"]
-    prediction_task = merged_config["data"]['task']
+    prediction_task = merged_config['data'].pop('task', 'classification')
 
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == 'classification':    
@@ -112,62 +112,20 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     input = connector.drop_cols(predict_data, [label_column, entity_column, index_timestamp])
     types = connector.generate_type_hint(input)
 
-    @cachetools.cached(cache={})
-    def load_model(filename: str):
-        """session.import adds the staged model file to an import directory. We load the model file from this location
-        """
-        import_dir = sys._xoptions.get("snowflake_import_directory")
-
-        if import_dir:
-            assert import_dir.startswith('/home/udf/')
-            filename = os.path.join(import_dir, filename)
-        else:
-            filename = os.path.join(local_folder, filename)
-
-        with open(filename, 'rb') as file:
-            m = joblib.load(file)
-            return m
-        
-    @cachetools.cached(cache={})
-    def load_column_names(filename: str):
-        """session.import adds the staged model file to an import directory. We load the model file from this location
-        """
-        import_dir = sys._xoptions.get("snowflake_import_directory")
-
-        if import_dir:
-            assert import_dir.startswith('/home/udf/')
-            filename = os.path.join(import_dir, filename)
-            
-        with open(filename, 'r') as file:
-            column_names = json.load(file)
-            return column_names
-        
-    def predict_helper(df, model_name: str, **kwargs) -> Any:
-        trained_model = load_model(model_name)
-        df.columns = [x.upper() for x in df.columns]
-        column_names_path = kwargs.get("column_names_path", None)
-        column_names = load_column_names(column_names_path)
-        categorical_columns = column_names["categorical_columns"]
-        numeric_columns = column_names["numeric_columns"]
-        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
-
-        if prediction_task =='clasification':
-            return trained_model.predict_proba(df)[:,1]
-        else :
-            return trained_model.predict(df)
-    
-
     features = input.columns
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py")
+    import_paths = []
+    for file in import_files:
+        import_paths.append(os.path.join(current_dir, file))
 
     if creds['type'] == 'snowflake':
         @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
                 stage_location=stage_name, name=udf_name, 
-                imports= [f"{stage_name}/{model_name}", f"{stage_name}/{column_names_file}"],
-                packages=["snowflake-snowpark-python>=0.10.0","typing", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas==1.5.3","joblib", "cachetools", "PyYAML", "simplejson"])
+                  imports=[f"{stage_name}/{model_name}", f"{stage_name}/{column_names_file}"] + [current_dir] + import_paths,
+                packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
-            # predictions = predict_helper(df, model_name, column_names_path=column_names_file)
             predictions = trainer.predict(df, model_name, column_names_path=column_names_file)
             return predictions
 
@@ -175,12 +133,11 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     elif creds['type'] == 'redshift':
         def predict_scores_rs(df: pd.DataFrame, column_names_path: str) -> pd.Series:
             df.columns = features
-            predictions = predict_helper(df, model_name, column_names_path=column_names_path)
+            predictions = trainer.predict(df, model_name, column_names_path=column_names_file,local_folder = local_folder)
             return predictions
         prediction_udf = predict_scores_rs
 
     preds_with_percentile = connector.call_prediction_udf(predict_data, prediction_udf, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
-    print(preds_with_percentile.columns)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite")
     connector.clean_up()
 
@@ -193,4 +150,4 @@ if __name__ == "__main__":
         output_folder = 'output/dev/seq_no/7'
         model_path = f"{output_folder}/train_output.json"
         
-    predict(creds, aws_config, model_path, None, "test",None)
+    predict(creds, aws_config, model_path, None, "subham_regressor_refactor_test",None)

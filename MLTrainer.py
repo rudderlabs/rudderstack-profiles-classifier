@@ -1,6 +1,5 @@
 import os
 import sys
-import cachetools
 import joblib
 import time
 import json
@@ -218,7 +217,6 @@ class MLTrainer(ABC):
     def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
         pass
 
-    @cachetools.cached(cache={})
     def load_model(self, filename: str, local_folder):
         """session.import adds the staged model file to an import directory. We load the model file from this location
         """
@@ -234,7 +232,6 @@ class MLTrainer(ABC):
             m = joblib.load(file)
             return m
         
-    @cachetools.cached(cache={})
     def load_column_names(self,filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location
         """
@@ -249,7 +246,8 @@ class MLTrainer(ABC):
             return column_names
         
     def predict(self, df, model_name: str, **kwargs) -> Any:
-        trained_model = self.load_model(model_name,'')
+        local_folder = kwargs.get('local_folder', '')
+        trained_model = self.load_model(model_name, local_folder)
         df.columns = [x.upper() for x in df.columns]
         column_names_path = kwargs.get("column_names_path", None)
         column_names = self.load_column_names(column_names_path)
@@ -451,7 +449,10 @@ class ClassificationTrainer(MLTrainer):
             connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
 
             lift_chart_file = connector.join_file_path(self.figure_names['lift-chart'])
-            utils.plot_lift_chart(y_pred, y_true, lift_chart_file)
+            try :
+                utils.plot_lift_chart(y_pred, y_true, lift_chart_file)
+            except : 
+                print("unable to plot")
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")

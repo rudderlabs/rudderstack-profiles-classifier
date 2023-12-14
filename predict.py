@@ -21,6 +21,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import utils
 import constants
 from SnowflakeConnector import SnowflakeConnector
+from MLTrainer import ClassificationTrainer, RegressionTrainer
+
+
 
 warnings.filterwarnings('ignore', category=NumbaDeprecationWarning)
 warnings.simplefilter('ignore', category=NumbaPendingDeprecationWarning)
@@ -69,7 +72,13 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     entity_column = merged_config["data"]["entity_column"]
     features_profiles_model = merged_config["data"]["features_profiles_model"]
-    task = merged_config["data"]['task']
+    prediction_task = merged_config["data"]['task']
+
+    prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
+    if prediction_task == 'classification':    
+        trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config)
+    elif prediction_task == 'regression':
+        trainer = RegressionTrainer(**merged_config["data"], prep=prep_config)
 
 
     model_name = f"{output_profiles_ml_model}_{model_file_name}"
@@ -143,7 +152,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
         df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
 
-        if task =='clasification':
+        if prediction_task =='clasification':
             return trained_model.predict_proba(df)[:,1]
         else :
             return trained_model.predict(df)
@@ -158,7 +167,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
                 packages=["snowflake-snowpark-python>=0.10.0","typing", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas==1.5.3","joblib", "cachetools", "PyYAML", "simplejson"])
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
-            predictions = predict_helper(df, model_name, column_names_path=column_names_file)
+            # predictions = predict_helper(df, model_name, column_names_path=column_names_file)
+            predictions = trainer.predict(df, model_name, column_names_path=column_names_file)
             return predictions
 
         prediction_udf = predict_scores
@@ -177,7 +187,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None
         output_folder = 'output/dev/seq_no/7'

@@ -275,6 +275,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                             session=session,
                                             connector=connector,
                                             trainer=trainer)
+        
+
     except Exception as e:
         logger.error(f"Error while training the model: {e}")
         raise e
@@ -318,7 +320,7 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
     inputs = None
-    output_folder = 'output/dev/seq_no/9'
+    output_folder = 'output/dev/seq_no/8'
     output_file_name = f"{output_folder}/train_output.json"
     siteconfig_path = os.path.join(homedir, ".pb/siteconfig.yaml")
 
@@ -326,6 +328,6 @@ if __name__ == "__main__":
     path.mkdir(parents=True, exist_ok=True)
     # logger.setLevel(logging.DEBUG)
 
-    project_folder = '/Users/admin/Desktop/Playground/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+    project_folder = '/Users/admin/Desktop/Profiles/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

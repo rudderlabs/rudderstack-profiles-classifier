@@ -320,7 +320,7 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
     inputs = None
-    output_folder = 'output/dev/seq_no/8'
+    output_folder = 'output/dev/seq_no/7'
     output_file_name = f"{output_folder}/train_output.json"
     siteconfig_path = os.path.join(homedir, ".pb/siteconfig.yaml")
 

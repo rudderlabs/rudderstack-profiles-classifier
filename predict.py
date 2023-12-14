@@ -69,6 +69,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     entity_column = merged_config["data"]["entity_column"]
     features_profiles_model = merged_config["data"]["features_profiles_model"]
+    task = merged_config["data"]['task']
 
 
     model_name = f"{output_profiles_ml_model}_{model_file_name}"
@@ -141,7 +142,12 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         numeric_columns = column_names["numeric_columns"]
         df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
         df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
-        return trained_model.predict_proba(df)[:,1]
+
+        if task =='clasification':
+            return trained_model.predict_proba(df)[:,1]
+        else :
+            return trained_model.predict(df)
+    
 
     features = input.columns
 
@@ -152,18 +158,19 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
                 packages=["snowflake-snowpark-python>=0.10.0","typing", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas==1.5.3","joblib", "cachetools", "PyYAML", "simplejson"])
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
-            predict_proba = predict_helper(df, model_name, column_names_path=column_names_file)
-            return predict_proba
+            predictions = predict_helper(df, model_name, column_names_path=column_names_file)
+            return predictions
 
         prediction_udf = predict_scores
     elif creds['type'] == 'redshift':
         def predict_scores_rs(df: pd.DataFrame, column_names_path: str) -> pd.Series:
             df.columns = features
-            predict_proba = predict_helper(df, model_name, column_names_path=column_names_path)
-            return predict_proba
+            predictions = predict_helper(df, model_name, column_names_path=column_names_path)
+            return predictions
         prediction_udf = predict_scores_rs
 
     preds_with_percentile = connector.call_prediction_udf(predict_data, prediction_udf, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
+    print(preds_with_percentile.columns)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite")
     connector.clean_up()
 
@@ -176,4 +183,4 @@ if __name__ == "__main__":
         output_folder = 'output/dev/seq_no/7'
         model_path = f"{output_folder}/train_output.json"
         
-    predict(creds, aws_config, model_path, None, "test_can_delete",None)
+    predict(creds, aws_config, model_path, None, "test",None)

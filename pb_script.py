@@ -19,13 +19,13 @@ if __name__ == "__main__":
 
     credentials_presets = None
     p_output_tablename = 'test_run_can_delete_90'
-    t_output_filename = 'rudderstack_profiles_classifier/output/dev/seq_no/7/train_output' + train_file_extension
+    t_output_filename = 'rudderstack_profiles_classifier/output/dev/seq_no/8/train_output' + train_file_extension
     should_train = True
     site_config_path = os.path.join(homedir, ".pb/siteconfig.yaml")
-    project_folder = '/Users/admin/Desktop/Playground/lib_projects/rudderstack-profiles-base-features'
-
-    train_config = json.loads('{"data":{"eligible_users":"user_main_id is not null","features_profiles_model":"rudder_user_base_features","inputs":["models/rudder_user_base_features"],"label_column":"is_churned_30_days","label_value":1,"output_profiles_ml_model":"churn_30_days_model","package_name":"feature_table","prediction_horizon_days":30},"preprocessing":{"ignore_features":["user_email","first_name","last_name"]}}')
-    predict_config = json.loads('{"data":{"ignore_features":["user_email","first_name","last_name"]},"outputs":{"column_names":{"percentile":"percentile_churn_score_30_days","score":"churn_score_30_days"},"feature_meta_data":{"features":[{"description":"Percentile of churn score. Higher the percentile, higher the probability of churn","name":"percentile_churn_score_30_days"}]}},"preprocessing":{"ignore_features":["user_email","first_name","last_name"]}}')
+    project_folder = '/Users/admin/Desktop/Profiles/rudderstack-profiles-shopify-churn'
+    
+    train_config = json.loads('{"data":{"eligible_users":"1=1","features_profiles_model":"rudder_user_base_features","inputs":["packages/feature_table/models/rudder_user_base_features"],"label_column":"days_since_last_seen","label_value":1,"output_profiles_ml_model":"shopify_churn","package_name":"feature_table","prediction_horizon_days":7},"preprocessing":{"ignore_features":["user_email","first_name","last_name"]}}')
+    predict_config = json.loads('{"data":{"eligible_users":"1=1","features_profiles_model":"rudder_user_base_features","inputs":["packages/feature_table/models/rudder_user_base_features"],"label_column":"days_since_last_seen","label_value":1,"output_profiles_ml_model":"shopify_churn","package_name":"feature_table","prediction_horizon_days":7},"outputs":{"column_names":{"percentile":"percentile_churn_score_7_days","score":"churn_score_7_days"},"feature_meta_data":{"features":[{"description":"Percentile of churn score. Higher the percentile, higher the probability of churn","name":"percentile_churn_score_7_days"}]}},"preprocessing":{"ignore_features":["user_email","first_name","last_name"]}}')
 
     if should_train:
         T.train(creds, None, t_output_filename, train_config, site_config_path, project_folder)

@@ -1,3 +1,5 @@
+import os
+import sys
 import joblib
 import time
 import json
@@ -9,7 +11,7 @@ from logger import logger
 from copy import deepcopy
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Tuple, List, Union, Dict
+from typing import Any, Tuple, List, Union, Dict
 from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 
 from sklearn.pipeline import Pipeline
@@ -214,6 +216,52 @@ class MLTrainer(ABC):
     @abstractmethod
     def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
         pass
+
+    def load_model(self, filename: str, local_folder):
+        """session.import adds the staged model file to an import directory. We load the model file from this location
+        """
+        import_dir = sys._xoptions.get("snowflake_import_directory")
+
+        if import_dir:
+            assert import_dir.startswith('/home/udf/')
+            filename = os.path.join(import_dir, filename)
+        else:
+            filename = os.path.join(local_folder, filename)
+
+        with open(filename, 'rb') as file:
+            m = joblib.load(file)
+            return m
+        
+    def load_column_names(self,filename: str):
+        """session.import adds the staged model file to an import directory. We load the model file from this location
+        """
+        import_dir = sys._xoptions.get("snowflake_import_directory")
+
+        if import_dir:
+            assert import_dir.startswith('/home/udf/')
+            filename = os.path.join(import_dir, filename)
+            
+        with open(filename, 'r') as file:
+            column_names = json.load(file)
+            return column_names
+        
+    def predict(self, df, model_name: str, **kwargs) -> Any:
+        local_folder = kwargs.get('local_folder', '')
+        trained_model = self.load_model(model_name, local_folder)
+        df.columns = [x.upper() for x in df.columns]
+        column_names_path = kwargs.get("column_names_path", None)
+        column_names = self.load_column_names(column_names_path)
+        categorical_columns = column_names["categorical_columns"]
+        numeric_columns = column_names["numeric_columns"]
+        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+
+        return self.predict_helper(trained_model, df)
+    
+    @abstractmethod
+    def predict_helper(self,trained_model,df):
+        pass
+
     def train_model(self, feature_df: pd.DataFrame,
                     categorical_columns: List[str], numeric_columns: List[str], merged_config: dict, model_file: str):
         """Creates and saves the trained model pipeline after performing preprocessing and classification
@@ -401,7 +449,10 @@ class ClassificationTrainer(MLTrainer):
             connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
 
             lift_chart_file = connector.join_file_path(self.figure_names['lift-chart'])
-            utils.plot_lift_chart(y_pred, y_true, lift_chart_file)
+            try :
+                utils.plot_lift_chart(y_pred, y_true, lift_chart_file)
+            except : 
+                print("unable to plot")
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
@@ -420,6 +471,9 @@ class ClassificationTrainer(MLTrainer):
                            "data": {"metrics": model_results['metrics'], 
                                     "threshold": model_results['prob_th']}}
         return training_summary
+
+    def predict_helper(self, trained_model, df):
+        return trained_model.predict_proba(df)[:,1]
 
 class RegressionTrainer(MLTrainer):
 
@@ -571,3 +625,6 @@ class RegressionTrainer(MLTrainer):
         training_summary ={"timestamp": model_timestamp,
                            "data": {"metrics": model_results['metrics']}}
         return training_summary
+
+    def predict_helper(self, trained_model, df):
+        return trained_model.predict(df)

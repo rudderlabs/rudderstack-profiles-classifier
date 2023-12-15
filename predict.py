@@ -113,16 +113,12 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     types = connector.generate_type_hint(input)
 
     features = input.columns
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py")
-    import_paths = []
-    for file in import_files:
-        import_paths.append(os.path.join(current_dir, file))
+    import_files = ["utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py"]
 
     if creds['type'] == 'snowflake':
         @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
                 stage_location=stage_name, name=udf_name, 
-                  imports=[f"{stage_name}/{model_name}", f"{stage_name}/{column_names_file}"] + [current_dir] + import_paths,
+                  imports=[f"{stage_name}/{model_name}", f"{stage_name}/{column_names_file}"] + import_files,
                 packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
@@ -138,6 +134,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         prediction_udf = predict_scores_rs
 
     preds_with_percentile = connector.call_prediction_udf(predict_data, prediction_udf, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
+    print(preds_with_percentile.columns)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite")
     connector.clean_up()
 
@@ -147,7 +144,7 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
         print(creds["schema"])
         aws_config=None
-        output_folder = 'output/dev/seq_no/7'
+        output_folder = 'output/dev/seq_no/8'
         model_path = f"{output_folder}/train_output.json"
         
-    predict(creds, aws_config, model_path, None, "subham_regressor_refactor_test",None)
+    predict(creds, aws_config, model_path, None, "subham_new_test_metrics",None)

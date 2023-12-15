@@ -163,7 +163,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         session = connector.build_session(creds)
         connector.create_stage(session, stage_name)
         connector.delete_import_files(session, stage_name, import_paths)
-        connector.delete_procedures(session)
+        connector.delete_procedures(session, train_procedure)
 
         @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
             packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])

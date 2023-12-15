@@ -278,5 +278,9 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def clean_up(self) -> None:
+    def delete_local_data_folder(self) -> None:
+        pass
+    
+    @abstractmethod
+    def cleanup(self, *args, **kwargs) -> None:
         pass

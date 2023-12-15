@@ -566,7 +566,7 @@ class RedshiftConnector(Connector):
         preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
         return preds
 
-    def clean_up(self) -> None:
+    def delete_local_data_folder(self) -> None:
         """Deletes the local data folder."""
         try:
             shutil.rmtree(self.local_dir)
@@ -608,3 +608,6 @@ class RedshiftConnector(Connector):
         """This function will return the feature_df_path"""
         feature_df_path = os.path.join(self.local_dir, f"{feature_table_name}.parquet.gzip")
         return feature_df_path
+    
+    def cleanup(self, *args, **kwargs) -> None:
+        pass

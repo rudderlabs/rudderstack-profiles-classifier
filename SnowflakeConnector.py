@@ -642,7 +642,7 @@ class SnowflakeConnector(Connector):
                                                         entity_column, index_timestamp, "model_id", score_column_name, percentile_column_name, output_label_column)
         return preds_with_percentile
 
-    def clean_up(self) -> None:
+    def delete_local_data_folder(self) -> None:
         pass
 
 
@@ -739,3 +739,17 @@ class SnowflakeConnector(Connector):
             Nothing
         """
         _ = session.file.get(file_stage_path, target_folder)
+        
+    def cleanup(self, session:snowflake.snowpark.Session, **kwargs):
+        stored_procedure_name = kwargs.get("stored_procedure_name", None)
+        udf_name = kwargs.get("udf_name", None)
+        delete_files=kwargs.get("delete_files", None)
+        stage_name=kwargs.get("stage_name", None)
+        if stored_procedure_name:
+            self.delete_procedures(session, stored_procedure_name)
+        if udf_name:
+            self.drop_fn_if_exists(session, udf_name)
+        if delete_files:
+            self.delete_import_files(session, stage_name, delete_files)
+            
+        

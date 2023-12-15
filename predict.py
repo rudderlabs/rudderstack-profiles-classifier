@@ -45,7 +45,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         None: save the prediction results but returns nothing
     """
 
-    stage_name = constants.STAGE_NAME
     model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
@@ -57,6 +56,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         results = json.load(f)
     train_model_id = results["model_info"]["model_id"]
     prob_th = results["model_info"]["threshold"]
+    stage_name = results["model_info"]["file_location"]["stage"]
 
     score_column_name = merged_config['outputs']['column_names']['score']
     percentile_column_name = merged_config['outputs']['column_names']['percentile']
@@ -72,9 +72,10 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
 
     model_name = f"{output_profiles_ml_model}_{model_file_name}"
-
+    
+    udf_name=None
     if creds["type"] == "snowflake":
-        udf_name = "prediction_score"
+        udf_name = f"prediction_score_{stage_name.replace('@','')}"
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
         #connector.delete_import_files(session, stage_name, import_paths)
@@ -165,7 +166,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     preds_with_percentile = connector.call_prediction_udf(predict_data, prediction_udf, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite")
-    connector.clean_up()
+    connector.delete_local_data_folder() #TODO: In redshift, this might mean it would delete previous train summary. Need to fix this
+    connector.cleanup(session, udf_name=udf_name)
 
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")

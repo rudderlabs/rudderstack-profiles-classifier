@@ -168,6 +168,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
 
         @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
             packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
+            packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
                     merged_config: dict) -> dict:
@@ -276,6 +277,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                             session=session,
                                             connector=connector,
                                             trainer=trainer)
+        
 
     except Exception as e:
         logger.error(f"Error while training the model: {e}")
@@ -320,7 +322,7 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
     inputs = None
-    output_folder = 'output/dev/seq_no/9'
+    output_folder = 'output/dev/seq_no/8'
     output_file_name = f"{output_folder}/train_output.json"
     siteconfig_path = os.path.join(homedir, ".pb/siteconfig.yaml")
 
@@ -328,6 +330,6 @@ if __name__ == "__main__":
     path.mkdir(parents=True, exist_ok=True)
     # logger.setLevel(logging.DEBUG)
 
-    project_folder = ''    #change path of project directory as per your system
+    project_folder = '/Users/admin/Desktop/Profiles/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

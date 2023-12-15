@@ -17,7 +17,6 @@ python_packages/*
 **/logs/*
 dataflow.png
 *.log
-
-testenv/
 testenv2/
 tmp/
+

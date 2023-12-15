@@ -375,7 +375,7 @@ def get_pb_path() -> str:
         _ = subprocess.check_output(["which", "pb"])
         return "pb"
     except:
-        logger.warning("pb command not found in the path. Using the default rudder-sources path /venv/bin/pb")
+        logger.info("pb command not found in the path. Using the default rudder-sources path /venv/bin/pb")
         return constants.PB
     
 def get_project_folder(project_folder: str, output_path: str)-> str:
@@ -484,24 +484,51 @@ def generate_material_name(material_table_prefix: str, model_name: str, model_ha
     """
     return f'{material_table_prefix}{model_name}_{model_hash}_{seq_no}'
 
-def plot_regression_residuals(pipe, test_x, test_y, residuals_file, label_column):
+def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
+    """
+    Plots y-actual vs y-predicted using deciles and saves it as a file.
+    Args:
+        y_pred (pd.Series): Predicted labels.
+        y_true (pd.Series): Actual labels.
+        deciles_file (str): File path to save the deciles plot.
+        label_column (str): Name of the label column.
+    Returns:
+        None. The function only saves the deciles plot as a file.
+    """
+    deciles = pd.qcut(y_pred, q=10, labels=False, duplicates='drop')
+    deciles_df = pd.DataFrame({'Actual': y_true, 'Predicted': y_pred, 'Deciles': deciles})
+    deciles_agg = deciles_df.groupby('Deciles').agg({'Actual': 'mean', 'Predicted': 'mean'}).reset_index()
+
+    sns.set(style="ticks", context='notebook')
+    plt.figure(figsize=(8, 6))
+    plt.scatter(deciles_agg['Predicted'], deciles_agg['Actual'], color="b", alpha=0.5)
+    plt.plot([deciles_agg['Predicted'].min(), deciles_agg['Predicted'].max()],
+             [deciles_agg['Predicted'].min(), deciles_agg['Predicted'].max()], color='r', linestyle='--', linewidth=2)
+    plt.title(f"Y-Actual vs Y-Predicted (Deciles) for {label_column}")
+    plt.xlabel(f"Mean Predicted {label_column}")
+    plt.ylabel(f"Mean Actual {label_column}")
+    sns.despine()
+    plt.grid(True)
+    plt.savefig(deciles_file)
+    plt.clf()
+
+
+def plot_regression_residuals(y_pred, y_true, residuals_file):
     """
     Plots regression residuals and saves it as a file.
 
     Args:
-        pipe (object): The trained pipeline model.
-        test_x (array-like): The test data features.
-        test_y (array-like): The test data labels.
-        residuals_file (str): File path to save the residuals plot.
-        label_column (str): Name of the label column.
+        y_true (array-like): The test data true values.
+        y_pred (array-like): The predicted data values.
+        chart_name (str): The name of the plot file.
 
     Returns:
         None. The function only saves the residuals plot as a file.
     """
-    residuals = test_y[label_column.upper()] - pipe.predict(test_x)
+    residuals = y_true - y_pred
     sns.set(style="ticks", context='notebook')
     plt.figure(figsize=(8, 6))
-    plt.scatter(pipe.predict(test_x), residuals, color="b", alpha=0.5)
+    plt.scatter(y_pred, residuals, color="b", alpha=0.5)
     plt.axhline(y=0, color='r', linestyle='--', linewidth=2)
     plt.title("Residuals Plot (Test data)")
     plt.xlabel("Predicted Values")
@@ -510,24 +537,55 @@ def plot_regression_residuals(pipe, test_x, test_y, residuals_file, label_column
     plt.grid(True)
     plt.savefig(residuals_file)
     plt.clf()
-    
-def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
+
+def regression_evaluation_plot(y_pred, y_true, regression_chart_file, num_bins=10):
+    """
+    Create a plot between the percentage of targeted data and the percentage of actual labels covered.
+
+    Parameters:
+    - y_pred (array-like): Predicted values.
+    - y_true (array-like): True values.
+    - regression_chart_file (str): The file path to save the regression chart.
+    - num_bins (int, optional): Number of bins for dividing the continuous labels. Default is 10.
+
+    Returns:
+    - None
+    """
+    # Calculate deciles for y_true
+    deciles = np.percentile(y_true, np.arange(0, 100, 100/num_bins))
+
+    # Calculate the percentage of targeted data
+    percentage_targeted = [np.sum(y_pred <= decile) / len(y_pred) * 100 for decile in deciles]
+
+    # Calculate the percentage of actual labels covered
+    percentage_covered = [np.sum(y_true[y_pred <= decile] <= decile) / len(y_true) * 100 for decile in deciles]
+
+    # Plot the results
+    plt.plot(percentage_targeted, percentage_covered, marker='o', linestyle='-', label='Regression Evaluation')
+
+    # Plot the base case line
+    plt.plot([0, 100], [0, 100], linestyle='--', color='gray', label='Base Case')
+
+    plt.xlabel('Percentage of Data Targeted')
+    plt.ylabel('Percentage of Target Data Covered')
+    plt.title('Regression Evaluation Plot')
+    plt.legend()
+    plt.savefig(regression_chart_file)
+    plt.clf()
+
+def plot_roc_auc_curve( y_pred, y_true, roc_auc_file)-> None:
     """
     Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.
 
     Parameters:
-    session (object): The session object that provides access to the file storage.
-    pipe (object): The trained pipeline model.
-    stage_name (str): The name of the stage.
-    test_x (array-like): The test data features.
-    test_y (array-like): The test data labels.
-    chart_name (str): The name of the chart.
-    label_column (str): The name of the label column in the test data.
+    y_true (array-like): The test data true labels.
+    y_pred (array-like): The predicted data labels.
+    chart_name (str): The name of the plot file.
 
     Returns:
     None. The function does not return any value. The generated ROC curve plot is saved as an image file and uploaded to the session's file storage.
     """
-    fpr, tpr, _ = roc_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
+    fpr, tpr, _ = roc_curve(y_true, y_pred)
     roc_auc = auc(fpr, tpr)
     sns.set(style="ticks",  context='notebook')
     plt.figure(figsize=(8, 6))
@@ -542,23 +600,19 @@ def plot_roc_auc_curve(pipe, test_x, test_y, roc_auc_file, label_column)-> None:
     plt.savefig(roc_auc_file)
     plt.clf()
 
-def plot_pr_auc_curve(pipe, test_x, test_y, pr_auc_file, label_column)-> None:
+def plot_pr_auc_curve(y_pred, y_true, pr_auc_file)-> None:
     """
     Plots a precision-recall curve and saves it as a file.
 
     Args:
-        session (object): A session object used to upload the plot file.
-        pipe (object): A pipeline object used to predict probabilities.
-        stage_name (str): The name of the stage where the plot file will be uploaded.
-        test_x (array-like): The test data features.
-        test_y (array-like): The test data labels.
+        y_true (array-like): The test data true labels.
+        y_pred (array-like): The predicted data labels.
         chart_name (str): The name of the plot file.
-        label_column (str): The column name of the label in the test data.
 
     Returns:
         None. The function only saves the precision-recall curve plot as a file.
     """
-    precision, recall, _ = precision_recall_curve(test_y[label_column.upper()].values, pipe.predict_proba(test_x)[:,1])
+    precision, recall, _ = precision_recall_curve(y_true, y_pred)
     pr_auc = auc(recall, precision)
     sns.set(style="ticks",  context='notebook')
     plt.figure(figsize=(8, 6))
@@ -574,25 +628,21 @@ def plot_pr_auc_curve(pipe, test_x, test_y, pr_auc_file, label_column)-> None:
     plt.savefig(pr_auc_file)
     plt.clf()
 
-def plot_lift_chart(pipe, test_x, test_y, lift_chart_file, label_column)-> None:
+def plot_lift_chart(y_pred, y_true, lift_chart_file)-> None:
     """
     Generates a lift chart for a binary classification model.
 
     Args:
-        session (object): The session object used to save the chart file.
-        pipe (object): The trained model pipeline.
-        stage_name (string): The name of the stage where the chart will be saved.
-        test_x (DataFrame): The test data features.
-        test_y (DataFrame): The test data labels.
-        chart_name (string): The name of the chart file.
-        label_column (string): The column name of the label in the test data.
+        y_true (array-like): The test data true labels.
+        y_pred (array-like): The predicted data labels.
+        chart_name (str): The name of the plot file.
 
     Returns:
         None. The function does not return any value, but it saves the lift chart as an image file in the specified location.
     """
     data = pd.DataFrame()
-    data['label'] = test_y[label_column.upper()].values
-    data['pred'] = pipe.predict_proba(test_x)[:,1]
+    data['label'] = y_true
+    data['pred'] = y_pred
 
     sorted_indices = np.argsort(data["pred"].values, kind="heapsort")[::-1]
     cumulative_actual = np.cumsum(data["label"][sorted_indices].values)

@@ -1,0 +1,385 @@
+2023-11-28T21:36:35.743+0530	ERROR	features/model.go:78	populating entity vars , dereferencing source rsTracksUnionPages/: ref 'rsTracksUnionPages/' not found in source models/
+
+2023-11-28T21:36:35.744+0530	ERROR	core/project.go:561	populating default models: getting all inputs Models: listing models for child source models/: error listing models: error building model rudder_user_base_features: populating entity vars , dereferencing source rsTracksUnionPages/: ref 'rsTracksUnionPages/' not found in source models/
+
+2023-11-28T21:36:35.744+0530	ERROR	core/project.go:319	populating from models folders for /Users/admin/Desktop/Playground/rudderstack_profiles_classifier/samples/base_features: populating default models: getting all inputs Models: listing models for child source models/: error listing models: error building model rudder_user_base_features: populating entity vars , dereferencing source rsTracksUnionPages/: ref 'rsTracksUnionPages/' not found in source models/
+
+2023-11-28T21:40:27.347+0530	ERROR	core/project.go:561	populating default models: getting all inputs Models: listing models for child source entity/: listing models for child source user/: error listing models: error building model days_since_account_creation: no matching model found for modelRef rsIdentifies in source inputs/
+
+2023-11-28T21:40:27.347+0530	ERROR	core/project.go:319	populating from models folders for /Users/admin/Desktop/Playground/rudderstack_profiles_classifier/samples/base_features: populating default models: getting all inputs Models: listing models for child source entity/: listing models for child source user/: error listing models: error building model days_since_account_creation: no matching model found for modelRef rsIdentifies in source inputs/
+
+2023-11-28T21:40:57.229+0530	ERROR	template/templates.go:39	executing sql template: [Error (where: execution) in <string> | Line 296 Col 6 near 'warehouse'] [Error (where: execution) in <string> | Line 296 Col 30 near 'beginEndMacro'] [Error (where: execution) in <string> | Line 17 Col 51 near 'warehouse'] running exec tag: [Error (where: execution) in <string> | Line 17 Col 71 near 'whStatement'] [Error (where: execution) in <string> | Line 7 Col 19 near 'macro_datediff'] No value found for macro_datediff
+
+2023-11-28T21:40:57.230+0530	ERROR	base/context.go:72	compiling model at {SourceRef:{IsRelative:false Path:[entity/ user/]} ScopedModelRef:days_since_last_seen}: generating sql string from recipe template for days_since_last_seen: preparing sqlQueryRecipe: executing sql template: [Error (where: execution) in <string> | Line 296 Col 6 near 'warehouse'] [Error (where: execution) in <string> | Line 296 Col 30 near 'beginEndMacro'] [Error (where: execution) in <string> | Line 17 Col 51 near 'warehouse'] running exec tag: [Error (where: execution) in <string> | Line 17 Col 71 near 'whStatement'] [Error (where: execution) in <string> | Line 7 Col 19 near 'macro_datediff'] No value found for macro_datediff
+
+2023-11-28T21:40:57.230+0530	ERROR	template/templates.go:39	executing sql template: [Error (where: execution) in <string> | Line 280 Col 6 near 'warehouse'] [Error (where: execution) in <string> | Line 280 Col 30 near 'beginEndMacro'] [Error (where: execution) in <string> | Line 274 Col 19 near 'begin_block'] [Error (where: execution) in <string> | Line 264 Col 21 near 'warehouse'] [Error (where: execution) in <string> | Line 264 Col 65 near 'add_valid_at'] [Error (where: execution) in <string> | Line 257 Col 39 near 'entityWrapper'] error while getting template material for days_since_last_seen
+
+2023-11-28T21:40:57.230+0530	ERROR	base/context.go:72	compiling model at {SourceRef:{IsRelative:false Path:[models/]} ScopedModelRef:rudder_user_base_features}: generating sql string from recipe template for rudder_user_base_features: preparing sqlQueryRecipe: executing sql template: [Error (where: execution) in <string> | Line 280 Col 6 near 'warehouse'] [Error (where: execution) in <string> | Line 280 Col 30 near 'beginEndMacro'] [Error (where: execution) in <string> | Line 274 Col 19 near 'begin_block'] [Error (where: execution) in <string> | Line 264 Col 21 near 'warehouse'] [Error (where: execution) in <string> | Line 264 Col 65 near 'add_valid_at'] [Error (where: execution) in <string> | Line 257 Col 39 near 'entityWrapper'] error while getting template material for days_since_last_seen
+
+2023-11-28T21:40:57.230+0530	ERROR	base/material.go:345	this.Deref: unable to get material for models/rudder_user_base_features, getting input material from rudder_user_base_features for: compiling model at {SourceRef:{IsRelative:false Path:[models/]} ScopedModelRef:rudder_user_base_features}: generating sql string from recipe template for rudder_user_base_features: preparing sqlQueryRecipe: executing sql template: [Error (where: execution) in <string> | Line 280 Col 6 near 'warehouse'] [Error (where: execution) in <string> | Line 280 Col 30 near 'beginEndMacro'] [Error (where: execution) in <string> | Line 274 Col 19 near 'begin_block'] [Error (where: execution) in <string> | Line 264 Col 21 near 'warehouse'] [Error (where: execution) in <string> | Line 264 Col 65 near 'add_valid_at'] [Error (where: execution) in <string> | Line 257 Col 39 near 'entityWrapper'] error while getting template material for days_since_last_seen
+
+2023-11-28T21:40:57.230+0530	ERROR	template/templates.go:39	executing sql template: [Error (where: execution) in <string> | Line 34 Col 11 near 'this'] this.Deref: unable to get material for models/rudder_user_base_features, getting input material from rudder_user_base_features for: compiling model at {SourceRef:{IsRelative:false Path:[models/]} ScopedModelRef:rudder_user_base_features}: generating sql string from recipe template for rudder_user_base_features: preparing sqlQueryRecipe: executing sql template: [Error (where: execution) in <string> | Line 280 Col 6 near 'warehouse'] [Error (where: execution) in <string> | Line 280 Col 30 near 'beginEndMacro'] [Error (where: execution) in <string> | Line 274 Col 19 near 'begin_block'] [Error (where: execution) in <string> | Line 264 Col 21 near 'warehouse'] [Error (where: execution) in <string> | Line 264 Col 65 near 'add_valid_at'] [Error (where: execution) in <string> | Line 257 Col 39 near 'entityWrapper'] error while getting template material for days_since_last_seen
+
+2023-11-28T21:40:57.230+0530	ERROR	core/project.go:1337	populating dependencies for project:base_features, model: churn_30_days_model: preparing recipe for churn_30_days_model : preparing pyMaterialRecipe: executing sql template: [Error (where: execution) in <string> | Line 34 Col 11 near 'this'] this.Deref: unable to get material for models/rudder_user_base_features, getting input material from rudder_user_base_features for: compiling model at {SourceRef:{IsRelative:false Path:[models/]} ScopedModelRef:rudder_user_base_features}: generating sql string from recipe template for rudder_user_base_features: preparing sqlQueryRecipe: executing sql template: [Error (where: execution) in <string> | Line 280 Col 6 near 'warehouse'] [Error (where: execution) in <string> | Line 280 Col 30 near 'beginEndMacro'] [Error (where: execution) in <string> | Line 274 Col 19 near 'begin_block'] [Error (where: execution) in <string> | Line 264 Col 21 near 'warehouse'] [Error (where: execution) in <string> | Line 264 Col 65 near 'add_valid_at'] [Error (where: execution) in <string> | Line 257 Col 39 near 'entityWrapper'] error while getting template material for days_since_last_seen
+
+2023-11-28T21:45:34.924+0530	ERROR	core/project.go:1340	populating dependencies for project:base_features, model: is_churned_90_days: getting creator recipe session_end_time in dependencies list of is_churned_90_days is not a valid var
+
+2023-11-28T21:46:04.737+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-11-28T21:46:09.383+0530	ERROR	core/project.go:1472	loading project environment dev: checking common tables version: getting common tables version: checking if common tables version table exists: checking if MATERIAL_REGISTRY exists: unable to get database name: context canceled
+
+2023-11-28T21:46:09.383+0530	ERROR	core/project.go:1422	loading project environment dev: checking common tables version: getting common tables version: checking if common tables version table exists: checking if MATERIAL_REGISTRY exists: unable to get database name: context canceled
+
+2023-11-28T21:46:09.383+0530	INFO	utils/errors.go:38	Context canceled, terminating gracefully!
+
+2023-11-28T21:46:10.937+0530	ERROR	core/project.go:1422	setting current schema for env dev: executing template: context canceled
+
+2023-11-28T21:46:10.938+0530	ERROR	core/project.go:2106	getting project env dev: %!w(*fmt.wrapError=&{setting current schema for env dev: executing template: context canceled 0xc00110a9c0})
+
+2023-11-28T21:46:23.836+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-11-28T21:46:47.373+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_id_stitcher_9e783531_218 to output/dev/seq_no/218. 
+
+
+2023-11-28T21:46:48.268+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_id_stitcher_9e783531_218
+
+2023-11-28T21:46:50.578+0530	INFO	base/material.go:604	Running material Material_rudder_user_id_stitcher_9e783531_218
+
+2023-11-28T21:47:11.352+0530	INFO	base/material.go:622	Material Material_rudder_user_id_stitcher_9e783531_218 ran in 20.774184481s
+
+2023-11-28T21:47:18.490+0530	INFO	base/interfaces.go:274	Compiled model. Material_rsTracks_var_table_88589a5f_218 to output/dev/seq_no/218. 
+
+
+2023-11-28T21:47:19.536+0530	INFO	base/material.go:532	Preparing material Material_rsTracks_var_table_88589a5f_218
+
+2023-11-28T21:47:21.850+0530	INFO	base/material.go:604	Running material Material_rsTracks_var_table_88589a5f_218
+
+2023-11-28T21:47:23.844+0530	INFO	base/material.go:622	Material Material_rsTracks_var_table_88589a5f_218 ran in 1.993348199s
+
+2023-11-28T21:47:29.630+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_cfc56553_218 to output/dev/seq_no/218. 
+
+
+2023-11-28T21:47:30.622+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_cfc56553_218
+
+2023-11-28T21:47:32.980+0530	INFO	base/material.go:604	Running material Material_user_var_table_cfc56553_218
+
+2023-11-28T21:47:34.157+0530	INFO	base/material.go:622	Material Material_user_var_table_cfc56553_218 ran in 1.176545258s
+
+2023-11-28T21:47:39.902+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_9be857a4_218 to output/dev/seq_no/218. 
+
+
+2023-11-28T21:47:40.892+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_9be857a4_218
+
+2023-11-28T21:47:42.268+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_9be857a4_218
+
+2023-11-28T21:47:45.922+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_9be857a4_218 ran in 3.654550098s
+
+2023-11-28T21:47:48.318+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_last_seen_97361c40_218 to output/dev/seq_no/218. 
+
+
+2023-11-28T21:47:49.263+0530	INFO	base/material.go:532	Preparing material Material_days_since_last_seen_97361c40_218
+
+2023-11-28T21:47:50.622+0530	INFO	base/material.go:604	Running material Material_days_since_last_seen_97361c40_218
+
+2023-11-28T21:47:54.185+0530	INFO	base/material.go:622	Material Material_days_since_last_seen_97361c40_218 ran in 3.562477s
+
+2023-11-28T21:47:56.898+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_90_days_8c6f72ab_218 to output/dev/seq_no/218. 
+
+
+2023-11-28T21:47:57.884+0530	INFO	base/material.go:532	Preparing material Material_is_churned_90_days_8c6f72ab_218
+
+2023-11-28T21:47:59.406+0530	INFO	base/material.go:604	Running material Material_is_churned_90_days_8c6f72ab_218
+
+2023-11-28T21:48:02.727+0530	INFO	base/material.go:622	Material Material_is_churned_90_days_8c6f72ab_218 ran in 3.320768955s
+
+2023-11-28T21:48:05.159+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_account_creation_9be857a4_218 to output/dev/seq_no/218. 
+
+
+2023-11-28T21:48:06.145+0530	INFO	base/material.go:532	Preparing material Material_days_since_account_creation_9be857a4_218
+
+2023-11-28T21:48:07.468+0530	INFO	base/material.go:604	Running material Material_days_since_account_creation_9be857a4_218
+
+2023-11-28T21:48:11.009+0530	INFO	base/material.go:622	Material Material_days_since_account_creation_9be857a4_218 ran in 3.540211422s
+
+2023-11-28T21:48:13.439+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_base_features_0abcf2d7_218 to output/dev/seq_no/218. 
+
+
+2023-11-28T21:48:14.437+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_base_features_0abcf2d7_218
+
+2023-11-28T21:48:16.750+0530	INFO	base/material.go:604	Running material Material_rudder_user_base_features_0abcf2d7_218
+
+2023-11-28T21:48:18.235+0530	INFO	base/material.go:622	Material Material_rudder_user_base_features_0abcf2d7_218 ran in 1.48450257s
+
+2023-11-28T21:48:24.972+0530	INFO	base/interfaces.go:274	Compiled model. Material_churn_90_days_model_6791854e_218 to output/dev/seq_no/218. 
+
+
+2023-11-28T21:48:25.973+0530	INFO	base/material.go:532	Preparing material Material_churn_90_days_model_6791854e_218
+
+2023-11-28T21:48:28.462+0530	INFO	base/material.go:604	Running material Material_churn_90_days_model_6791854e_218
+
+2023-11-29T03:25:40.333+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-11-29T03:26:02.572+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_id_stitcher_9e783531_221 to output/dev/seq_no/221. 
+
+
+2023-11-29T03:26:03.533+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_id_stitcher_9e783531_221
+
+2023-11-29T03:26:06.273+0530	INFO	base/material.go:604	Running material Material_rudder_user_id_stitcher_9e783531_221
+
+2023-11-29T03:26:26.301+0530	INFO	base/material.go:622	Material Material_rudder_user_id_stitcher_9e783531_221 ran in 19.967803909s
+
+2023-11-29T03:26:33.542+0530	INFO	base/interfaces.go:274	Compiled model. Material_rsTracks_var_table_88589a5f_221 to output/dev/seq_no/221. 
+
+
+2023-11-29T03:26:34.628+0530	INFO	base/material.go:532	Preparing material Material_rsTracks_var_table_88589a5f_221
+
+2023-11-29T03:26:36.950+0530	INFO	base/material.go:604	Running material Material_rsTracks_var_table_88589a5f_221
+
+2023-11-29T03:26:38.841+0530	INFO	base/material.go:622	Material Material_rsTracks_var_table_88589a5f_221 ran in 1.890508196s
+
+2023-11-29T03:26:44.509+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_cfc56553_221 to output/dev/seq_no/221. 
+
+
+2023-11-29T03:26:45.582+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_cfc56553_221
+
+2023-11-29T03:26:48.098+0530	INFO	base/material.go:604	Running material Material_user_var_table_cfc56553_221
+
+2023-11-29T03:26:49.238+0530	INFO	base/material.go:622	Material Material_user_var_table_cfc56553_221 ran in 1.140734613s
+
+2023-11-29T03:26:54.677+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_9be857a4_221 to output/dev/seq_no/221. 
+
+
+2023-11-29T03:26:55.715+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_9be857a4_221
+
+2023-11-29T03:26:57.123+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_9be857a4_221
+
+2023-11-29T03:27:01.015+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_9be857a4_221 ran in 3.891950253s
+
+2023-11-29T03:27:03.785+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_last_seen_97361c40_221 to output/dev/seq_no/221. 
+
+
+2023-11-29T03:27:04.881+0530	INFO	base/material.go:532	Preparing material Material_days_since_last_seen_97361c40_221
+
+2023-11-29T03:27:06.219+0530	INFO	base/material.go:604	Running material Material_days_since_last_seen_97361c40_221
+
+2023-11-29T03:27:09.568+0530	INFO	base/material.go:622	Material Material_days_since_last_seen_97361c40_221 ran in 3.34923797s
+
+2023-11-29T03:27:11.905+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_90_days_8c6f72ab_221 to output/dev/seq_no/221. 
+
+
+2023-11-29T03:27:12.990+0530	INFO	base/material.go:532	Preparing material Material_is_churned_90_days_8c6f72ab_221
+
+2023-11-29T03:27:14.326+0530	INFO	base/material.go:604	Running material Material_is_churned_90_days_8c6f72ab_221
+
+2023-11-29T03:27:17.292+0530	INFO	base/material.go:622	Material Material_is_churned_90_days_8c6f72ab_221 ran in 2.965852363s
+
+2023-11-29T03:27:19.735+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_account_creation_9be857a4_221 to output/dev/seq_no/221. 
+
+
+2023-11-29T03:27:20.763+0530	INFO	base/material.go:532	Preparing material Material_days_since_account_creation_9be857a4_221
+
+2023-11-29T03:27:22.006+0530	INFO	base/material.go:604	Running material Material_days_since_account_creation_9be857a4_221
+
+2023-11-29T03:27:25.385+0530	INFO	base/material.go:622	Material Material_days_since_account_creation_9be857a4_221 ran in 3.378638088s
+
+2023-11-29T03:27:27.795+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_base_features_0abcf2d7_221 to output/dev/seq_no/221. 
+
+
+2023-11-29T03:27:29.174+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_base_features_0abcf2d7_221
+
+2023-11-29T03:27:31.556+0530	INFO	base/material.go:604	Running material Material_rudder_user_base_features_0abcf2d7_221
+
+2023-11-29T03:27:32.860+0530	INFO	base/material.go:622	Material Material_rudder_user_base_features_0abcf2d7_221 ran in 1.304429039s
+
+2023-11-29T03:27:39.420+0530	INFO	base/interfaces.go:274	Compiled model. Material_churn_90_days_model_9bfff174_221 to output/dev/seq_no/221. 
+
+
+2023-11-29T03:27:40.377+0530	INFO	base/material.go:532	Preparing material Material_churn_90_days_model_9bfff174_221
+
+2023-11-29T03:27:42.667+0530	INFO	base/material.go:604	Running material Material_churn_90_days_model_9bfff174_221
+
+2023-12-05T20:49:50.309+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-12-05T20:50:21.094+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_id_stitcher_9e783531_2328 to output/dev/seq_no/2328. 
+
+
+2023-12-05T20:50:22.779+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_id_stitcher_9e783531_2328
+
+2023-12-05T20:50:26.047+0530	INFO	base/material.go:604	Running material Material_rudder_user_id_stitcher_9e783531_2328
+
+2023-12-05T20:50:49.496+0530	INFO	base/material.go:622	Material Material_rudder_user_id_stitcher_9e783531_2328 ran in 23.448449446s
+
+2023-12-05T20:50:58.578+0530	INFO	base/interfaces.go:274	Compiled model. Material_rsTracks_var_table_88589a5f_2328 to output/dev/seq_no/2328. 
+
+
+2023-12-05T20:50:59.953+0530	INFO	base/material.go:532	Preparing material Material_rsTracks_var_table_88589a5f_2328
+
+2023-12-05T20:51:02.820+0530	INFO	base/material.go:604	Running material Material_rsTracks_var_table_88589a5f_2328
+
+2023-12-05T20:51:05.099+0530	INFO	base/material.go:622	Material Material_rsTracks_var_table_88589a5f_2328 ran in 2.27881298s
+
+2023-12-05T20:51:12.091+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_cfc56553_2328 to output/dev/seq_no/2328. 
+
+
+2023-12-05T20:51:13.514+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_cfc56553_2328
+
+2023-12-05T20:51:16.426+0530	INFO	base/material.go:604	Running material Material_user_var_table_cfc56553_2328
+
+2023-12-05T20:51:17.864+0530	INFO	base/material.go:622	Material Material_user_var_table_cfc56553_2328 ran in 1.437420353s
+
+2023-12-05T20:51:25.767+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_9be857a4_2328 to output/dev/seq_no/2328. 
+
+
+2023-12-05T20:51:27.066+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_9be857a4_2328
+
+2023-12-05T20:51:28.612+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_9be857a4_2328
+
+2023-12-05T20:51:32.608+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_9be857a4_2328 ran in 3.995490205s
+
+2023-12-05T20:51:35.796+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_last_seen_97361c40_2328 to output/dev/seq_no/2328. 
+
+
+2023-12-05T20:51:37.111+0530	INFO	base/material.go:532	Preparing material Material_days_since_last_seen_97361c40_2328
+
+2023-12-05T20:51:38.659+0530	INFO	base/material.go:604	Running material Material_days_since_last_seen_97361c40_2328
+
+2023-12-05T20:51:41.992+0530	INFO	base/material.go:622	Material Material_days_since_last_seen_97361c40_2328 ran in 3.332707481s
+
+2023-12-05T20:51:45.358+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_90_days_8c6f72ab_2328 to output/dev/seq_no/2328. 
+
+
+2023-12-05T20:51:46.646+0530	INFO	base/material.go:532	Preparing material Material_is_churned_90_days_8c6f72ab_2328
+
+2023-12-05T20:51:48.170+0530	INFO	base/material.go:604	Running material Material_is_churned_90_days_8c6f72ab_2328
+
+2023-12-05T20:51:52.059+0530	INFO	base/material.go:622	Material Material_is_churned_90_days_8c6f72ab_2328 ran in 3.889017621s
+
+2023-12-05T20:51:55.242+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_account_creation_9be857a4_2328 to output/dev/seq_no/2328. 
+
+
+2023-12-05T20:51:56.492+0530	INFO	base/material.go:532	Preparing material Material_days_since_account_creation_9be857a4_2328
+
+2023-12-05T20:51:57.822+0530	INFO	base/material.go:604	Running material Material_days_since_account_creation_9be857a4_2328
+
+2023-12-05T20:52:01.352+0530	INFO	base/material.go:622	Material Material_days_since_account_creation_9be857a4_2328 ran in 3.529571615s
+
+2023-12-05T20:52:04.632+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_base_features_0abcf2d7_2328 to output/dev/seq_no/2328. 
+
+
+2023-12-05T20:52:05.890+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_base_features_0abcf2d7_2328
+
+2023-12-05T20:52:08.996+0530	INFO	base/material.go:604	Running material Material_rudder_user_base_features_0abcf2d7_2328
+
+2023-12-05T20:52:10.499+0530	INFO	base/material.go:622	Material Material_rudder_user_base_features_0abcf2d7_2328 ran in 1.502436221s
+
+2023-12-05T20:52:18.863+0530	INFO	base/interfaces.go:274	Compiled model. Material_churn_90_days_model_6791854e_2328 to output/dev/seq_no/2328. 
+
+
+2023-12-05T20:52:20.158+0530	INFO	base/material.go:532	Preparing material Material_churn_90_days_model_6791854e_2328
+
+2023-12-05T20:52:22.993+0530	INFO	base/material.go:604	Running material Material_churn_90_days_model_6791854e_2328
+
+2023-12-06T16:22:38.427+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-12-06T16:22:41.595+0530	ERROR	core/project.go:1469	loading project environment dev: checking common tables version: getting common tables version: checking if common tables version table exists: checking if MATERIAL_REGISTRY exists: unable to get database name: context canceled
+
+2023-12-06T16:22:41.595+0530	ERROR	core/project.go:1419	loading project environment dev: checking common tables version: getting common tables version: checking if common tables version table exists: checking if MATERIAL_REGISTRY exists: unable to get database name: context canceled
+
+2023-12-06T16:22:41.595+0530	INFO	utils/errors.go:38	Context canceled, terminating gracefully!
+
+2023-12-06T16:22:43.438+0530	ERROR	core/project.go:1419	setting current schema for env dev: executing template: context canceled
+
+2023-12-06T16:22:43.438+0530	ERROR	core/project.go:2090	getting project env dev: %!w(*fmt.wrapError=&{setting current schema for env dev: executing template: context canceled 0xc00158abe0})
+
+2023-12-15T16:41:21.131+0530	INFO	run/run.go:32	Checking required schema access
+
+2023-12-15T16:41:42.748+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_id_stitcher_9e783531_186 to output/dev/seq_no/186. 
+
+
+2023-12-15T16:41:43.655+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_id_stitcher_9e783531_186
+
+2023-12-15T16:41:45.885+0530	INFO	base/material.go:604	Running material Material_rudder_user_id_stitcher_9e783531_186
+
+2023-12-15T16:42:05.357+0530	INFO	base/material.go:622	Material Material_rudder_user_id_stitcher_9e783531_186 ran in 19.471367107s
+
+2023-12-15T16:42:12.126+0530	INFO	base/interfaces.go:274	Compiled model. Material_rsTracks_var_table_88589a5f_186 to output/dev/seq_no/186. 
+
+
+2023-12-15T16:42:13.241+0530	INFO	base/material.go:532	Preparing material Material_rsTracks_var_table_88589a5f_186
+
+2023-12-15T16:42:15.495+0530	INFO	base/material.go:604	Running material Material_rsTracks_var_table_88589a5f_186
+
+2023-12-15T16:42:17.368+0530	INFO	base/material.go:622	Material Material_rsTracks_var_table_88589a5f_186 ran in 1.872768829s
+
+2023-12-15T16:42:22.986+0530	INFO	base/interfaces.go:274	Compiled model. Material_user_var_table_cfc56553_186 to output/dev/seq_no/186. 
+
+
+2023-12-15T16:42:24.096+0530	INFO	base/material.go:532	Preparing material Material_user_var_table_cfc56553_186
+
+2023-12-15T16:42:26.350+0530	INFO	base/material.go:604	Running material Material_user_var_table_cfc56553_186
+
+2023-12-15T16:42:27.458+0530	INFO	base/material.go:622	Material Material_user_var_table_cfc56553_186 ran in 1.10791706s
+
+2023-12-15T16:42:33.013+0530	INFO	base/interfaces.go:274	Compiled model. Material_max_timestamp_bw_tracks_pages_9be857a4_186 to output/dev/seq_no/186. 
+
+
+2023-12-15T16:42:34.033+0530	INFO	base/material.go:532	Preparing material Material_max_timestamp_bw_tracks_pages_9be857a4_186
+
+2023-12-15T16:42:35.361+0530	INFO	base/material.go:604	Running material Material_max_timestamp_bw_tracks_pages_9be857a4_186
+
+2023-12-15T16:42:39.559+0530	INFO	base/material.go:622	Material Material_max_timestamp_bw_tracks_pages_9be857a4_186 ran in 4.198005813s
+
+2023-12-15T16:42:42.228+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_last_seen_97361c40_186 to output/dev/seq_no/186. 
+
+
+2023-12-15T16:42:43.246+0530	INFO	base/material.go:532	Preparing material Material_days_since_last_seen_97361c40_186
+
+2023-12-15T16:42:44.577+0530	INFO	base/material.go:604	Running material Material_days_since_last_seen_97361c40_186
+
+2023-12-15T16:42:47.599+0530	INFO	base/material.go:622	Material Material_days_since_last_seen_97361c40_186 ran in 3.021726734s
+
+2023-12-15T16:42:49.984+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_7_days_8c6f72ab_186 to output/dev/seq_no/186. 
+
+
+2023-12-15T16:42:50.965+0530	INFO	base/material.go:532	Preparing material Material_is_churned_7_days_8c6f72ab_186
+
+2023-12-15T16:42:52.264+0530	INFO	base/material.go:604	Running material Material_is_churned_7_days_8c6f72ab_186
+
+2023-12-15T16:42:55.413+0530	INFO	base/material.go:622	Material Material_is_churned_7_days_8c6f72ab_186 ran in 3.148734597s
+
+2023-12-15T16:42:57.787+0530	INFO	base/interfaces.go:274	Compiled model. Material_is_churned_90_days_8c6f72ab_186 to output/dev/seq_no/186. 
+
+
+2023-12-15T16:42:58.810+0530	INFO	base/material.go:532	Preparing material Material_is_churned_90_days_8c6f72ab_186
+
+2023-12-15T16:43:00.142+0530	INFO	base/material.go:604	Running material Material_is_churned_90_days_8c6f72ab_186
+
+2023-12-15T16:43:03.213+0530	INFO	base/material.go:622	Material Material_is_churned_90_days_8c6f72ab_186 ran in 3.071173781s
+
+2023-12-15T16:43:05.676+0530	INFO	base/interfaces.go:274	Compiled model. Material_days_since_account_creation_9be857a4_186 to output/dev/seq_no/186. 
+
+
+2023-12-15T16:43:06.659+0530	INFO	base/material.go:532	Preparing material Material_days_since_account_creation_9be857a4_186
+
+2023-12-15T16:43:07.835+0530	INFO	base/material.go:604	Running material Material_days_since_account_creation_9be857a4_186
+
+2023-12-15T16:43:11.329+0530	INFO	base/material.go:622	Material Material_days_since_account_creation_9be857a4_186 ran in 3.493254663s
+
+2023-12-15T16:43:13.971+0530	INFO	base/interfaces.go:274	Compiled model. Material_rudder_user_base_features_dd49a6bb_186 to output/dev/seq_no/186. 
+
+
+2023-12-15T16:43:15.093+0530	INFO	base/material.go:532	Preparing material Material_rudder_user_base_features_dd49a6bb_186
+
+2023-12-15T16:43:17.382+0530	INFO	base/material.go:604	Running material Material_rudder_user_base_features_dd49a6bb_186
+
+2023-12-15T16:43:18.575+0530	INFO	base/material.go:622	Material Material_rudder_user_base_features_dd49a6bb_186 ran in 1.192966042s
+
+2023-12-15T16:43:24.937+0530	INFO	base/interfaces.go:274	Compiled model. Material_sample_churn_90_days_model_80161f32_186 to output/dev/seq_no/186. 
+
+
+2023-12-15T16:43:26.048+0530	INFO	base/material.go:532	Preparing material Material_sample_churn_90_days_model_80161f32_186
+
+2023-12-15T16:43:28.506+0530	INFO	base/material.go:604	Running material Material_sample_churn_90_days_model_80161f32_186
+
+2023-12-15T16:49:58.042+0530	INFO	base/material.go:622	Material Material_sample_churn_90_days_model_80161f32_186 ran in 6m29.525654583s
+

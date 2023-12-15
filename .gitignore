@@ -5,7 +5,7 @@ config/.ipynb_checkpoints/*
 classifier.log
 logs/logfile.log
 *.pyc
-output/*
+**/output/*
 train_output.json
 appmap.yml
 *.ipynb

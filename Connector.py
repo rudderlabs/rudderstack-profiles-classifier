@@ -146,7 +146,10 @@ class Connector(ABC):
         pb_compile_output_response = utils.subprocess_run(args)
         pb_compile_output = (pb_compile_output_response.stdout).lower()
         material_file_prefix = (constants.MATERIAL_TABLE_PREFIX + features_profiles_model + '_').lower()
-        model_hash = pb_compile_output[pb_compile_output.index(material_file_prefix) + len(material_file_prefix):].split('_')[0]
+        try:
+            model_hash = pb_compile_output[pb_compile_output.index(material_file_prefix) + len(material_file_prefix):].split('_')[0]
+        except ValueError:
+            raise Exception(f"Could not find material file prefix {material_file_prefix} in the output of pb compile command: {pb_compile_output}")
         return model_hash
 
     @abstractmethod

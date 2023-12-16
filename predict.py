@@ -78,7 +78,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         udf_name = f"prediction_score_{stage_name.replace('@','')}"
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
-        #connector.delete_import_files(session, stage_name, import_paths)
         connector.drop_fn_if_exists(session, udf_name)
     elif creds["type"] == "redshift":
         connector = RedshiftConnector(folder_path)
@@ -166,8 +165,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     preds_with_percentile = connector.call_prediction_udf(predict_data, prediction_udf, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite")
-    connector.delete_local_data_folder() #TODO: In redshift, this might mean it would delete previous train summary. Need to fix this
-    connector.cleanup(session, udf_name=udf_name)
+    connector.cleanup(session, udf_name=udf_name, delete_local_data=True) #TODO: In redshift, delete_local_data might mean it would delete previous train summary. Need to fix this
 
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")

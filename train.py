@@ -38,7 +38,7 @@ except Exception as e:
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
-stage_name = None
+
 
 def train_and_store_model_results_rs(feature_table_name: str,
             figure_names: dict,
@@ -126,6 +126,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS
     cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESOLD
     min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
+    stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py")
@@ -165,8 +166,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
         connector.create_stage(session, stage_name)
-        connector.delete_import_files(session, stage_name, import_paths)
-        connector.delete_procedures(session, train_procedure)
+        connector.cleanup(session, stage_name=stage_name, stored_procedure_name=train_procedure, delete_files=import_paths)
 
         @sproc(name=train_procedure, is_permanent=False, stage_location=stage_name, replace=True, imports= import_paths, 
             packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
@@ -217,7 +217,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         train_procedure = train_and_store_model_results_rs
         connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
-        connector.delete_local_data_folder()
+        connector.cleanup(delete_local_data=True)
         connector.make_local_dir()
     
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)

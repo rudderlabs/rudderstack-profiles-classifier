@@ -3,8 +3,6 @@ import sys
 import json
 import yaml
 import joblib
-import shutil
-import datetime
 import warnings
 import cachetools
 import numpy as np
@@ -12,13 +10,6 @@ import pandas as pd
 
 from typing import Any
 from logger import logger
-from xgboost import XGBClassifier
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.metrics import average_precision_score
-from sklearn.metrics import precision_recall_fscore_support, roc_auc_score, f1_score
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
 import snowflake.snowpark.types as T
@@ -54,7 +45,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         None: save the prediction results but returns nothing
     """
 
-    stage_name = constants.STAGE_NAME
     model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
@@ -64,17 +54,15 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     with open(model_path, "r") as f:
         results = json.load(f)
-    train_model_hash = results["config"]["material_hash"]
     train_model_id = results["model_info"]["model_id"]
     prob_th = results["model_info"]["threshold"]
-    current_ts = datetime.datetime.now()
+    stage_name = results["model_info"]["file_location"]["stage"]
 
     score_column_name = merged_config['outputs']['column_names']['score']
     percentile_column_name = merged_config['outputs']['column_names']['percentile']
     output_label_column = merged_config['outputs']['column_names']['output_label_column']
     output_profiles_ml_model = merged_config["data"]["output_profiles_ml_model"]
     label_column = merged_config["data"]["label_column"]
-    label_value = merged_config["data"]["label_value"]
     index_timestamp = merged_config["data"]["index_timestamp"]
     eligible_users = merged_config["data"]["eligible_users"]
     ignore_features = merged_config["preprocessing"]["ignore_features"]
@@ -82,30 +70,23 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     entity_column = merged_config["data"]["entity_column"]
     features_profiles_model = merged_config["data"]["features_profiles_model"]
 
-    predict_path = os.path.join(current_dir, 'predict.py')
-    import_files = []
-    import_paths = []
-    for file in import_files:
-        import_paths.append(os.path.join(current_dir, file))
 
     model_name = f"{output_profiles_ml_model}_{model_file_name}"
-
+    
+    udf_name=None
     if creds["type"] == "snowflake":
-        udf_name = "prediction_score"
+        udf_name = f"prediction_score_{stage_name.replace('@','')}"
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
-        connector.delete_import_files(session, stage_name, import_paths)
         connector.drop_fn_if_exists(session, udf_name)
     elif creds["type"] == "redshift":
         connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
         local_folder = connector.get_local_dir()
-
-    column_names_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_column_names.json")
+    
+    column_names_file = f"{output_profiles_ml_model}_{train_model_id}_column_names.json"
+    column_names_path = connector.join_file_path(column_names_file)
     features_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_array_time_feature_names.json")
-
-    material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
-    material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
 
     raw_data = connector.get_table(session, f"{features_profiles_model}", filter_condition=eligible_users)
 
@@ -121,17 +102,9 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     input = connector.drop_cols(predict_data, [label_column, entity_column, index_timestamp])
     types = connector.generate_type_hint(input)
 
-    print(model_name)
-    print("Caching")
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location
-
-        Args:
-            filename (str): path for the model_name
-
-        Returns:
-            _type_: return the trained model after loading it
         """
         import_dir = sys._xoptions.get("snowflake_import_directory")
 
@@ -144,21 +117,30 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         with open(filename, 'rb') as file:
             m = joblib.load(file)
             return m
-    
+        
+    @cachetools.cached(cache={})
+    def load_column_names(filename: str):
+        """session.import adds the staged model file to an import directory. We load the model file from this location
+        """
+        import_dir = sys._xoptions.get("snowflake_import_directory")
+
+        if import_dir:
+            assert import_dir.startswith('/home/udf/')
+            filename = os.path.join(import_dir, filename)
+            
+        with open(filename, 'r') as file:
+            column_names = json.load(file)
+            return column_names
+        
     def predict_helper(df, model_name: str, **kwargs) -> Any:
         trained_model = load_model(model_name)
         df.columns = [x.upper() for x in df.columns]
         column_names_path = kwargs.get("column_names_path", None)
-        if column_names_path:
-            with open(column_names_path, "r") as f:
-                column_names = json.load(f)
-                categorical_columns = column_names["categorical_columns"]
-                numeric_columns = column_names["numeric_columns"]
-        else:
-            categorical_columns = list(df.select_dtypes(include='object'))
-            numeric_columns = list(df.select_dtypes(exclude='object'))
+        column_names = load_column_names(column_names_path)
+        categorical_columns = column_names["categorical_columns"]
+        numeric_columns = column_names["numeric_columns"]
         df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})        
+        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
         return trained_model.predict_proba(df)[:,1]
 
     features = input.columns
@@ -166,11 +148,11 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     if creds['type'] == 'snowflake':
         @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
                 stage_location=stage_name, name=udf_name, 
-                imports= import_paths+[f"{stage_name}/{model_name}"],
-                packages=["snowflake-snowpark-python>=0.10.0","typing", "scikit-learn>=1.1.1", "xgboost>=1.5.0", "numpy>=1.23.1","pandas","joblib", "cachetools", "PyYAML", "simplejson"])
+                imports= [f"{stage_name}/{model_name}", f"{stage_name}/{column_names_file}"],
+                packages=["snowflake-snowpark-python>=0.10.0","typing", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas==1.5.3","joblib", "cachetools", "PyYAML", "simplejson"])
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
-            predict_proba = predict_helper(df, model_name)
+            predict_proba = predict_helper(df, model_name, column_names_path=column_names_file)
             return predict_proba
 
         prediction_udf = predict_scores
@@ -183,7 +165,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 
     preds_with_percentile = connector.call_prediction_udf(predict_data, prediction_udf, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite")
-    connector.clean_up()
+    connector.cleanup(session, udf_name=udf_name, delete_local_data=True) #TODO: In redshift, delete_local_data might mean it would delete previous train summary. Need to fix this
 
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")
@@ -194,4 +176,4 @@ if __name__ == "__main__":
         output_folder = 'output/dev/seq_no/7'
         model_path = f"{output_folder}/train_output.json"
         
-    predict(creds, aws_config, model_path, None, "test_can_delet",None)
+    predict(creds, aws_config, model_path, None, "test_can_delete",None)

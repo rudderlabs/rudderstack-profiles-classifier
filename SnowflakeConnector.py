@@ -20,7 +20,6 @@ from Connector import Connector
 local_folder = constants.SF_LOCAL_STORAGE_DIR
 
 class SnowflakeConnector(Connector):
-    train_procedure = 'train_sproc'
     def __init__(self) -> None:
         return
 
@@ -645,10 +644,6 @@ class SnowflakeConnector(Connector):
                                                         entity_column, index_timestamp, "model_id", score_column_name, percentile_column_name, output_label_column)
         return preds_with_percentile
 
-    def clean_up(self) -> None:
-        pass
-
-
     """ The following functions are only specific to Snowflake Connector and not used by any other connector."""
     def create_stage(self, session: snowflake.snowpark.Session, stage_name: str):
         """
@@ -663,7 +658,7 @@ class SnowflakeConnector(Connector):
         """
         self.run_query(session, f"create stage if not exists {stage_name.replace('@', '')}")
 
-    def delete_import_files(self, session: snowflake.snowpark.Session, stage_name: str, import_paths: List[str]) -> None:
+    def _delete_import_files(self, session: snowflake.snowpark.Session, stage_name: str, import_paths: List[str]) -> None:
         """
         Deletes files from the specified Snowflake stage that match the filenames extracted from the import paths.
 
@@ -681,7 +676,7 @@ class SnowflakeConnector(Connector):
             if any(substring in row.name for substring in import_files):
                 self.run_query(session, f"remove @{row.name}")
 
-    def delete_procedures(self, session: snowflake.snowpark.Session) -> None:
+    def _delete_procedures(self, session: snowflake.snowpark.Session, procedure_name: str) -> None:
         """
         Deletes Snowflake train procedures based on a given name pattern.
 
@@ -698,16 +693,16 @@ class SnowflakeConnector(Connector):
         This function retrieves a list of procedures that match the given train procedure name pattern using a SQL query. 
         It then iterates over each procedure and attempts to drop it using another SQL query. If an error occurs during the drop operation, it is ignored.
         """
-        procedures = self.run_query(session, f"show procedures like '{self.train_procedure}%'")
+        procedures = self.run_query(session, f"show procedures like '{procedure_name}'")
         for row in procedures:
             try:
                 words = row.arguments.split(' ')[:-2]
                 procedure_arguments = ' '.join(words)
                 self.run_query(session, f"drop procedure if exists {procedure_arguments}")
-            except:
-                pass
+            except Exception as e:
+                raise Exception(f"Error while dropping procedure {e}")
 
-    def drop_fn_if_exists(self, session: snowflake.snowpark.Session, fn_name: str) -> bool:
+    def _drop_fn_if_exists(self, session: snowflake.snowpark.Session, fn_name: str) -> bool:
         """Snowflake caches the functions and it reuses these next time. To avoid the caching, we manually search for the same function name and drop it before we create the udf.
 
         Args:
@@ -742,3 +737,17 @@ class SnowflakeConnector(Connector):
             Nothing
         """
         _ = session.file.get(file_stage_path, target_folder)
+        
+    def cleanup(self, session:snowflake.snowpark.Session, **kwargs):
+        stored_procedure_name = kwargs.get("stored_procedure_name", None)
+        udf_name = kwargs.get("udf_name", None)
+        delete_files=kwargs.get("delete_files", None)
+        stage_name=kwargs.get("stage_name", None)
+        if stored_procedure_name:
+            self._delete_procedures(session, stored_procedure_name)
+        if udf_name:
+            self._drop_fn_if_exists(session, udf_name)
+        if delete_files:
+            self._delete_import_files(session, stage_name, delete_files)
+            
+        

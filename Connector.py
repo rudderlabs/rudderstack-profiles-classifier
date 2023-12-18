@@ -146,7 +146,10 @@ class Connector(ABC):
         pb_compile_output_response = utils.subprocess_run(args)
         pb_compile_output = (pb_compile_output_response.stdout).lower()
         material_file_prefix = (constants.MATERIAL_TABLE_PREFIX + features_profiles_model + '_').lower()
-        model_hash = pb_compile_output[pb_compile_output.index(material_file_prefix) + len(material_file_prefix):].split('_')[0]
+        try:
+            model_hash = pb_compile_output[pb_compile_output.index(material_file_prefix) + len(material_file_prefix):].split('_')[0]
+        except ValueError:
+            raise Exception(f"Could not find material file prefix {material_file_prefix} in the output of pb compile command: {pb_compile_output}")
         return model_hash
 
     @abstractmethod
@@ -273,7 +276,7 @@ class Connector(ABC):
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
                                   column_names_path: str, prob_th: float, input: Any) -> pd.DataFrame:
         pass
-
+    
     @abstractmethod
-    def clean_up(self) -> None:
+    def cleanup(self, *args, **kwargs) -> None:
         pass

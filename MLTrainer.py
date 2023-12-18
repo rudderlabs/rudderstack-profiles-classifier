@@ -343,16 +343,19 @@ class ClassificationTrainer(MLTrainer):
             label_column (str): name of the label column
         """
         try:
+            y_pred = model.predict_proba(x)[:,1]
+            y_true = y[label_column.upper()].values
+
             roc_auc_file = connector.join_file_path(self.figure_names['roc-auc-curve'])
-            utils.plot_roc_auc_curve(model, x, y, roc_auc_file, label_column)
+            utils.plot_roc_auc_curve(y_pred, y_true, roc_auc_file)
             connector.save_file(session, roc_auc_file, stage_name, overwrite=True)
 
             pr_auc_file = connector.join_file_path(self.figure_names['pr-auc-curve'])
-            utils.plot_pr_auc_curve(model, x, y, pr_auc_file, label_column)
+            utils.plot_pr_auc_curve(y_pred, y_true, pr_auc_file)
             connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
 
             lift_chart_file = connector.join_file_path(self.figure_names['lift-chart'])
-            utils.plot_lift_chart(model, x, y, lift_chart_file, label_column)
+            utils.plot_lift_chart(y_pred, y_true, lift_chart_file)
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
@@ -389,6 +392,8 @@ class RegressionTrainer(MLTrainer):
         super().__init__(**kwargs)
 
         self.figure_names = {
+                # "regression-lift-chart" : f"04-regression-chart-{self.output_profiles_ml_model}.png",
+                "deciles-plot" : f"03-deciles-plot-{self.output_profiles_ml_model}.png",
                 "residuals-chart": f"02-residuals-chart-{self.output_profiles_ml_model}.png",
                 "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png"
             }
@@ -490,9 +495,22 @@ class RegressionTrainer(MLTrainer):
                         y: pd.DataFrame, 
                         label_column: str):
         try:
+            y_pred = model.predict(x)
+
             residuals_file = connector.join_file_path(self.figure_names['residuals-chart'])
-            utils.plot_regression_residuals(model, x, y, residuals_file, label_column)
+            y_true = y[label_column.upper()]
+            utils.plot_regression_residuals(y_pred, y_true, residuals_file)
             connector.save_file(session, residuals_file, stage_name, overwrite=True)
+
+            deciles_file = connector.join_file_path(self.figure_names['deciles-plot'])
+            utils.plot_regression_deciles(y_pred, y_true, deciles_file, label_column)
+            connector.save_file(session, deciles_file, stage_name, overwrite=True)
+
+            # For future reference 
+            # regression_chart_file = connector.join_file_path(self.figure_names['regression-lift-chart'])
+            # utils.regression_evaluation_plot(y_pred, y_true, regression_chart_file)
+            # connector.save_file(session, regression_chart_file, stage_name, overwrite=True)
+
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
 

@@ -566,14 +566,6 @@ class RedshiftConnector(Connector):
         preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
         return preds
 
-    def clean_up(self) -> None:
-        """Deletes the local data folder."""
-        try:
-            shutil.rmtree(self.local_dir)
-            logger.info("Local directory removed successfully")
-        except OSError as o:
-            logger.info("Local directory not present")
-
     """ The following functions are only specific to Redshift Connector and not used by any other connector."""
     def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:
         """Writes the given pandas dataframe to the local storage with the given name.
@@ -608,3 +600,18 @@ class RedshiftConnector(Connector):
         """This function will return the feature_df_path"""
         feature_df_path = os.path.join(self.local_dir, f"{feature_table_name}.parquet.gzip")
         return feature_df_path
+    
+    def _delete_local_data_folder(self) -> None:
+        """Deletes the local data folder."""
+        try:
+            shutil.rmtree(self.local_dir)
+            logger.info("Local directory removed successfully")
+        except OSError as o:
+            logger.info("Local directory not present")
+            pass
+    
+    def cleanup(self, *args, **kwargs) -> None:
+        delete_local_data = kwargs.get("delete_local_data", None)
+        if delete_local_data:
+            self._delete_local_data_folder()
+        

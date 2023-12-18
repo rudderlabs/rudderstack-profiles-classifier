@@ -6,6 +6,7 @@ import yaml
 import shutil
 import pandas as pd
 import sys
+import hashlib
 
 from pathlib import Path
 from logger import logger
@@ -37,7 +38,7 @@ except Exception as e:
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
-stage_name = constants.STAGE_NAME
+
 
 def train_and_store_model_results_rs(feature_table_name: str,
             figure_names: dict,
@@ -78,7 +79,7 @@ def train_and_store_model_results_rs(feature_table_name: str,
     column_name_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json")
     json.dump(column_dict, open(column_name_file,"w"))
 
-    trainer.plot_diagnostics(connector, session, pipe, stage_name, test_x, test_y, figure_names, trainer.label_column)
+    trainer.plot_diagnostics(connector, session, pipe, None, test_x, test_y, figure_names, trainer.label_column)
     try:
         figure_file = connector.join_file_path(figure_names['feature-importance-chart'])
         shap_importance = utils.plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5)
@@ -125,6 +126,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS
     cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESOLD
     min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
+    stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py")
@@ -158,14 +160,15 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     warehouse = creds['type']
     logger.debug(f"Building session for {warehouse}")
     if warehouse == 'snowflake':
-        train_procedure = 'train_and_store_model_results_sf'
+        run_id = hashlib.md5(f"{str(datetime.now())}_{project_folder}".encode()).hexdigest()
+        stage_name = f"@rs_{run_id}"
+        train_procedure = f'train_and_store_model_results_sf_{run_id}'
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
         connector.create_stage(session, stage_name)
-        connector.delete_import_files(session, stage_name, import_paths)
-        connector.delete_procedures(session, train_procedure)
+        connector.cleanup(session, stage_name=stage_name, stored_procedure_name=train_procedure, delete_files=import_paths)
 
-        @sproc(name=train_procedure, is_permanent=True, stage_location=stage_name, replace=True, imports= [current_dir]+import_paths, 
+        @sproc(name=train_procedure, is_permanent=False, stage_location=stage_name, replace=True, imports= import_paths, 
             packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
@@ -214,7 +217,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         train_procedure = train_and_store_model_results_rs
         connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
-        connector.clean_up()
+        connector.cleanup(delete_local_data=True)
         connector.make_local_dir()
     
     material_table = connector.get_material_registry_name(session, material_registry_table_prefix)
@@ -275,8 +278,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
                                             session=session,
                                             connector=connector,
                                             trainer=trainer)
-        
-
     except Exception as e:
         logger.error(f"Error while training the model: {e}")
         raise e
@@ -313,6 +314,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
             connector.fetch_staged_file(session, stage_name, figure_name, target_path)
         except:
             print(f"Could not fetch {figure_name}")
+            
+    connector.cleanup(session, stored_procedure_name=train_procedure, delete_files=import_paths, stage_name=stage_name)
 
 if __name__ == "__main__":
     homedir = os.path.expanduser("~") 

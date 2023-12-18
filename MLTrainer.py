@@ -390,7 +390,7 @@ class ClassificationTrainer(MLTrainer):
         """
         try:
             y_pred = model.predict_proba(x)[:,1]
-            y_true = y[label_column.upper()]
+            y_true = y[label_column.upper()].values
 
             roc_auc_file = connector.join_file_path(self.figure_names['roc-auc-curve'])
             utils.plot_roc_auc_curve(y_pred, y_true, roc_auc_file)

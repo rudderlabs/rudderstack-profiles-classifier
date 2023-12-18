@@ -40,7 +40,6 @@ class MLTrainer(ABC):
                  train_start_dt: str,
                  train_end_dt: str,
                  prediction_horizon_days: int,
-                 mode: str,
                  inputs: List[str],
                  max_row_count: int,
                  prep: utils.PreprocessorConfig):
@@ -55,7 +54,6 @@ class MLTrainer(ABC):
         self.train_start_dt = train_start_dt
         self.train_end_dt = train_end_dt
         self.prediction_horizon_days = prediction_horizon_days
-        self.mode = mode
         self.inputs = inputs
         self.max_row_count = max_row_count
         self.prep = prep

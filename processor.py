@@ -18,5 +18,5 @@ class processor(ABC):
         self.session = session
 
     @abstractmethod
-    def prepare_and_train(self, material_names):
+    def train(self, material_names):
         pass

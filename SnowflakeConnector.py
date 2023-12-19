@@ -168,21 +168,6 @@ class SnowflakeConnector(Connector):
         """
         session.file.put(file_name, stage_name, overwrite=overwrite)
 
-    def call_procedure(self, *args, **kwargs):
-        """Calls the given procedure on the snowpark session
-
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
-            args (list): List of arguments to be passed to the procedure
-        
-        Returns:
-            Results of the procedure call
-        """
-        session = kwargs.get('session', None)
-        if session == None:
-            raise Exception("Session object not found")
-        return session.call(*args)
-
     def get_non_stringtype_features(self, feature_table_name: str, label_column: str, entity_column: str, **kwargs) -> List[str]:
         """
         Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.

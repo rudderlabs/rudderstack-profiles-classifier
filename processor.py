@@ -18,5 +18,9 @@ class processor(ABC):
         self.session = session
 
     @abstractmethod
-    def train(self, material_names):
+    def call_procedure(self, *args, **kwargs) -> Any:
+        pass
+
+    @abstractmethod
+    def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict):
         pass

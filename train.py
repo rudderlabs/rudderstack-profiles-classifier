@@ -256,21 +256,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     elif prediction_mode == "snowflake":
         processor = snowflakeProcessor(trainer, connector, session)
 
-    # train_results_json = processor.prepare_and_train(material_names)
-    arraytype_features, timestamp_columns = processor.train(material_names)
-
-    feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
-
-    try:
-        train_results_json = connector.call_procedure(train_procedure,
-                                            feature_table_name_remote,
-                                            merged_config,
-                                            session=session,
-                                            connector=connector,
-                                            trainer=trainer)
-    except Exception as e:
-        logger.error(f"Error while training the model: {e}")
-        raise e
+    train_results_json, arraytype_features, timestamp_columns = processor.train(train_procedure, material_names, merged_config)
 
     logger.info("Saving train results to file")
     if not isinstance(train_results_json, dict):

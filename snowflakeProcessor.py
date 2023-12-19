@@ -48,7 +48,22 @@ class snowflakeProcessor(processor):
             print("Exception occured while preparing feature table. Please check the logs for more details")
             raise e
 
-    def train(self, material_names: List[Tuple[str]]):        
+    def call_procedure(self, *args, **kwargs):
+        """Calls the given procedure on the snowpark session
+
+        Args:
+            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
+            args (list): List of arguments to be passed to the procedure
+        
+        Returns:
+            Results of the procedure call
+        """
+        session = kwargs.get('session', None)
+        if session == None:
+            raise Exception("Session object not found")
+        return session.call(*args)
+
+    def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict):        
         min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
         cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESOLD
 
@@ -70,4 +85,15 @@ class snowflakeProcessor(processor):
         self.connector.write_table(filtered_feature_table, feature_table_name_remote, write_mode="overwrite", if_exists="replace")
         logger.info("Training and fetching the results")
 
-        return arraytype_features, timestamp_columns
+        try:
+            train_results_json = self.call_procedure(train_procedure,
+                                                feature_table_name_remote,
+                                                merged_config,
+                                                session=self.session,
+                                                connector=self.connector,
+                                                trainer=self.trainer)
+        except Exception as e:
+            logger.error(f"Error while training the model: {e}")
+            raise e
+
+        return train_results_json, arraytype_features, timestamp_columns

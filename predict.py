@@ -157,15 +157,15 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
                 packages=["snowflake-snowpark-python>=0.10.0","typing", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas==1.5.3","joblib", "cachetools", "PyYAML", "simplejson"])
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
-            predict_proba = predict_helper(df, model_name, column_names_path=column_names_file, model_task=task)
-            return predict_proba
+            predictions = predict_helper(df, model_name, column_names_path=column_names_file, model_task=task)
+            return predictions
 
         prediction_udf = predict_scores
     elif creds['type'] == 'redshift':
         def predict_scores_rs(df: pd.DataFrame, column_names_path: str) -> pd.Series:
             df.columns = features
-            predict_proba = predict_helper(df, model_name, column_names_path=column_names_path, model_task=task)
-            return predict_proba
+            predictions = predict_helper(df, model_name, column_names_path=column_names_path, model_task=task)
+            return predictions
         prediction_udf = predict_scores_rs
 
     preds_with_percentile = connector.call_prediction_udf(predict_data, prediction_udf, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)

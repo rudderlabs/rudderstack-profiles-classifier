@@ -78,7 +78,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         udf_name = f"prediction_score_{stage_name.replace('@','')}"
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
-        connector.drop_fn_if_exists(session, udf_name)
+        connector.cleanup(session, udf_name=udf_name)
     elif creds["type"] == "redshift":
         connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)

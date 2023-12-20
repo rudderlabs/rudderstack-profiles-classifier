@@ -2,6 +2,7 @@ import json
 import sys
 import os
 import yaml
+import pathlib
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -10,8 +11,8 @@ import predict as P
 
 if __name__ == "__main__":
     train_file_extension = ".json"
-    schema = 'dev_wh'
-    #project_folder = '../rudderstack-profiles-shopify-features-lite'
+    #schema = 'shopify_wh_rs'
+    schema = "rs360"
     project_folder = '../rudderstack-profiles-shopify-churn'
     feature_table_name = 'shopify_user_features'
     eligible_users = '1=1'
@@ -23,12 +24,19 @@ if __name__ == "__main__":
     inputs = f'packages/{package_name}/models/{feature_table_name}'
     homedir = os.path.expanduser("~") 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["rs360"]["outputs"]["dev"]
-        
-    print(f"Using {creds['schema']} schema in {creds['account']}")
+        creds = yaml.safe_load(f)["connections"][schema]["outputs"]["dev"]
+    
+    if creds['type'] == 'snowflake':
+        print(f"Using {creds['schema']} schema in snowflake account: {creds['account']}")
+    elif creds['type'] == 'redshift':
+        print(f"Using {creds['schema']} schema in Redshift account: {creds['host']}")
+    else:
+        raise Exception(f"Unknown database type: {creds['type']}")
     credentials_presets = None
-    p_output_tablename = 'test_run_can_delete_90'
-    t_output_filename = 'output/dev/seq_no/7/train_output' + train_file_extension
+    p_output_tablename = 'test_run_can_delete_2'
+    t_output_filename = 'output/dev/seq_no/1/train_output' + train_file_extension
+    print(f"Training output file: {t_output_filename}")
+    pathlib.Path(os.path.dirname(t_output_filename)).mkdir(parents=True, exist_ok=True)
     site_config_path = os.path.join(homedir, ".pb/siteconfig.yaml")
     project_folder = os.path.abspath(project_folder)
     

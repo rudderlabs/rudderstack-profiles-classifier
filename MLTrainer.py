@@ -255,10 +255,10 @@ class MLTrainer(ABC):
         train_x_processed = preprocessor_pipe_x.fit_transform(train_x)
         val_x_processed = preprocessor_pipe_x.transform(val_x)
 
-        final_model = self.select_best_model(models, train_x_processed, train_y, val_x_processed, val_y)
+        final_model = self.select_best_model(models, train_x_processed, train_y.values, val_x_processed, val_y.values)
         preprocessor_pipe_optimized = self.get_preprocessing_pipeline(numeric_columns, categorical_columns, self.prep.numeric_pipeline.get("pipeline"), self.prep.categorical_pipeline.get("pipeline"))
         pipe = self.get_model_pipeline(preprocessor_pipe_optimized, final_model)
-        pipe.fit(train_x, train_y)
+        pipe.fit(train_x, train_y.values)
 
         joblib.dump(pipe, model_file)
 

@@ -310,7 +310,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         try:
             connector.fetch_staged_file(session, stage_name, figure_name, target_path)
         except:
-            print(f"Could not fetch {figure_name}")
+            logger.warning(f"Could not fetch {figure_name}")
             
     connector.cleanup(session, stored_procedure_name=train_procedure, delete_files=import_paths, stage_name=stage_name)
 

@@ -25,8 +25,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import utils
 import constants
-from localProcessor import localProcessor
-from snowflakeProcessor import snowflakeProcessor
+from LocalProcessor import LocalProcessor
+from SnowflakeProcessor import SnowflakeProcessor
 from SnowflakeConnector import SnowflakeConnector
 from MLTrainer import ClassificationTrainer, RegressionTrainer
 
@@ -142,7 +142,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     merged_config = utils.combine_config(notebook_config, config)
     
     prediction_task = merged_config['data'].pop('task', 'classification') # Assuming default as classification
-    prediction_mode = merged_config['data'].pop('mode', 'local') # Assuming default as local
+    training_mode = merged_config['data'].pop('mode', 'local') # Assuming default as local
 
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == 'classification':    
@@ -251,10 +251,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         label_value = connector.get_default_label_value(session, material_names[0][0], trainer.label_column, positive_boolean_flags)
         trainer.label_value = label_value
 
-    if prediction_mode == "local":
-        processor = localProcessor(trainer, connector, session)
-    elif prediction_mode == "snowflake":
-        processor = snowflakeProcessor(trainer, connector, session)
+    training_mode_map = {"local": LocalProcessor, "snowflake": SnowflakeProcessor}
+    processor = training_mode_map[training_mode](trainer, connector, session)
 
     train_results_json, arraytype_features, timestamp_columns = processor.train(train_procedure, material_names, merged_config)
 

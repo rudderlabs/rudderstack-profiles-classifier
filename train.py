@@ -142,7 +142,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     merged_config = utils.combine_config(notebook_config, config)
     
     prediction_task = merged_config['data'].pop('task', 'classification') # Assuming default as classification
-    training_mode = merged_config['data'].pop('mode', 'local') # Assuming default as local
+    training_mode = merged_config['data'].pop('mode', None) # Assuming default as local
 
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == 'classification':    
@@ -252,6 +252,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         trainer.label_value = label_value
 
     training_mode_map = {"local": LocalProcessor, "snowflake": SnowflakeProcessor}
+    if not training_mode:
+        training_mode = utils.fetch_default_training_mode(warehouse)
     processor = training_mode_map[training_mode](trainer, connector, session)
 
     train_results_json, arraytype_features, timestamp_columns = processor.train(train_procedure, material_names, merged_config)
@@ -294,7 +296,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
 if __name__ == "__main__":
     homedir = os.path.expanduser("~") 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["shopify_wh_rs"]["outputs"]["dev"]
+        creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
     inputs = None
     output_folder = 'output/dev/seq_no/8'

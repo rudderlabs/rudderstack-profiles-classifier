@@ -14,7 +14,7 @@ data:
   # train_end_dt: '2023-05-01'
   train_end_dt:
   prediction_horizon_days: 7 # Days in advance to predict the label_column. 
-  mode: local # local or warehouse or sagemaker. If local, the model is trained locally. If other, the model is trained on the remote cluster
+  mode: # local or warehouse or sagemaker. If local, the model is trained locally. If other, the model is trained on the remote cluster
   inputs: []
   max_row_count: 500000
   recall_to_precision_importance: 1.0 # Importance of recall to precision. If 1.0, then recall and precision are equally important.

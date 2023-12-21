@@ -128,7 +128,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py", "processor.py", "localProcessor.py", "snowflakeProcessor.py")
+    import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py", "Processor.py", "LocalProcessor.py", "SnowflakeProcessor.py")
     import_paths = []
     for file in import_files:
         import_paths.append(os.path.join(current_dir, file))

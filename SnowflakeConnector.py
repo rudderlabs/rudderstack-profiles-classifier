@@ -4,7 +4,7 @@ import shutil
 import pandas as pd
 
 from datetime import datetime
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Tuple, Union, Optional
 
 import snowflake.snowpark
 import snowflake.snowpark.types as T
@@ -617,7 +617,7 @@ class SnowflakeConnector(Connector):
 
     def call_prediction_udf(self, predict_data: snowflake.snowpark.Table, prediction_udf: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
-                                  column_names_path: str, prob_th: float, input: snowflake.snowpark.Table) -> pd.DataFrame:
+                                  column_names_path: str, prob_th: Optional[float], input: snowflake.snowpark.Table) -> pd.DataFrame:
         """Calls the given function for prediction
 
         Args:
@@ -637,14 +637,11 @@ class SnowflakeConnector(Connector):
         """
         preds = (predict_data.select(entity_column, index_timestamp, prediction_udf(*input).alias(score_column_name))
              .withColumn("model_id", F.lit(train_model_id)))
-        preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))
+        if prob_th:
+            preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))
         preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(
                                                         entity_column, index_timestamp, "model_id", score_column_name, percentile_column_name, output_label_column)
         return preds_with_percentile
-
-    def clean_up(self) -> None:
-        pass
-
 
     """ The following functions are only specific to Snowflake Connector and not used by any other connector."""
     def create_stage(self, session: snowflake.snowpark.Session, stage_name: str):
@@ -660,7 +657,7 @@ class SnowflakeConnector(Connector):
         """
         self.run_query(session, f"create stage if not exists {stage_name.replace('@', '')}")
 
-    def delete_import_files(self, session: snowflake.snowpark.Session, stage_name: str, import_paths: List[str]) -> None:
+    def _delete_import_files(self, session: snowflake.snowpark.Session, stage_name: str, import_paths: List[str]) -> None:
         """
         Deletes files from the specified Snowflake stage that match the filenames extracted from the import paths.
 
@@ -678,7 +675,7 @@ class SnowflakeConnector(Connector):
             if any(substring in row.name for substring in import_files):
                 self.run_query(session, f"remove @{row.name}")
 
-    def delete_procedures(self, session: snowflake.snowpark.Session, procedure_name: str) -> None:
+    def _delete_procedures(self, session: snowflake.snowpark.Session, procedure_name: str) -> None:
         """
         Deletes Snowflake train procedures based on a given name pattern.
 
@@ -704,7 +701,7 @@ class SnowflakeConnector(Connector):
             except Exception as e:
                 raise Exception(f"Error while dropping procedure {e}")
 
-    def drop_fn_if_exists(self, session: snowflake.snowpark.Session, fn_name: str) -> bool:
+    def _drop_fn_if_exists(self, session: snowflake.snowpark.Session, fn_name: str) -> bool:
         """Snowflake caches the functions and it reuses these next time. To avoid the caching, we manually search for the same function name and drop it before we create the udf.
 
         Args:
@@ -739,3 +736,17 @@ class SnowflakeConnector(Connector):
             Nothing
         """
         _ = session.file.get(file_stage_path, target_folder)
+        
+    def cleanup(self, session:snowflake.snowpark.Session, **kwargs):
+        stored_procedure_name = kwargs.get("stored_procedure_name", None)
+        udf_name = kwargs.get("udf_name", None)
+        delete_files=kwargs.get("delete_files", None)
+        stage_name=kwargs.get("stage_name", None)
+        if stored_procedure_name:
+            self._delete_procedures(session, stored_procedure_name)
+        if udf_name:
+            self._drop_fn_if_exists(session, udf_name)
+        if delete_files:
+            self._delete_import_files(session, stage_name, delete_files)
+            
+        

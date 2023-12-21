@@ -103,7 +103,7 @@ class RedshiftConnector(Connector):
         return cursor.execute(query).fetch_dataframe()
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
-        """Writes the given pandas dataframe to the Redshift schema with the given name as well as saves it locally.
+        """Writes the given pandas dataframe to the Redshift schema with the given name.
 
         Args:
             df (pd.DataFrame): Pandas dataframe to be written to the snowpark session
@@ -111,7 +111,8 @@ class RedshiftConnector(Connector):
         Returns:
             Nothing
         """
-        self.write_table_locally(df, table_name)
+        if kwargs.pop("local", True):
+            self.write_table_locally(df, table_name)
         self.write_pandas(df, table_name, **kwargs)
 
     def write_pandas(self, df: pd.DataFrame, table_name_remote: str, **kwargs) -> None:
@@ -541,7 +542,7 @@ class RedshiftConnector(Connector):
 
     def call_prediction_udf(self, predict_data: pd.DataFrame, prediction_udf: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
-                                  column_names_path: str, prob_th: float, input: pd.DataFrame) -> pd.DataFrame:
+                                  column_names_path: str, prob_th: Optional[float], input: pd.DataFrame) -> pd.DataFrame:
         """Calls the given function for prediction
 
         Args:
@@ -562,17 +563,10 @@ class RedshiftConnector(Connector):
         preds = predict_data[[entity_column, index_timestamp]]
         preds[score_column_name] = prediction_udf(input, column_names_path)
         preds['model_id'] = train_model_id
-        preds[output_label_column] = preds[score_column_name].apply(lambda x: True if x >= prob_th else False)
+        if prob_th:
+            preds[output_label_column] = preds[score_column_name].apply(lambda x: True if x >= prob_th else False)
         preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
         return preds
-
-    def clean_up(self) -> None:
-        """Deletes the local data folder."""
-        try:
-            shutil.rmtree(self.local_dir)
-            logger.info("Local directory removed successfully")
-        except OSError as o:
-            logger.info("Local directory not present")
 
     """ The following functions are only specific to Redshift Connector and not used by any other connector."""
     def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:
@@ -608,3 +602,18 @@ class RedshiftConnector(Connector):
         """This function will return the feature_df_path"""
         feature_df_path = os.path.join(self.local_dir, f"{feature_table_name}.parquet.gzip")
         return feature_df_path
+    
+    def _delete_local_data_folder(self) -> None:
+        """Deletes the local data folder."""
+        try:
+            shutil.rmtree(self.local_dir)
+            logger.info("Local directory removed successfully")
+        except OSError as o:
+            logger.info("Local directory not present")
+            pass
+    
+    def cleanup(self, *args, **kwargs) -> None:
+        delete_local_data = kwargs.get("delete_local_data", None)
+        if delete_local_data:
+            self._delete_local_data_folder()
+        

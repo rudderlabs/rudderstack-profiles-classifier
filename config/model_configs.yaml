@@ -1,14 +1,14 @@
 data:
   # Related to the data that is used to train the model
   label_column: is_churned_7_days # Name of the entity_var that needs to be predicted in advance
-  label_value: # Value of the label_column when the entity does the event. Not required for regression tasks
+  label_value:  # Value of the label_column when the entity does the event. Not required for regression tasks
   entity_column: user_main_id # Name of the entity defined in the profiles project. Ex: user_id, user_main_id, rudder_id etc
   package_name: feature_table # Name of the package where the profiles feature table is defined (declared in pb_project.yaml packages)
-  features_profiles_model: '' # Name of the feature table model
+  features_profiles_model: 'rudder_user_base_features' # Name of the feature table model
   output_profiles_ml_model: 'ltv_test'
   task: classification # classification or regression; Can support a few other tasks in the future, like ltv, churn etc which can be super classes of classification/regression.
   index_timestamp: valid_at
-  eligible_users: # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'
+  eligible_users: 1=1 # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'
   # train_start_dt: '2023-04-24'
   train_start_dt: # The start and end dates can be left empty. If not, the model uses these dates to get historic data for training. 
   # train_end_dt: '2023-05-01'

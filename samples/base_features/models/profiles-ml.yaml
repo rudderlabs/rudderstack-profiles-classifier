@@ -6,7 +6,7 @@ models:
       occurred_at_col: insert_ts
       entity_key: user
       validity_time: 24h # 1 day
-      py_repo_url: /Users/admin/Desktop/Playground/rudderstack_profiles_classifier
+      py_repo_url: /Users/admin/Desktop/Profiles/rudderstack_profiles_classifier
 
       train:
         file_extension: .json
@@ -22,7 +22,7 @@ models:
             features_profiles_model: 'rudder_user_base_features' # Model name
             output_profiles_ml_model: *model_name_90_days # Name of output model based on current model to dinstinguish between multiple models
             eligible_users: 1=1
-            inputs: *inputs_90_days
+            inputs: packages/feature_table/models/rudder_user_base_features
 
           
           preprocessing: &model_prep_configs_90_days

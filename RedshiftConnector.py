@@ -158,21 +158,6 @@ class RedshiftConnector(Connector):
         """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
         pass
 
-    def call_procedure(self, *args, **kwargs):
-        """Calls the given function for training
-
-        Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
-            args (list): List of arguments to be passed to the training function
-            kwargs (dict): Dictionary of keyword arguments to be passed to the training function
-        
-        Returns:
-            Results of the training function
-        """
-        train_function = args[0]
-        args = args[1:]
-        return train_function(*args, **kwargs)
-
     def get_non_stringtype_features(self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs) -> List[str]:
         """
         Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.

@@ -14,3 +14,6 @@ shap==0.41.0
 platformdirs==3.8.1
 xgboost==1.5.0
 profiles-rudderstack==0.9.4
+redshift-connector>=2.0.914
+pandas-redshift>=2.0.5
+sqlalchemy>=1.4.49

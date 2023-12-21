@@ -144,52 +144,6 @@ class MLTrainer(ABC):
             space[name] = self.hyperopts_expressions_map[f"hp_{exp_type}"](name, **expression_)
         return space
 
-    def prepare_feature_table(self, connector: Connector, session,
-                            feature_table_name: str, 
-                            label_table_name: str,
-                            cardinal_feature_threshold: float) -> tuple:
-        """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
-
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session for data warehouse access
-            feature_table_name (str): feature table from the retrieved material_names tuple
-            label_table_name (str): label table from the retrieved material_names tuple
-        Returns:
-            snowflake.snowpark.Table: feature table made using given instance from material names
-        """
-        try:
-            label_ts_col = f"{self.index_timestamp}_label_ts"
-            if self.eligible_users:
-                feature_table = connector.get_table(session, feature_table_name, filter_condition=self.eligible_users)
-            else:
-                default_user_shortlisting = f"{self.label_column} != {self.label_value}"
-                feature_table = connector.get_table(session, feature_table_name, filter_condition=default_user_shortlisting) #.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
-            arraytype_features = connector.get_arraytype_features(session, feature_table_name)
-            ignore_features = utils.merge_lists_to_unique(self.prep.ignore_features, arraytype_features)
-            high_cardinal_features = connector.get_high_cardinal_features(feature_table, self.label_column, self.entity_column, cardinal_feature_threshold)
-            ignore_features = utils.merge_lists_to_unique(ignore_features, high_cardinal_features)
-
-            
-            feature_table = connector.drop_cols(feature_table, [self.label_column])
-            timestamp_columns = self.prep.timestamp_columns
-            if len(timestamp_columns) == 0:
-                timestamp_columns = connector.get_timestamp_columns(session, feature_table_name, self.index_timestamp)
-            for col in timestamp_columns:
-                feature_table = connector.add_days_diff(feature_table, col, col, self.index_timestamp)
-            label_table = self.prepare_label_table(connector, session, label_table_name, label_ts_col)
-            uppercase_list = lambda names: [name.upper() for name in names]
-            lowercase_list = lambda names: [name.lower() for name in names]
-            ignore_features_ = [col for col in feature_table.columns if col in uppercase_list(ignore_features) or col in lowercase_list(ignore_features)]
-            self.prep.ignore_features = ignore_features_
-            self.prep.timestamp_columns = timestamp_columns
-            feature_table = connector.join_feature_table_label_table(feature_table, label_table, self.entity_column, "inner")
-            feature_table = connector.drop_cols(feature_table, [label_ts_col])
-            feature_table = connector.drop_cols(feature_table, ignore_features_)
-            return feature_table, arraytype_features, timestamp_columns
-        except Exception as e:
-            print("Exception occured while preparing feature table. Please check the logs for more details")
-            raise e
-
     @abstractmethod
     def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
         pass

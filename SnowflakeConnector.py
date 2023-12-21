@@ -496,8 +496,6 @@ class SnowflakeConnector(Connector):
         ignore_features_upper = [col.upper() for col in col_list]
         ignore_features_lower = [col.lower() for col in col_list]
         ignore_features_ = [col for col in table.columns if col in ignore_features_upper or col in ignore_features_lower]
-        if isinstance(table, pd.DataFrame):
-            return table.drop(columns = ignore_features_)
         return table.drop(ignore_features_)
 
     def filter_feature_table(self, feature_table: snowflake.snowpark.Table, entity_column: str, index_timestamp: str, max_row_count: int, min_sample_for_training: int) -> snowflake.snowpark.Table:

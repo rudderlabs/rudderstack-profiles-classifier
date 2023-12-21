@@ -128,6 +128,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    training_mode_map = {"local": LocalProcessor, "snowflake": SnowflakeProcessor}
     import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py", "Processor.py", "LocalProcessor.py", "SnowflakeProcessor.py")
     import_paths = []
     for file in import_files:
@@ -142,7 +143,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     merged_config = utils.combine_config(notebook_config, config)
     
     prediction_task = merged_config['data'].pop('task', 'classification') # Assuming default as classification
-    training_mode = merged_config['data'].pop('mode', None) # Assuming default as local
+    training_mode = merged_config['data'].pop('mode', None)
 
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == 'classification':    
@@ -251,7 +252,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         label_value = connector.get_default_label_value(session, material_names[0][0], trainer.label_column, positive_boolean_flags)
         trainer.label_value = label_value
 
-    training_mode_map = {"local": LocalProcessor, "snowflake": SnowflakeProcessor}
     if not training_mode:
         training_mode = utils.fetch_default_training_mode(warehouse)
     processor = training_mode_map[training_mode](trainer, connector, session)

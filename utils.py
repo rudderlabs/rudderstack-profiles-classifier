@@ -456,7 +456,7 @@ def materialise_past_data(features_valid_time: str, feature_package_path: str, o
         else:
             raise Exception(f"Error occurred while materialising data for date {features_valid_time} ")
     except Exception as e:
-        print(e)
+        logger.warning(e)
         return False
 
 def is_valid_table(session: snowflake.snowpark.Session, table_name: str) -> bool:
@@ -696,7 +696,7 @@ def plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_co
         shap_values = shap.TreeExplainer(pipe['model']).shap_values(train_x_processed)
         x_label = "Importance scores"
         if isinstance(shap_values, list):
-            print("Got List output, suggesting that the model is a multi-output model. Using the second output for plotting feature importance")
+            logger.debug("Got List output, suggesting that the model is a multi-output model. Using the second output for plotting feature importance")
             x_label = "Importance scores of positive label"
             shap_values = shap_values[1]
         onehot_encoder_columns = get_column_names(dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"], categorical_columns)
@@ -716,8 +716,8 @@ def plot_top_k_feature_importance(pipe, train_x, numeric_columns, categorical_co
         plt.clf()
         return shap_importance
     except Exception as e:
-        print("Exception occured while plotting feature importance")
-        print(e)
+        logger.warning(f"Exception occured while plotting feature importance {e}")
+        
 
 def fetch_staged_file(session: snowflake.snowpark.Session, 
                         stage_name: str, 

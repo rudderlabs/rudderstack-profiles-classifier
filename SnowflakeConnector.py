@@ -4,7 +4,7 @@ import shutil
 import pandas as pd
 
 from datetime import datetime
-from typing import Any, List, Tuple, Union
+from typing import Any, List, Tuple, Union, Optional
 
 import snowflake.snowpark
 import snowflake.snowpark.types as T
@@ -604,7 +604,7 @@ class SnowflakeConnector(Connector):
 
     def call_prediction_udf(self, predict_data: snowflake.snowpark.Table, prediction_udf: Any, entity_column: str, index_timestamp: str,
                                   score_column_name: str, percentile_column_name: str, output_label_column: str, train_model_id: str,
-                                  column_names_path: str, prob_th: float, input: snowflake.snowpark.Table) -> pd.DataFrame:
+                                  column_names_path: str, prob_th: Optional[float], input: snowflake.snowpark.Table) -> pd.DataFrame:
         """Calls the given function for prediction
 
         Args:
@@ -624,7 +624,8 @@ class SnowflakeConnector(Connector):
         """
         preds = (predict_data.select(entity_column, index_timestamp, prediction_udf(*input).alias(score_column_name))
              .withColumn("model_id", F.lit(train_model_id)))
-        preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))
+        if prob_th:
+            preds = preds.withColumn(output_label_column, F.when(F.col(score_column_name)>=prob_th, F.lit(True)).otherwise(F.lit(False)))
         preds_with_percentile = preds.withColumn(percentile_column_name, F.percent_rank().over(Window.order_by(F.col(score_column_name)))).select(
                                                         entity_column, index_timestamp, "model_id", score_column_name, percentile_column_name, output_label_column)
         return preds_with_percentile

@@ -307,8 +307,6 @@ class ClassificationTrainer(MLTrainer):
             name = model_config["name"]
 
             if name in self.models_map.keys():
-                print(f"Training {name}")
-
                 clf, trials = self.build_model(train_x, train_y, val_x, val_y, self.models_map[name], model_config)
 
                 if best_acc < max([ -1*loss for loss in trials.losses()]):
@@ -472,8 +470,6 @@ class RegressionTrainer(MLTrainer):
 
         for model_config in models:
             name = model_config["name"]
-            print(f"Training {name}")
-
             if name in self.models_map.keys():
                 reg, trials = self.build_model(
                     train_x, train_y, val_x, val_y, self.models_map[name], model_config

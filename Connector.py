@@ -134,13 +134,13 @@ class Connector(ABC):
                     break
         return feature_table_name, label_table_name                    
     
-    def fetch_processor_mode(self, warehouse: str, user_preferences: List[str], is_rudder_server: bool)-> str:
+    def fetch_processor_mode(self, warehouse: str, user_preferences: List[str], is_rudder_backend: bool)-> str:
         mode = None
         if warehouse == 'snowflake':
             mode = 'native-warehouse'
-        elif is_rudder_server and warehouse == 'redshift':
+        elif is_rudder_backend and warehouse == 'redshift':
             mode = 'rudderstack-infra'
-        elif not is_rudder_server and warehouse == 'redshift':
+        elif not is_rudder_backend and warehouse == 'redshift':
             mode = user_preferences[0]
         else:
             raise Exception(f"Unsupported warehouse and processing mode combination.")

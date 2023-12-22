@@ -25,6 +25,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import utils
 import constants
+from AWSProcessor import AWSProcessor
 from LocalProcessor import LocalProcessor
 from SnowflakeProcessor import SnowflakeProcessor
 from SnowflakeConnector import SnowflakeConnector
@@ -105,7 +106,7 @@ def train_and_store_model_results_rs(feature_table_name: str,
     connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     return results
 
-def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str=None, project_folder: str=None) -> None:
+def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str=None, project_folder: str=None, is_rudder_server: bool=False) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:
@@ -128,7 +129,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    training_mode_map = {"local": LocalProcessor, "snowflake": SnowflakeProcessor}
+    processor_mode_map = {"local": LocalProcessor, "native-warehouse": SnowflakeProcessor, "rudderstack-infra": AWSProcessor}
     import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py", "Processor.py", "LocalProcessor.py", "SnowflakeProcessor.py")
     import_paths = []
     for file in import_files:
@@ -141,9 +142,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     logger.debug("Initialising trainer")
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
-    
+
+    user_preferences = merged_config['data'].pop('user_preferences', None)
     prediction_task = merged_config['data'].pop('task', 'classification') # Assuming default as classification
-    training_mode = merged_config['data'].pop('mode', None)
 
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == 'classification':    
@@ -252,9 +253,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         label_value = connector.get_default_label_value(session, material_names[0][0], trainer.label_column, positive_boolean_flags)
         trainer.label_value = label_value
 
-    if not training_mode:
-        training_mode = utils.fetch_default_training_mode(warehouse)
-    processor = training_mode_map[training_mode](trainer, connector, session)
+    mode = connector.fetch_processor_mode(warehouse, user_preferences, is_rudder_server)
+    processor = processor_mode_map[mode](trainer, connector, session)
 
     train_results_json, arraytype_features, timestamp_columns = processor.train(train_procedure, material_names, merged_config)
 

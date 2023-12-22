@@ -394,12 +394,6 @@ def get_project_folder(project_folder: str, output_path: str)-> str:
         project_folder = os.path.sep.join(path_components[:output_index])
     return project_folder
 
-def fetch_default_training_mode(warehouse: str)-> str:
-    processor_mode_preference = constants.PROCESSOR_MODE_PREFERENCE
-    if warehouse not in processor_mode_preference:
-        raise Exception(f"Unsupported warehouse: {warehouse}")
-    return processor_mode_preference[warehouse.lower()][0]
-
 def get_feature_package_path(package_name:str, features_profiles_model:str, input_models: List[str])-> str:
     """Returns the feature package path
 

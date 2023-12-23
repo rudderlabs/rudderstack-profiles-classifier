@@ -107,7 +107,7 @@ def test_regression_training():
     config = {
       "data": {
         "task" : "regression",
-        "label_column" : "days_since_last_seen"
+        "label_column" : "days_since_last_seen",
         "features_profiles_model": "shopify_user_features",
         "inputs": ["packages/feature_table/models/shopify_user_features"],
         "eligible_users": "1=1"

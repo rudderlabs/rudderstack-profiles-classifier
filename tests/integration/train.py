@@ -131,4 +131,4 @@ def test_training():
     test_classification_training()
     test_regression_training()
 
-test_training()
+test_regression_training()

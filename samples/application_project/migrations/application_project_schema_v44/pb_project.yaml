@@ -1,0 +1,44 @@
+# Project name
+name: sample_application_project
+# Project's yaml schema version
+schema_version: 44
+# WH Connection to use.
+connection: dev_wh
+# Whether to allow inputs having no timestamps,
+# if true, data without timestamps are included when running models
+include_untimed: true
+# Model folders to use.
+model_folders:
+  - models
+# Entities in this project and their ids.
+entities:
+  - name: user
+    serve_traits:
+      # default entity traits 360 model
+      - id_served: user_id
+        name: user_id_stitched_features
+        # default entity traits 360 model
+      - id_served: main_id
+        name: main_id_stitched_features
+id_types:
+  - name: main_id
+  - name: user_id
+  - name: anonymous_id
+    filters:
+      - type: exclude
+        value: ""
+      - type: exclude
+        value: "unknown"
+      - type: exclude
+        value: "NaN"
+  - name: email
+    filters:
+      - type: include
+        regex: ".+@.+"
+      - type: exclude
+        value: "test@company.com"
+packages:
+  - name: feature_table # Do not modify this. If this changes, it needs to be passed to train.py in the config as package_name: <value> and also in the inputs in python_model
+    url: /Users/admin/Desktop/Profiles/rudderstack_profiles_classifier/samples/base_features
+    inputsMap:
+      rsTracks: inputs/rsTracks

@@ -191,10 +191,6 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def call_procedure(self, *args, **kwargs) -> Any:
-        pass
-
-    @abstractmethod
     def get_non_stringtype_features(self, feature_table, label_column: str, entity_column: str, **kwargs) -> List[str]:
         pass
 

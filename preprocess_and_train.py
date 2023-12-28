@@ -17,11 +17,6 @@ import constants
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
-try:
-    from RedshiftConnector import RedshiftConnector
-except Exception as e:
-        logger.warning(f"Could not import RedshiftConnector")
-
 def train_and_store_model_results_rs(feature_table_name: str,
             merged_config: dict, **kwargs) -> dict:
     """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
@@ -175,6 +170,11 @@ if __name__ == "__main__":
     import sys 
     import argparse 
     from MLTrainer import ClassificationTrainer, RegressionTrainer
+
+    try:
+        from RedshiftConnector import RedshiftConnector
+    except Exception as e:
+            logger.warning(f"Could not import RedshiftConnector")
     
     parser = argparse.ArgumentParser()
     

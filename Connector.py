@@ -175,6 +175,10 @@ class Connector(ABC):
     @abstractmethod
     def run_query(self, session, query: str, response: bool) -> Optional[Sequence]:
         pass
+
+    @abstractmethod
+    def _call_procedure(self, *args, **kwargs):
+        pass
     
     @abstractmethod
     def get_table(self, session, table_name: str, **kwargs):

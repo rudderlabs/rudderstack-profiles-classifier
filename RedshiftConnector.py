@@ -72,6 +72,21 @@ class RedshiftConnector(Connector):
             return cursor.execute(query).fetchall()
         else:
             return cursor.execute(query)
+        
+    def _call_procedure(self, *args, **kwargs):
+        """Calls the given function for training
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
+            args (list): List of arguments to be passed to the training function
+            kwargs (dict): Dictionary of keyword arguments to be passed to the training function
+        
+        Returns:
+            Results of the training function
+        """
+        train_function = args[0]
+        args = args[1:]
+        return train_function(*args, **kwargs)
 
     def get_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object

@@ -690,6 +690,55 @@ class SnowflakeConnector(Connector):
             )
         return table
 
+    def do_data_validation(
+        self,
+        feature_table,
+        label_column,
+        task_type: str
+    ):
+        """This function will do the data validation on feature table and label column
+        Args:
+            feature_table (snowflake.snowpark.Table): feature table
+            label_column (str): label column name
+        Returns:
+            None
+        """
+        try:
+
+            distinct_values_count = feature_table.groupBy(label_column).count()
+
+            if task_type == "classification":
+                total_count = feature_table.count()
+                normalized_counts = distinct_values_count.withColumn("normalized_count", F.col("count") / total_count)
+                df = normalized_counts.to_pandas()
+                norms = df["NORMALIZED_COUNT"].apply(lambda x: float(x))
+
+                min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+                max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
+
+                if (norms < min_label_proportion).any() or (norms > max_label_proportion).any():
+                    raise Exception(
+                        f"Label column {label_column} has invalid proportions. \
+                            Please check if the label column has valid labels."
+                    )
+            elif task_type == "regression":
+                df = distinct_values_count.to_pandas()
+                distinct_values_count_list = df["COUNT"].apply(lambda x: float(x))
+                min_distinct_values = constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
+
+                if (distinct_values_count_list < min_distinct_values).any():
+                    raise Exception(
+                        f"Label column {label_column} has invalid number of distinct values. \
+                            Please check if the label column has valid labels."
+                    )
+
+        except AttributeError:
+            logger.warning(
+                "Could not perform data validation. Please check if the required \
+                    configuations are present in the constants.py file."
+            )
+            pass
+
     def add_days_diff(
         self, table: snowflake.snowpark.Table, new_col, time_col_1, time_col_2
     ) -> snowflake.snowpark.Table:

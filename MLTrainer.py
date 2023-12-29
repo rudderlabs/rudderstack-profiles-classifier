@@ -175,6 +175,10 @@ class MLTrainer(ABC):
         return space
 
     @abstractmethod
+    def get_name(self):
+        pass
+
+    @abstractmethod
     def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
         pass
 
@@ -367,6 +371,9 @@ class ClassificationTrainer(MLTrainer):
             del model_config["modelparams"]["early_stopping_rounds"]
         clf = model_class(**best_hyperparams, **model_config["modelparams"])
         return clf, trials
+
+    def get_name(self):
+        return "classification"
 
     def select_best_model(self, models, train_x, train_y, val_x, val_y):
         """
@@ -568,6 +575,9 @@ class RegressionTrainer(MLTrainer):
             del model_config["modelparams"]["early_stopping_rounds"]
         reg = model_class(**best_hyperparams, **model_config["modelparams"])
         return reg, trials
+
+    def get_name(self):
+        return "regression"
 
     def select_best_model(self, models, train_x, train_y, val_x, val_y):
         """

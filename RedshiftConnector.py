@@ -561,6 +561,43 @@ class RedshiftConnector(Connector):
             )
         return feature_table_filtered
 
+    def do_data_validation(
+            self,
+            feature_table: pd.DataFrame,
+            label_column: str,
+            task_type: str,
+    ):
+        try:
+            if task_type == "classification":
+                min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+                max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
+
+                # Check for the class imbalance
+                label_proportion = feature_table[label_column].value_counts(normalize=True)
+
+                if (label_proportion < min_label_proportion).any() or (label_proportion > max_label_proportion).any():
+                    raise Exception(
+                        f"Label column {label_column} has invalid proportions. \
+                            Please check if the label column has valid labels."
+                    )
+            elif task_type == "regression":
+                min_distinct_values = constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
+
+                # Check for the label values
+                distinct_values_count_list = feature_table[label_column].value_counts()
+
+                if (distinct_values_count_list < min_distinct_values).any():
+                    raise Exception(
+                        f"Label column {label_column} has invalid number of distinct values. \
+                            Please check if the label column has valid labels."
+                    )
+        except AttributeError:
+            logger.warning(
+                "Could not perform data validation. Please check if the required \
+                    configuations are present in the constants.py file."
+            )
+            pass
+
     def add_days_diff(
         self, table: pd.DataFrame, new_col: str, time_col_1: str, time_col_2: str
     ) -> pd.DataFrame:

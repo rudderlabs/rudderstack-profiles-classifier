@@ -291,9 +291,6 @@ def train(
             """
             feature_df = connector.get_table_as_dataframe(session, feature_table_name)
 
-            # Data Validation
-            trainer.do_data_validation(feature_df)
-
             model_file = connector.join_file_path(
                 f"{trainer.output_profiles_ml_model}_{model_file_name}"
             )

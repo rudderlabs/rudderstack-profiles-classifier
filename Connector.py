@@ -405,6 +405,15 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def do_data_validation(
+        self,
+        feature_table,
+        label_column,
+        task_type
+    ):
+        pass
+
+    @abstractmethod
     def add_days_diff(self, table, new_col, time_col_1, time_col_2):
         pass
 

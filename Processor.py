@@ -29,7 +29,8 @@ class Processor(ABC):
         label_table_name: str,
         cardinal_feature_threshold: float,
     ) -> tuple:
-        """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
+        """This function creates a feature table as per the requirement of customer that is further 
+        used for training and prediction.
 
         Args:
             feature_table_name (str): feature table from the retrieved material_names tuple
@@ -134,7 +135,16 @@ class Processor(ABC):
                 break
             else:
                 feature_table = feature_table.unionAllByName(feature_table_instance)
- 
+
+        task_type = self.trainer.get_name()
+        logger.info(f"Performing data validation for {task_type}")
+
+        self.connector.do_data_validation(
+            feature_table,
+            self.trainer.label_column,
+            task_type
+        )
+
         feature_table_name_remote = f"{self.trainer.output_profiles_ml_model}_features"
         filtered_feature_table = self.connector.filter_feature_table(
             feature_table,

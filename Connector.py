@@ -133,18 +133,6 @@ class Connector(ABC):
                         label_table_name = table_name
                     break
         return feature_table_name, label_table_name                    
-    
-    def fetch_processor_mode(self, warehouse: str, user_preferences: List[str], is_rudder_backend: bool)-> str:
-        mode = None
-        if warehouse == 'snowflake':
-            mode = 'native-warehouse'
-        elif is_rudder_backend and warehouse == 'redshift':
-            mode = 'rudderstack-infra'
-        elif not is_rudder_backend and warehouse == 'redshift':
-            mode = user_preferences[0]
-        else:
-            raise Exception(f"Unsupported warehouse and processing mode combination.")
-        return mode 
 
     def get_latest_material_hash(self, package_name:str, features_profiles_model: str, output_filename:str, 
                                         site_config_path: str = None, inputs: List[str] = None, project_folder: str = None) -> str:
@@ -174,6 +162,10 @@ class Connector(ABC):
 
     @abstractmethod
     def run_query(self, session, query: str, response: bool) -> Optional[Sequence]:
+        pass
+
+    @abstractmethod
+    def fetch_processor_mode(self, user_preference_order_infra: List[str], is_rudder_backend: bool)->str:
         pass
     
     @abstractmethod

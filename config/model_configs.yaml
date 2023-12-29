@@ -14,7 +14,7 @@ data:
   # train_end_dt: '2023-05-01'
   train_end_dt:
   prediction_horizon_days: 7 # Days in advance to predict the label_column. 
-  user_preferences: 
+  user_preference_order_infra: 
     - local
     - rudderstack-infra
     - native-warehouse

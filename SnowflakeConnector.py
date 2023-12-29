@@ -59,6 +59,10 @@ class SnowflakeConnector(Connector):
             Results of the query run on the snowpark session
         """
         return session.sql(query).collect()
+    
+    def fetch_processor_mode(self, user_preference_order_infra: List[str], is_rudder_backend: bool)->str:
+        mode = 'native-warehouse'
+        return mode
 
     def get_table(self, session: snowflake.snowpark.Session, table_name: str, **kwargs) -> snowflake.snowpark.Table:
         """Fetches the table with the given name from the snowpark session as a snowpark table object

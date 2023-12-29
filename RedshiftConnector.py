@@ -20,6 +20,8 @@ local_folder = constants.LOCAL_STORAGE_DIR
 class RedshiftConnector(Connector):
     def __init__(self, folder_path: str) -> None:
         self.local_dir = os.path.join(folder_path, local_folder)
+        path = Path(self.local_dir)
+        path.mkdir(parents=True, exist_ok=True)
         self.array_time_features = {}
         return
     

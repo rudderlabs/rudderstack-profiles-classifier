@@ -64,10 +64,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS
     json_argument = json.loads(json_argument)
     is_rudder_backend = json_argument.get("is_rudder_backend", False)
-
-    #TODO: remove below line
-    is_rudder_backend = True
-
     stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))

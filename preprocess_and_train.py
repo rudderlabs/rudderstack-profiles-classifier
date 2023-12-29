@@ -174,7 +174,7 @@ if __name__ == "__main__":
     try:
         from RedshiftConnector import RedshiftConnector
     except Exception as e:
-            logger.warning(f"Could not import RedshiftConnector")
+            raise Exception(f"Could not import RedshiftConnector")
     
     parser = argparse.ArgumentParser()
     

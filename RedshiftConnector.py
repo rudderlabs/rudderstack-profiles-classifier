@@ -76,9 +76,13 @@ class RedshiftConnector(Connector):
             return cursor.execute(query).fetchall()
         else:
             return cursor.execute(query)
-        
-    def fetch_processor_mode(self, user_preference_order_infra: List[str], is_rudder_backend: bool)->str:
-        mode = 'rudderstack-infra' if is_rudder_backend else user_preference_order_infra[0]
+
+    def fetch_processor_mode(
+        self, user_preference_order_infra: List[str], is_rudder_backend: bool
+    ) -> str:
+        mode = (
+            "rudderstack-infra" if is_rudder_backend else user_preference_order_infra[0]
+        )
         return mode
 
     def get_table(
@@ -562,10 +566,10 @@ class RedshiftConnector(Connector):
         return feature_table_filtered
 
     def do_data_validation(
-            self,
-            feature_table: pd.DataFrame,
-            label_column: str,
-            task_type: str,
+        self,
+        feature_table: pd.DataFrame,
+        label_column: str,
+        task_type: str,
     ):
         try:
             if task_type == "classification":
@@ -573,9 +577,13 @@ class RedshiftConnector(Connector):
                 max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
 
                 # Check for the class imbalance
-                label_proportion = feature_table[label_column].value_counts(normalize=True)
+                label_proportion = feature_table[label_column].value_counts(
+                    normalize=True
+                )
 
-                if (label_proportion < min_label_proportion).any() or (label_proportion > max_label_proportion).any():
+                if (label_proportion < min_label_proportion).any() or (
+                    label_proportion > max_label_proportion
+                ).any():
                     raise Exception(
                         f"Label column {label_column} has invalid proportions. \
                             Please check if the label column has valid labels."

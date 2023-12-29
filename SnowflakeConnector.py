@@ -942,7 +942,11 @@ class SnowflakeConnector(Connector):
             delete_procedures(session, 'train_model')
 
         This function retrieves a list of procedures that match the given train procedure name pattern using a SQL query.
+<<<<<<< HEAD
         It then iterates over each procedure and attempts to drop it using another SQL query.
+=======
+        It then iterates over each procedure and attempts to drop it using another SQL query. 
+>>>>>>> 9979534 (Code formatting)
         If an error occurs during the drop operation, it is ignored.
         """
         procedures = self.run_query(session, f"show procedures like '{procedure_name}'")
@@ -959,7 +963,11 @@ class SnowflakeConnector(Connector):
     def _drop_fn_if_exists(
         self, session: snowflake.snowpark.Session, fn_name: str
     ) -> bool:
+<<<<<<< HEAD
         """Snowflake caches the functions and it reuses these next time. To avoid the caching,
+=======
+        """Snowflake caches the functions and it reuses these next time. To avoid the caching, 
+>>>>>>> 9979534 (Code formatting)
         we manually search for the same function name and drop it before we create the udf.
 
         Args:

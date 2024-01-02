@@ -194,7 +194,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     mode = connector.fetch_processor_mode(warehouse, user_preferences, is_rudder_backend)
     processor = processor_mode_map[mode](trainer, connector, session)
 
-    train_results_json, arraytype_features, timestamp_columns = processor.train(train_procedure, material_names, merged_config, prediction_task, creds)
+    train_results_json = processor.train(train_procedure, material_names, merged_config, prediction_task, creds)
 
     logger.info("Saving train results to file")
     if not isinstance(train_results_json, dict):
@@ -203,7 +203,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         train_results = train_results_json
     model_id = train_results["model_id"]
 
-    column_dict = {'arraytype_features': arraytype_features, 'timestamp_columns': timestamp_columns}
+    column_dict = {'arraytype_features': train_results["arraytype_features"], 'timestamp_columns': train_results["timestamp_columns"]}
     column_name_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_id}_array_time_feature_names.json")
     json.dump(column_dict, open(column_name_file,"w"))
     

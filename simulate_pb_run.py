@@ -72,4 +72,4 @@ if __name__ == "__main__":
         credentials_presets = {}
 
     s3_config = credentials_presets.get("s3", {})
-    P.predict(creds, s3_config, t_output_filename, None, p_output_tablename, predict_config)
+    P.predict(creds, s3_config, t_output_filename, [feature_table_name], p_output_tablename, predict_config)

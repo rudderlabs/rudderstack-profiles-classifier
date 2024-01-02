@@ -193,13 +193,9 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     mode = connector.fetch_processor_mode(user_preference_order_infra, is_rudder_backend)
     processor = processor_mode_map[mode](trainer, connector, session)
 
-    train_results_json = processor.train(train_procedure, material_names, merged_config, prediction_task, creds)
+    train_results = processor.train(train_procedure, material_names, merged_config, prediction_task, creds)
 
     logger.info("Saving train results to file")
-    if not isinstance(train_results_json, dict):
-        train_results = json.loads(train_results_json)
-    else:
-        train_results = train_results_json
     model_id = train_results["model_id"]
 
     column_dict = {'arraytype_features': train_results["arraytype_features"], 'timestamp_columns': train_results["timestamp_columns"]}

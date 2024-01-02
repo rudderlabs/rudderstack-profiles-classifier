@@ -175,6 +175,8 @@ def preprocess_and_train(train_procedure, material_names: List[Tuple[str]], merg
         logger.error(f"Error while training the model: {e}")
         raise e
     
+    if not isinstance(train_results_json, dict):
+        train_results_json = json.loads(train_results_json)
     train_results_json['arraytype_features'] = arraytype_features
     train_results_json['timestamp_columns'] = timestamp_columns
     return train_results_json

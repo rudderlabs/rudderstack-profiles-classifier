@@ -6,6 +6,7 @@ import boto3
 from logger import logger
 from Processor import Processor
 from typing import Any, List, Tuple, Union
+from botocore.exceptions import NoCredentialsError
 
 class AWSProcessor(Processor):
     def execute(self, ssm_client, instance_id, commands):
@@ -32,10 +33,21 @@ class AWSProcessor(Processor):
         print("Error logs:")
         print(output2)
 
+    def download_from_s3(bucket_name, folder_name, file_name):
+        s3 = boto3.client('s3')
+        s3_path = f"{folder_name}/{file_name}"
+        try:
+            response = s3.get_object(Bucket=bucket_name, Key=s3_path)
+            json_data = response['Body'].read().decode('utf-8')
+            data = json.loads(json_data)
+            return data
+        except NoCredentialsError:
+            raise Exception(f"Not able to load object from file {bucket_name}/{s3_path}/{file_name}")
+
     def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict):
         remote_dir = '/home/ec2-user'
         instance_id = 'i-001c6544decab0fa3'
-        output_path = "output"
+        output_json = "train_results.json"
         s3_bucket = "ml-usecases-poc"
         s3_path = "test_export"
 
@@ -43,8 +55,9 @@ class AWSProcessor(Processor):
         commands = [
         f"cd {remote_dir}/rudderstack-profiles-classifier",
         f"pip install -r requirements.txt",
-        f"python3 preprocess_and_train.py --output_path {output_path} --s3_bucket {s3_bucket} --s3_path {s3_path} --material_names '{json.dumps(material_names)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}'"
+        f"python3 preprocess_and_train.py --s3_bucket {s3_bucket} --s3_path {s3_path} --output_json {output_json} --material_names '{json.dumps(material_names)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}'"
         ]
         self.execute(ssm_client, instance_id, commands)
 
-        return None
+        train_results_json = self.download_from_s3(s3_bucket, s3_path, output_json)
+        return train_results_json

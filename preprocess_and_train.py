@@ -19,20 +19,14 @@ import constants
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
-def upload_directory(path, bucket, destination):
+def upload_to_s3(bucket_name, folder_name, file_name, data):
     s3 = boto3.client('s3')
-    for subdir, _, files in os.walk(path):
-        for file in files:
-            full_path = os.path.join(subdir, file)
-            with open(full_path, 'rb') as data:
-                s3_key = os.path.join(destination, subdir[len(path) + 1:], file)
-                try:
-                    s3.upload_fileobj(data, bucket, s3_key)
-                    print(f"File {full_path} uploaded to {bucket}/{s3_key}")
-                except FileNotFoundError:
-                    print(f"The file {full_path} was not found")
-                except NoCredentialsError:
-                    print("Credentials not available")
+    json_data = json.dumps(data)
+    s3_path = f"{folder_name}/{file_name}"
+    try:
+        s3.put_object(Body=json_data, Bucket=bucket_name, Key=s3_path)
+    except NoCredentialsError:
+        raise Exception(f"Not able to upload {file_name} to {bucket_name}/{s3_path}")
 
 def train_and_store_model_results_rs(feature_table_name: str,
             merged_config: dict, **kwargs) -> dict:
@@ -197,9 +191,9 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("--output_path", type=str)
     parser.add_argument("--s3_bucket", type=str)
     parser.add_argument("--s3_path", type=str)
+    parser.add_argument("--output_json", type=str)
     parser.add_argument("--material_names", type=json.loads)
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--prediction_task", type=str)
@@ -218,10 +212,4 @@ if __name__ == "__main__":
     session = connector.build_session(args.wh_creds)
 
     train_results_json = preprocess_and_train(train_procedure, args.material_names, args.merged_config, session=session, connector=connector, trainer=trainer)
-    pathlib.Path(args.output_path).mkdir(parents=True, exist_ok=True)
-    with open(os.path.join(args.output_path, "sample_file.json"), "w") as file:
-        json.dump(train_results_json, file)
-
-    s3 = boto3.resource('s3')
-    s3.meta.client.upload_file(os.path.join(args.output_path, "sample_file.json"), args.s3_bucket, 'results.json')
-    # upload_directory(os.path.join('./', args.output_path), args.s3_bucket, args.s3_path)
+    upload_to_s3(args.s3_bucket, args.s3_path, args.output_json, train_results_json)

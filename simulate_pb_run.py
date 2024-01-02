@@ -11,7 +11,6 @@ import predict as P
 
 if __name__ == "__main__":
     train_file_extension = ".json"
-    #schema = 'shopify_wh_rs'
     schema = "rs360"
     project_folder = '../rudderstack-profiles-shopify-churn'
     feature_table_name = 'shopify_user_features'
@@ -22,9 +21,20 @@ if __name__ == "__main__":
     pred_horizon_days = 7
     output_model_name = 'shopify_churn'
     inputs = f'packages/{package_name}/models/{feature_table_name}'
+    p_output_tablename = 'test_run_can_delete_2'
+    t_output_filename = 'output/dev/seq_no/1/train_output' + train_file_extension
+    should_train = True
+    material_seq = 2508 # seq no of most recent material from pb run
+    model_hash = '43619d31' # hash of the feature_table_name from current pb run
+    json_argument = {'is_rudder_backend': False}
     homedir = os.path.expanduser("~") 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"][schema]["outputs"]["dev"]
+        
+    # End of user inputs.   
+    
+    from logger import logger
+    logger.setLevel("DEBUG")
     
     if creds['type'] == 'snowflake':
         print(f"Using {creds['schema']} schema in snowflake account: {creds['account']}")
@@ -33,14 +43,15 @@ if __name__ == "__main__":
     else:
         raise Exception(f"Unknown database type: {creds['type']}")
     credentials_presets = None
-    p_output_tablename = 'test_run_can_delete_2'
-    t_output_filename = 'output/dev/seq_no/1/train_output' + train_file_extension
+    if should_train:
+        print("Training step is enabled.")
+    else:
+        print("Skipping training as the shoud_train param is set to False")
+        
     print(f"Training output file: {t_output_filename}")
     pathlib.Path(os.path.dirname(t_output_filename)).mkdir(parents=True, exist_ok=True)
     site_config_path = os.path.join(homedir, ".pb/siteconfig.yaml")
     project_folder = os.path.abspath(project_folder)
-    
-    should_train = True
     
     data = {"label_column": label_column, 
             "label_value": label_value,
@@ -64,7 +75,7 @@ if __name__ == "__main__":
     # train_config = json.loads('{"data":{"eligible_users":"1=1","features_profiles_model":"shopify_user_features","inputs":["packages/feature_table/models/shopify_user_features"],"label_column":"is_churned_7_days","label_value":1,"output_profiles_ml_model":"shopify_churn","package_name":"feature_table","prediction_horizon_days":7},"preprocessing":{"ignore_features":["user_email","first_name","last_name"]}}')
     # predict_config = json.loads('{"data":{"eligible_users":"1=1","features_profiles_model":"shopify_user_features","inputs":["packages/feature_table/models/shopify_user_features"],"label_column":"is_churned_7_days","label_value":1,"output_profiles_ml_model":"shopify_churn","package_name":"feature_table","prediction_horizon_days":7},"outputs":{"column_names":{"percentile":"percentile_churn_score_7_days","score":"churn_score_7_days"},"feature_meta_data":{"features":[{"description":"Percentile of churn score. Higher the percentile, higher the probability of churn","name":"percentile_churn_score_7_days"}]}},"preprocessing":{"ignore_features":["user_email","first_name","last_name"]}}')
 
-    json_argument = {'is_rudder_backend': False}
+    
     if should_train:
         T.train(creds, None, t_output_filename, train_config, site_config_path, project_folder)
 
@@ -72,4 +83,6 @@ if __name__ == "__main__":
         credentials_presets = {}
 
     s3_config = credentials_presets.get("s3", {})
-    P.predict(creds, s3_config, t_output_filename, None, p_output_tablename, predict_config)
+    predict_inputs = [f"SELECT * FROM {schema}.Material_{feature_table_name}_{model_hash}_{material_seq}",]
+    #print(f"Using table Material_{feature_table_name}_{model_hash}_{material_seq} for predictions")
+    #P.predict(creds, s3_config, t_output_filename, predict_inputs, p_output_tablename, predict_config)

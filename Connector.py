@@ -181,6 +181,10 @@ class Connector(ABC):
         pass
     
     @abstractmethod
+    def fetch_processor_mode(self, user_preference_order_infra: List[str], is_rudder_backend: bool)->str:
+        pass
+    
+    @abstractmethod
     def get_table(self, session, table_name: str, **kwargs):
         pass
     

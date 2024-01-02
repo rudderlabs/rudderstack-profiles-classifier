@@ -43,7 +43,7 @@ except Exception as e:
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
-def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str=None, project_folder: str=None, json_argument: str='{}') -> None:
+def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str=None, project_folder: str=None, runtime_info: dict=None) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:
@@ -62,8 +62,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
     positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS
-    json_argument = json.loads(json_argument)
-    is_rudder_backend = json_argument.get("is_rudder_backend", False)
+    is_rudder_backend = utils.fetch_key_from_dict(runtime_info, "is_rudder_backend", False)
     stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -81,7 +80,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
 
-    user_preferences = merged_config['data'].pop('user_preferences', None)
+    user_preference_order_infra = merged_config['data'].pop('user_preference_order_infra', None)
     prediction_task = merged_config['data'].pop('task', 'classification') # Assuming default as classification
 
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
@@ -191,7 +190,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         label_value = connector.get_default_label_value(session, material_names[0][0], trainer.label_column, positive_boolean_flags)
         trainer.label_value = label_value
 
-    mode = connector.fetch_processor_mode(warehouse, user_preferences, is_rudder_backend)
+    mode = connector.fetch_processor_mode(user_preference_order_infra, is_rudder_backend)
     processor = processor_mode_map[mode](trainer, connector, session)
 
     train_results_json = processor.train(train_procedure, material_names, merged_config, prediction_task, creds)

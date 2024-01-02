@@ -89,6 +89,10 @@ class RedshiftConnector(Connector):
         train_function = args[0]
         args = args[1:]
         return train_function(*args, **kwargs)
+        
+    def fetch_processor_mode(self, user_preference_order_infra: List[str], is_rudder_backend: bool)->str:
+        mode = 'rudderstack-infra' if is_rudder_backend else user_preference_order_infra[0]
+        return mode
 
     def get_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object

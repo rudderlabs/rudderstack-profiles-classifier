@@ -2,6 +2,7 @@ import os
 import json
 import boto3
 from botocore.exceptions import NoCredentialsError
+from botocore.exceptions import WaiterError
 import pathlib
 import pandas as pd
 from typing import Any, List, Tuple, Union
@@ -19,14 +20,36 @@ import constants
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
-def upload_to_s3(bucket_name, folder_name, file_name, data):
-    s3 = boto3.client('s3')
-    json_data = json.dumps(data)
-    s3_path = f"{folder_name}/{file_name}"
+# def upload_to_s3(bucket_name, folder_name, file_name, data):
+#     s3 = boto3.client('s3')
+#     json_data = json.dumps(data)
+#     s3_path = f"{folder_name}/{file_name}"
+#     try:
+#         s3.put_object(Body=json_data, Bucket=bucket_name, Key=s3_path)
+#     except NoCredentialsError:
+#         raise Exception(f"Not able to upload {file_name} to {bucket_name}/{s3_path}")
+    
+def upload_to_s3(bucket_name, folder_name, file_name, local_path):
+    key = f"{folder_name}/{file_name}"
+    s3 = boto3.resource('s3')
+    bucket = s3.Bucket(bucket_name)
+
+    # Upload the file to S3
     try:
-        s3.put_object(Body=json_data, Bucket=bucket_name, Key=s3_path)
+        bucket.upload_file(os.path.join(local_path, file_name), key)
+        print(f"Successfully uploaded {file_name} to {bucket_name}/{key}")
     except NoCredentialsError:
-        raise Exception(f"Not able to upload {file_name} to {bucket_name}/{s3_path}")
+        print("Credentials not available")
+        return
+    
+    # Wait until the S3 object exists (i.e., the file is uploaded)
+    try:
+        obj = s3.Object(bucket_name, key)
+        obj.wait_until_exists()
+        print(f"{file_name} exists in {bucket_name}/{key}")
+    except WaiterError as e:
+        print(f"Error waiting for {file_name} in {bucket_name}/{key}: {e}")
+
 
 def train_and_store_model_results_rs(feature_table_name: str,
             merged_config: dict, **kwargs) -> dict:
@@ -214,4 +237,12 @@ if __name__ == "__main__":
     session = connector.build_session(args.wh_creds)
 
     train_results_json = preprocess_and_train(train_procedure, args.material_names, args.merged_config, session=session, connector=connector, trainer=trainer)
-    upload_to_s3(args.s3_bucket, args.s3_path, args.output_json, train_results_json)
+    with open(os.path.join(connector.get_local_dir(), args.output_json), "w") as file:
+        json.dump(train_results_json, file)
+
+    print(f"s3_bucket: {args.s3_bucket}")
+    print(f"s3_path: {args.s3_path}")
+    print(f"output_json: {args.output_json}")
+    # upload_to_s3(args.s3_bucket, args.s3_path, args.output_json, train_results_json)
+
+    upload_to_s3(args.s3_bucket, args.s3_path, args.output_json, connector.get_local_dir())

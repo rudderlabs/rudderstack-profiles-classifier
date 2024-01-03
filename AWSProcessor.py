@@ -33,7 +33,7 @@ class AWSProcessor(Processor):
         print("Error logs:")
         print(output2)
 
-    def download_from_s3(bucket_name, folder_name, file_name):
+    def download_from_s3(self, bucket_name, folder_name, file_name):
         s3 = boto3.client('s3')
         s3_path = f"{folder_name}/{file_name}"
         try:
@@ -48,7 +48,7 @@ class AWSProcessor(Processor):
         remote_dir = '/home/ec2-user'
         instance_id = 'i-001c6544decab0fa3'
         output_json = "train_results.json"
-        s3_bucket = "ml-usecases-poc"
+        s3_bucket = "ml-usecases-poc-srinivas"
         s3_path = "test_export"
 
         ssm_client = boto3.client(service_name='ssm', region_name='us-east-1')

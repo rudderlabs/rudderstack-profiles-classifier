@@ -1,6 +1,10 @@
 from train import *
 import shutil
 
+homedir = os.path.expanduser("~") 
+with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
+    creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+
 def cleanup_pb_project(project_path, siteconfig_path):
     directories = ['migrations', 'output']
     for directory in directories:
@@ -69,7 +73,7 @@ def create_site_config_file(creds, siteconfig_path):
 
 
 def test_classification_training():
-    creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
+    # creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
     creds["schema"] = "PROFILES_INTEGRATION_TEST"
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_directory = os.path.abspath(os.path.join(current_dir, os.pardir))
@@ -97,7 +101,7 @@ def test_classification_training():
         cleanup_reports(reports_folders)
 
 def test_regression_training():
-    creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
+    # creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
     creds["schema"] = "PROFILES_INTEGRATION_TEST"
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_directory = os.path.abspath(os.path.join(current_dir, os.pardir))
@@ -129,6 +133,6 @@ def test_regression_training():
 
 def test_training():
     test_classification_training()
-    test_regression_training()
+    # test_regression_training()
 
-test_regression_training()
+test_training()

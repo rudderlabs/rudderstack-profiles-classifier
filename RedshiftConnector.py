@@ -72,6 +72,10 @@ class RedshiftConnector(Connector):
             return cursor.execute(query).fetchall()
         else:
             return cursor.execute(query)
+        
+    def fetch_processor_mode(self, user_preference_order_infra: List[str], is_rudder_backend: bool)->str:
+        mode = 'rudderstack-infra' if is_rudder_backend else user_preference_order_infra[0]
+        return mode
 
     def get_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
@@ -157,21 +161,6 @@ class RedshiftConnector(Connector):
     def save_file(self, *args, **kwargs):
         """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
         pass
-
-    def call_procedure(self, *args, **kwargs):
-        """Calls the given function for training
-
-        Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
-            args (list): List of arguments to be passed to the training function
-            kwargs (dict): Dictionary of keyword arguments to be passed to the training function
-        
-        Returns:
-            Results of the training function
-        """
-        train_function = args[0]
-        args = args[1:]
-        return train_function(*args, **kwargs)
 
     def get_non_stringtype_features(self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs) -> List[str]:
         """

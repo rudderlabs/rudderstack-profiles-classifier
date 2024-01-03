@@ -25,6 +25,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import utils
 import constants
+from AWSProcessor import AWSProcessor
+from LocalProcessor import LocalProcessor
+from SnowflakeProcessor import SnowflakeProcessor
 from SnowflakeConnector import SnowflakeConnector
 from MLTrainer import ClassificationTrainer, RegressionTrainer
 
@@ -103,7 +106,7 @@ def train_and_store_model_results_rs(feature_table_name: str,
     connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     return results
 
-def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str=None, project_folder: str=None) -> None:
+def train(creds: dict, inputs: str, output_filename: str, config: dict, site_config_path: str=None, project_folder: str=None, runtime_info: dict=None) -> None:
     """Trains the model and saves the model with given output_filename.
 
     Args:
@@ -122,12 +125,12 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
     positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS
-    cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESOLD
-    min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
+    is_rudder_backend = utils.fetch_key_from_dict(runtime_info, "is_rudder_backend", False)
     stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py")
+    processor_mode_map = {"local": LocalProcessor, "native-warehouse": SnowflakeProcessor, "rudderstack-infra": AWSProcessor}
+    import_files = ("utils.py","constants.py", "logger.py", "Connector.py", "SnowflakeConnector.py", "MLTrainer.py", "Processor.py", "LocalProcessor.py", "SnowflakeProcessor.py")
     import_paths = []
     for file in import_files:
         import_paths.append(os.path.join(current_dir, file))
@@ -139,7 +142,8 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     logger.debug("Initialising trainer")
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
-    
+
+    user_preference_order_infra = merged_config['data'].pop('user_preference_order_infra', None)
     prediction_task = merged_config['data'].pop('task', 'classification') # Assuming default as classification
 
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
@@ -249,35 +253,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         label_value = connector.get_default_label_value(session, material_names[0][0], trainer.label_column, positive_boolean_flags)
         trainer.label_value = label_value
 
-    feature_table = None
-    for row in material_names:
-        feature_table_name, label_table_name = row
-        logger.info(f"Preparing training dataset using {feature_table_name} and {label_table_name} as feature and label tables respectively")
-        feature_table_instance, arraytype_features, timestamp_columns = trainer.prepare_feature_table(connector, session,
-                                                               feature_table_name, 
-                                                               label_table_name,
-                                                               cardinal_feature_threshold)
-        if feature_table is None:
-            feature_table = feature_table_instance
-            break
-        else:
-            feature_table = feature_table.unionAllByName(feature_table_instance)
+    mode = connector.fetch_processor_mode(user_preference_order_infra, is_rudder_backend)
+    processor = processor_mode_map[mode](trainer, connector, session)
 
-    feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
-    filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, trainer.index_timestamp, trainer.max_row_count, min_sample_for_training)
-    connector.write_table(filtered_feature_table, feature_table_name_remote, write_mode="overwrite", if_exists="replace")
-    logger.info("Training and fetching the results")
-
-    try:
-        train_results_json = connector.call_procedure(train_procedure,
-                                            feature_table_name_remote,
-                                            merged_config,
-                                            session=session,
-                                            connector=connector,
-                                            trainer=trainer)
-    except Exception as e:
-        logger.error(f"Error while training the model: {e}")
-        raise e
+    train_results_json, arraytype_features, timestamp_columns = processor.train(train_procedure, material_names, merged_config)
 
     logger.info("Saving train results to file")
     if not isinstance(train_results_json, dict):
@@ -310,7 +289,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         try:
             connector.fetch_staged_file(session, stage_name, figure_name, target_path)
         except:
-            print(f"Could not fetch {figure_name}")
+            logger.warning(f"Could not fetch {figure_name}")
             
     connector.cleanup(session, stored_procedure_name=train_procedure, delete_files=import_paths, stage_name=stage_name)
 
@@ -329,6 +308,6 @@ if __name__ == "__main__":
     path.mkdir(parents=True, exist_ok=True)
     # logger.setLevel(logging.DEBUG)
 
-    project_folder = '/Users/admin/Desktop/Profiles/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
+    project_folder = '/Users/ambuj/Desktop/Git_repos/rudderstack-profiles-shopify-churn'    #change path of project directory as per your system
        
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

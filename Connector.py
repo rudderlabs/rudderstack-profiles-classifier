@@ -163,6 +163,10 @@ class Connector(ABC):
     @abstractmethod
     def run_query(self, session, query: str, response: bool) -> Optional[Sequence]:
         pass
+
+    @abstractmethod
+    def fetch_processor_mode(self, user_preference_order_infra: List[str], is_rudder_backend: bool)->str:
+        pass
     
     @abstractmethod
     def get_table(self, session, table_name: str, **kwargs):
@@ -188,10 +192,6 @@ class Connector(ABC):
 
     @abstractmethod
     def save_file(self, session, file_name: str, stage_name: str, overwrite: bool) -> Any:
-        pass
-
-    @abstractmethod
-    def call_procedure(self, *args, **kwargs) -> Any:
         pass
 
     @abstractmethod

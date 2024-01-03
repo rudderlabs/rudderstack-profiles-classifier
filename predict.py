@@ -176,7 +176,6 @@ if __name__ == "__main__":
     homedir = os.path.expanduser("~")
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
-        print(creds["schema"])
         aws_config=None
         output_folder = 'output/dev/seq_no/7'
         model_path = f"{output_folder}/train_output.json"

@@ -5,8 +5,7 @@ models :
       occurred_at_col: insert_ts
       entity_key: user
       validity_time: 2m # 1 day
-      py_repo_url: /Users/admin/Desktop/Profiles/rudderstack_profiles_classifier
-
+      py_repo_url: ../../../../
       train:
         file_extension: .json
         file_validity: 2m # If the last trained model is older than this, then the model will be trained again,

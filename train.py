@@ -138,7 +138,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     target_path = utils.get_output_directory(folder_path)
 
     """ Initialising trainer """
-    print("Initialising trainer")
+    logger.info("Initialising trainer")
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
     
@@ -160,7 +160,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     """ Building session """
     warehouse = creds['type']
     logger.debug(f"Building session for {warehouse}")
-    print("Building session")
+    logger.info("Building session")
     if warehouse == 'snowflake':
         run_id = hashlib.md5(f"{str(datetime.now())}_{project_folder}".encode()).hexdigest()
         stage_name = f"@rs_{run_id}"

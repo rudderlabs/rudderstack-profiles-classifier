@@ -68,7 +68,6 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     ignore_features = merged_config["preprocessing"]["ignore_features"]
     timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     entity_column = merged_config["data"]["entity_column"]
-    features_profiles_model = merged_config["data"]["features_profiles_model"]
     task = merged_config['data'].pop('task', 'classification')
 
 
@@ -88,8 +87,10 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     column_names_file = f"{output_profiles_ml_model}_{train_model_id}_column_names.json"
     column_names_path = connector.join_file_path(column_names_file)
     features_path = connector.join_file_path(f"{output_profiles_ml_model}_{train_model_id}_array_time_feature_names.json")
-
-    raw_data = connector.get_table(session, f"{features_profiles_model}", filter_condition=eligible_users)
+    
+    feature_table_name = inputs[0].split()[-1]
+    logger.debug(f"Feature table name: {feature_table_name}")
+    raw_data = connector.get_table(session, feature_table_name, filter_condition=eligible_users)
 
     arraytype_features = connector.get_arraytype_features_from_table(raw_data, features_path=features_path)
     ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_features)

@@ -44,18 +44,30 @@ class AWSProcessor(Processor):
         except NoCredentialsError:
             raise Exception(f"Not able to load object from file {bucket_name}/{s3_path}/{file_name}")
 
-    def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict):
+    def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict, run_id: str):
         remote_dir = '/home/ec2-user'
         instance_id = 'i-001c6544decab0fa3'
         output_json = "train_results.json"
         s3_bucket = "ml-usecases-poc-srinivas"
         s3_path = "test_export"
+        folder_name = run_id
+        venv_name = f"pysnowpark_{folder_name}"
 
         ssm_client = boto3.client(service_name='ssm', region_name='us-east-1')
         commands = [
         f"cd {remote_dir}/rudderstack-profiles-classifier",
+        f"git pull",
+        f"cd ..",
+        f"cp -r rudderstack-profiles-classifier/ {folder_name}",
+        f"cd {folder_name}",
+        f"python3.9 -m venv {venv_name}",
+        f"source {venv_name}/bin/activate",
         f"pip install -r requirements.txt",
-        f"python3 preprocess_and_train.py --s3_bucket {s3_bucket} --s3_path {s3_path} --output_json {output_json} --material_names '{json.dumps(material_names)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}'"
+        f"python3 preprocess_and_train.py --s3_bucket {s3_bucket} --s3_path {s3_path} --output_json {output_json} --material_names '{json.dumps(material_names)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}'",
+        f"deactivate",
+        f"rm -rf {venv_name}",
+        f"cd ..",
+        f"rm -rf {folder_name}"
         ]
         self.execute(ssm_client, instance_id, commands)
 

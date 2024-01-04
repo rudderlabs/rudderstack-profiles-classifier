@@ -96,10 +96,10 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         logger.debug("Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc.")
 
     """ Building session """
+    run_id = hashlib.md5(f"{str(datetime.now())}_{project_folder}".encode()).hexdigest()
     warehouse = creds['type']
     logger.debug(f"Building session for {warehouse}")
     if warehouse == 'snowflake':
-        run_id = hashlib.md5(f"{str(datetime.now())}_{project_folder}".encode()).hexdigest()
         stage_name = f"@rs_{run_id}"
         train_procedure = f'train_and_store_model_results_sf_{run_id}'
         connector = SnowflakeConnector()
@@ -193,7 +193,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     mode = connector.fetch_processor_mode(user_preference_order_infra, is_rudder_backend)
     processor = processor_mode_map[mode](trainer, connector, session)
 
-    train_results = processor.train(train_procedure, material_names, merged_config, prediction_task, creds)
+    train_results = processor.train(train_procedure, material_names, merged_config, prediction_task, creds, run_id)
 
     logger.info("Saving train results to file")
     model_id = train_results["model_id"]

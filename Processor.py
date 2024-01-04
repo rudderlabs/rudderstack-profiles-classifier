@@ -18,5 +18,5 @@ class Processor(ABC):
         self.connector = connector
         self.session = session
 
-    def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict):
+    def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict, run_id: str):
         return preprocess_and_train(train_procedure, material_names, merged_config, session=self.session, connector=self.connector, trainer=self.trainer)

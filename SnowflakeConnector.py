@@ -723,10 +723,9 @@ class SnowflakeConnector(Connector):
                     )
             elif task_type == "regression":
                 df = distinct_values_count.to_pandas()
-                distinct_values_count_list = df["COUNT"].apply(lambda x: float(x))
                 min_distinct_values = constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
 
-                if (distinct_values_count_list < min_distinct_values).any():
+                if len(df) < min_distinct_values:
                     raise Exception(
                         f"Label column {label_column} has invalid number of distinct values. \
                             Please check if the label column has valid labels."

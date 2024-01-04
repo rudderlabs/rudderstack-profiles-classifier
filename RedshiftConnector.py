@@ -594,7 +594,7 @@ class RedshiftConnector(Connector):
                 # Check for the label values
                 distinct_values_count_list = feature_table[label_column].value_counts()
 
-                if (distinct_values_count_list < min_distinct_values).any():
+                if len(distinct_values_count_list) < min_distinct_values:
                     raise Exception(
                         f"Label column {label_column} has invalid number of distinct values. \
                             Please check if the label column has valid labels."

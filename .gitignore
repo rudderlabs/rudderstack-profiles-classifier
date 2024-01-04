@@ -19,4 +19,4 @@ dataflow.png
 *.log
 testenv2/
 tmp/
-
+*.log

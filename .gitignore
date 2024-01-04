@@ -15,4 +15,6 @@ testenv/*
 python_packages/*
 testenv2/
 tmp/
+**/migrations
+**/logs
 

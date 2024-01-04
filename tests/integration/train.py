@@ -1,9 +1,14 @@
 from train import *
 import shutil
+import os 
+import yaml
 
 homedir = os.path.expanduser("~") 
 with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
     creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+
+# creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
+# creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
 def cleanup_pb_project(project_path, siteconfig_path):
     directories = ['migrations', 'output']
@@ -11,7 +16,7 @@ def cleanup_pb_project(project_path, siteconfig_path):
         dir_path = os.path.join(project_path, directory)
         if os.path.exists(dir_path):
             shutil.rmtree(dir_path)
-    os.remove(siteconfig_path)
+    # os.remove(siteconfig_path)
 
 def cleanup_reports(reports_folders):
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -59,7 +64,7 @@ def validate_reports():
 def create_site_config_file(creds, siteconfig_path):
     json_data = {
         "connections": {
-            "test": {
+            "shopify_wh": {
                 "target": "test",
                 "outputs": {
                     "test": creds
@@ -73,8 +78,6 @@ def create_site_config_file(creds, siteconfig_path):
 
 
 def test_classification_training():
-    # creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-    creds["schema"] = "PROFILES_INTEGRATION_TEST"
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_directory = os.path.abspath(os.path.join(current_dir, os.pardir))
     project_path = os.path.join(parent_directory, "sample_project")
@@ -101,8 +104,6 @@ def test_classification_training():
         cleanup_reports(reports_folders)
 
 def test_regression_training():
-    # creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-    creds["schema"] = "PROFILES_INTEGRATION_TEST"
     current_dir = os.path.dirname(os.path.abspath(__file__))
     parent_directory = os.path.abspath(os.path.join(current_dir, os.pardir))
     project_path = os.path.join(parent_directory, "sample_project")

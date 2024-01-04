@@ -1,5 +1,5 @@
 schema_version: 44
-connection: test
+connection: shopify_wh
 include_untimed: true
 model_folders:
   - models

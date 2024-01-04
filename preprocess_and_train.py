@@ -4,6 +4,7 @@ import boto3
 from botocore.exceptions import NoCredentialsError
 from botocore.exceptions import WaiterError
 import pathlib
+import configparser
 import pandas as pd
 from typing import Any, List, Tuple, Union
 
@@ -19,36 +20,31 @@ import constants
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
-
-# def upload_to_s3(bucket_name, folder_name, file_name, data):
-#     s3 = boto3.client('s3')
-#     json_data = json.dumps(data)
-#     s3_path = f"{folder_name}/{file_name}"
-#     try:
-#         s3.put_object(Body=json_data, Bucket=bucket_name, Key=s3_path)
-#     except NoCredentialsError:
-#         raise Exception(f"Not able to upload {file_name} to {bucket_name}/{s3_path}")
     
-def upload_to_s3(bucket_name, folder_name, file_name, local_path):
-    key = f"{folder_name}/{file_name}"
-    s3 = boto3.resource('s3')
-    bucket = s3.Bucket(bucket_name)
-
-    # Upload the file to S3
-    try:
-        bucket.upload_file(os.path.join(local_path, file_name), key)
-        print(f"Successfully uploaded {file_name} to {bucket_name}/{key}")
-    except NoCredentialsError:
-        print("Credentials not available")
-        return
-    
-    # Wait until the S3 object exists (i.e., the file is uploaded)
-    try:
-        obj = s3.Object(bucket_name, key)
-        obj.wait_until_exists()
-        print(f"{file_name} exists in {bucket_name}/{key}")
-    except WaiterError as e:
-        print(f"Error waiting for {file_name} in {bucket_name}/{key}: {e}")
+def _upload_directory_to_s3(remote_dir, bucket, region_name, destination, path):
+    credentials_file_path = os.path.join(remote_dir, ".aws/credentials")
+    if os.path.exists(credentials_file_path):
+        config = configparser.ConfigParser()
+        config.read(credentials_file_path)
+        aws_access_key_id = config.get("default", "aws_access_key_id")
+        aws_secret_access_key = config.get("default", "aws_secret_access_key")
+        aws_session_token = config.get("default", "aws_session_token")
+    else:
+        raise Exception(f"Credentials file not found at {credentials_file_path}.")
+    s3 = boto3.client('s3', region_name=region_name, aws_access_key_id=aws_access_key_id,
+                      aws_secret_access_key=aws_secret_access_key, aws_session_token=aws_session_token)
+    for subdir, _, files in os.walk(path):
+        for file in files:
+            full_path = os.path.join(subdir, file)
+            with open(full_path, 'rb') as data:
+                s3_key = os.path.join(destination, subdir[len(path) + 1:], file)
+                try:
+                    s3.upload_fileobj(data, bucket, s3_key)
+                    print(f"File {full_path} uploaded to {bucket}/{s3_key}")
+                except FileNotFoundError:
+                    print(f"The file {full_path} was not found")
+                except NoCredentialsError:
+                    print("Credentials not available")
 
 
 def train_and_store_model_results_rs(feature_table_name: str,
@@ -216,7 +212,9 @@ if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("--remote_dir", type=str)
     parser.add_argument("--s3_bucket", type=str)
+    parser.add_argument("--region_name", type=str)
     parser.add_argument("--s3_path", type=str)
     parser.add_argument("--output_json", type=str)
     parser.add_argument("--material_names", type=json.loads)
@@ -240,9 +238,4 @@ if __name__ == "__main__":
     with open(os.path.join(connector.get_local_dir(), args.output_json), "w") as file:
         json.dump(train_results_json, file)
 
-    print(f"s3_bucket: {args.s3_bucket}")
-    print(f"s3_path: {args.s3_path}")
-    print(f"output_json: {args.output_json}")
-    # upload_to_s3(args.s3_bucket, args.s3_path, args.output_json, train_results_json)
-
-    upload_to_s3(args.s3_bucket, args.s3_path, args.output_json, connector.get_local_dir())
+    _upload_directory_to_s3(args.remote_dir, args.s3_bucket, args.region_name, args.s3_path, connector.get_local_dir())

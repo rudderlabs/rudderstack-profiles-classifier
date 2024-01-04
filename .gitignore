@@ -20,3 +20,4 @@ dataflow.png
 testenv2/
 tmp/
 *.log
+**/output/*

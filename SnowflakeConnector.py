@@ -705,27 +705,25 @@ class SnowflakeConnector(Connector):
 
             if task_type == "classification":
                 total_count = feature_table.count()
-                normalized_counts = distinct_values_count.withColumn(
+                result_table = distinct_values_count.withColumn(
                     "normalized_count", F.col("count") / total_count
                 )
-                df = normalized_counts.to_pandas()
-                norms = df["NORMALIZED_COUNT"].apply(lambda x: float(x))
 
                 min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
                 max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
 
-                if (norms < min_label_proportion).any() or (
-                    norms > max_label_proportion
-                ).any():
+                no_invalid_rows = result_table.filter(
+                    (F.col("normalized_count") < min_label_proportion) |
+                    (F.col("normalized_count") > max_label_proportion)
+                ).count()
+
+                if no_invalid_rows > 0:
                     raise Exception(
                         f"Label column {label_column} has invalid proportions. \
                             Please check if the label column has valid labels."
                     )
             elif task_type == "regression":
-                df = distinct_values_count.to_pandas()
-                min_distinct_values = constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
-
-                if len(df) < min_distinct_values:
+                if distinct_values_count.count() < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES:
                     raise Exception(
                         f"Label column {label_column} has invalid number of distinct values. \
                             Please check if the label column has valid labels."

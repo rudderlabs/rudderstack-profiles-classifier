@@ -581,20 +581,21 @@ class RedshiftConnector(Connector):
                     normalize=True
                 )
 
-                if (label_proportion < min_label_proportion).any() or (
-                    label_proportion > max_label_proportion
-                ).any():
+                found_invalid_rows = (
+                    (label_proportion < min_label_proportion) |
+                    (label_proportion > max_label_proportion)
+                ).any()
+
+                if found_invalid_rows:
                     raise Exception(
                         f"Label column {label_column} has invalid proportions. \
                             Please check if the label column has valid labels."
                     )
             elif task_type == "regression":
-                min_distinct_values = constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
-
                 # Check for the label values
                 distinct_values_count_list = feature_table[label_column].value_counts()
 
-                if len(distinct_values_count_list) < min_distinct_values:
+                if len(distinct_values_count_list) < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES:
                     raise Exception(
                         f"Label column {label_column} has invalid number of distinct values. \
                             Please check if the label column has valid labels."

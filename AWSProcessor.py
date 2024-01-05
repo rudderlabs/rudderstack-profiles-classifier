@@ -47,6 +47,20 @@ class AWSProcessor(Processor):
             print(f"All files from {bucket_name}/{s3_path} downloaded to {local_directory}")
         except NoCredentialsError:
             raise Exception(f"Not able to list or download objects from folder {bucket_name}/{s3_path}")
+        
+    def _delete_directory_from_s3(self, bucket_name, region_name, folder_name):
+        s3 = boto3.client('s3', region_name=region_name)
+        try:
+            objects = s3.list_objects(Bucket=bucket_name, Prefix=folder_name)['Contents']
+            for obj in objects:
+                s3.delete_object(Bucket=bucket_name, Key=obj['Key'])
+                print(f"Deleted object: {obj['Key']}")
+            s3.delete_object(Bucket=bucket_name, Key=folder_name)
+            print(f"Deleted folder: {folder_name}")
+        except NoCredentialsError:
+            print("Credentials not available")
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
     def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict):
         remote_dir = '/home/ec2-user'
@@ -65,6 +79,7 @@ class AWSProcessor(Processor):
         self._execute(ssm_client, instance_id, commands)
 
         self._download_directory_from_s3(s3_bucket, region_name, s3_path, self.connector.get_local_dir())
+        self._delete_directory_from_s3(s3_bucket, region_name, s3_path)
         with open(os.path.join(self.connector.get_local_dir(), output_json), 'r') as file:
             train_results_json = json.load(file)
         return train_results_json

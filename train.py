@@ -108,7 +108,7 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
         connector.cleanup(session, stage_name=stage_name, stored_procedure_name=train_procedure, delete_files=import_paths)
 
         @sproc(name=train_procedure, is_permanent=False, stage_location=stage_name, replace=True, imports= import_paths, 
-            packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap>=0.41.0", "matplotlib>=3.7.1", "seaborn>=0.12.0", "scikit-plot>=0.3.7"])
+            packages=["snowflake-snowpark-python==0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
                     merged_config: dict) -> dict:

@@ -8,7 +8,7 @@ with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
     creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
 
 # creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-# creds["schema"] = "PROFILES_INTEGRATION_TEST"
+creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
 def cleanup_pb_project(project_path, siteconfig_path):
     directories = ['migrations', 'output']
@@ -16,7 +16,7 @@ def cleanup_pb_project(project_path, siteconfig_path):
         dir_path = os.path.join(project_path, directory)
         if os.path.exists(dir_path):
             shutil.rmtree(dir_path)
-    # os.remove(siteconfig_path)
+    os.remove(siteconfig_path)
 
 def cleanup_reports(reports_folders):
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -64,7 +64,7 @@ def validate_reports():
 def create_site_config_file(creds, siteconfig_path):
     json_data = {
         "connections": {
-            "shopify_wh": {
+            "test": {
                 "target": "test",
                 "outputs": {
                     "test": creds
@@ -103,37 +103,4 @@ def test_classification_training():
         cleanup_pb_project(project_path, siteconfig_path)
         cleanup_reports(reports_folders)
 
-def test_regression_training():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    parent_directory = os.path.abspath(os.path.join(current_dir, os.pardir))
-    project_path = os.path.join(parent_directory, "sample_project")
-    siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
-    output_filename = os.path.join(current_dir, "output")
-    config = {
-      "data": {
-        "task" : "regression",
-        "label_column" : "days_since_last_seen",
-        "features_profiles_model": "shopify_user_features",
-        "inputs": ["packages/feature_table/models/shopify_user_features"],
-        "eligible_users": "1=1"
-      }
-    }
-    create_site_config_file(creds, siteconfig_path)
-    folders = [folder for folder in os.listdir(current_dir) if os.path.isdir(folder)]
-    reports_folders = [folder for folder in folders if folder.endswith('_reports')]
-    try:
-        train(creds, None, output_filename, config, siteconfig_path, project_path)
-        validate_training_summary()
-        validate_reports()
-    except Exception as e:
-        raise e
-    finally:
-        cleanup_pb_project(project_path, siteconfig_path)
-        cleanup_reports(reports_folders)
-
-
-def test_training():
-    test_classification_training()
-    # test_regression_training()
-
-test_training()
+test_classification_training()

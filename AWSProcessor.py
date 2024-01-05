@@ -46,15 +46,29 @@ class AWSProcessor(Processor):
                 print(f"File {key} downloaded to {local_file_path}")
             print(f"All files from {bucket_name}/{s3_path} downloaded to {local_directory}")
         except NoCredentialsError:
-            raise Exception(f"Not able to list or download objects from folder {bucket_name}/{s3_path}")
+            raise Exception(f"Credentials not available")
+        
+    def _delete_directory_from_s3(self, bucket_name, region_name, folder_name):
+        s3 = boto3.client('s3', region_name=region_name)
+        try:
+            objects = s3.list_objects(Bucket=bucket_name, Prefix=folder_name)['Contents']
+            for obj in objects:
+                s3.delete_object(Bucket=bucket_name, Key=obj['Key'])
+                print(f"Deleted object: {obj['Key']}")
+            s3.delete_object(Bucket=bucket_name, Key=folder_name)
+            print(f"Deleted folder: {folder_name}")
+        except NoCredentialsError:
+            print("Credentials not available")
+        except Exception as e:
+            print(f"An error occurred: {e}")
 
     def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict, run_id: str):
-        remote_dir = '/home/ec2-user'
-        instance_id = 'i-001c6544decab0fa3'
+        remote_dir = "/home/ec2-user"
+        instance_id = "i-001c6544decab0fa3"
         output_json = "train_results.json"
         s3_bucket = "ml-usecases-poc-srinivas"
-        region_name='us-east-1'
-        s3_path = "test_export/"
+        region_name="us-east-1"
+        s3_path = f"test_export_{run_id}/"
         folder_name = run_id
         venv_name = f"pysnowpark_{folder_name}"
 

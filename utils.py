@@ -876,6 +876,7 @@ def plot_top_k_feature_importance(
     try:
         train_x_processed = pipe["preprocessor"].transform(train_x)
         train_x_processed = train_x_processed.astype(np.int_)
+
         try:
             shap_values = shap.TreeExplainer(pipe["model"]).shap_values(train_x_processed)
         except Exception as e:

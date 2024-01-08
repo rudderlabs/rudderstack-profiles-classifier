@@ -13,7 +13,7 @@ if __name__ == "__main__":
     train_file_extension = ".json"
     schema = 'shopify_wh_rs'
     # schema = "rs360"
-    project_folder = '../Git_repos/rudderstack-profiles-shopify-churn'
+    project_folder = '../rudderstack-profiles-shopify-churn'
     feature_table_name = 'shopify_user_features'
     eligible_users = '1=1'
     package_name = 'feature_table'

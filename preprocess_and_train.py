@@ -21,7 +21,7 @@ import constants
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
     
-def _upload_directory_to_s3(remote_dir, bucket, region_name, destination, path):
+def upload_directory_to_s3(remote_dir, bucket, region_name, destination, path):
     credentials_file_path = os.path.join(remote_dir, ".aws/credentials")
     if os.path.exists(credentials_file_path):
         config = configparser.ConfigParser()
@@ -40,11 +40,13 @@ def _upload_directory_to_s3(remote_dir, bucket, region_name, destination, path):
                 s3_key = os.path.join(destination, subdir[len(path) + 1:], file)
                 try:
                     s3.upload_fileobj(data, bucket, s3_key)
-                    print(f"File {full_path} uploaded to {bucket}/{s3_key}")
+                    logger.debug(f"File {full_path} uploaded to {bucket}/{s3_key}")
                 except FileNotFoundError:
-                    print(f"The file {full_path} was not found")
+                    logger.error(f"The file {full_path} was not found")
+                    raise Exception(f"The file {full_path} was not found")
                 except NoCredentialsError:
-                    print("Credentials not available")
+                    logger.error("Credentials not available")
+                    raise Exception("Credentials not available")
 
 
 def train_and_store_model_results_rs(feature_table_name: str,
@@ -65,7 +67,7 @@ def train_and_store_model_results_rs(feature_table_name: str,
     session = kwargs.get("session")
     connector = kwargs.get("connector")
     trainer = kwargs.get("trainer")
-    if session == None or connector == None or trainer == None:
+    if session is None or connector is None or trainer is None:
         raise ValueError("session, connector and trainer are required in kwargs for training in Redshift")
     model_file = connector.join_file_path(f"{trainer.output_profiles_ml_model}_{model_file_name}")
     feature_df_path = connector.fetch_feature_df_path(feature_table_name)
@@ -110,7 +112,7 @@ def train_and_store_model_results_rs(feature_table_name: str,
     connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     return results
 
-def _prepare_feature_table(feature_table_name: str, 
+def prepare_feature_table(feature_table_name: str, 
                         label_table_name: str,
                         cardinal_feature_threshold: float, **kwargs) -> tuple:
     """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
@@ -166,17 +168,14 @@ def preprocess_and_train(train_procedure, material_names: List[Tuple[str]], merg
     for row in material_names:
         feature_table_name, label_table_name = row
         logger.info(f"Preparing training dataset using {feature_table_name} and {label_table_name} as feature and label tables respectively")
-        feature_table_instance, arraytype_features, timestamp_columns = _prepare_feature_table(feature_table_name, 
+        feature_table_instance, arraytype_features, timestamp_columns = prepare_feature_table(feature_table_name, 
                                                                 label_table_name,
                                                                 cardinal_feature_threshold,
                                                                 session=session,
                                                                 connector=connector,
                                                                 trainer=trainer)
-        if feature_table is None:
-            feature_table = feature_table_instance
-            break
-        else:
-            feature_table = feature_table.unionAllByName(feature_table_instance)
+        feature_table = connector.get_merged_table(feature_table, feature_table_instance)
+        break
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
     filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, 
                                                                     trainer.index_timestamp, trainer.max_row_count, min_sample_for_training)
@@ -184,7 +183,7 @@ def preprocess_and_train(train_procedure, material_names: List[Tuple[str]], merg
     logger.info("Training and fetching the results")
 
     try:
-        train_results_json = connector._call_procedure(train_procedure,
+        train_results_json = connector.call_procedure(train_procedure,
                                                     feature_table_name_remote,
                                                     merged_config,
                                                     session=session,
@@ -216,7 +215,7 @@ if __name__ == "__main__":
     parser.add_argument("--s3_bucket", type=str)
     parser.add_argument("--region_name", type=str)
     parser.add_argument("--s3_path", type=str)
-    parser.add_argument("--output_json", type=str)
+    parser.add_argument("--ec2_temp_output_json", type=str)
     parser.add_argument("--material_names", type=json.loads)
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--prediction_task", type=str)
@@ -235,7 +234,7 @@ if __name__ == "__main__":
     session = connector.build_session(args.wh_creds)
 
     train_results_json = preprocess_and_train(train_procedure, args.material_names, args.merged_config, session=session, connector=connector, trainer=trainer)
-    with open(os.path.join(connector.get_local_dir(), args.output_json), "w") as file:
+    with open(os.path.join(connector.get_local_dir(), args.ec2_temp_output_json), "w") as file:
         json.dump(train_results_json, file)
 
-    _upload_directory_to_s3(args.remote_dir, args.s3_bucket, args.region_name, args.s3_path, connector.get_local_dir())
+    upload_directory_to_s3(args.remote_dir, args.s3_bucket, args.region_name, args.s3_path, connector.get_local_dir())

@@ -75,7 +75,7 @@ class RedshiftConnector(Connector):
         else:
             return cursor.execute(query)
         
-    def _call_procedure(self, *args, **kwargs):
+    def call_procedure(self, *args, **kwargs):
         """Calls the given function for training
 
         Args:
@@ -89,6 +89,18 @@ class RedshiftConnector(Connector):
         train_function = args[0]
         args = args[1:]
         return train_function(*args, **kwargs)
+    
+    def get_merged_table(self, feature_table, feature_table_instance):
+        """Returns the merged table of feature table and feature table instance.
+
+        Args:
+            feature_table (pd.DataFrame): Feature table
+            feature_table_instance (pd.DataFrame): Feature table instance
+
+        Returns:
+            pd.DataFrame: Merged table of feature table and feature table instance
+        """
+        return pd.concat([feature_table, feature_table_instance], axis=0, ignore_index=True)
         
     def fetch_processor_mode(self, user_preference_order_infra: List[str], is_rudder_backend: bool)->str:
         mode = 'rudderstack-infra' if is_rudder_backend else user_preference_order_infra[0]

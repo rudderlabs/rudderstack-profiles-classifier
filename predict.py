@@ -176,8 +176,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
-        print(creds["schema"])
+        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
         aws_config=None
         output_folder = 'output/dev/seq_no/7'
         model_path = f"{output_folder}/train_output.json"

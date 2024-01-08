@@ -1,0 +1,49 @@
+models:
+  - name: rudder_user_id_stitcher
+    model_type: id_stitcher
+    model_spec:
+      validity_time: 24h # 1 day
+      entity_key: user
+      edge_sources:
+        - from: inputs/rsTracks
+          # Remove the section below, if you don't want to generate a feature table
+  - name: rudder_user_base_features
+    model_type: feature_table_model
+    model_spec:
+      validity_time: 24h # 1 day
+      entity_key: user
+      vars:
+        - entity_var:
+            name: max_timestamp_bw_tracks_pages
+            select: max(timestamp)
+            from: inputs/rsTracks
+        #days since last seen
+        - entity_var:
+            name: days_since_last_seen
+            select: "{{macro_datediff('{{user.Var(\"max_timestamp_bw_tracks_pages\")}}')}}"
+            dependencies:
+              - max_timestamp_bw_tracks_pages
+        #Churn features
+        - entity_var:
+            name: is_churned_7_days
+            select: case when {{user.Var("days_since_last_seen")}} > 7 then 1 else 0 end
+            description: Depending on the n value, it specifies if there is any activity observed in the last 7 days.
+            dependencies:
+              - days_since_last_seen
+        - entity_var:
+            name: is_churned_90_days
+            select: case when {{user.Var("days_since_last_seen")}} > 90 then 1 else 0 end
+            description: Depending on the n value, it specifies if there is any activity observed in the last 90 days.
+            dependencies:
+              - days_since_last_seen
+        - entity_var:
+            name: days_since_account_creation
+            select: "{{macro_datediff('min(timestamp)')}}"
+            from: inputs/rsTracks
+        
+      features:
+        - days_since_last_seen
+        - days_since_account_creation
+        - is_churned_7_days
+        - is_churned_90_days
+

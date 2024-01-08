@@ -404,7 +404,6 @@ def train(
     )
 
     model_hash = connector.get_latest_material_hash(
-        trainer.package_name,
         trainer.features_profiles_model,
         output_filename,
         site_config_path,
@@ -426,7 +425,6 @@ def train(
             material_table,
             start_date,
             end_date,
-            trainer.package_name,
             trainer.features_profiles_model,
             model_hash,
             material_table_prefix,
@@ -529,6 +527,6 @@ if __name__ == "__main__":
     # logger.setLevel(logging.DEBUG)
 
     # change path of project directory as per your system
-    project_folder = "/Users/ambuj/Desktop/Git_repos/rudderstack-profiles-shopify-churn"
+    project_folder = "/Users/admin/Desktop/Profiles/rudderstack-profiles-shopify-churn"
 
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

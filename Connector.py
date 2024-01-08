@@ -31,7 +31,6 @@ class Connector(ABC):
         material_table: str,
         start_date: str,
         end_date: str,
-        package_name: str,
         features_profiles_model: str,
         model_hash: str,
         material_table_prefix: str,
@@ -51,14 +50,13 @@ class Connector(ABC):
             material_table (str): The name of the material table (present in constants.py file).
             start_date (str): The start date for training data.
             end_date (str): The end date for training data.
-            package_name (str): The name of the package.
             features_profiles_model (str): The name of the model.
             model_hash (str): The latest model hash.
             material_table_prefix (str): A constant.
             prediction_horizon_days (int): The period of days for prediction horizon.
             site_config_path (str): path to the siteconfig.yaml file
             project_folder (str): project folder path to pb_project.yaml file
-            input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model. If this is empty, we infer this frmo the package_name and features_profiles_model - for backward compatibility
+            input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model.
 
         Returns:
             Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: A tuple containing two lists:
@@ -81,8 +79,6 @@ class Connector(ABC):
                 try:
                     _ = self.generate_training_materials(
                         start_date,
-                        package_name,
-                        features_profiles_model,
                         prediction_horizon_days,
                         output_filename,
                         site_config_path,
@@ -117,8 +113,6 @@ class Connector(ABC):
     def generate_training_materials(
         self,
         start_date: str,
-        package_name: str,
-        features_profiles_model: str,
         prediction_horizon_days: int,
         output_filename: str,
         site_config_path: str,
@@ -129,18 +123,17 @@ class Connector(ABC):
         Generates training dataset from start_date and end_date, and fetches the resultant table names from the material_table.
         Args:
             start_date (str): Start date for training data.
-            package_name (str): The name of the package.
             features_profiles_model (str): The name of the model.
             prediction_horizon_days (int): The period of days for prediction horizon.
             site_config_path (str): path to the siteconfig.yaml file
             project_folder (str): project folder path to pb_project.yaml file
-            input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model. If this is empty, we infer this frmo the package_name and features_profiles_model - for backward compatibility
+            input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model.
 
         Returns:
             Tuple[str, str]: A tuple containing feature table date and label table date strings
         """
         feature_package_path = utils.get_feature_package_path(
-            package_name, features_profiles_model, input_models
+           input_models
         )
         feature_date = utils.date_add(start_date, prediction_horizon_days)
         label_date = utils.date_add(feature_date, prediction_horizon_days)
@@ -214,7 +207,6 @@ class Connector(ABC):
 
     def get_latest_material_hash(
         self,
-        package_name: str,
         features_profiles_model: str,
         output_filename: str,
         site_config_path: str = None,
@@ -223,7 +215,7 @@ class Connector(ABC):
     ) -> str:
         project_folder = utils.get_project_folder(project_folder, output_filename)
         feature_package_path = utils.get_feature_package_path(
-            package_name, features_profiles_model, inputs
+           inputs
         )
         pb = utils.get_pb_path()
         args = [

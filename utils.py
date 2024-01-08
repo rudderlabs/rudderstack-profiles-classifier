@@ -491,33 +491,17 @@ def get_project_folder(project_folder: str, output_path: str) -> str:
     return project_folder
 
 
-def get_feature_package_path(
-    package_name: str, features_profiles_model: str, input_models: List[str]
-) -> str:
+def get_feature_package_path( input_models: List[str]) -> str:
     """Returns the feature package path
 
     Args:
-        package_name (str): name of the feature package
-        features_profiles_model (str): name of the features profiles model
         input_models (List[str]): list of input models
 
     Returns:
         str: feature package path
     """
-    if len(input_models) == 0:
-        logger.warning(
-            "No input models provided. Inferring input models from package_name and "
-            "features_profiles_model, assuming that python model is defined in application "
-            "project and feature table is imported as a package."
-        )
-        feature_package_path = (
-            f"packages/{package_name}/models/{features_profiles_model}"
-        )
-    else:
-        feature_package_path = ",".join(
-            input_models
-        )  # Syntax: pb run -m models/m1,models/m2
-    return feature_package_path
+    assert len(input_models)>0 , "No input models provided. Input models must be specified."
+    return ','.join(input_models) 
 
 
 def subprocess_run(args):

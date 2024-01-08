@@ -1,0 +1,5 @@
+models:
+  - name: placeholder_model
+    model_type: feature_table_model
+    model_spec:
+      entity_key: user

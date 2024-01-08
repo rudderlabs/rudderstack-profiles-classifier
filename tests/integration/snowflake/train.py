@@ -72,8 +72,7 @@ def test_classification_training():
     creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
     creds["schema"] = "PROFILES_INTEGRATION_TEST"
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    parent_directory = os.path.abspath(os.path.join(current_dir, os.pardir))
-    project_path = os.path.join(parent_directory, "sample_project")
+    project_path = os.path.join(current_dir, "sample_project")
     siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
     output_filename = os.path.join(current_dir, "output")
     config = {

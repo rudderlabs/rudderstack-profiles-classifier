@@ -161,7 +161,6 @@ def train(creds: dict, inputs: str, output_filename: str, config: dict, site_con
     """ Building session """
     warehouse = creds['type']
     logger.debug(f"Building session for {warehouse}")
-    logger.info("Building session")
     if warehouse == 'snowflake':
         run_id = hashlib.md5(f"{str(datetime.now())}_{project_folder}".encode()).hexdigest()
         stage_name = f"@rs_{run_id}"

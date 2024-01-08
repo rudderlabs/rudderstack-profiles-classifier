@@ -1,1 +1,0 @@
-{"timestamp": "2024-01-08T10:04:28Z", "data": {"metrics": {"prob_th": 0.76, "test": {"f1_score": 1, "pr_auc": 1, "precision": 1, "recall": 1, "roc_auc": 1, "users": 501}, "train": {"f1_score": 1, "pr_auc": 1, "precision": 1, "recall": 1, "roc_auc": 1, "users": 1503}, "val": {"f1_score": 1, "pr_auc": 1, "precision": 1, "recall": 1, "roc_auc": 1, "users": 501}}, "threshold": 0.76}}

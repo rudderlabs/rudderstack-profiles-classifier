@@ -201,7 +201,7 @@ def train(
     target_path = utils.get_output_directory(folder_path)
 
     """ Initialising trainer """
-    logger.debug("Initialising trainer")
+    logger.info("Initialising trainer")
     notebook_config = utils.load_yaml(config_path)
     merged_config = utils.combine_config(notebook_config, config)
 
@@ -516,8 +516,9 @@ def train(
 if __name__ == "__main__":
     homedir = os.path.expanduser("~")
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
+    print(creds)
     inputs = None
     output_folder = "output/dev/seq_no/124"
     output_file_name = f"{output_folder}/train_output.json"

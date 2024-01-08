@@ -144,6 +144,7 @@ class Processor(ABC):
             self.trainer.label_column,
             task_type
         )
+        logger.info("Data validation is completed")
 
         feature_table_name_remote = f"{self.trainer.output_profiles_ml_model}_features"
         filtered_feature_table = self.connector.filter_feature_table(

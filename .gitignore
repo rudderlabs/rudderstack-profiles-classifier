@@ -3,9 +3,9 @@ churn.log
 __pycache__/*
 config/.ipynb_checkpoints/*
 classifier.log
-logs/logfile.log
+**/logs/logfile.log
 *.pyc
-output/*
+**/output/*
 train_output.json
 appmap.yml
 *.ipynb
@@ -13,6 +13,11 @@ pysnowpark/*
 data/*
 testenv/*
 python_packages/*
+**/migrations/*
+**/logs/*
+dataflow.png
+*.log
 testenv2/
 tmp/
-
+*.log
+**/output/*

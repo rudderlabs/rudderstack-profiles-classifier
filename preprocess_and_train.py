@@ -176,6 +176,17 @@ def preprocess_and_train(train_procedure, material_names: List[Tuple[str]], merg
                                                                 trainer=trainer)
         feature_table = connector.get_merged_table(feature_table, feature_table_instance)
         break
+    
+    task_type = trainer.get_name()
+    logger.info(f"Performing data validation for {task_type}")
+    
+    connector.do_data_validation(
+        feature_table,
+        trainer.label_column,
+        task_type
+    )
+    logger.info("Data validation is completed")
+
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
     filtered_feature_table = connector.filter_feature_table(feature_table, trainer.entity_column, 
                                                                     trainer.index_timestamp, trainer.max_row_count, min_sample_for_training)

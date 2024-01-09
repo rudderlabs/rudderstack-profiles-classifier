@@ -270,6 +270,7 @@ class Connector(ABC):
     def call_procedure(self, *args, **kwargs):
         pass
 
+    @abstractmethod
     def get_merged_table(self, feature_table, feature_table_instance):
         pass
     

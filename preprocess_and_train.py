@@ -21,7 +21,7 @@ import constants
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
     
-def upload_directory_to_s3(remote_dir, bucket, region_name, destination, path):
+def upload_directory_to_s3(remote_dir, bucket, aws_region_name, destination, path):
     credentials_file_path = os.path.join(remote_dir, ".aws/credentials")
     if os.path.exists(credentials_file_path):
         config = configparser.ConfigParser()
@@ -31,7 +31,7 @@ def upload_directory_to_s3(remote_dir, bucket, region_name, destination, path):
         aws_session_token = config.get("default", "aws_session_token")
     else:
         raise Exception(f"Credentials file not found at {credentials_file_path}.")
-    s3 = boto3.client('s3', region_name=region_name, aws_access_key_id=aws_access_key_id,
+    s3 = boto3.client('s3', region_name=aws_region_name, aws_access_key_id=aws_access_key_id,
                       aws_secret_access_key=aws_secret_access_key, aws_session_token=aws_session_token)
     for subdir, _, files in os.walk(path):
         for file in files:
@@ -42,11 +42,11 @@ def upload_directory_to_s3(remote_dir, bucket, region_name, destination, path):
                     s3.upload_fileobj(data, bucket, s3_key)
                     logger.debug(f"File {full_path} uploaded to {bucket}/{s3_key}")
                 except FileNotFoundError:
-                    logger.error(f"The file {full_path} was not found")
-                    raise Exception(f"The file {full_path} was not found")
+                    logger.error(f"The file {full_path} was not found in ec2 while uploading trained files to s3.")
+                    raise Exception(f"The file {full_path} was not found in ec2 while uploading trained files to s3.")
                 except NoCredentialsError:
-                    logger.error("Credentials not available")
-                    raise Exception("Credentials not available")
+                    logger.error("Couldn't find aws credentials in ec2 for uploading artefacts to s3")
+                    raise Exception("Couldn't find aws credentials in ec2 for uploading artefacts to s3")
 
 
 def train_and_store_model_results_rs(feature_table_name: str,
@@ -224,7 +224,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--remote_dir", type=str)
     parser.add_argument("--s3_bucket", type=str)
-    parser.add_argument("--region_name", type=str)
+    parser.add_argument("--aws_region_name", type=str)
     parser.add_argument("--s3_path", type=str)
     parser.add_argument("--ec2_temp_output_json", type=str)
     parser.add_argument("--material_names", type=json.loads)
@@ -248,4 +248,4 @@ if __name__ == "__main__":
     with open(os.path.join(connector.get_local_dir(), args.ec2_temp_output_json), "w") as file:
         json.dump(train_results_json, file)
 
-    upload_directory_to_s3(args.remote_dir, args.s3_bucket, args.region_name, args.s3_path, connector.get_local_dir())
+    upload_directory_to_s3(args.remote_dir, args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir())

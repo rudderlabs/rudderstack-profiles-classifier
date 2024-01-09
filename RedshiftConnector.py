@@ -94,17 +94,17 @@ class RedshiftConnector(Connector):
         args = args[1:]
         return train_function(*args, **kwargs)
     
-    def get_merged_table(self, feature_table, feature_table_instance):
-        """Returns the merged table of feature table and feature table instance.
+    def get_merged_table(self, df1, df2):
+        """Returns the merged table.
 
         Args:
-            feature_table (pd.DataFrame): Feature table
-            feature_table_instance (pd.DataFrame): Feature table instance
+            df1 (pd.DataFrame): 1st DataFrame
+            df2 (pd.DataFrame): 2nd DataFrame
 
         Returns:
-            pd.DataFrame: Merged table of feature table and feature table instance
+            pd.DataFrame: Merged table
         """
-        return pd.concat([feature_table, feature_table_instance], axis=0, ignore_index=True)
+        return pd.concat([df1, df2], axis=0, ignore_index=True)
         
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool

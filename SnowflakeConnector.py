@@ -79,17 +79,17 @@ class SnowflakeConnector(Connector):
             raise Exception("Session object not found")
         return session.call(*args)
     
-    def get_merged_table(self, feature_table, feature_table_instance):
-        """Returns the merged table of feature table and feature table instance.
+    def get_merged_table(self, base_table, incoming_table):
+        """Returns the merged table of base_table and incoming_table.
 
         Args:
-            feature_table (snowflake.snowpark.Table): Feature table
-            feature_table_instance (snowflake.snowpark.Table): Feature table instance
+            base_table (snowflake.snowpark.Table): base_table
+            incoming_table (snowflake.snowpark.Table): incoming_table
 
         Returns:
             snowflake.snowpark.Table: Merged table of feature table and feature table instance
         """
-        return feature_table_instance if feature_table is None else feature_table.unionAllByName(feature_table_instance)
+        return incoming_table if base_table is None else base_table.unionAllByName(incoming_table)
     
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
@@ -1039,5 +1039,4 @@ class SnowflakeConnector(Connector):
         if udf_name:
             self._drop_fn_if_exists(session, udf_name)
         if delete_files:
-            self._delete_import_files(session, stage_name, delete_files)
             self._delete_import_files(session, stage_name, delete_files)

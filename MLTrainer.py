@@ -41,6 +41,7 @@ class MLTrainer(ABC):
         label_value: int,
         label_column: str,
         entity_column: str,
+        entity_key: str,
         package_name: str,
         features_profiles_model: str,
         output_profiles_ml_model: str,
@@ -56,6 +57,8 @@ class MLTrainer(ABC):
         self.label_value = label_value
         self.label_column = label_column
         self.entity_column = entity_column
+        self.entity_key = entity_key
+        self.package_name = package_name
         self.features_profiles_model = features_profiles_model
         self.output_profiles_ml_model = output_profiles_ml_model
         self.index_timestamp = index_timestamp

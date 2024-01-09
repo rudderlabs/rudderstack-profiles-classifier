@@ -485,10 +485,11 @@ class RedshiftConnector(Connector):
             )
         return material_names, training_dates
 
-    def get_creation_ts(
+    def get_creation_ts_and_model_name(
         self,
         cursor: redshift_connector.cursor.Cursor,
         material_table: str,
+        entity_key: str,
         model_name: str,
         model_hash: str,
     ):
@@ -505,19 +506,32 @@ class RedshiftConnector(Connector):
         """
         redshift_df = self.get_material_registry_table(cursor, material_table)
         try:
-            temp_hash_vector = (
-                redshift_df.query(f'model_name == "{model_name}"')
-                .query(f'model_hash == "{model_hash}"')
-                .sort_values(by="creation_ts", ascending=False)
-                .reset_index(drop=True)[["creation_ts"]]
-                .iloc[0]
-            )
-            creation_ts = temp_hash_vector["creation_ts"]
+            if entity_key:
+                temp_hash_vector = (
+                    redshift_df.query(f'model_type == "{constants.ENTITY_VAR_TABLE}"')
+                    .query(f'model_hash == "{model_hash}"')
+                    .query(f'entity_key == "{entity_key}"')
+                    .sort_values(by="creation_ts", ascending=False)
+                    .reset_index(drop=True)[["creation_ts"]]
+                    .iloc[0]
+                )
+                updated_model_name = temp_hash_vector["model_name"]
+                creation_ts = temp_hash_vector["creation_ts"]
+            else:
+                temp_hash_vector = (
+                    redshift_df.query(f'model_name == "{model_name}"')
+                    .query(f'model_hash == "{model_hash}"')
+                    .sort_values(by="creation_ts", ascending=False)
+                    .reset_index(drop=True)[["creation_ts"]]
+                    .iloc[0]
+                )
+                updated_model_name = model_name
+                creation_ts = temp_hash_vector["creation_ts"]
         except:
             raise Exception(
                 f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
             )
-        return creation_ts
+        return creation_ts, updated_model_name
 
     def fetch_staged_file(
         self,

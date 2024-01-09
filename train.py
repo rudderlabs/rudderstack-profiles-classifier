@@ -281,14 +281,23 @@ def train(
 
     model_hash = connector.get_latest_material_hash(
         trainer.features_profiles_model,
+        trainer.entity_key,
         output_filename,
         site_config_path,
         trainer.inputs,
         project_folder,
     )
-    creation_ts = connector.get_creation_ts(
-        session, material_table, trainer.features_profiles_model, model_hash
+    creation_ts, model_name = connector.get_creation_ts_and_model_name(
+        session,
+        material_table,
+        trainer.entity_key,
+        trainer.features_profiles_model,
+        model_hash,
     )
+
+    # update feature profiles model name for the trainer
+    trainer.features_profiles_model = model_name
+
     start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
     if start_date is None or end_date is None:
         start_date, end_date = utils.get_date_range(

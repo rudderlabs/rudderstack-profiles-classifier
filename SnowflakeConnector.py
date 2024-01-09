@@ -580,10 +580,11 @@ class SnowflakeConnector(Connector):
         )
         return sorted_material_registry_tables[0]
 
-    def get_creation_ts(
+    def get_creation_ts_and_model_name(
         self,
         session: snowflake.snowpark.Session,
         material_table: str,
+        entity_key: str,
         model_name: str,
         model_hash: str,
     ):
@@ -600,19 +601,34 @@ class SnowflakeConnector(Connector):
         """
         snowpark_df = self.get_material_registry_table(session, material_table)
         try:
-            temp_hash_vector = (
-                snowpark_df.filter(col("model_name") == model_name)
-                .filter(col("model_hash") == model_hash)
-                .sort(col("creation_ts"), ascending=False)
-                .select(col("creation_ts"))
-                .collect()[0]
-            )
-            creation_ts = temp_hash_vector.CREATION_TS
+            if entity_key:
+                temp_hash_vector = (
+                    snowpark_df.filter(col("model_type") == constants.ENTITY_VAR_TABLE)
+                    .filter(col("model_hash") == model_hash)
+                    .filter(col("entity_key") == entity_key)
+                    .sort(col("creation_ts"), ascending=False)
+                    .select(col("creation_ts"), col("model_name"))
+                    .collect()[0]
+                )
+
+                updated_model_name = temp_hash_vector.MODEL_NAME
+                creation_ts = temp_hash_vector.CREATION_TS
+            else:
+                temp_hash_vector = (
+                    snowpark_df.filter(col("model_name") == model_name)
+                    .filter(col("model_hash") == model_hash)
+                    .sort(col("creation_ts"), ascending=False)
+                    .select(col("creation_ts"), col("model_name"))
+                    .collect()[0]
+                )
+
+                updated_model_name = model_name
+                creation_ts = temp_hash_vector.CREATION_TS
         except:
             raise Exception(
                 f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
             )
-        return creation_ts
+        return creation_ts, updated_model_name
 
     def fetch_staged_file(
         self,

@@ -208,6 +208,7 @@ class Connector(ABC):
     def get_latest_material_hash(
         self,
         features_profiles_model: str,
+        entity_key: str,
         output_filename: str,
         site_config_path: str = None,
         inputs: List[str] = None,
@@ -218,6 +219,7 @@ class Connector(ABC):
            inputs
         )
         pb = utils.get_pb_path()
+        print(f"pb path: {pb}")
         args = [
             pb,
             "compile",
@@ -227,18 +229,30 @@ class Connector(ABC):
             feature_package_path,
             "--migrate_on_load=True",
         ]
+        print(f"args: {args}")
         if site_config_path is not None:
             args.extend(["-c", site_config_path])
         logger.info(f"Fetching latest model hash by running command: {' '.join(args)}")
         pb_compile_output_response = utils.subprocess_run(args)
         pb_compile_output = (pb_compile_output_response.stdout).lower()
-        material_file_prefix = (
-            constants.MATERIAL_TABLE_PREFIX + features_profiles_model + "_"
-        ).lower()
+        logger.info(f"pb compile output: {pb_compile_output}")
+
+        if entity_key is None:
+            material_file_prefix = (
+                constants.MATERIAL_TABLE_PREFIX + features_profiles_model + "_"
+            ).lower()
+        else:
+            material_file_prefix = (
+                constants.MATERIAL_TABLE_PREFIX
+                + entity_key
+                + constants.VAR_TABLE_SUFFIX
+                + "_"
+            ).lower()
+
         try:
             model_hash = pb_compile_output[
                 pb_compile_output.index(material_file_prefix)
-                + len(material_file_prefix) :
+                + len(material_file_prefix):
             ].split("_")[0]
         except ValueError:
             raise Exception(
@@ -378,8 +392,8 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_creation_ts(
-        self, session, material_table: str, model_name: str, model_hash: str
+    def get_creation_ts_and_model_name(
+        self, session, material_table: str, entity_key: str, model_name: str, model_hash: str
     ):
         pass
 
@@ -405,12 +419,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def do_data_validation(
-        self,
-        feature_table,
-        label_column,
-        task_type
-    ):
+    def do_data_validation(self, feature_table, label_column, task_type):
         pass
 
     @abstractmethod

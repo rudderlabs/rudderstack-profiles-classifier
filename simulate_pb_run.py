@@ -72,7 +72,8 @@ if __name__ == "__main__":
                                      {"features":[{"description":"Percentile of churn score. Higher the percentile, higher the probability of churn","name":f"percentile_{output_model_name}_{pred_horizon_days}_days"}]}
                                      }
                       }
-
+    
+    runtime_info = {'is_rudder_backend': False}
     if should_train:
         T.train(
             creds,
@@ -81,6 +82,7 @@ if __name__ == "__main__":
             train_config,
             site_config_path,
             project_folder,
+            runtime_info
         )
 
     if credentials_presets is None:

@@ -500,7 +500,7 @@ def get_feature_package_path( input_models: List[str]) -> str:
     Returns:
         str: feature package path
     """
-    assert len(input_models)>0 , "No input models provided. Input models must be specified."
+    assert len(input_models)>0 , "No input models provided in the config. Path to profiles input models (ex: models/<entity_var_name>) must be specified in the train data config."
     return ','.join(input_models) 
 
 

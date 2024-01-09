@@ -3,7 +3,7 @@ data:
   label_column: is_churned_7_days # Name of the entity_var that needs to be predicted in advance
   label_value:  # Value of the label_column when the entity does the event. Not required for regression tasks
   entity_column: user_main_id # Name of the entity defined in the profiles project. Ex: user_id, user_main_id, rudder_id etc
-  features_profiles_model: 'rudder_user_base_features' # Name of the feature table model
+  features_profiles_model: '' # Name of the feature table model
   output_profiles_ml_model: 'ltv_test'
   task: classification # classification or regression; Can support a few other tasks in the future, like ltv, churn etc which can be super classes of classification/regression.
   index_timestamp: valid_at
@@ -17,8 +17,7 @@ data:
     - local
     - rudderstack-infra
     - native-warehouse
-  inputs: 
-    - packages/feature_table/models/rudder_user_base_features
+  inputs: []
   max_row_count: 500000
   recall_to_precision_importance: 1.0 # Importance of recall to precision. If 1.0, then recall and precision are equally important.
   # sample_data: 1. # Keep 1 if all data during train_start_dt, train_end_dt and eligible_users should be selected; Else, give the percent as the number between 0 and 1; Ex, 0.25 indicates 25% data gets sampled

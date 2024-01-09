@@ -16,3 +16,4 @@ EC2_TEMP_OUTPUT_JSON = "train_results.json"
 S3_BUCKET = "ml-usecases-poc-srinivas"
 REGION_NAME="us-east-1"
 S3_PATH = "test_export/"
+SLEEPTIME = 5

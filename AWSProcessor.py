@@ -10,14 +10,13 @@ from typing import Any, List, Tuple, Union
 from botocore.exceptions import NoCredentialsError
 
 class AWSProcessor(Processor):
-    def _execute(self, ssm_client, instance_id, commands):
+    def _execute(self, ssm_client, instance_id, commands, sleepTime):
         response = ssm_client.send_command(
             InstanceIds=[instance_id],
             DocumentName="AWS-RunShellScript",
             Parameters={'commands': commands},
         )
         command_id = response['Command']['CommandId']
-        print(f"Command ID: {command_id}; command - ", commands)
         output1 = ""
         output2 = ""
         while True:
@@ -25,7 +24,7 @@ class AWSProcessor(Processor):
                 CommandId=command_id,
                 InstanceId=instance_id,
             )
-            # sleep for few seconds
+            time.sleep(sleepTime)
             if result['Status'] in ['Success', 'Failed', 'Cancelled']:
                 output1 += result.get('StandardOutputContent', '')
                 output2 += result.get('StandardErrorContent', '')
@@ -69,6 +68,7 @@ class AWSProcessor(Processor):
         s3_bucket = constants.S3_BUCKET
         region_name = constants.REGION_NAME
         s3_path = constants.S3_PATH
+        sleepTime = constants.SLEEPTIME
 
         ssm_client = boto3.client(service_name='ssm', region_name=region_name)
         commands = [
@@ -76,7 +76,7 @@ class AWSProcessor(Processor):
         f"pip install -r requirements.txt",
         f"python3 preprocess_and_train.py --remote_dir {remote_dir} --s3_bucket {s3_bucket} --region_name {region_name} --s3_path {s3_path} --ec2_temp_output_json {ec2_temp_output_json} --material_names '{json.dumps(material_names)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}'"
         ]
-        self._execute(ssm_client, instance_id, commands)
+        self._execute(ssm_client, instance_id, commands, sleepTime)
 
         self._download_directory_from_s3(s3_bucket, region_name, s3_path, self.connector.get_local_dir())
         self._delete_directory_from_s3(s3_bucket, region_name, s3_path)

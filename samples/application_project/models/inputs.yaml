@@ -1,0 +1,15 @@
+inputs: 
+  - name: rsTracks
+    table: RUDDERSTACK_TEST_DB.DATA_APPS_SIMULATED_SHOPIFY.tracks
+    occurred_at_col: timestamp
+    ids: 
+      - select: "user_id"
+        type: user_id
+        entity: user
+        
+      - select: "anonymous_id"
+        type: anonymous_id
+        entity: user
+    source_metadata:
+      role: shopify
+      category: webhook

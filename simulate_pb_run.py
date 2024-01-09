@@ -1,11 +1,10 @@
-import json
 import sys
 import os
 import yaml
 import pathlib
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import train as T
 import predict as P
 
@@ -42,6 +41,7 @@ if __name__ == "__main__":
         print(f"Using {creds['schema']} schema in Redshift account: {creds['host']}")
     else:
         raise Exception(f"Unknown database type: {creds['type']}")
+
     credentials_presets = None
     if should_train:
         print("Training step is enabled.")
@@ -72,17 +72,21 @@ if __name__ == "__main__":
                                      {"features":[{"description":"Percentile of churn score. Higher the percentile, higher the probability of churn","name":f"percentile_{output_model_name}_{pred_horizon_days}_days"}]}
                                      }
                       }
-    # train_config = json.loads('{"data":{"eligible_users":"1=1","features_profiles_model":"shopify_user_features","inputs":["packages/feature_table/models/shopify_user_features"],"label_column":"is_churned_7_days","label_value":1,"output_profiles_ml_model":"shopify_churn","package_name":"feature_table","prediction_horizon_days":7},"preprocessing":{"ignore_features":["user_email","first_name","last_name"]}}')
-    # predict_config = json.loads('{"data":{"eligible_users":"1=1","features_profiles_model":"shopify_user_features","inputs":["packages/feature_table/models/shopify_user_features"],"label_column":"is_churned_7_days","label_value":1,"output_profiles_ml_model":"shopify_churn","package_name":"feature_table","prediction_horizon_days":7},"outputs":{"column_names":{"percentile":"percentile_churn_score_7_days","score":"churn_score_7_days"},"feature_meta_data":{"features":[{"description":"Percentile of churn score. Higher the percentile, higher the probability of churn","name":"percentile_churn_score_7_days"}]}},"preprocessing":{"ignore_features":["user_email","first_name","last_name"]}}')
 
-    
     if should_train:
-        T.train(creds, None, t_output_filename, train_config, site_config_path, project_folder)
+        T.train(
+            creds,
+            None,
+            t_output_filename,
+            train_config,
+            site_config_path,
+            project_folder,
+        )
 
     if credentials_presets is None:
         credentials_presets = {}
 
     s3_config = credentials_presets.get("s3", {})
     predict_inputs = [f"SELECT * FROM {schema}.Material_{feature_table_name}_{model_hash}_{material_seq}",]
-    #print(f"Using table Material_{feature_table_name}_{model_hash}_{material_seq} for predictions")
-    #P.predict(creds, s3_config, t_output_filename, predict_inputs, p_output_tablename, predict_config)
+    print(f"Using table Material_{feature_table_name}_{model_hash}_{material_seq} for predictions")
+    P.predict(creds, s3_config, t_output_filename, predict_inputs, p_output_tablename, predict_config)

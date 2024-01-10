@@ -8,6 +8,7 @@ import cachetools
 import numpy as np
 import pandas as pd
 
+from ast import List
 from typing import Any
 from logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -30,7 +31,7 @@ try:
 except Exception as e:
         logger.warning(f"Could not import RedshiftConnector")
 
-def predict(creds:dict, aws_config: dict, model_path: str, inputs: [str], output_tablename : str, config: dict) -> None:
+def predict(creds:dict, aws_config: dict, model_path: str, inputs: List[str], output_tablename : str, config: dict) -> None:
     """Generates the prediction probabilities and save results for given model_path
 
     Args:

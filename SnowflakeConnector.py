@@ -852,6 +852,7 @@ class SnowflakeConnector(Connector):
             T.DecimalType(36, 6): float,
             T.LongType(): float,
             T.StringType(): str,
+            T.StringType(16777216): str,
         }
         types = [type_map[d.datatype] for d in df.schema.fields]
         return T.PandasDataFrame[tuple(types)]

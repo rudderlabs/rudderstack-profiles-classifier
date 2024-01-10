@@ -25,7 +25,7 @@ def cleanup_reports(reports_folders):
 
 def validate_training_summary():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(current_dir, "train_classifier_reports", "training_summary.json")
+    file_path = os.path.join(current_dir, "output/train_reports", "training_summary.json")
     with open(file_path, 'r') as file:
         json_data = json.load(file)
         timestamp = json_data['timestamp']
@@ -46,7 +46,7 @@ def validate_training_summary():
 
 def validate_reports():
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    reports_directory = os.path.join(current_dir, "train_classifier_reports")
+    reports_directory = os.path.join(current_dir, "output/train_reports")
     expected_files = ["01-feature-importance-chart", "02-test-lift-chart", "03-test-pr-auc", "04-test-roc-auc"]
     files = os.listdir(reports_directory)
     missing_files = []
@@ -82,7 +82,11 @@ def test_classification_training():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_path = os.path.join(current_dir, "sample_project")
     siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
-    output_filename = os.path.join(current_dir, "output")
+    output_filename = os.path.join(current_dir, "output/output.json")
+    output_folder = os.path.join(current_dir, "output")
+
+
+
     config = {
       "data": {
         "features_profiles_model": "shopify_user_features",
@@ -93,8 +97,11 @@ def test_classification_training():
       }
     }
     create_site_config_file(creds, siteconfig_path)
-    folders = [folder for folder in os.listdir(current_dir) if os.path.isdir(folder)]
+
+    # Use os.path.join to get the full path for the output folder
+    folders = [os.path.join(output_folder, folder) for folder in os.listdir(output_folder) if os.path.isdir(os.path.join(output_folder, folder))]
     reports_folders = [folder for folder in folders if folder.endswith('_reports')]
+    
     try:
         train(creds, None, output_filename, config, siteconfig_path, project_path)
         validate_training_summary()
@@ -104,5 +111,6 @@ def test_classification_training():
     finally:
         cleanup_pb_project(project_path, siteconfig_path)
         cleanup_reports(reports_folders)
+
 
 test_classification_training()

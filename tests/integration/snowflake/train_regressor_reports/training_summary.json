@@ -1,0 +1,22 @@
+{
+  "timestamp": "2024-01-10T14:01:41Z",
+  "data": {
+    "metrics": {
+      "test": {
+        "mean_absolute_error": 0.28542206681228305,
+        "mean_squared_error": 0.17921017157479263,
+        "r2_score": 0.9999919804037917
+      },
+      "train": {
+        "mean_absolute_error": 0.28703185122648556,
+        "mean_squared_error": 0.2007475973142755,
+        "r2_score": 0.9999913129146862
+      },
+      "val": {
+        "mean_absolute_error": 0.28430774311732665,
+        "mean_squared_error": 0.33277392501106434,
+        "r2_score": 0.9999851067068501
+      }
+    }
+  }
+}

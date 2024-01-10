@@ -63,7 +63,34 @@ class SnowflakeConnector(Connector):
             Results of the query run on the snowpark session
         """
         return session.sql(query).collect()
+    
+    def call_procedure(self, *args, **kwargs):
+        """Calls the given procedure on the snowpark session
 
+        Args:
+            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
+            args (list): List of arguments to be passed to the procedure
+        
+        Returns:
+            Results of the procedure call
+        """
+        session = kwargs.get('session', None)
+        if session == None:
+            raise Exception("Session object not found")
+        return session.call(*args)
+    
+    def get_merged_table(self, base_table, incoming_table):
+        """Returns the merged table of base_table and incoming_table.
+
+        Args:
+            base_table (snowflake.snowpark.Table): base_table
+            incoming_table (snowflake.snowpark.Table): incoming_table
+
+        Returns:
+            snowflake.snowpark.Table: Merged table of feature table and feature table instance
+        """
+        return incoming_table if base_table is None else base_table.unionAllByName(incoming_table)
+    
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:

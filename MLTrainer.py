@@ -252,7 +252,7 @@ class MLTrainer(ABC):
             train_size=self.prep.train_size,
             val_size=self.prep.val_size,
             test_size=self.prep.test_size,
-            isStratify=True,
+            isStratify=False,
         )
 
         train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)

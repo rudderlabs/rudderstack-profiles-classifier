@@ -168,6 +168,7 @@ class MLTrainer(ABC):
     @abstractmethod
     def prepare_training_summary(self, model_results: dict, model_timestamp: str) -> dict:
         pass
+    
     def train_model(self, feature_df: pd.DataFrame,
                     categorical_columns: List[str], numeric_columns: List[str], merged_config: dict, model_file: str):
         """Creates and saves the trained model pipeline after performing preprocessing and classification
@@ -200,7 +201,7 @@ class MLTrainer(ABC):
                                                                                 train_size=self.prep.train_size,
                                                                                 val_size=self.prep.val_size,
                                                                                 test_size=self.prep.test_size,
-                                                                                isStratify=True)
+                                                                                isStratify=False)
 
         train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
         val_x = utils.transform_null(val_x, numeric_columns, categorical_columns)

@@ -30,7 +30,7 @@ class AWSProcessor(Processor):
                 output2 += result.get('StandardErrorContent', '')
                 break
 
-        logger.error("Error logs : ", output2)
+        print("Error logs : ", output2)
 
     def _download_directory_from_s3(self, bucket_name, aws_region_name, s3_path, local_directory):
         s3 = boto3.client('s3', region_name=aws_region_name)
@@ -57,9 +57,11 @@ class AWSProcessor(Processor):
             s3.delete_object(Bucket=bucket_name, Key=folder_name)
             print(f"Deleted folder: {folder_name}")
         except NoCredentialsError:
-            print("Couldn't find aws credentials in ec2 for uploading artefacts to s3")
+            logger.error("Couldn't find aws credentials in ec2 for uploading artefacts to s3")
+            raise Exception(f"Couldn't find aws credentials in ec2 for uploading artefacts to s3")
         except Exception as e:
-            print(f"An error occurred: {e}")
+            logger.error(f"An error occured while trying to delete directory {bucket_name}/{folder_name} from s3: {e}")
+            raise Exception(f"An error occured while trying to delete directory {bucket_name}/{folder_name} from s3: {e}")
 
     def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict):
         remote_dir = constants.REMOTE_DIR

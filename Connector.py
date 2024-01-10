@@ -267,6 +267,14 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def call_procedure(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def get_merged_table(self, feature_table, feature_table_instance):
+        pass
+    
+    @abstractmethod
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:

@@ -389,7 +389,6 @@ if __name__ == "__main__":
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
         # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
-    print(creds)
     inputs = None
     output_folder = "output/dev/seq_no/124"
     output_file_name = f"{output_folder}/train_output.json"
@@ -400,6 +399,6 @@ if __name__ == "__main__":
     # logger.setLevel(logging.DEBUG)
 
     # change path of project directory as per your system
-    project_folder = "/Users/ambuj/Desktop/Git_repos/rudderstack-profiles-shopify-churn"
+    project_folder = "/Users/admin/Desktop/Profiles/rudderstack-profiles-shopify-churn"
 
     train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

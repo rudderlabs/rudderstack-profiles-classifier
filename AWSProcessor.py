@@ -4,10 +4,9 @@ import time
 import json
 import boto3
 import constants
-from logger import logger
 from Processor import Processor
 from typing import Any, List, Tuple, Union
-from botocore.exceptions import NoCredentialsError
+from S3Utils import S3Utils
 
 class AWSProcessor(Processor):
     def _execute(self, ssm_client, instance_id, commands, ssm_sleep_time):
@@ -32,37 +31,6 @@ class AWSProcessor(Processor):
 
         print("Error logs : ", output2)
 
-    def _download_directory_from_s3(self, bucket_name, aws_region_name, s3_path, local_directory):
-        s3 = boto3.client('s3', region_name=aws_region_name)
-        try:
-            objects = s3.list_objects(Bucket=bucket_name, Prefix=s3_path)['Contents']
-            for obj in objects:
-                key = obj['Key']
-                local_file_path = os.path.join(local_directory, os.path.relpath(key, s3_path))
-                if not os.path.exists(os.path.dirname(local_file_path)):
-                    os.makedirs(os.path.dirname(local_file_path))
-                s3.download_file(bucket_name, key, local_file_path)
-                print(f"File {key} downloaded to {local_file_path}")
-            print(f"All files from {bucket_name}/{s3_path} downloaded to {local_directory}")
-        except NoCredentialsError:
-            raise Exception(f"Couldn't find aws credentials in ec2 for uploading artefacts to s3")
-        
-    def _delete_directory_from_s3(self, bucket_name, aws_region_name, folder_name):
-        s3 = boto3.client('s3', region_name=aws_region_name)
-        try:
-            objects = s3.list_objects(Bucket=bucket_name, Prefix=folder_name)['Contents']
-            for obj in objects:
-                s3.delete_object(Bucket=bucket_name, Key=obj['Key'])
-                print(f"Deleted object: {obj['Key']}")
-            s3.delete_object(Bucket=bucket_name, Key=folder_name)
-            print(f"Deleted folder: {folder_name}")
-        except NoCredentialsError:
-            logger.error("Couldn't find aws credentials in ec2 for uploading artefacts to s3")
-            raise Exception(f"Couldn't find aws credentials in ec2 for uploading artefacts to s3")
-        except Exception as e:
-            logger.error(f"An error occured while trying to delete directory {bucket_name}/{folder_name} from s3: {e}")
-            raise Exception(f"An error occured while trying to delete directory {bucket_name}/{folder_name} from s3: {e}")
-
     def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict):
         remote_dir = constants.REMOTE_DIR
         instance_id = constants.INSTANCE_ID
@@ -76,13 +44,13 @@ class AWSProcessor(Processor):
         commands = [
         f"cd {remote_dir}/rudderstack-profiles-classifier",
         f"pip install -r requirements.txt",
-        f"python3 preprocess_and_train.py --remote_dir {remote_dir} --s3_bucket {s3_bucket} --aws_region_name {aws_region_name} --s3_path {s3_path} --ec2_temp_output_json {ec2_temp_output_json} --material_names '{json.dumps(material_names)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}'"
+        f"python3 preprocess_and_train.py --s3_bucket {s3_bucket} --aws_region_name {aws_region_name} --s3_path {s3_path} --ec2_temp_output_json {ec2_temp_output_json} --material_names '{json.dumps(material_names)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}'"
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 
-        self._download_directory_from_s3(s3_bucket, aws_region_name, s3_path, self.connector.get_local_dir())
-        self._delete_directory_from_s3(s3_bucket, aws_region_name, s3_path)
-        
+        S3Utils._download_directory_from_s3(s3_bucket, aws_region_name, s3_path, self.connector.get_local_dir())
+        S3Utils._delete_directory_from_s3(s3_bucket, aws_region_name, s3_path)
+
         try:
             train_results_json = self.connector.load_and_delete_json(ec2_temp_output_json)
         except Exception as e:

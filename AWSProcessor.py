@@ -30,7 +30,7 @@ class AWSProcessor(Processor):
                 output2 += result.get('StandardErrorContent', '')
                 break
 
-        logger.error("Error logs : ", output2)
+        print("Error logs : ", output2)
 
     def _download_directory_from_s3(self, bucket_name, aws_region_name, s3_path, local_directory):
         s3 = boto3.client('s3', region_name=aws_region_name)

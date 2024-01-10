@@ -1,11 +1,11 @@
 from train import *
 import shutil
 
-homedir = os.path.expanduser("~") 
-with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-    creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+# homedir = os.path.expanduser("~") 
+# with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
+#     creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
 
-# creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
+creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
 creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
 
@@ -71,8 +71,6 @@ def create_site_config_file(creds, siteconfig_path):
 
 
 def test_regressor_training():
-    # creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-    # creds["schema"] = "PROFILES_INTEGRATION_TEST"
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_path = os.path.join(current_dir, "sample_project")
     siteconfig_path = os.path.join(project_path, "siteconfig.yaml")

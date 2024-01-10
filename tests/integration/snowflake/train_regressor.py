@@ -77,6 +77,8 @@ def test_regressor_training():
     output_filename = os.path.join(current_dir, "output/output.json")
     output_folder = os.path.join(current_dir, "output")
 
+    os.makedirs(output_folder, exist_ok=True)
+
     config = {
       "data": {
         "features_profiles_model": "shopify_user_features",

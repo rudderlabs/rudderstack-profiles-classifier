@@ -7,7 +7,7 @@ data:
   output_profiles_ml_model: 'ltv_test'
   task: classification # classification or regression; Can support a few other tasks in the future, like ltv, churn etc which can be super classes of classification/regression.
   index_timestamp: valid_at
-  eligible_users: 1=1 # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'
+  eligible_users: # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'
   # train_start_dt: '2023-04-24'
   train_start_dt: # The start and end dates can be left empty. If not, the model uses these dates to get historic data for training. 
   # train_end_dt: '2023-05-01'

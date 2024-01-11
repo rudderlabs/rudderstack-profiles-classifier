@@ -280,7 +280,6 @@ def train(
     )
 
     model_hash = connector.get_latest_material_hash(
-        trainer.package_name,
         trainer.features_profiles_model,
         output_filename,
         site_config_path,
@@ -302,7 +301,6 @@ def train(
             material_table,
             start_date,
             end_date,
-            trainer.package_name,
             trainer.features_profiles_model,
             model_hash,
             material_table_prefix,
@@ -382,24 +380,3 @@ def train(
         delete_files=import_paths,
         stage_name=stage_name,
     )
-
-
-if __name__ == "__main__":
-    homedir = os.path.expanduser("~")
-    with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
-        # creds = yaml.safe_load(f)["connections"]["dev_wh_rs"]["outputs"]["dev"]
-    print(creds)
-    inputs = None
-    output_folder = "output/dev/seq_no/124"
-    output_file_name = f"{output_folder}/train_output.json"
-    siteconfig_path = os.path.join(homedir, ".pb/siteconfig.yaml")
-
-    path = Path(output_folder)
-    path.mkdir(parents=True, exist_ok=True)
-    # logger.setLevel(logging.DEBUG)
-
-    # change path of project directory as per your system
-    project_folder = "/Users/ambuj/Desktop/Git_repos/rudderstack-profiles-shopify-churn"
-
-    train(creds, inputs, output_file_name, None, siteconfig_path, project_folder)

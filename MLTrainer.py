@@ -41,6 +41,7 @@ class MLTrainer(ABC):
         label_value: int,
         label_column: str,
         entity_column: str,
+        package_name: str,
         features_profiles_model: str,
         output_profiles_ml_model: str,
         index_timestamp: str,
@@ -66,6 +67,7 @@ class MLTrainer(ABC):
         self.max_row_count = max_row_count
         self.prep = prep
         self.isStratify = None
+        del package_name # Retained this in the class signature for backward compatibility. Not using it anywhere else, hence deleting.
 
     hyperopts_expressions_map = {
         exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]

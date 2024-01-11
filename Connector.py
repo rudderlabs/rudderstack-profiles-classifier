@@ -219,7 +219,6 @@ class Connector(ABC):
            inputs
         )
         pb = utils.get_pb_path()
-        print(f"pb path: {pb}")
         args = [
             pb,
             "compile",
@@ -229,7 +228,6 @@ class Connector(ABC):
             feature_package_path,
             "--migrate_on_load=True",
         ]
-        print(f"args: {args}")
         if site_config_path is not None:
             args.extend(["-c", site_config_path])
         logger.info(f"Fetching latest model hash by running command: {' '.join(args)}")
@@ -237,17 +235,12 @@ class Connector(ABC):
         pb_compile_output = (pb_compile_output_response.stdout).lower()
         logger.info(f"pb compile output: {pb_compile_output}")
 
-        if entity_key is None:
-            material_file_prefix = (
-                constants.MATERIAL_TABLE_PREFIX + features_profiles_model + "_"
-            ).lower()
-        else:
-            material_file_prefix = (
-                constants.MATERIAL_TABLE_PREFIX
-                + entity_key
-                + constants.VAR_TABLE_SUFFIX
-                + "_"
-            ).lower()
+        material_file_prefix = (
+            constants.MATERIAL_TABLE_PREFIX
+            + entity_key
+            + constants.VAR_TABLE_SUFFIX
+            + "_"
+        ).lower()
 
         try:
             model_hash = pb_compile_output[
@@ -317,9 +310,7 @@ class Connector(ABC):
         label_table_name: str,
         label_column: str,
         entity_column: str,
-        index_timestamp: str,
         label_value: Union[str, int, float],
-        label_ts_col: str,
     ):
         pass
 
@@ -356,14 +347,12 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_timestamp_columns(
-        self, session, table_name: str, index_timestamp: str
-    ) -> List[str]:
+    def get_timestamp_columns(self, session, table_name: str) -> List[str]:
         pass
 
     @abstractmethod
     def get_timestamp_columns_from_table(
-        self, session, table_name: str, index_timestamp: str, **kwargs
+        self, session, table_name: str, **kwargs
     ) -> List[str]:
         pass
 
@@ -393,7 +382,27 @@ class Connector(ABC):
 
     @abstractmethod
     def get_creation_ts_and_model_name(
-        self, session, material_table: str, entity_key: str, model_name: str, model_hash: str
+        self,
+        session,
+        material_table: str,
+        model_name: str,
+        model_hash: str,
+        entity_key: str,
+    ):
+        pass
+
+    @abstractmethod
+    def get_end_ts_and_model_name(
+        self,
+        session,
+        material_table: str,
+        model_hash: str,
+    ):
+        pass
+
+    @abstractmethod
+    def add_index_timestamp_colum_for_predict_data(
+        self, predict_data, index_timestamp: str, end_ts: str
     ):
         pass
 
@@ -412,7 +421,6 @@ class Connector(ABC):
         self,
         feature_table,
         entity_column: str,
-        index_timestamp: str,
         max_row_count: int,
         min_sample_for_training: int,
     ):
@@ -423,7 +431,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def add_days_diff(self, table, new_col, time_col_1, time_col_2):
+    def add_days_diff(self, table, new_col, time_col, end_ts):
         pass
 
     @abstractmethod

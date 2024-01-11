@@ -287,12 +287,13 @@ def train(
         trainer.inputs,
         project_folder,
     )
+
     creation_ts, model_name = connector.get_creation_ts_and_model_name(
         session,
         material_table,
-        trainer.entity_key,
         trainer.features_profiles_model,
         model_hash,
+        trainer.entity_key,
     )
 
     # update feature profiles model name for the trainer
@@ -319,6 +320,9 @@ def train(
             project_folder,
             trainer.inputs,
         )
+
+        feature_end_ts, _ = training_dates[0]
+        trainer.set_end_ts(feature_end_ts)
 
     except TypeError:
         raise Exception(

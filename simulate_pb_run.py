@@ -29,7 +29,11 @@ if __name__ == "__main__":
     json_argument = {'is_rudder_backend': False}
     entity_key = "user"
     output_model_name = "shopify_churn"
-    inputs = f"packages/{package_name}/models/{feature_table_name}"
+    inputs = [
+        f"packages/{package_name}/models/{feature_table_name}",
+        f"entity/{entity_key}/{entity_key}_var_table"
+    ]
+
     homedir = os.path.expanduser("~")
 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
@@ -65,7 +69,7 @@ if __name__ == "__main__":
         "prediction_horizon_days": pred_horizon_days,
         "eligible_users": eligible_users,
         "features_profiles_model": feature_table_name,
-        "inputs": [inputs],
+        "inputs": inputs,
         "entity_key": entity_key,
         "output_profiles_ml_model": output_model_name,
         "package_name": package_name,

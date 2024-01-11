@@ -2,8 +2,6 @@ from logger import logger
 from abc import ABC, abstractmethod
 from typing import Any, List, Tuple, Union
 
-import utils
-import constants
 from MLTrainer import MLTrainer
 from Connector import Connector
 from preprocess_and_train import preprocess_and_train
@@ -24,5 +22,19 @@ class Processor(ABC):
         self.connector = connector
         self.session = session
 
-    def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict):
-        return preprocess_and_train(train_procedure, material_names, merged_config, session=self.session, connector=self.connector, trainer=self.trainer)
+    def train(
+        self,
+        train_procedure,
+        material_names: List[Tuple[str]],
+        merged_config: dict,
+        prediction_task: str,
+        wh_creds: dict,
+    ):
+        return preprocess_and_train(
+            train_procedure,
+            material_names,
+            merged_config,
+            session=self.session,
+            connector=self.connector,
+            trainer=self.trainer,
+        )

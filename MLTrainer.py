@@ -66,6 +66,7 @@ class MLTrainer(ABC):
         self.inputs = inputs
         self.max_row_count = max_row_count
         self.prep = prep
+        self.isStratify = None
         del package_name # Retained this in the class signature for backward compatibility. Not using it anywhere else, hence deleting.
 
     hyperopts_expressions_map = {
@@ -252,7 +253,7 @@ class MLTrainer(ABC):
             train_size=self.prep.train_size,
             val_size=self.prep.val_size,
             test_size=self.prep.test_size,
-            isStratify=False,
+            isStratify=self.isStratify,
         )
 
         train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
@@ -318,6 +319,7 @@ class ClassificationTrainer(MLTrainer):
             "lift-chart": f"02-test-lift-chart-{self.output_profiles_ml_model}.png",
             "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png",
         }
+        self.isStratify = True
 
     def build_model(
         self,
@@ -521,6 +523,7 @@ class RegressionTrainer(MLTrainer):
             "residuals-chart": f"02-residuals-chart-{self.output_profiles_ml_model}.png",
             "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png",
         }
+        self.isStratify=False
 
     def build_model(
         self,

@@ -902,13 +902,6 @@ class SnowflakeConnector(Connector):
         preds_with_percentile = preds.withColumn(
             percentile_column_name,
             F.percent_rank().over(Window.order_by(F.col(score_column_name))),
-        ).select(
-            entity_column,
-            index_timestamp,
-            "model_id",
-            score_column_name,
-            percentile_column_name,
-            output_label_column,
         )
         return preds_with_percentile
 

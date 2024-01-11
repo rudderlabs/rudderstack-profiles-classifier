@@ -288,7 +288,6 @@ def preprocess_and_train(
     filtered_feature_table = connector.filter_feature_table(
         feature_table,
         trainer.entity_column,
-        trainer.index_timestamp,
         trainer.max_row_count,
         min_sample_for_training,
     )

@@ -22,6 +22,8 @@ local_folder = constants.LOCAL_STORAGE_DIR
 class RedshiftConnector(Connector):
     def __init__(self, folder_path: str) -> None:
         self.local_dir = os.path.join(folder_path, local_folder)
+        path = Path(self.local_dir)
+        path.mkdir(parents=True, exist_ok=True)
         self.array_time_features = {}
         return
 
@@ -76,7 +78,34 @@ class RedshiftConnector(Connector):
             return cursor.execute(query).fetchall()
         else:
             return cursor.execute(query)
+        
+    def call_procedure(self, *args, **kwargs):
+        """Calls the given function for training
 
+        Args:
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
+            args (list): List of arguments to be passed to the training function
+            kwargs (dict): Dictionary of keyword arguments to be passed to the training function
+        
+        Returns:
+            Results of the training function
+        """
+        train_function = args[0]
+        args = args[1:]
+        return train_function(*args, **kwargs)
+    
+    def get_merged_table(self, base_table, incoming_table):
+        """Returns the merged table.
+
+        Args:
+            base_table (pd.DataFrame): 1st DataFrame
+            incoming_table (pd.DataFrame): 2nd DataFrame
+
+        Returns:
+            pd.DataFrame: Merged table
+        """
+        return pd.concat([base_table, incoming_table], axis=0, ignore_index=True)
+        
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:

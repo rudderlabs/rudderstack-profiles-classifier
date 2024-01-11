@@ -8,7 +8,7 @@ import cachetools
 import numpy as np
 import pandas as pd
 
-from typing import Any
+from typing import Any , List
 from logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -30,15 +30,14 @@ try:
 except Exception as e:
         logger.warning(f"Could not import RedshiftConnector")
 
-def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_tablename : str, config: dict) -> None:
+def predict(creds:dict, aws_config: dict, model_path: str, inputs: List[str], output_tablename : str, config: dict) -> None:
     """Generates the prediction probabilities and save results for given model_path
 
     Args:
         creds (dict): credentials to access the data warehouse - in same format as site_config.yaml from profiles
         aws_config (dict): aws credentials - not required for snowflake. only used for redshift
         model_path (str): path to the file where the model details including model id etc are present. Created in training step
-        inputs (str): Not being used currently. Can pass a blank string. For future support
-        output_tablename (str): name of output table where prediction results are written
+        inputs: (List[str]), containing sql queries such as "select * from <feature_table_name>" from which the script infers input tables        output_tablename (str): name of output table where prediction results are written
         config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
 
     Returns:
@@ -172,13 +171,3 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
     preds_with_percentile = connector.call_prediction_udf(predict_data, prediction_udf, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite", local=False)
     connector.cleanup(session, udf_name=udf_name)
-
-if __name__ == "__main__":
-    homedir = os.path.expanduser("~")
-    with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
-        aws_config=None
-        output_folder = 'output/dev/seq_no/7'
-        model_path = f"{output_folder}/train_output.json"
-        
-    predict(creds, aws_config, model_path, None, "test_can_delete",None)

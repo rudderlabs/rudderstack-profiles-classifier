@@ -28,12 +28,15 @@ if __name__ == "__main__":
 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"][schema]["outputs"]["dev"]
-
-    if creds["type"] == "snowflake":
-        print(
-            f"Using {creds['schema']} schema in snowflake account: {creds['account']}"
-        )
-    elif creds["type"] == "redshift":
+        
+    # End of user inputs.   
+    
+    from logger import logger
+    logger.setLevel("DEBUG")
+    
+    if creds['type'] == 'snowflake':
+        print(f"Using {creds['schema']} schema in snowflake account: {creds['account']}")
+    elif creds['type'] == 'redshift':
         print(f"Using {creds['schema']} schema in Redshift account: {creds['host']}")
     else:
         raise Exception(f"Unknown database type: {creds['type']}")
@@ -99,6 +102,6 @@ if __name__ == "__main__":
         credentials_presets = {}
 
     s3_config = credentials_presets.get("s3", {})
-    P.predict(
-        creds, s3_config, t_output_filename, [feature_table_name], p_output_tablename, predict_config
-    )
+    predict_inputs = [f"SELECT * FROM {schema}.Material_{feature_table_name}_{model_hash}_{material_seq}",]
+    print(f"Using table Material_{feature_table_name}_{model_hash}_{material_seq} for predictions")
+    P.predict(creds, s3_config, t_output_filename, predict_inputs, p_output_tablename, predict_config)

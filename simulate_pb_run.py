@@ -88,6 +88,10 @@ if __name__ == "__main__":
         credentials_presets = {}
 
     s3_config = credentials_presets.get("s3", {})
+    model
+    predict_inputs = [f"SELECT * FROM {schema}.Material_{feature_table_name}_{model_hash}_{material_seq}",]
+    print(f"Using table Material_{feature_table_name}_{model_hash}_{material_seq} for predictions")
+
     predict_inputs = [f"SELECT * FROM {schema}.Material_{feature_table_name}_{model_hash}_{material_seq}",]
     print(f"Using table Material_{feature_table_name}_{model_hash}_{material_seq} for predictions")
     P.predict(creds, s3_config, t_output_filename, predict_inputs, p_output_tablename, predict_config)

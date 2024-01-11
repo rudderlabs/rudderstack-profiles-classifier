@@ -8,8 +8,7 @@ import cachetools
 import numpy as np
 import pandas as pd
 
-from ast import List
-from typing import Any
+from typing import Any , List
 from logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 

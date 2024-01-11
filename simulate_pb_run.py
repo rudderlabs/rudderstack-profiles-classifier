@@ -2,6 +2,7 @@ import sys
 import os
 import yaml
 import pathlib
+import json
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -12,17 +13,18 @@ if __name__ == "__main__":
     train_file_extension = ".json"
     # schema = 'shopify_wh_rs'
     # schema = "rs360"
-    schema = "shopify_wh"
-    project_folder = "../rudderstack-profiles-shopify-churn"
-    feature_table_name = "shopify_user_features"
+    schema = "dev_wh"
+    project_folder = "samples/application_project"
+    feature_table_name = "rudder_user_base_features"
     eligible_users = "1=1"
     package_name = "feature_table"
-    label_column = "is_churned_7_days"
+    label_column = "days_since_last_seen"
     label_value = 1
     pred_horizon_days = 7
-    output_model_name = "shopify_churn"
+    output_model_name = "ltv_subham"
     inputs = f"packages/{package_name}/models/{feature_table_name}"
     homedir = os.path.expanduser("~")
+    task = "regression"
 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"][schema]["outputs"]["dev"]
@@ -37,7 +39,7 @@ if __name__ == "__main__":
         raise Exception(f"Unknown database type: {creds['type']}")
 
     credentials_presets = None
-    p_output_tablename = "test_run_can_delete_2"
+    p_output_tablename = f"{output_model_name}_{task}"
     t_output_filename = "output/dev/seq_no/125/train_output" + train_file_extension
 
     print(f"Training output file: {t_output_filename}")
@@ -55,6 +57,7 @@ if __name__ == "__main__":
         "inputs": [inputs],
         "output_profiles_ml_model": output_model_name,
         "package_name": package_name,
+        "task" : task
     }
 
     preprocessing = {"ignore_features": ["user_email", "first_name", "last_name"]}

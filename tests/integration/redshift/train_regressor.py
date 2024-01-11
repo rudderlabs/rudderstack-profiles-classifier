@@ -1,12 +1,8 @@
 from train import *
 import shutil
 
-homedir = os.path.expanduser("~") 
-with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-    creds = yaml.safe_load(f)["connections"]["shopify_wh_rs"]["outputs"]["dev"]
-
-# creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
-# creds["schema"] = "rs_profiles_3"
+creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
+creds["schema"] = "rs_profiles_3"
 
 
 def cleanup_pb_project(project_path, siteconfig_path):

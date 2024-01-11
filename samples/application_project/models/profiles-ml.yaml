@@ -15,7 +15,6 @@ models :
           data: &model_data_configs
             label_column: days_since_last_seen # Name of column for which we want to find predictions
             label_value: 1 # Value of label column for which prediction is generated
-            package_name: feature_table # Name of the package where the profiles feature table is defined (declared in pb_project.yaml packages)
             prediction_horizon_days: 7 # Number of days in future for which we want to predict
             features_profiles_model: 'rudder_user_base_features' # Model name
             output_profiles_ml_model: *model_name # Name of output model based on current model to dinstinguish between multiple models

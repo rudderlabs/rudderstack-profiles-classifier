@@ -8,7 +8,7 @@ import cachetools
 import numpy as np
 import pandas as pd
 
-from typing import Any
+from typing import Any , List
 from logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -30,15 +30,14 @@ try:
 except Exception as e:
         logger.warning(f"Could not import RedshiftConnector")
 
-def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_tablename : str, config: dict) -> None:
+def predict(creds:dict, aws_config: dict, model_path: str, inputs: List[str], output_tablename : str, config: dict) -> None:
     """Generates the prediction probabilities and save results for given model_path
 
     Args:
         creds (dict): credentials to access the data warehouse - in same format as site_config.yaml from profiles
         aws_config (dict): aws credentials - not required for snowflake. only used for redshift
         model_path (str): path to the file where the model details including model id etc are present. Created in training step
-        inputs (str): Not being used currently. Can pass a blank string. For future support
-        output_tablename (str): name of output table where prediction results are written
+        inputs: (List[str]), containing sql queries such as "select * from <feature_table_name>" from which the script infers input tables        output_tablename (str): name of output table where prediction results are written
         config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
 
     Returns:

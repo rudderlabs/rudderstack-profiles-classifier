@@ -280,7 +280,6 @@ def train(
     )
 
     model_hash = connector.get_latest_material_hash(
-        trainer.package_name,
         trainer.features_profiles_model,
         output_filename,
         site_config_path,
@@ -302,7 +301,6 @@ def train(
             material_table,
             start_date,
             end_date,
-            trainer.package_name,
             trainer.features_profiles_model,
             model_hash,
             material_table_prefix,

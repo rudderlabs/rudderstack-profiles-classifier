@@ -9,6 +9,7 @@ from typing import Literal
 
 from sqlalchemy import create_engine
 from sqlalchemy import orm as sa_orm
+from sqlalchemy import text
 
 from logging import Logger
 from wh.connector_base import ConnectorBase, register_connector
@@ -28,7 +29,8 @@ class RedShiftConnector(ConnectorBase):
         Session.configure(bind=self.engine)
         self.connection = Session()
         if db_config.get("schema", None):
-            self.connection.execute(f"SET search_path TO {db_config['schema']}")
+            schema_sql = text(f"SET search_path TO {db_config['schema']}")
+            self.connection.execute(schema_sql)
             self.connection.commit()
 
     def write_to_table(

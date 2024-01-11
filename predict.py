@@ -155,7 +155,7 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: str, output_t
         @F.pandas_udf(session=session,max_batch_size=10000, is_permanent=True, replace=True,
                 stage_location=stage_name, name=udf_name, 
                 imports= [f"{stage_name}/{model_name}", f"{stage_name}/{column_names_file}"],
-                packages=["snowflake-snowpark-python>=0.10.0","typing", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas==1.5.3","joblib", "cachetools", "PyYAML", "simplejson"])
+                packages=["snowflake-snowpark-python>=0.10.0","typing", "scikit-learn==1.1.1", "xgboost==1.5.0", "numpy==1.23.1","pandas==1.4.3","joblib==1.2.0", "cachetools", "PyYAML", "simplejson"])
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
             predictions = predict_helper(df, model_name, column_names_path=column_names_file, model_task=task)

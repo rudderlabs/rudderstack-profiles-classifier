@@ -51,8 +51,7 @@ if __name__ == "__main__":
     print(f"Training output file: {t_output_filename}")
     pathlib.Path(os.path.dirname(t_output_filename)).mkdir(parents=True, exist_ok=True)
     site_config_path = os.path.join(homedir, ".pb/siteconfig.yaml")
-    project_folder = os.path.abspath(project_folder)
-    
+    project_folder = os.path.abspath(project_folder)    
     data = {"label_column": label_column, 
             "label_value": label_value,
             "prediction_horizon_days": pred_horizon_days, 

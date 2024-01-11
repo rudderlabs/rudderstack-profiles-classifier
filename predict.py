@@ -171,13 +171,3 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: List[str], ou
     preds_with_percentile = connector.call_prediction_udf(predict_data, prediction_udf, entity_column, index_timestamp, score_column_name, percentile_column_name, output_label_column, train_model_id, column_names_path, prob_th, input)
     connector.write_table(preds_with_percentile, output_tablename, write_mode="overwrite", local=False)
     connector.cleanup(session, udf_name=udf_name)
-
-if __name__ == "__main__":
-    homedir = os.path.expanduser("~")
-    with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"]["dev_wh"]["outputs"]["dev"]
-        aws_config=None
-        output_folder = 'output/dev/seq_no/1234'
-        model_path = f"{output_folder}/train_output.json"
-        
-    predict(creds, aws_config, model_path, None, "test_can_delete",None)

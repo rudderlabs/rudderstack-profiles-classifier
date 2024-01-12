@@ -500,6 +500,7 @@ class SnowflakeConnector(Connector):
         ).distinct()
         label_snowpark_df = (
             snowpark_df.filter(col("model_name") == features_profiles_model)
+            .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
             .filter(col("model_hash") == model_hash)
             .filter(
                 f"end_ts between dateadd(day, {prediction_horizon_days}, '{start_time}') and dateadd(day, {prediction_horizon_days}, '{end_time}')"
@@ -567,7 +568,7 @@ class SnowflakeConnector(Connector):
         )
         return sorted_material_registry_tables[0]
 
-    def get_creation_ts_and_model_name(
+    def get_creation_ts(
         self,
         session: snowflake.snowpark.Session,
         material_table: str,
@@ -594,30 +595,34 @@ class SnowflakeConnector(Connector):
                 .filter(col("model_hash") == model_hash)
                 .filter(col("entity_key") == entity_key)
                 .sort(col("creation_ts"), ascending=False)
-                .select(col("creation_ts"), col("model_name"))
+                .select(col("creation_ts"))
                 .collect()[0]
             )
 
-            updated_model_name = temp_hash_vector.MODEL_NAME
             creation_ts = temp_hash_vector.CREATION_TS
 
         except:
             raise Exception(
                 f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
             )
-        return creation_ts, updated_model_name
+        return creation_ts
 
-    def get_end_ts_and_model_name(
+    def get_end_ts(
         self,
         session,
         material_table,
+        model_name: str,
         model_hash: str,
-    ) -> Tuple[str, str]:
-        """This function will return the end_ts and model name for given model hash
+        seq_no: int
+    ) -> str:
+        """This function will return the end_ts with given model hash and model name
 
         Args:
             session (snowflake.snowpark.Session): snowpark session
+            material_table (str): name of material registry table
+            model_name (str): model_name to be searched in material registry table
             model_hash (str): latest model hash
+            seq_no (int): latest seq_no
 
         Returns:
             Tuple[str, str]: end_ts and model name
@@ -627,20 +632,20 @@ class SnowflakeConnector(Connector):
         try:
             feature_table_info = (
                 snowpark_df.filter(col("model_type") == constants.ENTITY_VAR_MODEL)
+                .filter(col("model_name") == model_name)
                 .filter(col("model_hash") == model_hash)
-                .sort(col("seq_no").desc())
-                .select("model_name", "end_ts")
+                .filter(col("seq_no") == seq_no)
+                .select("end_ts")
                 .collect()[0]
             )
 
             end_ts = feature_table_info.END_TS
-            model_name = feature_table_info.MODEL_NAME
         except Exception as e:
             raise Exception(
                 f"Project is never materialzied with model hash {model_hash}. Erro message: {e}"
             )
 
-        return (end_ts, model_name)
+        return end_ts
 
     def add_index_timestamp_colum_for_predict_data(
         self, predict_data, index_timestamp: str, end_ts: str

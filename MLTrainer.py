@@ -58,11 +58,6 @@ class MLTrainer(ABC):
         self.label_column = label_column
         self.entity_column = entity_column
         self.entity_key = entity_key
-
-        # setting default value for entity_key
-        if self.entity_key is None:
-            self.entity_key = "user"
-
         self.package_name = package_name
         self.features_profiles_model = features_profiles_model
         self.output_profiles_ml_model = output_profiles_ml_model

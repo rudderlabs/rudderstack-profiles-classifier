@@ -24,15 +24,12 @@ if __name__ == "__main__":
     p_output_tablename = 'test_run_can_delete_2'
     t_output_filename = 'output/dev/seq_no/1/train_output' + train_file_extension
     should_train = True
-    material_seq = 2508  # seq no of most recent material from pb run
-    model_hash = '43619d31'  # hash of the feature_table_name from current pb run
+    material_seq = 295  # seq no of most recent material from pb run
+    model_hash = '8a719ff2'  # hash of the feature_table_name from current pb run
     json_argument = {'is_rudder_backend': False}
     entity_key = "user"
     output_model_name = "shopify_churn"
-    inputs = [
-        f"packages/{package_name}/models/{feature_table_name}",
-        f"entity/{entity_key}/{entity_key}_var_table"
-    ]
+    inputs = [f"packages/{package_name}/models/{feature_table_name}"]
 
     homedir = os.path.expanduser("~")
 
@@ -60,8 +57,6 @@ if __name__ == "__main__":
     print(f"Training output file: {t_output_filename}")
     pathlib.Path(os.path.dirname(t_output_filename)).mkdir(parents=True, exist_ok=True)
     site_config_path = os.path.join(homedir, ".pb/siteconfig.yaml")
-    project_folder = os.path.abspath(project_folder)
-    should_train = True
 
     data = {
         "label_column": label_column,

@@ -439,6 +439,7 @@ class RedshiftConnector(Connector):
         label_df = (
             df.loc[
                 (df["model_name"] == model_name)
+                & (df["model_type"] == constants.ENTITY_VAR_MODEL)
                 & (df["model_hash"] == model_hash)
                 & (df["end_ts"] >= label_start_time)
                 & (df["end_ts"] <= label_end_time),
@@ -474,7 +475,7 @@ class RedshiftConnector(Connector):
             )
         return material_names, training_dates
 
-    def get_creation_ts_and_model_name(
+    def get_creation_ts(
         self,
         cursor: redshift_connector.cursor.Cursor,
         material_table: str,
@@ -501,52 +502,56 @@ class RedshiftConnector(Connector):
                 .query(f'model_hash == "{model_hash}"')
                 .query(f'entity_key == "{entity_key}"')
                 .sort_values(by="creation_ts", ascending=False)
-                .reset_index(drop=True)[["model_name", "creation_ts"]]
+                .reset_index(drop=True)[["creation_ts"]]
                 .iloc[0]
             )
 
-            updated_model_name = temp_hash_vector["model_name"]
             creation_ts = temp_hash_vector["creation_ts"]
         except:
             raise Exception(
                 f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
             )
-        return creation_ts, updated_model_name
+        return creation_ts
 
-    def get_end_ts_and_model_name(
+    def get_end_ts(
         self,
         cursor,
         material_table,
+        model_name: str,
         model_hash: str,
-    ) -> Tuple[str, str]:
-        """This function will return the end_ts and model name for given model hash
+        seq_no: int
+    ) -> str:
+        """This function will return the end_ts with given model hash and model name
 
         Args:
             session (snowflake.snowpark.Session): snowpark session
+            material_table (str): name of material registry table
+            model_name (str): model_name to be searched in material registry table
             model_hash (str): latest model hash
+            seq_no (int): latest seq_no
 
         Returns:
-            Tuple[str, str]: end_ts and model name
+            str: end_ts for given model hash and model name
         """
         df = self.get_material_registry_table(cursor, material_table)
 
         try:
             feature_table_info_df = (
                 df.query(f'model_type == "{constants.ENTITY_VAR_MODEL}"')
+                .query(f'model_name == "{model_name}"')
                 .query(f'model_hash == "{model_hash}"')
-                .sort_values(by="seq_no", ascending=False)
-                .reset_index(drop=True)[["model_name", "end_ts"]]
+                .query(f'seq_no == {seq_no}')
+                .reset_index(drop=True)[["end_ts"]]
                 .iloc[0]
             )
 
             end_ts = feature_table_info_df["end_ts"]
-            model_name = feature_table_info_df["model_name"]
         except Exception as e:
             raise Exception(
                 f"Project is never materialzied with model hash {model_hash}. Error message: {e}"
             )
 
-        return (end_ts, model_name)
+        return end_ts
 
     def add_index_timestamp_colum_for_predict_data(
         self, predict_data, index_timestamp: str, end_ts: str

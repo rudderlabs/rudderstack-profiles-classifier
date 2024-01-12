@@ -66,6 +66,7 @@ def predict(
     prob_th = results["model_info"].get("threshold")
     stage_name = results["model_info"]["file_location"]["stage"]
     model_hash = results["config"]["material_hash"]
+    feature_table_name = results["input_model_name"]
 
     score_column_name = merged_config["outputs"]["column_names"]["score"]
     percentile_column_name = merged_config["outputs"]["column_names"]["percentile"]
@@ -82,6 +83,14 @@ def predict(
     task = merged_config["data"].pop("task", "classification")
 
     model_name = f"{output_profiles_ml_model}_{model_file_name}"
+    seq_no = None
+
+    try:
+        seq_no = int(inputs[0].split("_")[-1])
+    except Exception as e:
+        raise Exception(
+            f"Error while parsing seq_no from inputs: {inputs}. Error: {e}"
+        )
 
     udf_name = None
     if creds["type"] == "snowflake":
@@ -104,8 +113,8 @@ def predict(
         session, constants.MATERIAL_REGISTRY_TABLE_PREFIX
     )
 
-    end_ts, feature_table_name = connector.get_end_ts_and_model_name(
-        session, material_table, model_hash
+    end_ts = connector.get_end_ts(
+        session, material_table, feature_table_name, model_hash, seq_no
     )
     logger.debug(f"Feature table name: {feature_table_name}")
 

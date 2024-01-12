@@ -208,24 +208,17 @@ class Connector(ABC):
     def get_latest_material_hash(
         self,
         features_profiles_model: str,
-        entity_key: str,
         output_filename: str,
         site_config_path: str = None,
-        inputs: List[str] = None,
         project_folder: str = None,
     ) -> str:
         project_folder = utils.get_project_folder(project_folder, output_filename)
-        feature_package_path = utils.get_feature_package_path(
-           inputs
-        )
         pb = utils.get_pb_path()
         args = [
             pb,
             "compile",
             "-p",
             project_folder,
-            "-m",
-            feature_package_path,
             "--migrate_on_load=True",
         ]
         if site_config_path is not None:
@@ -237,8 +230,7 @@ class Connector(ABC):
 
         material_file_prefix = (
             constants.MATERIAL_TABLE_PREFIX
-            + entity_key
-            + constants.VAR_TABLE_SUFFIX
+            + features_profiles_model
             + "_"
         ).lower()
 
@@ -381,7 +373,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_creation_ts_and_model_name(
+    def get_creation_ts(
         self,
         session,
         material_table: str,
@@ -392,11 +384,13 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_end_ts_and_model_name(
+    def get_end_ts(
         self,
         session,
         material_table: str,
+        model_name: str,
         model_hash: str,
+        seq_no: int
     ):
         pass
 

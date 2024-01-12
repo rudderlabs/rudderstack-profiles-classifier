@@ -122,10 +122,8 @@ def predict(
         session, feature_table_name, filter_condition=eligible_users
     )
 
-    arraytype_features = connector.get_arraytype_features_from_table(
-        raw_data, features_path=features_path
-    )
-    ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_features)
+    arraytype_columns = connector.get_arraytype_columns_from_table(raw_data, features_path=features_path)
+    ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_columns)
     predict_data = connector.drop_cols(raw_data, ignore_features)
 
     if len(timestamp_columns) == 0:

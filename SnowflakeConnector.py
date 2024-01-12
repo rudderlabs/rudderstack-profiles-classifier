@@ -301,7 +301,7 @@ class SnowflakeConnector(Connector):
                 stringtype_features.append(field.name)
         return stringtype_features
 
-    def get_arraytype_features(
+    def get_arraytype_columns(
         self, session: snowflake.snowpark.Session, table_name: str
     ) -> List[str]:
         """Returns the list of features to be ignored from the feature table.
@@ -314,10 +314,10 @@ class SnowflakeConnector(Connector):
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
         table = self.get_table(session, table_name)
-        arraytype_features = self.get_arraytype_features_from_table(table)
-        return arraytype_features
+        arraytype_columns = self.get_arraytype_columns_from_table(table)
+        return arraytype_columns
 
-    def get_arraytype_features_from_table(
+    def get_arraytype_columns_from_table(
         self, table: snowflake.snowpark.Table, **kwargs
     ) -> list:
         """Returns the list of features to be ignored from the feature table.
@@ -326,10 +326,10 @@ class SnowflakeConnector(Connector):
         Returns:
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
-        arraytype_features = [
+        arraytype_columns = [
             row.name for row in table.schema.fields if row.datatype == T.ArrayType()
         ]
-        return arraytype_features
+        return arraytype_columns
 
     def get_high_cardinal_features(
         self,

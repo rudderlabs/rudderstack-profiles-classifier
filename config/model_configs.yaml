@@ -5,7 +5,7 @@ data:
   entity_column: user_main_id # Name of the entity defined in the profiles project. Ex: user_id, user_main_id, rudder_id etc
   package_name: feature_table
   features_profiles_model: '' # Name of the feature table model
-  output_profiles_ml_model: 'ltv_test'
+  output_profiles_ml_model: 'profiles_ml_model'
   task: classification # classification or regression; Can support a few other tasks in the future, like ltv, churn etc which can be super classes of classification/regression.
   index_timestamp: valid_at
   eligible_users: # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'

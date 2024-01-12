@@ -402,7 +402,21 @@ def get_output_directory(folder_path: str) -> str:
     target_path.mkdir(parents=True, exist_ok=True)
     return str(target_path)
 
+def delete_directory(folder_path: str) -> None:
+    """This function will delete the directory
 
+    Args:
+        folder_path (str): path of the folder to be deleted
+
+    Returns:
+        None
+    """
+    try:
+        shutil.rmtree(folder_path)
+    except OSError as e:
+        logger.error(f"Error occured while deleting directory {folder_path} : {e.strerror}")
+        raise Exception(f"Error occured while deleting directory {folder_path} : {e.strerror}")
+    
 def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple:
     """This function will return the start_date and end_date on basis of latest hash
 

@@ -21,7 +21,7 @@ import constants
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
     
-def upload_directory_to_s3(remote_dir, bucket, aws_region_name, destination, path):
+def upload_directory_to_s3(remote_dir, bucket, aws_region_name, destination, path, S3_UPLOAD_WHITELIST):
     credentials_file_path = os.path.join(remote_dir, ".aws/credentials")
     if os.path.exists(credentials_file_path):
         config = configparser.ConfigParser()
@@ -35,6 +35,8 @@ def upload_directory_to_s3(remote_dir, bucket, aws_region_name, destination, pat
                       aws_secret_access_key=aws_secret_access_key, aws_session_token=aws_session_token)
     for subdir, _, files in os.walk(path):
         for file in files:
+            if file not in S3_UPLOAD_WHITELIST:
+                continue
             full_path = os.path.join(subdir, file)
             with open(full_path, 'rb') as data:
                 s3_key = os.path.join(destination, subdir[len(path) + 1:], file)
@@ -248,4 +250,16 @@ if __name__ == "__main__":
     with open(os.path.join(connector.get_local_dir(), args.ec2_temp_output_json), "w") as file:
         json.dump(train_results_json, file)
 
-    upload_directory_to_s3(args.remote_dir, args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir())
+    logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
+    model_id = train_results_json["model_id"]
+    S3_UPLOAD_WHITELIST = [trainer.figure_names["feature-importance-chart"],
+                            trainer.figure_names["lift-chart"],
+                            trainer.figure_names["pr-auc-curve"],
+                            trainer.figure_names["roc-auc-curve"],
+                            f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json", 
+                            f"{trainer.output_profiles_ml_model}_{model_file_name}", 
+                            "train_results.json"]
+    upload_directory_to_s3(args.remote_dir, args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir(), S3_UPLOAD_WHITELIST)
+
+    logger.debug(f"Deleting local directory from ec2 machine")
+    utils.delete_directory(connector.get_local_dir())

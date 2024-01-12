@@ -100,9 +100,9 @@ def train(
 
     """ Initialising trainer """
     logger.info("Initialising trainer")
-    notebook_config = utils.load_yaml(config_path)
+    default_config = utils.load_yaml(config_path)
     _ = config.pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
-    merged_config = utils.combine_config(notebook_config, config)
+    merged_config = utils.combine_config(default_config, config)
 
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None

@@ -135,8 +135,8 @@ def prepare_feature_table(feature_table_name: str,
         else:
             default_user_shortlisting = f"{trainer.label_column} != {trainer.label_value}"
             feature_table = connector.get_table(session, feature_table_name, filter_condition=default_user_shortlisting) #.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
-        arraytype_features = connector.get_arraytype_features(session, feature_table_name)
-        ignore_features = utils.merge_lists_to_unique(trainer.prep.ignore_features, arraytype_features)
+        arraytype_columns = connector.get_arraytype_columns(session, feature_table_name)
+        ignore_features = utils.merge_lists_to_unique(trainer.prep.ignore_features, arraytype_columns)
         high_cardinal_features = connector.get_high_cardinal_features(feature_table, trainer.label_column, trainer.entity_column, cardinal_feature_threshold)
         ignore_features = utils.merge_lists_to_unique(ignore_features, high_cardinal_features)
         feature_table = connector.drop_cols(feature_table, [trainer.label_column])
@@ -154,7 +154,7 @@ def prepare_feature_table(feature_table_name: str,
         feature_table = connector.join_feature_table_label_table(feature_table, label_table, trainer.entity_column, "inner")
         feature_table = connector.drop_cols(feature_table, [label_ts_col])
         feature_table = connector.drop_cols(feature_table, ignore_features_)
-        return feature_table, arraytype_features, timestamp_columns
+        return feature_table, arraytype_columns, timestamp_columns
     except Exception as e:
         print("Exception occured while preparing feature table. Please check the logs for more details")
         raise e
@@ -170,7 +170,7 @@ def preprocess_and_train(train_procedure, material_names: List[Tuple[str]], merg
     for row in material_names:
         feature_table_name, label_table_name = row
         logger.info(f"Preparing training dataset using {feature_table_name} and {label_table_name} as feature and label tables respectively")
-        feature_table_instance, arraytype_features, timestamp_columns = prepare_feature_table(feature_table_name, 
+        feature_table_instance, arraytype_columns, timestamp_columns = prepare_feature_table(feature_table_name, 
                                                                 label_table_name,
                                                                 cardinal_feature_threshold,
                                                                 session=session,
@@ -208,7 +208,7 @@ def preprocess_and_train(train_procedure, material_names: List[Tuple[str]], merg
     
     if not isinstance(train_results_json, dict):
         train_results_json = json.loads(train_results_json)
-    train_results_json['arraytype_features'] = arraytype_features
+    train_results_json['arraytype_columns'] = arraytype_columns
     train_results_json['timestamp_columns'] = timestamp_columns
     return train_results_json
 

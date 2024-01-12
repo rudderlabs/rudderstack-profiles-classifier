@@ -91,8 +91,8 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: List[str], ou
     logger.debug(f"Feature table name: {feature_table_name}")
     raw_data = connector.get_table(session, feature_table_name, filter_condition=eligible_users)
 
-    arraytype_features = connector.get_arraytype_features_from_table(raw_data, features_path=features_path)
-    ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_features)
+    arraytype_columns = connector.get_arraytype_columns_from_table(raw_data, features_path=features_path)
+    ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_columns)
     predict_data = connector.drop_cols(raw_data, ignore_features)
 
     if len(timestamp_columns) == 0:

@@ -262,7 +262,7 @@ class RedshiftConnector(Connector):
                 stringtype_features.append(column)
         return stringtype_features
 
-    def get_arraytype_features(
+    def get_arraytype_columns(
         self, cursor: redshift_connector.cursor.Cursor, table_name: str
     ) -> List[str]:
         """Returns the list of features to be ignored from the feature table.
@@ -278,13 +278,13 @@ class RedshiftConnector(Connector):
             f"select * from pg_get_cols('{self.schema}.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);"
         )
         col_df = cursor.fetch_dataframe()
-        arraytype_features = []
+        arraytype_columns = []
         for _, row in col_df.iterrows():
             if row["col_type"] == "super":
-                arraytype_features.append(row["col_name"])
-        return arraytype_features
+                arraytype_columns.append(row["col_name"])
+        return arraytype_columns
 
-    def get_arraytype_features_from_table(self, table: pd.DataFrame, **kwargs) -> list:
+    def get_arraytype_columns_from_table(self, table: pd.DataFrame, **kwargs) -> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
             table (snowflake.snowpark.Table): snowpark table.
@@ -292,8 +292,8 @@ class RedshiftConnector(Connector):
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
         self.get_array_time_features_from_file(**kwargs)
-        arraytype_features = self.array_time_features["arraytype_features"]
-        return arraytype_features
+        arraytype_columns = self.array_time_features["arraytype_columns"]
+        return arraytype_columns
 
     def get_high_cardinal_features(
         self,
@@ -841,8 +841,8 @@ class RedshiftConnector(Connector):
             raise ValueError("features_path argument is required for Redshift")
         with open(features_path, "r") as f:
             column_names = json.load(f)
-            self.array_time_features["arraytype_features"] = column_names[
-                "arraytype_features"
+            self.array_time_features["arraytype_columns"] = column_names[
+                "arraytype_columns"
             ]
             self.array_time_features["timestamp_columns"] = column_names[
                 "timestamp_columns"

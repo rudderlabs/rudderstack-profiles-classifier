@@ -146,6 +146,13 @@ class RedshiftConnector(Connector):
             query += f" WHERE {filter_condition}"
         query += ";"
         return cursor.execute(query).fetch_dataframe()
+    
+    def load_json_from_local(self, json_file_name: str) -> dict:
+        file_path = os.path.join(self.local_dir, json_file_name)
+        with open(file_path, 'r') as file:
+            json_data = json.load(file)
+        utils.delete_file(file_path)
+        return json_data
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
         """Writes the given pandas dataframe to the Redshift schema with the given name.

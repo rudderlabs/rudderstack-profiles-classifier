@@ -82,6 +82,6 @@ class AWSProcessor(Processor):
 
         self._download_directory_from_s3(s3_bucket, aws_region_name, s3_path, self.connector.get_local_dir())
         self._delete_directory_from_s3(s3_bucket, aws_region_name, s3_path)
-        with open(os.path.join(self.connector.get_local_dir(), ec2_temp_output_json), 'r') as file:
-            train_results_json = json.load(file)
+        
+        train_results_json = self.connector.load_json_from_local(ec2_temp_output_json)
         return train_results_json

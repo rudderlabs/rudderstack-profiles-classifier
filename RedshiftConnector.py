@@ -147,7 +147,7 @@ class RedshiftConnector(Connector):
         query += ";"
         return cursor.execute(query).fetch_dataframe()
     
-    def load_json_from_local(self, json_file_name: str) -> dict:
+    def load_and_delete_json(self, json_file_name: str) -> dict:
         file_path = os.path.join(self.local_dir, json_file_name)
         with open(file_path, 'r') as file:
             json_data = json.load(file)

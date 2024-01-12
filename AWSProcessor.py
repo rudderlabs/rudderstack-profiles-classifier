@@ -83,5 +83,9 @@ class AWSProcessor(Processor):
         self._download_directory_from_s3(s3_bucket, aws_region_name, s3_path, self.connector.get_local_dir())
         self._delete_directory_from_s3(s3_bucket, aws_region_name, s3_path)
         
-        train_results_json = self.connector.load_json_from_local(ec2_temp_output_json)
+        try:
+            train_results_json = self.connector.load_and_delete_json(ec2_temp_output_json)
+        except Exception as e:
+            logger.exception(f"An exception occured while trying to load and delete json {ec2_temp_output_json} from ec2: {e}")
+            raise Exception(f"An exception occured while trying to load and delete json {ec2_temp_output_json} from ec2: {e}")
         return train_results_json

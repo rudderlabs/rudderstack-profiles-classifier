@@ -333,7 +333,7 @@ def train(
     model_id = train_results["model_id"]
 
     column_dict = {
-        "arraytype_features": train_results["arraytype_features"],
+        "arraytype_columns": train_results["arraytype_columns"],
         "timestamp_columns": train_results["timestamp_columns"],
     }
 

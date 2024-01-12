@@ -328,11 +328,11 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_arraytype_features(self, session, table_name: str) -> List[str]:
+    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
         pass
 
     @abstractmethod
-    def get_arraytype_features_from_table(self, table: Any, **kwargs) -> list:
+    def get_arraytype_columns_from_table(self, table: Any, **kwargs) -> list:
         pass
 
     @abstractmethod

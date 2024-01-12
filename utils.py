@@ -402,6 +402,16 @@ def get_output_directory(folder_path: str) -> str:
     target_path.mkdir(parents=True, exist_ok=True)
     return str(target_path)
 
+def delete_file(file_path):
+    try:
+        os.remove(file_path)
+        logger.info(f"File '{file_path}' deleted successfully from local.")
+    except FileNotFoundError:
+        logger.error(f"Error: File '{file_path}' not found.")
+    except PermissionError:
+        logger.error(f"Error: Permission denied. Unable to delete '{file_path}'.")
+    except OSError as e:
+        logger.error(f"Error occurred while deleting file '{file_path}': {e}")
 
 def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple:
     """This function will return the start_date and end_date on basis of latest hash

@@ -21,7 +21,7 @@ import constants
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
     
-def upload_directory_to_s3(remote_dir, bucket, aws_region_name, destination, path):
+def upload_directory_to_s3(remote_dir, bucket, aws_region_name, destination, path, S3_UPLOAD_WHITELIST):
     credentials_file_path = os.path.join(remote_dir, ".aws/credentials")
     if os.path.exists(credentials_file_path):
         config = configparser.ConfigParser()
@@ -35,6 +35,8 @@ def upload_directory_to_s3(remote_dir, bucket, aws_region_name, destination, pat
                       aws_secret_access_key=aws_secret_access_key, aws_session_token=aws_session_token)
     for subdir, _, files in os.walk(path):
         for file in files:
+            if file not in S3_UPLOAD_WHITELIST:
+                continue
             full_path = os.path.join(subdir, file)
             with open(full_path, 'rb') as data:
                 s3_key = os.path.join(destination, subdir[len(path) + 1:], file)
@@ -133,8 +135,8 @@ def prepare_feature_table(feature_table_name: str,
         else:
             default_user_shortlisting = f"{trainer.label_column} != {trainer.label_value}"
             feature_table = connector.get_table(session, feature_table_name, filter_condition=default_user_shortlisting) #.withColumn(label_ts_col, F.dateadd("day", F.lit(prediction_horizon_days), F.col(index_timestamp)))
-        arraytype_features = connector.get_arraytype_features(session, feature_table_name)
-        ignore_features = utils.merge_lists_to_unique(trainer.prep.ignore_features, arraytype_features)
+        arraytype_columns = connector.get_arraytype_columns(session, feature_table_name)
+        ignore_features = utils.merge_lists_to_unique(trainer.prep.ignore_features, arraytype_columns)
         high_cardinal_features = connector.get_high_cardinal_features(feature_table, trainer.label_column, trainer.entity_column, cardinal_feature_threshold)
         ignore_features = utils.merge_lists_to_unique(ignore_features, high_cardinal_features)
         feature_table = connector.drop_cols(feature_table, [trainer.label_column])
@@ -152,7 +154,7 @@ def prepare_feature_table(feature_table_name: str,
         feature_table = connector.join_feature_table_label_table(feature_table, label_table, trainer.entity_column, "inner")
         feature_table = connector.drop_cols(feature_table, [label_ts_col])
         feature_table = connector.drop_cols(feature_table, ignore_features_)
-        return feature_table, arraytype_features, timestamp_columns
+        return feature_table, arraytype_columns, timestamp_columns
     except Exception as e:
         print("Exception occured while preparing feature table. Please check the logs for more details")
         raise e
@@ -168,7 +170,7 @@ def preprocess_and_train(train_procedure, material_names: List[Tuple[str]], merg
     for row in material_names:
         feature_table_name, label_table_name = row
         logger.info(f"Preparing training dataset using {feature_table_name} and {label_table_name} as feature and label tables respectively")
-        feature_table_instance, arraytype_features, timestamp_columns = prepare_feature_table(feature_table_name, 
+        feature_table_instance, arraytype_columns, timestamp_columns = prepare_feature_table(feature_table_name, 
                                                                 label_table_name,
                                                                 cardinal_feature_threshold,
                                                                 session=session,
@@ -206,7 +208,7 @@ def preprocess_and_train(train_procedure, material_names: List[Tuple[str]], merg
     
     if not isinstance(train_results_json, dict):
         train_results_json = json.loads(train_results_json)
-    train_results_json['arraytype_features'] = arraytype_features
+    train_results_json['arraytype_columns'] = arraytype_columns
     train_results_json['timestamp_columns'] = timestamp_columns
     return train_results_json
 
@@ -248,4 +250,16 @@ if __name__ == "__main__":
     with open(os.path.join(connector.get_local_dir(), args.ec2_temp_output_json), "w") as file:
         json.dump(train_results_json, file)
 
-    upload_directory_to_s3(args.remote_dir, args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir())
+    logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
+    model_id = train_results_json["model_id"]
+    S3_UPLOAD_WHITELIST = [trainer.figure_names["feature-importance-chart"],
+                            trainer.figure_names["lift-chart"],
+                            trainer.figure_names["pr-auc-curve"],
+                            trainer.figure_names["roc-auc-curve"],
+                            f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json", 
+                            f"{trainer.output_profiles_ml_model}_{model_file_name}", 
+                            "train_results.json"]
+    upload_directory_to_s3(args.remote_dir, args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir(), S3_UPLOAD_WHITELIST)
+
+    logger.debug(f"Deleting local directory from ec2 machine")
+    connector.cleanup(delete_local_data=True)

@@ -79,7 +79,7 @@ def test_regressor_training():
       "data": {
         "features_profiles_model": "shopify_user_features",
         "inputs": ["packages/feature_table/models/shopify_user_features"],
-        "eligible_users": "1=1",
+        "eligible_users": "days_since_last_seen is not null",
         "label_column" : "days_since_last_seen",
         "task" : "regression"
       }

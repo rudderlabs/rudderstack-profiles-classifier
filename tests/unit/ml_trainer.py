@@ -6,6 +6,7 @@ def build_trainer_config():
     config['label_value'] = None
     config['label_column'] = None
     config['entity_column'] = None
+    config['entity_key'] = None
     config['features_profiles_model'] = None
     config['output_profiles_ml_model'] = None
     config['index_timestamp'] = None

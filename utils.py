@@ -872,12 +872,15 @@ def plot_top_k_feature_importance(
         train_x_processed = train_x_processed.astype(np.int_)
 
         try:
-            shap_values = shap.TreeExplainer(pipe["model"]).shap_values(train_x_processed)
+            shap_values = shap.TreeExplainer(pipe["model"]).shap_values(
+                train_x_processed
+            )
         except Exception as e:
-            logger.warning(f"Exception occured while calculating shap values {e}, using KernelExplainer")
+            logger.warning(
+                f"Exception occured while calculating shap values {e}, using KernelExplainer"
+            )
             shap_values = shap.KernelExplainer(
-                pipe["model"].predict_proba,
-                data=train_x_processed
+                pipe["model"].predict_proba, data=train_x_processed
             ).shap_values(train_x_processed)
 
         x_label = "Importance scores"
@@ -1002,24 +1005,18 @@ def remap_credentials(credentials: dict) -> dict:
     return new_creds
 
 
-def get_timestamp_columns(
-    table: snowflake.snowpark.Table, index_timestamp: str
-) -> List[str]:
+def get_timestamp_columns(table: snowflake.snowpark.Table) -> List[str]:
     """
     Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
     Args:
         session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
         feature_table (snowflake.snowpark.Table): The feature table from which to retrieve the timestamp columns.
-        index_timestamp (str): The name of the column containing the index timestamp information.
     Returns:
         List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
     """
     timestamp_columns = []
     for field in table.schema.fields:
-        if (
-            field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()]
-            and field.name.lower() != index_timestamp.lower()
-        ):
+        if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()]:
             timestamp_columns.append(field.name)
     return timestamp_columns
 
@@ -1083,12 +1080,10 @@ def explain_prediction(
     )
     feature_table = session.table(feature_table_name)
     if len(timestamp_columns) == 0:
-        timestamp_columns = get_timestamp_columns(
-            session, feature_table, index_timestamp
-        )
-    for col in timestamp_columns:
+        timestamp_columns = get_timestamp_columns(session, feature_table)
+    for ts_col in timestamp_columns:
         feature_table = feature_table.withColumn(
-            col, F.datediff("day", F.col(col), F.col(index_timestamp))
+            col, F.datediff("day", F.col(ts_col), F.col(index_timestamp))
         )
     feature_table = feature_table.select(
         [entity_column] + numeric_columns + categorical_columns

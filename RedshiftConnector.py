@@ -190,9 +190,7 @@ class RedshiftConnector(Connector):
         label_table_name: str,
         label_column: str,
         entity_column: str,
-        index_timestamp: str,
         label_value: Union[str, int, float],
-        label_ts_col: str,
     ) -> pd.DataFrame:
         """
         Labels the given label_columns in the table as '1' or '0' if the value matches the label_value or not respectively.
@@ -202,21 +200,17 @@ class RedshiftConnector(Connector):
             label_table_name (str): Name of the table to be labelled
             label_column (str): Name of the column to be labelled
             entity_column (str): Name of the entity column
-            index_timestamp (str): Name of the index timestamp column
             label_value (Union[str,int,float]): Value to be labelled as '1'
-            label_ts_col (str): Name of the label timestamp column
 
         Returns:
             label_table (pd.DataFrame): The labelled table as a pandas Dataframe object
         """
         feature_table = self.get_table(cursor, label_table_name)
-        if label_value != None:
+        if label_value is not None:
             feature_table[label_column] = np.where(
                 feature_table[label_column] == label_value, 1, 0
             )
-        label_table = feature_table[
-            [entity_column, label_column, index_timestamp]
-        ].rename(columns={index_timestamp: label_ts_col})
+        label_table = feature_table[[entity_column, label_column]]
         return label_table
 
     def save_file(self, *args, **kwargs):
@@ -329,7 +323,6 @@ class RedshiftConnector(Connector):
         self,
         cursor: redshift_connector.cursor.Cursor,
         table_name: str,
-        index_timestamp: str,
     ) -> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
@@ -337,7 +330,6 @@ class RedshiftConnector(Connector):
         Args:
             cursor (redshift_connector.cursor.Cursor): The Snowpark session for data warehouse access.
             table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-            index_timestamp (str): The name of the column containing the index timestamp information.
 
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
@@ -348,16 +340,16 @@ class RedshiftConnector(Connector):
         col_df = cursor.fetch_dataframe()
         timestamp_columns = []
         for _, row in col_df.iterrows():
-            if (
-                row["col_type"]
-                in ["timestamp without time zone", "date", "time without time zone"]
-                and row["col_name"].lower() != index_timestamp.lower()
-            ):
+            if row["col_type"] in [
+                "timestamp without time zone",
+                "date",
+                "time without time zone",
+            ]:
                 timestamp_columns.append(row["col_name"])
         return timestamp_columns
 
     def get_timestamp_columns_from_table(
-        self, table: pd.DataFrame, index_timestamp: str, **kwargs
+        self, table: pd.DataFrame, **kwargs
     ) -> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
@@ -365,16 +357,12 @@ class RedshiftConnector(Connector):
         Args:
             cursor (redshift_connector.cursor.Cursor): The Snowpark session for data warehouse access.
             table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-            index_timestamp (str): The name of the column containing the index timestamp information.
 
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
         self.get_array_time_features_from_file(**kwargs)
         timestamp_columns = self.array_time_features["timestamp_columns"]
-        timestamp_columns = [
-            x for x in timestamp_columns if x.lower() != index_timestamp.lower()
-        ]
         return timestamp_columns
 
     def get_default_label_value(
@@ -435,6 +423,7 @@ class RedshiftConnector(Connector):
         feature_df = (
             df.loc[
                 (df["model_name"] == model_name)
+                & (df["model_type"] == constants.ENTITY_VAR_MODEL)
                 & (df["model_hash"] == model_hash)
                 & (df["end_ts"] >= start_time)
                 & (df["end_ts"] <= end_time),
@@ -457,6 +446,7 @@ class RedshiftConnector(Connector):
         label_df = (
             df.loc[
                 (df["model_name"] == model_name)
+                & (df["model_type"] == constants.ENTITY_VAR_MODEL)
                 & (df["model_hash"] == model_hash)
                 & (df["end_ts"] >= label_start_time)
                 & (df["end_ts"] <= label_end_time),
@@ -498,6 +488,7 @@ class RedshiftConnector(Connector):
         material_table: str,
         model_name: str,
         model_hash: str,
+        entity_key: str
     ):
         """This function will return the model hash that is latest for given model name in material table
 
@@ -506,6 +497,7 @@ class RedshiftConnector(Connector):
             material_table (str): name of material registry table
             model_name (str): model_name from model_configs file
             model_hash (str): latest model hash
+            entity_key (str): entity key
 
         Returns:
             (): it's latest creation timestamp
@@ -513,18 +505,76 @@ class RedshiftConnector(Connector):
         redshift_df = self.get_material_registry_table(cursor, material_table)
         try:
             temp_hash_vector = (
-                redshift_df.query(f'model_name == "{model_name}"')
+                redshift_df.query(f'model_type == "{constants.ENTITY_VAR_MODEL}"')
                 .query(f'model_hash == "{model_hash}"')
+                .query(f'entity_key == "{entity_key}"')
                 .sort_values(by="creation_ts", ascending=False)
                 .reset_index(drop=True)[["creation_ts"]]
                 .iloc[0]
             )
+
             creation_ts = temp_hash_vector["creation_ts"]
         except:
             raise Exception(
                 f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
             )
         return creation_ts
+
+    def get_end_ts(
+        self,
+        cursor,
+        material_table,
+        model_name: str,
+        model_hash: str,
+        seq_no: int
+    ) -> str:
+        """This function will return the end_ts with given model hash and model name
+
+        Args:
+            session (snowflake.snowpark.Session): snowpark session
+            material_table (str): name of material registry table
+            model_name (str): model_name to be searched in material registry table
+            model_hash (str): latest model hash
+            seq_no (int): latest seq_no
+
+        Returns:
+            str: end_ts for given model hash and model name
+        """
+        df = self.get_material_registry_table(cursor, material_table)
+
+        try:
+            feature_table_info_df = (
+                df.query(f'model_type == "{constants.ENTITY_VAR_MODEL}"')
+                .query(f'model_name == "{model_name}"')
+                .query(f'model_hash == "{model_hash}"')
+                .query(f'seq_no == {seq_no}')
+                .reset_index(drop=True)[["end_ts"]]
+                .iloc[0]
+            )
+
+            end_ts = feature_table_info_df["end_ts"]
+        except Exception as e:
+            raise Exception(
+                f"Project is never materialzied with model hash {model_hash}. Error message: {e}"
+            )
+
+        return end_ts
+
+    def add_index_timestamp_colum_for_predict_data(
+        self, predict_data, index_timestamp: str, end_ts: str
+    ) -> pd.DataFrame:
+        """This function will add index timestamp column to predict data
+
+        Args:
+            predict_data (pd.DataFrame): Dataframe to be predicted
+            index_timestamp (str): Name of the index timestamp column
+            end_ts (str): end timestamp value to calculate the difference.
+
+        Returns:
+            pd.DataFrame: Dataframe with index timestamp column
+        """
+        predict_data[index_timestamp] = pd.to_datetime(end_ts)
+        return predict_data
 
     def fetch_staged_file(
         self,
@@ -572,7 +622,6 @@ class RedshiftConnector(Connector):
         self,
         feature_table: pd.DataFrame,
         entity_column: str,
-        index_timestamp: str,
         max_row_count: int,
         min_sample_for_training: int,
     ) -> pd.DataFrame:
@@ -582,7 +631,6 @@ class RedshiftConnector(Connector):
         Args:
             feature_table (pd.DataFrame): The table to be filtered.
             entity_column (str): The name of the entity column to be used for sorting.
-            index_timestamp (str): The name of the index timestamp column to be used for sorting.
 
         Returns:
             The sorted feature table as a Pandas DataFrame object.
@@ -590,8 +638,8 @@ class RedshiftConnector(Connector):
         feature_table["row_num"] = feature_table.groupby(entity_column).cumcount() + 1
         feature_table = feature_table[feature_table["row_num"] == 1]
         feature_table = feature_table.sort_values(
-            by=[entity_column, index_timestamp], ascending=[True, False]
-        ).drop(columns=["row_num", index_timestamp])
+            by=[entity_column], ascending=[True]
+        ).drop(columns=["row_num"])
         feature_table_filtered = feature_table.groupby(entity_column).head(
             max_row_count
         )
@@ -618,8 +666,8 @@ class RedshiftConnector(Connector):
                 )
 
                 found_invalid_rows = (
-                    (label_proportion < min_label_proportion) |
-                    (label_proportion > max_label_proportion)
+                    (label_proportion < min_label_proportion)
+                    | (label_proportion > max_label_proportion)
                 ).any()
 
                 if found_invalid_rows:
@@ -631,7 +679,10 @@ class RedshiftConnector(Connector):
                 # Check for the label values
                 distinct_values_count_list = feature_table[label_column].value_counts()
 
-                if len(distinct_values_count_list) < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES:
+                if (
+                    len(distinct_values_count_list)
+                    < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
+                ):
                     raise Exception(
                         f"Label column {label_column} has invalid number of distinct values. \
                             Please check if the label column has valid labels."
@@ -644,7 +695,7 @@ class RedshiftConnector(Connector):
             pass
 
     def add_days_diff(
-        self, table: pd.DataFrame, new_col: str, time_col_1: str, time_col_2: str
+        self, table: pd.DataFrame, new_col: str, time_col: str, end_ts: str
     ) -> pd.DataFrame:
         """
         Adds a new column to the given table containing the difference in days between the given timestamp columns.
@@ -652,14 +703,14 @@ class RedshiftConnector(Connector):
         Args:
             table (pd.DataFrame): The table to be filtered.
             new_col (str): The name of the new column to be added.
-            time_col_1 (str): The name of the first timestamp column.
-            time_col_2 (str): The name of the  timestamp column from which to find the difference.
+            time_col (str): The name of the first timestamp column.
+            end_ts (str): end timestamp value to calculate the difference.
 
         Returns:
             The table with the new column added as a Pandas DataFrame object.
         """
-        table["temp_1"] = pd.to_datetime(table[time_col_1])
-        table["temp_2"] = pd.to_datetime(table[time_col_2])
+        table["temp_1"] = pd.to_datetime(table[time_col])
+        table["temp_2"] = pd.to_datetime(end_ts)
         table[new_col] = (table["temp_2"] - table["temp_1"]).dt.days
         return table.drop(columns=["temp_1", "temp_2"])
 

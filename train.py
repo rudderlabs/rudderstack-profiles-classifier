@@ -148,7 +148,7 @@ def train(
             delete_files=import_paths,
         )
 
-        @sproc(name=train_procedure, is_permanent=False, stage_location=stage_name, replace=True, imports= import_paths, 
+        @sproc(name=train_procedure, is_permanent=False, stage_location=stage_name, replace=True, imports=import_paths, 
             packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas==1.4.3", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
@@ -280,21 +280,31 @@ def train(
         session, material_registry_table_prefix
     )
 
+    # update feature profiles model name for the trainer
+    trainer.features_profiles_model = trainer.entity_key + constants.VAR_TABLE_SUFFIX
+
     model_hash = connector.get_latest_material_hash(
         trainer.features_profiles_model,
         output_filename,
         site_config_path,
-        trainer.inputs,
         project_folder,
     )
+
     creation_ts = connector.get_creation_ts(
-        session, material_table, trainer.features_profiles_model, model_hash
+        session,
+        material_table,
+        trainer.features_profiles_model,
+        model_hash,
+        trainer.entity_key,
     )
+
     start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
+
     if start_date is None or end_date is None:
         start_date, end_date = utils.get_date_range(
             creation_ts, trainer.prediction_horizon_days
         )
+
     logger.info("Getting past data for training")
     try:
         material_names, training_dates = connector.get_material_names(
@@ -311,6 +321,9 @@ def train(
             project_folder,
             trainer.inputs,
         )
+
+        feature_end_ts, _ = training_dates[0]
+        trainer.set_end_ts(feature_end_ts)
 
     except TypeError:
         raise Exception(

@@ -3,6 +3,7 @@ data:
   label_column: is_churned_7_days # Name of the entity_var that needs to be predicted in advance
   label_value:  # Value of the label_column when the entity does the event. Not required for regression tasks
   entity_column: user_main_id # Name of the entity defined in the profiles project. Ex: user_id, user_main_id, rudder_id etc
+  entity_key: user # Name of the entity key defined in the profiles project. Ex: user, user_main, rudder etc
   features_profiles_model: '' # Name of the feature table model
   output_profiles_ml_model: 'ltv_test'
   task: classification # classification or regression; Can support a few other tasks in the future, like ltv, churn etc which can be super classes of classification/regression.

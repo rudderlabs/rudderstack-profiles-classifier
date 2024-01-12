@@ -1,5 +1,6 @@
 from train import *
 import shutil
+import time
 
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
@@ -73,6 +74,7 @@ def create_site_config_file(creds, siteconfig_path):
 
 
 def test_classification_training():
+    st = time.time()
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_path = os.path.join(current_dir, "sample_project")
     siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
@@ -106,5 +108,9 @@ def test_classification_training():
         cleanup_pb_project(project_path, siteconfig_path)
         cleanup_reports(reports_folders)
 
+    et = time.time()
+    # get the execution time
+    elapsed_time = et - st
+    print('Execution time:', elapsed_time, 'seconds')
 
 test_classification_training()

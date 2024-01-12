@@ -41,6 +41,7 @@ class MLTrainer(ABC):
         label_value: int,
         label_column: str,
         entity_column: str,
+        entity_key: str,
         features_profiles_model: str,
         output_profiles_ml_model: str,
         index_timestamp: str,
@@ -55,6 +56,7 @@ class MLTrainer(ABC):
         self.label_value = label_value
         self.label_column = label_column
         self.entity_column = entity_column
+        self.entity_key = entity_key
         self.features_profiles_model = features_profiles_model
         self.output_profiles_ml_model = output_profiles_ml_model
         self.index_timestamp = index_timestamp
@@ -173,6 +175,9 @@ class MLTrainer(ABC):
             )
         return space
 
+    def set_end_ts(self, end_ts: str):
+        self.end_ts = end_ts
+
     @abstractmethod
     def get_name(self):
         pass
@@ -182,9 +187,7 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
-    def prepare_label_table(
-        self, connector: Connector, session, label_table_name: str, label_ts_col: str
-    ):
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         pass
 
     @abstractmethod
@@ -403,17 +406,13 @@ class ClassificationTrainer(MLTrainer):
 
         return final_clf
 
-    def prepare_label_table(
-        self, connector: Connector, session, label_table_name: str, label_ts_col: str
-    ):
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         label_table = connector.label_table(
             session,
             label_table_name,
             self.label_column,
             self.entity_column,
-            self.index_timestamp,
             self.label_value,
-            label_ts_col,
         )
         distinct_values = connector.get_distinct_values_in_column(
             label_table, self.label_column
@@ -609,17 +608,13 @@ class RegressionTrainer(MLTrainer):
 
         return final_reg
 
-    def prepare_label_table(
-        self, connector: Connector, session, label_table_name: str, label_ts_col: str
-    ):
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         return connector.label_table(
             session,
             label_table_name,
             self.label_column,
             self.entity_column,
-            self.index_timestamp,
             None,
-            label_ts_col,
         )
 
     def plot_diagnostics(

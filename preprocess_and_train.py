@@ -265,7 +265,7 @@ def preprocess_and_train(
         )
         (
             feature_table_instance,
-            arraytype_features,
+            arraytype_columns,
             timestamp_columns,
         ) = prepare_feature_table(
             feature_table_name,

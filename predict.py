@@ -66,7 +66,7 @@ def predict(
     prob_th = results["model_info"].get("threshold")
     stage_name = results["model_info"]["file_location"]["stage"]
     model_hash = results["config"]["material_hash"]
-    feature_table_name = results["input_model_name"]
+    input_model_name = results["config"]["input_model_name"]
 
     score_column_name = merged_config["outputs"]["column_names"]["score"]
     percentile_column_name = merged_config["outputs"]["column_names"]["percentile"]
@@ -92,6 +92,8 @@ def predict(
             f"Error while parsing seq_no from inputs: {inputs}. Error: {e}"
         )
 
+    feature_table_name = f"{constants.MATERIAL_TABLE_PREFIX}{input_model_name}_{model_hash}_{seq_no}"
+
     udf_name = None
     if creds["type"] == "snowflake":
         udf_name = f"prediction_score_{stage_name.replace('@','')}"
@@ -114,7 +116,7 @@ def predict(
     )
 
     end_ts = connector.get_end_ts(
-        session, material_table, feature_table_name, model_hash, seq_no
+        session, material_table, input_model_name, model_hash, seq_no
     )
     logger.debug(f"Feature table name: {feature_table_name}")
 

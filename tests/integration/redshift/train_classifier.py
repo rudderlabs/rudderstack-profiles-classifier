@@ -29,10 +29,10 @@ def validate_training_summary():
         assert timestamp, "Timestamp is empty"
         metrics = json_data['data']['metrics']
         prob_th = metrics['prob_th']
-        assert isinstance(prob_th, float), f"Invalid prob_th - {prob_th}"
+        assert 0<=prob_th<=1, f"Invalid prob_th - {prob_th}"
         assert prob_th, "prob_th is empty"
         threshold = json_data['data']['threshold']
-        assert isinstance(threshold, float), f"Invalid threshold - {threshold}"
+        assert 0<=threshold<=1, f"Invalid threshold - {threshold}"
         assert threshold, "threshold is empty"
         keys = ['test', 'train', 'val']
         for key in keys:

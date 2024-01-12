@@ -48,8 +48,9 @@ def predict(creds:dict, aws_config: dict, model_path: str, inputs: List[str], ou
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
 
-    notebook_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
-    merged_config = utils.combine_config(notebook_config, config)
+    default_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
+    _ = config.pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
+    merged_config = utils.combine_config(default_config, config)
 
     with open(model_path, "r") as f:
         results = json.load(f)

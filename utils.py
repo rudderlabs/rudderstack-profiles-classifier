@@ -306,38 +306,38 @@ def load_yaml(file_path: str) -> dict:
     return data
 
 
-def combine_config(notebook_config: dict, profiles_config: dict = None) -> dict:
+def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
     """Combine the configs after overwriting values of profiles.yaml in model_configs.yaml
 
     Args:
-        notebook_config (dict): configs from model_configs.yaml file
+        default_config (dict): configs from model_configs.yaml file
         profiles_config (dict, optional): configs from profiles.yaml file that should overwrite corresponding values from notebook_config. Defaults to None.
 
     Returns:
         dict: final merged config
     """
     if not isinstance(profiles_config, dict):
-        return notebook_config
+        return default_config
 
     merged_config = dict()
     for key in profiles_config:
-        if key in notebook_config:
+        if key in default_config:
             if isinstance(profiles_config[key], dict) and isinstance(
-                notebook_config[key], dict
+                default_config[key], dict
             ):
                 merged_config[key] = combine_config(
-                    notebook_config[key], profiles_config[key]
+                    default_config[key], profiles_config[key]
                 )
             elif profiles_config[key] is None:
-                merged_config[key] = notebook_config[key]
+                merged_config[key] = default_config[key]
             else:
                 merged_config[key] = profiles_config[key]
         else:
             merged_config[key] = profiles_config[key]
 
-    for key in notebook_config:
+    for key in default_config:
         if key not in profiles_config:
-            merged_config[key] = notebook_config[key]
+            merged_config[key] = default_config[key]
     return merged_config
 
 

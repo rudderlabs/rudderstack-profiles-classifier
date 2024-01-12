@@ -262,4 +262,4 @@ if __name__ == "__main__":
     upload_directory_to_s3(args.remote_dir, args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir(), S3_UPLOAD_WHITELIST)
 
     logger.debug(f"Deleting local directory from ec2 machine")
-    utils.delete_directory(connector.get_local_dir())
+    connector.cleanup(delete_local_data=True)

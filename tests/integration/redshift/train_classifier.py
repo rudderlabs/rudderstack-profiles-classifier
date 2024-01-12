@@ -75,8 +75,6 @@ def create_site_config_file(creds, siteconfig_path):
 
 def test_classification_training():
     st = time.time()
-    creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
-    creds["schema"] = "rs_profiles_3"
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_path = os.path.join(current_dir, "sample_project")
     siteconfig_path = os.path.join(project_path, "siteconfig.yaml")

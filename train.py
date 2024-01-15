@@ -101,7 +101,7 @@ def train(
     """ Initialising trainer """
     logger.info("Initialising trainer")
     default_config = utils.load_yaml(config_path)
-    _ = config.pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
+    _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
     merged_config = utils.combine_config(default_config, config)
 
     user_preference_order_infra = merged_config["data"].pop(

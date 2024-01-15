@@ -8,7 +8,7 @@ from typing import List, Tuple
 from kubernetes import client, config, watch
 import base64
 from S3Utils import S3Utils
-
+from logger import logger
 
 class K8sProcessor(Processor):
 
@@ -22,7 +22,7 @@ class K8sProcessor(Processor):
             type="Opaque"
         ) 
         core_v1_api.create_namespaced_secret(namespace, payload)
-        print("Created secret ", secret_name)
+        logger.info("Created secret %s", secret_name)
         return { "name": secret_name, "key": secret_key }
 
     def _create_job(self, job_name: str, secret: dict, namespace: str, command_args: dict, resources: dict, batch_v1_api):
@@ -79,38 +79,38 @@ class K8sProcessor(Processor):
             )
         )
         batch_v1_api.create_namespaced_job(namespace=namespace, body=payload)
-        print("Created job ", job_name)
+        logger.info("Created job %s", job_name)
 
     def _wait_for_pod(self, job_name: str, namespace: str, core_v1_api):
         counter = 0
         while True:
-            if counter >= 120:
+            if counter >= constants.K8S_TIMEOUT_IN_SEC:
                 raise Exception(f"Timed out while waiting for pod to start running")
             job_pods = core_v1_api.list_namespaced_pod(namespace=namespace, label_selector=f"job-name={job_name}")
             if len(job_pods.items) == 0:
-                print("Waiting for pod to be created")
+                logger.info("Waiting for pod to be created")
                 time.sleep(1)
                 counter = counter + 1
                 continue
             pod = job_pods.items[0]
             phase = pod.status.phase.lower()
             if phase == "pending":
-                print("Pod currently in pending state")
+                logger.info("Pod currently in pending state")
                 time.sleep(1)
                 counter = counter + 1
             else:
-                print("Pod is now in running state. Status - ", phase, " , Name - ", pod.metadata.name)
+                logger.info("Pod is now in running state. Status - %s, Name = %s", phase, pod.metadata.name)
                 return pod.metadata.name
 
     def _stream_logs(self, pod_name: str, namespace: str, core_v1_api):
         w = watch.Watch()
         stream = w.stream(core_v1_api.read_namespaced_pod_log, name=pod_name, namespace=namespace)
         error_message = ""
-        print("Streaming logs")
+        logger.debug("Streaming logs")
         while True:
             try:
                 log = next(stream)
-                print(log)
+                logger.info(log)
                 if error_message != "":
                     error_message = error_message + "\n" + log
                     continue

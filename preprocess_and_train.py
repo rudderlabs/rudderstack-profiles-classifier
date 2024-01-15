@@ -341,8 +341,8 @@ if __name__ == "__main__":
                             f"{trainer.output_profiles_ml_model}_{model_file_name}",
                             "train_results.json"]
     if args.mode == constants.K8S_MODE:
-            S3Utils.upload_directory(args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir())
-        else:
-            S3Utils.upload_directory_using_keys(args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir())
+        S3Utils.upload_directory(args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir(), S3_UPLOAD_WHITELIST)
+    else:
+        S3Utils.upload_directory_using_keys(args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir(), S3_UPLOAD_WHITELIST)
     logger.debug(f"Deleting local directory from ec2 machine")
     connector.cleanup(delete_local_data=True)

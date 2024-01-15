@@ -61,11 +61,13 @@ def predict(
 
     with open(model_path, "r") as f:
         results = json.load(f)
+
+    print(results)
     train_model_id = results["model_info"]["model_id"]
     prob_th = results["model_info"].get("threshold")
     stage_name = results["model_info"]["file_location"]["stage"]
     model_hash = results["config"]["material_hash"]
-    input_model_name = results["config"]["input_model_name"]
+    input_model_name = results["input_model_name"]
 
     score_column_name = merged_config["outputs"]["column_names"]["score"]
     percentile_column_name = merged_config["outputs"]["column_names"]["percentile"]

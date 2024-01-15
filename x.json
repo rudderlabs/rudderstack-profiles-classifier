@@ -1,0 +1,21 @@
+{
+  "config": {
+    "training_dates": [["2024-01-03 00:00:00", "2024-01-10 00:00:00"]],
+    "material_names": [
+      [
+        "material_user_var_table_c10a3ed8_270",
+        "material_user_var_table_c10a3ed8_272"
+      ]
+    ],
+    "material_hash": "c10a3ed8"
+  },
+  "model_info": {
+    "file_location": {
+      "stage": "@rs_de67f64c3dfe94e5a22b41ba3761eeca",
+      "file_name": "ltv_classification_integration_test_classifier.joblib"
+    },
+    "model_id": "1705339356",
+    "threshold": 0.97
+  },
+  "input_model_name": "user_var_table"
+}

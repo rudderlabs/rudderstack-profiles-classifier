@@ -22,3 +22,6 @@ S3_BUCKET = "ml-usecases-poc-srinivas"
 AWS_REGION_NAME="us-east-1"
 S3_PATH = "test_export/"
 SSM_SLEEP_TIME = 5
+K8S_WH_CREDS_KEY="WAREHOUSE_CREDS"
+K8S_MODE="K8S"
+K8S_TIMEOUT_IN_SEC=120

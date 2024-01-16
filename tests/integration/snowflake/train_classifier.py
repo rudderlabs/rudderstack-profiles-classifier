@@ -93,7 +93,8 @@ def test_classification_training():
         "inputs": ["packages/feature_table/models/shopify_user_features"],
         "eligible_users": "1=1",
         "label_column" : "is_churned_7_days",
-        "task" : "classification"
+        "task" : "classification",
+        "package_name": "random", # TODO - Remove this only when it has been removed from prod rudder-sources
       }
     }
     create_site_config_file(creds, siteconfig_path)

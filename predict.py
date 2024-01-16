@@ -54,6 +54,7 @@ def predict(
     model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
+    target_path = utils.get_output_directory(folder_path)
 
     default_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
     _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
@@ -61,6 +62,7 @@ def predict(
 
     with open(model_path, "r") as f:
         results = json.load(f)
+
     train_model_id = results["model_info"]["model_id"]
     prob_th = results["model_info"].get("threshold")
     stage_name = results["model_info"]["file_location"]["stage"]
@@ -246,4 +248,5 @@ def predict(
     connector.write_table(
         preds_with_percentile, output_tablename, write_mode="overwrite", local=False
     )
-    connector.cleanup(session, udf_name=udf_name)
+    
+    connector.cleanup(session, udf_name=udf_name,close_session=True)

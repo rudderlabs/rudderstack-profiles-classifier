@@ -248,8 +248,5 @@ def predict(
     connector.write_table(
         preds_with_percentile, output_tablename, write_mode="overwrite", local=False
     )
-
-    predict_df = connector.get_table_as_dataframe(session, output_tablename)
-    predict_df.to_csv(os.path.join(target_path, "predictions.csv"),index=False)
-
+    
     connector.cleanup(session, udf_name=udf_name,close_session=True)

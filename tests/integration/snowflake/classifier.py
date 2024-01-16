@@ -3,12 +3,12 @@ import shutil
 import time
 from predict import * 
 
-homedir = os.path.expanduser("~") 
-with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-    creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+# homedir = os.path.expanduser("~") 
+# with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
+#     creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
 
-# creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-# creds["schema"] = "PROFILES_INTEGRATION_TEST"
+creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
+creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(current_dir, "sample_project")
@@ -150,17 +150,17 @@ def test_classification():
         with open(output_filename, "r") as f:
             results = json.load(f)
 
+        print(results)
         model_hash = results["config"]["material_hash"]
         feature_table_name_from_train = results["input_model_name"]
 
-        # Seq no is required to run the predict step
-        material_seq = 295
-        predict_inputs = [f"SELECT * FROM SOMESCHEMA.Material_{feature_table_name_from_train}_{model_hash}_{material_seq}",]
-        print(f"Using table Material_{feature_table_name_from_train}_{model_hash}_{material_seq} for predictions")
+        material_seq = 272
+        predict_inputs = [f"SELECT * FROM PROFILES_INTEGRATION_TEST.Material_{feature_table_name_from_train}_{model_hash}_{material_seq}",]
 
         predict(creds, s3_config, output_filename, predict_inputs, p_output_tablename, predict_config)
+
     except Exception as e:
-        raise e
+            raise e
     finally:
         cleanup_pb_project(project_path, siteconfig_path)
         cleanup_reports(reports_folders)

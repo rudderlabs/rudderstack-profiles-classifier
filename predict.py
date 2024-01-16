@@ -62,7 +62,6 @@ def predict(
     with open(model_path, "r") as f:
         results = json.load(f)
 
-    print(results)
     train_model_id = results["model_info"]["model_id"]
     prob_th = results["model_info"].get("threshold")
     stage_name = results["model_info"]["file_location"]["stage"]

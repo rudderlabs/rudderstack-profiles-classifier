@@ -23,7 +23,7 @@ jobs:
       run: pip install -r tests/integration/requirements.txt
 
     - name: Run classifier training test
-      run: python -m unittest tests/integration/snowflake/train_classifier.py
+      run: python -m unittest tests/integration/snowflake/classifier.py
       env:
           SNOWFLAKE_SITE_CONFIG: ${{secrets.SNOWFLAKE_SITE_CONFIG}}
 

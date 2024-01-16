@@ -639,6 +639,8 @@ class SnowflakeConnector(Connector):
                 .collect()[0]
             )
 
+            print(feature_table_info)
+            
             end_ts = feature_table_info.END_TS
         except Exception as e:
             raise Exception(

@@ -56,7 +56,7 @@ def predict(
     folder_path = os.path.dirname(model_path)
 
     default_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
-    _ = config.pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
+    _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
     merged_config = utils.combine_config(default_config, config)
 
     with open(model_path, "r") as f:

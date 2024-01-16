@@ -24,6 +24,7 @@ label_column = "is_churned_7_days"
 inputs = [f"packages/{package_name}/models/{feature_table_name}"]
 output_model_name = "ltv_classification_integration_test"
 pred_horizon_days = 7
+pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
 
 s3_config = {}
 p_output_tablename = 'test_run_can_delete_2'
@@ -132,6 +133,30 @@ def create_site_config_file(creds, siteconfig_path):
     with open(siteconfig_path, 'w') as file:
         file.write(yaml_data)
 
+def validate_predictions_df():
+
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    directory = os.path.join(current_dir, "output/train_reports")
+    file_path = os.path.join(directory, 'predictions.csv')
+    required_columns = ['USER_MAIN_ID', 'VALID_AT', pred_column,
+                         'MODEL_ID', 'OUTPUT_LABEL', f'PERCENTILE_{pred_column}']
+
+
+    if not os.path.exists(file_path):
+        raise Exception(f"The predictions csv file does not exist in the directory {directory}.")
+        
+    try:
+        df = pd.read_csv(file_path)
+        columns_in_file = df.columns.tolist()
+    except Exception as e:
+        raise e
+
+    # Check if the required columns are present
+    if set(required_columns).issubset(columns_in_file):
+        return True
+    else:
+        missing_columns = set(required_columns) - set(columns_in_file)
+        raise Exception(f"Miissing columns: {missing_columns} in predictions csv file.")
 
 def test_classification():
     st = time.time()
@@ -150,14 +175,11 @@ def test_classification():
         with open(output_filename, "r") as f:
             results = json.load(f)
 
-        print(results)
-        model_hash = results["config"]["material_hash"]
-        feature_table_name_from_train = results["input_model_name"]
-
-        material_seq = 272
-        predict_inputs = [f"SELECT * FROM PROFILES_INTEGRATION_TEST.Material_{feature_table_name_from_train}_{model_hash}_{material_seq}",]
+        material_table_name = results['config']['material_names'][0][-1] 
+        predict_inputs = [f"SELECT * FROM PROFILES_INTEGRATION_TEST.{material_table_name}",]
 
         predict(creds, s3_config, output_filename, predict_inputs, p_output_tablename, predict_config)
+        validate_predictions_df()
 
     except Exception as e:
             raise e

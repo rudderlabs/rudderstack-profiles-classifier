@@ -54,6 +54,7 @@ def predict(
     model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
+    target_path = utils.get_output_directory(folder_path)
 
     default_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
     _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
@@ -247,4 +248,8 @@ def predict(
     connector.write_table(
         preds_with_percentile, output_tablename, write_mode="overwrite", local=False
     )
+
+    predict_df = connector.get_table_as_dataframe(session, output_tablename)
+    predict_df.to_csv(os.path.join(target_path, "predictions.csv"),index=False)
+
     connector.cleanup(session, udf_name=udf_name)

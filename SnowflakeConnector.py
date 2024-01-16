@@ -638,7 +638,7 @@ class SnowflakeConnector(Connector):
                 .select("end_ts")
                 .collect()[0]
             )
-                       
+
             end_ts = feature_table_info.END_TS
         except Exception as e:
             raise Exception(
@@ -1080,6 +1080,8 @@ class SnowflakeConnector(Connector):
         stored_procedure_name = kwargs.get("stored_procedure_name", None)
         udf_name = kwargs.get("udf_name", None)
         delete_files = kwargs.get("delete_files", None)
+        close_session = kwargs.get('close_session', False)
+
         stage_name = kwargs.get("stage_name", None)
         if stored_procedure_name:
             self._delete_procedures(session, stored_procedure_name)
@@ -1087,3 +1089,5 @@ class SnowflakeConnector(Connector):
             self._drop_fn_if_exists(session, udf_name)
         if delete_files:
             self._delete_import_files(session, stage_name, delete_files)
+        if close_session:
+            session.close()

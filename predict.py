@@ -252,4 +252,4 @@ def predict(
     predict_df = connector.get_table_as_dataframe(session, output_tablename)
     predict_df.to_csv(os.path.join(target_path, "predictions.csv"),index=False)
 
-    connector.cleanup(session, udf_name=udf_name)
+    connector.cleanup(session, udf_name=udf_name,close_session=True)

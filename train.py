@@ -393,4 +393,5 @@ def train(
         stored_procedure_name=train_procedure,
         delete_files=import_paths,
         stage_name=stage_name,
+        close_session=True
     )

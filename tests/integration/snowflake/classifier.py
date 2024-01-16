@@ -3,12 +3,12 @@ import shutil
 import time
 from predict import * 
 
-# homedir = os.path.expanduser("~") 
-# with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-#     creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+homedir = os.path.expanduser("~") 
+with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
+    creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
 
-creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-creds["schema"] = "PROFILES_INTEGRATION_TEST"
+# creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
+# creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(current_dir, "sample_project")
@@ -25,7 +25,7 @@ inputs = [f"packages/{package_name}/models/{feature_table_name}"]
 output_model_name = "ltv_classification_integration_test"
 pred_horizon_days = 7
 pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
-
+output_label = 'OUTPUT_LABEL'
 s3_config = {}
 p_output_tablename = 'test_run_can_delete_2'
 
@@ -134,29 +134,25 @@ def create_site_config_file(creds, siteconfig_path):
         file.write(yaml_data)
 
 def validate_predictions_df():
-
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    directory = os.path.join(current_dir, "output/train_reports")
-    file_path = os.path.join(directory, 'predictions.csv')
+    
+    connector = SnowflakeConnector()
+    session = connector.build_session(creds)
     required_columns = ['USER_MAIN_ID', 'VALID_AT', pred_column,
-                         'MODEL_ID', 'OUTPUT_LABEL', f'PERCENTILE_{pred_column}']
-
-
-    if not os.path.exists(file_path):
-        raise Exception(f"The predictions csv file does not exist in the directory {directory}.")
-        
+                         'MODEL_ID', output_label, f'PERCENTILE_{pred_column}']
+    
     try:
-        df = pd.read_csv(file_path)
+        df = connector.get_table_as_dataframe(session, p_output_tablename)
         columns_in_file = df.columns.tolist()
     except Exception as e:
         raise e
 
     # Check if the required columns are present
-    if set(required_columns).issubset(columns_in_file):
-        return True
-    else:
+    if not set(required_columns).issubset(columns_in_file):
         missing_columns = set(required_columns) - set(columns_in_file)
         raise Exception(f"Miissing columns: {missing_columns} in predictions csv file.")
+    
+    session.close()
+    return True
 
 def test_classification():
     st = time.time()

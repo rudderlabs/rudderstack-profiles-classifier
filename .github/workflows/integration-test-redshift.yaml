@@ -22,12 +22,12 @@ jobs:
     - name: Install dependencies
       run: pip install -r tests/integration/requirements.txt
 
-    - name: Run classifier training test
-      run: python -m unittest tests/integration/redshift/train_classifier.py
+    - name: Run classifier test
+      run: python -m unittest tests/integration/redshift/classifier.py
       env:
           REDSHIFT_SITE_CONFIG: ${{secrets.REDSHIFT_SITE_CONFIG}}
 
-    - name: Run regressor training test
-      run: python -m unittest tests/integration/redshift/train_regressor.py
+    - name: Run regressor test
+      run: python -m unittest tests/integration/redshift/regressor.py
       env:
           REDSHIFT_SITE_CONFIG: ${{secrets.REDSHIFT_SITE_CONFIG}}

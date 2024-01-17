@@ -246,7 +246,7 @@ def predict(
         input,
     )
     connector.write_table(
-        preds_with_percentile, output_tablename, write_mode="overwrite", local=False
+        preds_with_percentile, output_tablename, write_mode="overwrite", local=False, if_exists="replace"
     )
     
     connector.cleanup(session, udf_name=udf_name,close_session=True)

@@ -17,6 +17,7 @@ output_filename = os.path.join(current_dir, "output/output.json")
 output_folder = os.path.join(current_dir, "output")
 folder_path_output_file = os.path.dirname(output_filename)
 
+os.makedirs(output_folder, exist_ok=True)
 
 package_name = "feature_table"
 feature_table_name = "shopify_user_features"

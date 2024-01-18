@@ -67,7 +67,6 @@ if __name__ == "__main__":
         "inputs": inputs,
         "entity_key": entity_key,
         "output_profiles_ml_model": output_model_name,
-        "package_name": package_name,
     }
 
     preprocessing = {"ignore_features": ["user_email", "first_name", "last_name"]}
@@ -116,11 +115,8 @@ if __name__ == "__main__":
     model_hash = results["config"]["material_hash"]
     feature_table_name_from_train = results["input_model_name"]
 
-    # Seq no is required to run the predict step
-    material_seq = 295
-    predict_inputs = [f"SELECT * FROM SOMESCHEMA.Material_{feature_table_name_from_train}_{model_hash}_{material_seq}",]
-    print(f"Using table Material_{feature_table_name_from_train}_{model_hash}_{material_seq} for predictions")
+    material_table_name = results['config']['material_names'][0][-1] 
+    predict_inputs = [f"SELECT * FROM {creds['schema']}.{material_table_name}",]
+    print(f"Using table {material_table_name} for predictions")
 
-    P.predict(
-        creds, s3_config, t_output_filename, predict_inputs, p_output_tablename, predict_config
-    )
+    P.predict(creds, s3_config, t_output_filename, predict_inputs, p_output_tablename, predict_config)

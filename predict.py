@@ -65,7 +65,7 @@ def predict(
     prob_th = results["model_info"].get("threshold")
     stage_name = results["model_info"]["file_location"]["stage"]
     model_hash = results["config"]["material_hash"]
-    input_model_name = results["config"]["input_model_name"]
+    input_model_name = results["input_model_name"]
 
     score_column_name = merged_config["outputs"]["column_names"]["score"]
     percentile_column_name = merged_config["outputs"]["column_names"]["percentile"]
@@ -205,9 +205,9 @@ def predict(
                 "xgboost==1.5.0",
                 "numpy==1.23.1",
                 "pandas==1.5.3",
-                "joblib",
-                "cachetools",
-                "PyYAML",
+                "joblib==1.2.0",
+                "cachetools==4.2.2",
+                "PyYAML==6.0.1",
                 "simplejson",
             ],
         )

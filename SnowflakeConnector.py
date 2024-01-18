@@ -779,6 +779,16 @@ class SnowflakeConnector(Connector):
             None
         """
         try:
+            
+            if label_column not in feature_table.columns:
+                raise Exception(f"Label column {label_column} is not present in the feature table.")
+
+            # Check if feature_table has at least one column apart from label_column
+            if feature_table.shape[1] <= 1:
+                raise Exception(
+                    f"Feature table must have at least one column apart from the label column {label_column}."
+                )
+        
             distinct_values_count = feature_table.groupBy(label_column).count()
 
             if task_type == "classification":

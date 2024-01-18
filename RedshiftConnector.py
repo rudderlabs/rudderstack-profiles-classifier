@@ -659,6 +659,17 @@ class RedshiftConnector(Connector):
         task_type: str,
     ):
         try:
+            
+            # Check if label_column is present in feature_table
+            if label_column not in feature_table.columns:
+                raise Exception(f"Label column {label_column} is not present in the feature table.")
+
+            # Check if feature_table has at least one column apart from label_column
+            if feature_table.shape[1] <= 1:
+                raise Exception(
+                    f"Feature table must have at least one column apart from the label column {label_column}."
+                )
+            
             if task_type == "classification":
                 min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
                 max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION

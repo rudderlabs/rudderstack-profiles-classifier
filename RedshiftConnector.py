@@ -1,6 +1,7 @@
 import os
 import json
 import shutil
+import inspect
 import numpy as np
 import pandas as pd
 import redshift_connector
@@ -42,7 +43,9 @@ class RedshiftConnector(Connector):
         self.schema = credentials.pop("schema")
         self.creds = credentials
         self.connection_parameters = self.remap_credentials(credentials)
-        conn = redshift_connector.connect(**self.connection_parameters)
+        valid_params = inspect.signature(redshift_connector.connect).parameters
+        conn_params = {k:v for k,v in self.connection_parameters.items() if k in valid_params}  
+        conn = redshift_connector.connect(**conn_params)
         self.creds["schema"] = self.schema
         conn.autocommit = True
         cursor = conn.cursor()
@@ -807,15 +810,14 @@ class RedshiftConnector(Connector):
         material_registry_table = self.get_table_as_dataframe(
             cursor, material_registry_table_name
         )
-        material_registry_table["json_metadata"] = material_registry_table[
-            "metadata"
-        ].apply(lambda x: eval(x))
-        material_registry_table["status"] = material_registry_table[
-            "json_metadata"
-        ].apply(lambda x: x["complete"]["status"])
-        return material_registry_table[material_registry_table["status"] == 2].drop(
-            columns=["json_metadata"]
-        )
+        def safe_parse_json(x):
+            try:
+                return eval(x).get("complete", {}).get("status")
+            except:
+                return None
+        material_registry_table["status"] = material_registry_table["metadata"].apply(safe_parse_json)
+        return material_registry_table[material_registry_table["status"] == 2]
+        
 
     def generate_type_hint(self, df: pd.DataFrame):
         """Returns the type hints for given pandas DataFrame's fields

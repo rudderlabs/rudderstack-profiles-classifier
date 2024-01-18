@@ -19,12 +19,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
             def get_table_as_dataframe(self, cursor: Cursor, table_name: str, **kwargs) -> DataFrame:
                 material_registry_table = pd.DataFrame.from_dict({"seq_no":[1,2,3,4, 5], "metadata":['{"complete": {"status": 1}}', '{"complete": {"status": 2}}', None, "null", "{}" ]})
                 return material_registry_table
-            def get_material_registry_table(self, cursor: Cursor, material_registry_table_name: str) -> DataFrame:
-                return super().get_material_registry_table(cursor, material_registry_table_name)
-        # Create an instance of the RedshiftConnector class
         redshift_connector = MockRedshiftConnector(folder_path='data')
-
-        # Call the get_material_registry_table method
         material_registry_table = redshift_connector.get_material_registry_table(
             cursor=None,
             material_registry_table_name=None
@@ -38,12 +33,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
             def get_table_as_dataframe(self, cursor: Cursor, table_name: str, **kwargs) -> DataFrame:
                 material_registry_table = pd.DataFrame.from_dict({"seq_no":[1,2,3,4, 5], "metadata":['{"complete": {"status": 1}}', '{"complete": {"status": 1}}', None, "null", "{}" ]})
                 return material_registry_table
-            def get_material_registry_table(self, cursor: Cursor, material_registry_table_name: str) -> DataFrame:
-                return super().get_material_registry_table(cursor, material_registry_table_name)
-        # Create an instance of the RedshiftConnector class
         redshift_connector = MockRedshiftConnector(folder_path='data')
-
-        # Call the get_material_registry_table method
         material_registry_table = redshift_connector.get_material_registry_table(
             cursor=None,
             material_registry_table_name=None
@@ -57,9 +47,6 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
             def get_table_as_dataframe(self, cursor: Cursor, table_name: str, **kwargs) -> DataFrame:
                 material_registry_table = pd.DataFrame.from_dict({"seq_no":[], "metadata":[]})
                 return material_registry_table
-            def get_material_registry_table(self, cursor: Cursor, material_registry_table_name: str) -> DataFrame:
-                return super().get_material_registry_table(cursor, material_registry_table_name)
-        # Create an instance of the RedshiftConnector class
         redshift_connector = MockRedshiftConnector(folder_path='data')
 
         # Call the get_material_registry_table method

@@ -311,7 +311,8 @@ if __name__ == "__main__":
         trainer = ClassificationTrainer(**args.merged_config["data"], prep=prep_config)
     elif args.prediction_task == "regression":
         trainer = RegressionTrainer(**args.merged_config["data"], prep=prep_config)
-
+    end_ts = args.merged_config.get("end_ts", None)
+    trainer.set_end_ts(end_ts)
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
     train_procedure = train_and_store_model_results_rs
     connector = RedshiftConnector("./")

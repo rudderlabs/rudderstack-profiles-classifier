@@ -333,9 +333,9 @@ def train(
             trainer.inputs,
         )
 
-        feature_end_ts, _ = training_dates[0]
+        feature_end_ts, _ = training_dates[0] #TODO: This is assuming we take a single material pair. Need to fix this.
         trainer.set_end_ts(feature_end_ts)
-
+        merged_config["end_ts"] = feature_end_ts
     except TypeError:
         raise Exception(
             "Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly"
@@ -353,6 +353,7 @@ def train(
     processor = processor_mode_map[mode](trainer, connector, session)
 
     train_results = processor.train(train_procedure, material_names, merged_config, prediction_task, creds)
+    _ = merged_config.pop("end_ts", None)
 
     logger.info("Saving train results to file")
     model_id = train_results["model_id"]

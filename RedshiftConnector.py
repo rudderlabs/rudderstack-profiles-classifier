@@ -364,7 +364,7 @@ class RedshiftConnector(Connector):
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
-        self.get_array_time_features_from_file(**kwargs)
+        kwargs.get("features_path", None)
         timestamp_columns = self.array_time_features["timestamp_columns"]
         return timestamp_columns
 
@@ -846,7 +846,6 @@ class RedshiftConnector(Connector):
         percentile_column_name: str,
         output_label_column: str,
         train_model_id: str,
-        column_names_path: str,
         prob_th: Optional[float],
         input: pd.DataFrame,
     ) -> pd.DataFrame:
@@ -861,14 +860,13 @@ class RedshiftConnector(Connector):
             percentile_column_name (str): Name of the percentile column
             output_label_column (str): Name of the output label column
             train_model_id (str): Model id
-            column_names_path (str): Path to the column names file
             prob_th (float): Probability threshold
             input (pd.DataFrame): Input dataframe
         Returns:
             Results of the predict function
         """
         preds = predict_data[[entity_column, index_timestamp]]
-        preds[score_column_name] = prediction_udf(input, column_names_path)
+        preds[score_column_name] = prediction_udf(input)
         preds["model_id"] = train_model_id
         if prob_th:
             preds[output_label_column] = preds[score_column_name].apply(

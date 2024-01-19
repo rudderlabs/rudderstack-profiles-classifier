@@ -217,14 +217,8 @@ def train(
                 model_file,
             )
 
-            column_dict = {
-                "numeric_columns": numeric_columns,
-                "categorical_columns": categorical_columns,
-            }
-            column_name_file = connector.join_file_path(
-                f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json"
-            )
-            json.dump(column_dict, open(column_name_file, "w"))
+            results['column_names']['numeric_columns'] = numeric_columns
+            results['column_names']['categorical_columns'] = categorical_columns
 
             trainer.plot_diagnostics(
                 connector,
@@ -235,8 +229,7 @@ def train(
                 test_y,
                 trainer.label_column,
             )
-            connector.save_file(session, model_file, stage_name, overwrite=True)
-            connector.save_file(session, column_name_file, stage_name, overwrite=True)
+       
             try:
                 figure_file = os.path.join(
                     "tmp", trainer.figure_names["feature-importance-chart"]
@@ -348,22 +341,13 @@ def train(
     logger.info("Saving train results to file")
     model_id = train_results["model_id"]
 
-    column_dict = {
-        "arraytype_columns": train_results["arraytype_columns"],
-        "timestamp_columns": train_results["timestamp_columns"],
-    }
-
-    column_name_file = connector.join_file_path(
-        f"{trainer.output_profiles_ml_model}_{model_id}_array_time_feature_names.json"
-    )
-    json.dump(column_dict, open(column_name_file, "w"))
-
     results = {
         "config": {
             "training_dates": training_dates,
             "material_names": material_names,
             "material_hash": model_hash,
             **asdict(trainer),
+            "input_model_name": trainer.features_profiles_model,
         },
         "model_info": {
             "file_location": {
@@ -373,7 +357,7 @@ def train(
             "model_id": model_id,
             "threshold": train_results["prob_th"],
         },
-        "input_model_name": trainer.features_profiles_model,
+        "column_names": train_results["column_names"]
     }
     json.dump(results, open(output_filename, "w"))
 

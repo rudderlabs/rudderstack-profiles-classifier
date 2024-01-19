@@ -71,14 +71,10 @@ def train_and_store_model_results_rs(
         feature_df, categorical_columns, numeric_columns, merged_config, model_file
     )
 
-    column_dict = {
-        "numeric_columns": numeric_columns,
-        "categorical_columns": categorical_columns,
+    results['column_names'] = {
+        'numeric_columns': numeric_columns,
+        'categorical_columns': categorical_columns
     }
-    column_name_file = connector.join_file_path(
-        f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json"
-    )
-    json.dump(column_dict, open(column_name_file, "w"))
 
     trainer.plot_diagnostics(
         connector, session, pipe, None, test_x, test_y, trainer.label_column
@@ -273,8 +269,9 @@ def preprocess_and_train(
     if not isinstance(train_results_json, dict):
         train_results_json = json.loads(train_results_json)
 
-    train_results_json['arraytype_columns'] = arraytype_columns
-    train_results_json['timestamp_columns'] = timestamp_columns
+    train_results_json['column_names']['arraytype_columns'] = arraytype_columns
+    train_results_json['column_names']['timestamp_columns'] = timestamp_columns
+
     return train_results_json
 
 

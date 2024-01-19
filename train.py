@@ -340,8 +340,9 @@ def train(
         user_preference_order_infra, is_rudder_backend
     )
     processor = processor_mode_map[mode](trainer, connector, session)
-
+    logger.debug(f"Using {mode} processor for training")
     train_results = processor.train(train_procedure, material_names, merged_config, prediction_task, creds)
+    logger.debug("Training completed. Saving the artefacts")
     _ = merged_config.pop("end_ts", None)
 
     logger.info("Saving train results to file")
@@ -388,7 +389,8 @@ def train(
             connector.fetch_staged_file(session, stage_name, figure_name, target_path)
         except:
             logger.warning(f"Could not fetch {figure_name}")
-
+            
+    logger.debug("Cleaning up the training session")
     connector.cleanup(
         session,
         stored_procedure_name=train_procedure,
@@ -396,3 +398,5 @@ def train(
         stage_name=stage_name,
         close_session=True
     )
+    logger.debug("Training completed")
+    

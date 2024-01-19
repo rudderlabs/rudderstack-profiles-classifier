@@ -100,8 +100,9 @@ def train(
 
     """ Initialising trainer """
     logger.info("Initialising trainer")
-    notebook_config = utils.load_yaml(config_path)
-    merged_config = utils.combine_config(notebook_config, config)
+    default_config = utils.load_yaml(config_path)
+    _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
+    merged_config = utils.combine_config(default_config, config)
 
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None
@@ -147,7 +148,7 @@ def train(
             delete_files=import_paths,
         )
 
-        @sproc(name=train_procedure, is_permanent=False, stage_location=stage_name, replace=True, imports= import_paths, 
+        @sproc(name=train_procedure, is_permanent=False, stage_location=stage_name, replace=True, imports=import_paths, 
             packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas==1.4.3", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
@@ -279,21 +280,31 @@ def train(
         session, material_registry_table_prefix
     )
 
+    # update feature profiles model name for the trainer
+    trainer.features_profiles_model = trainer.entity_key + constants.VAR_TABLE_SUFFIX
+
     model_hash = connector.get_latest_material_hash(
         trainer.features_profiles_model,
         output_filename,
         site_config_path,
-        trainer.inputs,
         project_folder,
     )
+
     creation_ts = connector.get_creation_ts(
-        session, material_table, trainer.features_profiles_model, model_hash
+        session,
+        material_table,
+        trainer.features_profiles_model,
+        model_hash,
+        trainer.entity_key,
     )
+
     start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
+
     if start_date is None or end_date is None:
         start_date, end_date = utils.get_date_range(
             creation_ts, trainer.prediction_horizon_days
         )
+
     logger.info("Getting past data for training")
     try:
         material_names, training_dates = connector.get_material_names(
@@ -311,6 +322,9 @@ def train(
             trainer.inputs,
         )
 
+        feature_end_ts, _ = training_dates[0] #TODO: This is assuming we take a single material pair. Need to fix this.
+        trainer.set_end_ts(feature_end_ts)
+        merged_config["end_ts"] = feature_end_ts
     except TypeError:
         raise Exception(
             "Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly"
@@ -328,12 +342,13 @@ def train(
     processor = processor_mode_map[mode](trainer, connector, session)
 
     train_results = processor.train(train_procedure, material_names, merged_config, prediction_task, creds)
+    _ = merged_config.pop("end_ts", None)
 
     logger.info("Saving train results to file")
     model_id = train_results["model_id"]
 
     column_dict = {
-        "arraytype_features": train_results["arraytype_features"],
+        "arraytype_columns": train_results["arraytype_columns"],
         "timestamp_columns": train_results["timestamp_columns"],
     }
 
@@ -379,4 +394,5 @@ def train(
         stored_procedure_name=train_procedure,
         delete_files=import_paths,
         stage_name=stage_name,
+        close_session=True
     )

@@ -162,7 +162,7 @@ class SnowflakeConnector(Connector):
             Nothing
         """
         session = kwargs.get("session", None)
-        if session == None:
+        if session is None:
             raise Exception("Session object not found")
         auto_create_table = kwargs.get("auto_create_table", True)
         overwrite = kwargs.get("overwrite", False)
@@ -179,9 +179,7 @@ class SnowflakeConnector(Connector):
         label_table_name: str,
         label_column: str,
         entity_column: str,
-        index_timestamp: str,
         label_value: Union[str, int, float],
-        label_ts_col: str,
     ) -> snowflake.snowpark.Table:
         """
         Labels the given label_columns in the table as '1' or '0' if the value matches the label_value or not respectively.
@@ -191,18 +189,14 @@ class SnowflakeConnector(Connector):
             label_table_name (str): Name of the table to be labelled
             label_column (str): Name of the column to be labelled
             entity_column (str): Name of the entity column
-            index_timestamp (str): Name of the index timestamp column
             label_value (Union[str,int,float]): Value to be labelled as '1'
-            label_ts_col (str): Name of the label timestamp column
 
         Returns:
             label_table (snowflake.snowpark.Table): The labelled table as a snowpark table object
         """
-        if label_value == None:
-            table = (
-                self.get_table(session, label_table_name)
-                .select(entity_column, label_column, index_timestamp)
-                .withColumnRenamed(F.col(index_timestamp), label_ts_col)
+        if label_value is None:
+            table = self.get_table(session, label_table_name).select(
+                entity_column, label_column
             )
         else:
             table = (
@@ -213,8 +207,7 @@ class SnowflakeConnector(Connector):
                         F.lit(0)
                     ),
                 )
-                .select(entity_column, label_column, index_timestamp)
-                .withColumnRenamed(F.col(index_timestamp), label_ts_col)
+                .select(entity_column, label_column)
             )
         return table
 
@@ -308,7 +301,7 @@ class SnowflakeConnector(Connector):
                 stringtype_features.append(field.name)
         return stringtype_features
 
-    def get_arraytype_features(
+    def get_arraytype_columns(
         self, session: snowflake.snowpark.Session, table_name: str
     ) -> List[str]:
         """Returns the list of features to be ignored from the feature table.
@@ -321,10 +314,10 @@ class SnowflakeConnector(Connector):
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
         table = self.get_table(session, table_name)
-        arraytype_features = self.get_arraytype_features_from_table(table)
-        return arraytype_features
+        arraytype_columns = self.get_arraytype_columns_from_table(table)
+        return arraytype_columns
 
-    def get_arraytype_features_from_table(
+    def get_arraytype_columns_from_table(
         self, table: snowflake.snowpark.Table, **kwargs
     ) -> list:
         """Returns the list of features to be ignored from the feature table.
@@ -333,10 +326,10 @@ class SnowflakeConnector(Connector):
         Returns:
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
-        arraytype_features = [
+        arraytype_columns = [
             row.name for row in table.schema.fields if row.datatype == T.ArrayType()
         ]
-        return arraytype_features
+        return arraytype_columns
 
     def get_high_cardinal_features(
         self,
@@ -392,7 +385,7 @@ class SnowflakeConnector(Connector):
         return high_cardinal_features
 
     def get_timestamp_columns(
-        self, session: snowflake.snowpark.Session, table_name: str, index_timestamp: str
+        self, session: snowflake.snowpark.Session, table_name: str
     ) -> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
@@ -400,19 +393,16 @@ class SnowflakeConnector(Connector):
         Args:
             session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
             table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-            index_timestamp (str): The name of the column containing the index timestamp information.
 
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
         table = self.get_table(session, table_name)
-        timestamp_columns = self.get_timestamp_columns_from_table(
-            table, index_timestamp
-        )
+        timestamp_columns = self.get_timestamp_columns_from_table(table)
         return timestamp_columns
 
     def get_timestamp_columns_from_table(
-        self, table: snowflake.snowpark.Table, index_timestamp: str, **kwargs
+        self, table: snowflake.snowpark.Table, **kwargs
     ) -> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
@@ -420,17 +410,13 @@ class SnowflakeConnector(Connector):
         Args:
             session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
             table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-            index_timestamp (str): The name of the column containing the index timestamp information.
 
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
         timestamp_columns = []
         for field in table.schema.fields:
-            if (
-                field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()]
-                and field.name.lower() != index_timestamp.lower()
-            ):
+            if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()]:
                 timestamp_columns.append(field.name)
         return timestamp_columns
 
@@ -507,12 +493,14 @@ class SnowflakeConnector(Connector):
 
         feature_snowpark_df = (
             snowpark_df.filter(col("model_name") == features_profiles_model)
+            .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
             .filter(col("model_hash") == model_hash)
             .filter(f"end_ts between '{start_time}' and '{end_time}'")
             .select("seq_no", "end_ts")
         ).distinct()
         label_snowpark_df = (
             snowpark_df.filter(col("model_name") == features_profiles_model)
+            .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
             .filter(col("model_hash") == model_hash)
             .filter(
                 f"end_ts between dateadd(day, {prediction_horizon_days}, '{start_time}') and dateadd(day, {prediction_horizon_days}, '{end_time}')"
@@ -586,6 +574,7 @@ class SnowflakeConnector(Connector):
         material_table: str,
         model_name: str,
         model_hash: str,
+        entity_key: str
     ):
         """This function will return the model hash that is latest for given model name in material table
 
@@ -594,6 +583,7 @@ class SnowflakeConnector(Connector):
             material_table (str): name of material registry table
             model_name (str): model_name from model_configs file
             model_hash (str): latest model hash
+            entity_key (str): entity key
 
         Returns:
             (): it's latest creation timestamp
@@ -601,18 +591,79 @@ class SnowflakeConnector(Connector):
         snowpark_df = self.get_material_registry_table(session, material_table)
         try:
             temp_hash_vector = (
-                snowpark_df.filter(col("model_name") == model_name)
+                snowpark_df.filter(col("model_type") == constants.ENTITY_VAR_MODEL)
                 .filter(col("model_hash") == model_hash)
+                .filter(col("entity_key") == entity_key)
                 .sort(col("creation_ts"), ascending=False)
                 .select(col("creation_ts"))
                 .collect()[0]
             )
+
             creation_ts = temp_hash_vector.CREATION_TS
+
         except:
             raise Exception(
                 f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
             )
         return creation_ts
+
+    def get_end_ts(
+        self,
+        session,
+        material_table,
+        model_name: str,
+        model_hash: str,
+        seq_no: int
+    ) -> str:
+        """This function will return the end_ts with given model hash and model name
+
+        Args:
+            session (snowflake.snowpark.Session): snowpark session
+            material_table (str): name of material registry table
+            model_name (str): model_name to be searched in material registry table
+            model_hash (str): latest model hash
+            seq_no (int): latest seq_no
+
+        Returns:
+            Tuple[str, str]: end_ts and model name
+        """
+        snowpark_df = self.get_material_registry_table(session, material_table)
+
+        try:
+            feature_table_info = (
+                snowpark_df.filter(col("model_type") == constants.ENTITY_VAR_MODEL)
+                .filter(col("model_name") == model_name)
+                .filter(col("model_hash") == model_hash)
+                .filter(col("seq_no") == seq_no)
+                .select("end_ts")
+                .collect()[0]
+            )
+
+            end_ts = feature_table_info.END_TS
+        except Exception as e:
+            raise Exception(
+                f"Project is never materialzied with model hash {model_hash}. Erro message: {e}"
+            )
+
+        return end_ts
+
+    def add_index_timestamp_colum_for_predict_data(
+        self, predict_data, index_timestamp: str, end_ts: str
+    ) -> snowflake.snowpark.Table:
+        """This function will add index_timestamp column to predict data
+
+        Args:
+            predict_data (snowflake.snowpark.Table): predict data
+            index_timestamp (str): index timestamp
+            end_ts (str): end timestamp value
+
+        Returns:
+            snowflake.snowpark.Table: predict data with index timestamp column
+        """
+        predict_data = predict_data.withColumn(
+            index_timestamp, F.to_timestamp(F.lit(end_ts))
+        )
+        return predict_data
 
     def fetch_staged_file(
         self,
@@ -684,7 +735,6 @@ class SnowflakeConnector(Connector):
         self,
         feature_table: snowflake.snowpark.Table,
         entity_column: str,
-        index_timestamp: str,
         max_row_count: int,
         min_sample_for_training: int,
     ) -> snowflake.snowpark.Table:
@@ -694,7 +744,8 @@ class SnowflakeConnector(Connector):
         Args:
             feature_table (snowflake.snowpark.Table): The table to be filtered.
             entity_column (str): The name of the entity column to be used for sorting.
-            index_timestamp (str): The name of the index timestamp column to be used for sorting.
+            max_row_count (int): The maximum number of rows to be returned.
+            min_sample_for_training (int): The minimum number of rows required for training.
 
         Returns:
             The sorted feature table as a snowpark table object.
@@ -704,12 +755,12 @@ class SnowflakeConnector(Connector):
                 "row_num",
                 F.row_number().over(
                     Window.partition_by(F.col(entity_column)).order_by(
-                        F.col(index_timestamp).desc()
+                        F.col(entity_column).desc()
                     )
                 ),
             )
             .filter(F.col("row_num") == 1)
-            .drop(["row_num", index_timestamp])
+            .drop(["row_num"])
             .sample(n=int(max_row_count))
         )
         if table.count() < min_sample_for_training:
@@ -740,8 +791,8 @@ class SnowflakeConnector(Connector):
                 max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
 
                 no_invalid_rows = result_table.filter(
-                    (F.col("normalized_count") < min_label_proportion) |
-                    (F.col("normalized_count") > max_label_proportion)
+                    (F.col("normalized_count") < min_label_proportion)
+                    | (F.col("normalized_count") > max_label_proportion)
                 ).count()
 
                 if no_invalid_rows > 0:
@@ -750,7 +801,10 @@ class SnowflakeConnector(Connector):
                             Please check if the label column has valid labels."
                     )
             elif task_type == "regression":
-                if distinct_values_count.count() < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES:
+                if (
+                    distinct_values_count.count()
+                    < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
+                ):
                     raise Exception(
                         f"Label column {label_column} has invalid number of distinct values. \
                             Please check if the label column has valid labels."
@@ -764,7 +818,7 @@ class SnowflakeConnector(Connector):
             pass
 
     def add_days_diff(
-        self, table: snowflake.snowpark.Table, new_col, time_col_1, time_col_2
+        self, table: snowflake.snowpark.Table, new_col, time_col, end_ts
     ) -> snowflake.snowpark.Table:
         """
         Adds a new column to the given table containing the difference in days between the given timestamp columns.
@@ -772,14 +826,14 @@ class SnowflakeConnector(Connector):
         Args:
             table (snowflake.snowpark.Table): The table to be filtered.
             new_col (str): The name of the new column to be added.
-            time_col_1 (str): The name of the first timestamp column.
-            time_col_2 (str): The name of the timestamp column from which to find the difference.
+            time_col (str): The name of the first timestamp column.
+            end_ts (str): The timestamp value to calculate the difference.
 
         Returns:
             The table with the new column added as a snowpark table object.
         """
         return table.withColumn(
-            new_col, F.datediff("day", F.col(time_col_1), F.col(time_col_2))
+            new_col, F.datediff("day", F.col(time_col), F.to_timestamp(F.lit(end_ts)))
         )
 
     def join_feature_table_label_table(
@@ -902,13 +956,6 @@ class SnowflakeConnector(Connector):
         preds_with_percentile = preds.withColumn(
             percentile_column_name,
             F.percent_rank().over(Window.order_by(F.col(score_column_name))),
-        ).select(
-            entity_column,
-            index_timestamp,
-            "model_id",
-            score_column_name,
-            percentile_column_name,
-            output_label_column,
         )
         return preds_with_percentile
 
@@ -1033,6 +1080,8 @@ class SnowflakeConnector(Connector):
         stored_procedure_name = kwargs.get("stored_procedure_name", None)
         udf_name = kwargs.get("udf_name", None)
         delete_files = kwargs.get("delete_files", None)
+        close_session = kwargs.get('close_session', False)
+
         stage_name = kwargs.get("stage_name", None)
         if stored_procedure_name:
             self._delete_procedures(session, stored_procedure_name)
@@ -1040,3 +1089,5 @@ class SnowflakeConnector(Connector):
             self._drop_fn_if_exists(session, udf_name)
         if delete_files:
             self._delete_import_files(session, stage_name, delete_files)
+        if close_session:
+            session.close()

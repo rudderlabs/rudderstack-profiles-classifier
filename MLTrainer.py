@@ -41,6 +41,7 @@ class MLTrainer(ABC):
         label_value: int,
         label_column: str,
         entity_column: str,
+        entity_key: str,
         features_profiles_model: str,
         output_profiles_ml_model: str,
         index_timestamp: str,
@@ -55,6 +56,7 @@ class MLTrainer(ABC):
         self.label_value = label_value
         self.label_column = label_column
         self.entity_column = entity_column
+        self.entity_key = entity_key
         self.features_profiles_model = features_profiles_model
         self.output_profiles_ml_model = output_profiles_ml_model
         self.index_timestamp = index_timestamp
@@ -65,6 +67,7 @@ class MLTrainer(ABC):
         self.inputs = inputs
         self.max_row_count = max_row_count
         self.prep = prep
+        self.isStratify = None
 
     hyperopts_expressions_map = {
         exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]
@@ -172,6 +175,9 @@ class MLTrainer(ABC):
             )
         return space
 
+    def set_end_ts(self, end_ts: str):
+        self.end_ts = end_ts
+
     @abstractmethod
     def get_name(self):
         pass
@@ -181,9 +187,7 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
-    def prepare_label_table(
-        self, connector: Connector, session, label_table_name: str, label_ts_col: str
-    ):
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         pass
 
     @abstractmethod
@@ -250,7 +254,7 @@ class MLTrainer(ABC):
             train_size=self.prep.train_size,
             val_size=self.prep.val_size,
             test_size=self.prep.test_size,
-            isStratify=True,
+            isStratify=self.isStratify,
         )
 
         train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
@@ -316,6 +320,7 @@ class ClassificationTrainer(MLTrainer):
             "lift-chart": f"02-test-lift-chart-{self.output_profiles_ml_model}.png",
             "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png",
         }
+        self.isStratify = True
 
     def build_model(
         self,
@@ -401,17 +406,13 @@ class ClassificationTrainer(MLTrainer):
 
         return final_clf
 
-    def prepare_label_table(
-        self, connector: Connector, session, label_table_name: str, label_ts_col: str
-    ):
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         label_table = connector.label_table(
             session,
             label_table_name,
             self.label_column,
             self.entity_column,
-            self.index_timestamp,
             self.label_value,
-            label_ts_col,
         )
         distinct_values = connector.get_distinct_values_in_column(
             label_table, self.label_column
@@ -519,6 +520,7 @@ class RegressionTrainer(MLTrainer):
             "residuals-chart": f"02-residuals-chart-{self.output_profiles_ml_model}.png",
             "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png",
         }
+        self.isStratify=False
 
     def build_model(
         self,
@@ -606,17 +608,13 @@ class RegressionTrainer(MLTrainer):
 
         return final_reg
 
-    def prepare_label_table(
-        self, connector: Connector, session, label_table_name: str, label_ts_col: str
-    ):
+    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         return connector.label_table(
             session,
             label_table_name,
             self.label_column,
             self.entity_column,
-            self.index_timestamp,
             None,
-            label_ts_col,
         )
 
     def plot_diagnostics(

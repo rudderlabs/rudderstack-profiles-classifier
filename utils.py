@@ -306,38 +306,38 @@ def load_yaml(file_path: str) -> dict:
     return data
 
 
-def combine_config(notebook_config: dict, profiles_config: dict = None) -> dict:
+def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
     """Combine the configs after overwriting values of profiles.yaml in model_configs.yaml
 
     Args:
-        notebook_config (dict): configs from model_configs.yaml file
+        default_config (dict): configs from model_configs.yaml file
         profiles_config (dict, optional): configs from profiles.yaml file that should overwrite corresponding values from notebook_config. Defaults to None.
 
     Returns:
         dict: final merged config
     """
     if not isinstance(profiles_config, dict):
-        return notebook_config
+        return default_config
 
     merged_config = dict()
     for key in profiles_config:
-        if key in notebook_config:
+        if key in default_config:
             if isinstance(profiles_config[key], dict) and isinstance(
-                notebook_config[key], dict
+                default_config[key], dict
             ):
                 merged_config[key] = combine_config(
-                    notebook_config[key], profiles_config[key]
+                    default_config[key], profiles_config[key]
                 )
             elif profiles_config[key] is None:
-                merged_config[key] = notebook_config[key]
+                merged_config[key] = default_config[key]
             else:
                 merged_config[key] = profiles_config[key]
         else:
             merged_config[key] = profiles_config[key]
 
-    for key in notebook_config:
+    for key in default_config:
         if key not in profiles_config:
-            merged_config[key] = notebook_config[key]
+            merged_config[key] = default_config[key]
     return merged_config
 
 
@@ -402,6 +402,16 @@ def get_output_directory(folder_path: str) -> str:
     target_path.mkdir(parents=True, exist_ok=True)
     return str(target_path)
 
+def delete_file(file_path):
+    try:
+        os.remove(file_path)
+        logger.info(f"File '{file_path}' deleted successfully from local.")
+    except FileNotFoundError:
+        logger.error(f"Error: File '{file_path}' not found.")
+    except PermissionError:
+        logger.error(f"Error: Permission denied. Unable to delete '{file_path}'.")
+    except OSError as e:
+        logger.error(f"Error occurred while deleting file '{file_path}': {e}")
 
 def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple:
     """This function will return the start_date and end_date on basis of latest hash
@@ -862,12 +872,15 @@ def plot_top_k_feature_importance(
         train_x_processed = train_x_processed.astype(np.int_)
 
         try:
-            shap_values = shap.TreeExplainer(pipe["model"]).shap_values(train_x_processed)
+            shap_values = shap.TreeExplainer(pipe["model"]).shap_values(
+                train_x_processed
+            )
         except Exception as e:
-            logger.warning(f"Exception occured while calculating shap values {e}, using KernelExplainer")
+            logger.warning(
+                f"Exception occured while calculating shap values {e}, using KernelExplainer"
+            )
             shap_values = shap.KernelExplainer(
-                pipe["model"].predict_proba,
-                data=train_x_processed
+                pipe["model"].predict_proba, data=train_x_processed
             ).shap_values(train_x_processed)
 
         x_label = "Importance scores"
@@ -992,24 +1005,18 @@ def remap_credentials(credentials: dict) -> dict:
     return new_creds
 
 
-def get_timestamp_columns(
-    table: snowflake.snowpark.Table, index_timestamp: str
-) -> List[str]:
+def get_timestamp_columns(table: snowflake.snowpark.Table) -> List[str]:
     """
     Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
     Args:
         session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
         feature_table (snowflake.snowpark.Table): The feature table from which to retrieve the timestamp columns.
-        index_timestamp (str): The name of the column containing the index timestamp information.
     Returns:
         List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
     """
     timestamp_columns = []
     for field in table.schema.fields:
-        if (
-            field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()]
-            and field.name.lower() != index_timestamp.lower()
-        ):
+        if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()]:
             timestamp_columns.append(field.name)
     return timestamp_columns
 
@@ -1073,12 +1080,10 @@ def explain_prediction(
     )
     feature_table = session.table(feature_table_name)
     if len(timestamp_columns) == 0:
-        timestamp_columns = get_timestamp_columns(
-            session, feature_table, index_timestamp
-        )
-    for col in timestamp_columns:
+        timestamp_columns = get_timestamp_columns(session, feature_table)
+    for ts_col in timestamp_columns:
         feature_table = feature_table.withColumn(
-            col, F.datediff("day", F.col(col), F.col(index_timestamp))
+            col, F.datediff("day", F.col(ts_col), F.col(index_timestamp))
         )
     feature_table = feature_table.select(
         [entity_column] + numeric_columns + categorical_columns

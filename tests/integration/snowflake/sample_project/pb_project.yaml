@@ -5,4 +5,4 @@ model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/rudderstack-profiles-shopify-features/tag/schema_{{best_schema_version}}
+    url: https://github.com/rudderlabs/profiles-shopify-features/tree/integration-test-features

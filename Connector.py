@@ -210,21 +210,15 @@ class Connector(ABC):
         features_profiles_model: str,
         output_filename: str,
         site_config_path: str = None,
-        inputs: List[str] = None,
         project_folder: str = None,
     ) -> str:
         project_folder = utils.get_project_folder(project_folder, output_filename)
-        feature_package_path = utils.get_feature_package_path(
-           inputs
-        )
         pb = utils.get_pb_path()
         args = [
             pb,
             "compile",
             "-p",
             project_folder,
-            "-m",
-            feature_package_path,
             "--migrate_on_load=True",
         ]
         if site_config_path is not None:
@@ -232,13 +226,18 @@ class Connector(ABC):
         logger.info(f"Fetching latest model hash by running command: {' '.join(args)}")
         pb_compile_output_response = utils.subprocess_run(args)
         pb_compile_output = (pb_compile_output_response.stdout).lower()
+        logger.info(f"pb compile output: {pb_compile_output}")
+
         material_file_prefix = (
-            constants.MATERIAL_TABLE_PREFIX + features_profiles_model + "_"
+            constants.MATERIAL_TABLE_PREFIX
+            + features_profiles_model
+            + "_"
         ).lower()
+
         try:
             model_hash = pb_compile_output[
                 pb_compile_output.index(material_file_prefix)
-                + len(material_file_prefix) :
+                + len(material_file_prefix):
             ].split("_")[0]
         except ValueError:
             raise Exception(
@@ -303,9 +302,7 @@ class Connector(ABC):
         label_table_name: str,
         label_column: str,
         entity_column: str,
-        index_timestamp: str,
         label_value: Union[str, int, float],
-        label_ts_col: str,
     ):
         pass
 
@@ -328,11 +325,11 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_arraytype_features(self, session, table_name: str) -> List[str]:
+    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
         pass
 
     @abstractmethod
-    def get_arraytype_features_from_table(self, table: Any, **kwargs) -> list:
+    def get_arraytype_columns_from_table(self, table: Any, **kwargs) -> list:
         pass
 
     @abstractmethod
@@ -342,14 +339,12 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_timestamp_columns(
-        self, session, table_name: str, index_timestamp: str
-    ) -> List[str]:
+    def get_timestamp_columns(self, session, table_name: str) -> List[str]:
         pass
 
     @abstractmethod
     def get_timestamp_columns_from_table(
-        self, session, table_name: str, index_timestamp: str, **kwargs
+        self, session, table_name: str, **kwargs
     ) -> List[str]:
         pass
 
@@ -379,7 +374,29 @@ class Connector(ABC):
 
     @abstractmethod
     def get_creation_ts(
-        self, session, material_table: str, model_name: str, model_hash: str
+        self,
+        session,
+        material_table: str,
+        model_name: str,
+        model_hash: str,
+        entity_key: str,
+    ):
+        pass
+
+    @abstractmethod
+    def get_end_ts(
+        self,
+        session,
+        material_table: str,
+        model_name: str,
+        model_hash: str,
+        seq_no: int
+    ):
+        pass
+
+    @abstractmethod
+    def add_index_timestamp_colum_for_predict_data(
+        self, predict_data, index_timestamp: str, end_ts: str
     ):
         pass
 
@@ -398,23 +415,17 @@ class Connector(ABC):
         self,
         feature_table,
         entity_column: str,
-        index_timestamp: str,
         max_row_count: int,
         min_sample_for_training: int,
     ):
         pass
 
     @abstractmethod
-    def do_data_validation(
-        self,
-        feature_table,
-        label_column,
-        task_type
-    ):
+    def do_data_validation(self, feature_table, label_column, task_type):
         pass
 
     @abstractmethod
-    def add_days_diff(self, table, new_col, time_col_1, time_col_2):
+    def add_days_diff(self, table, new_col, time_col, end_ts):
         pass
 
     @abstractmethod

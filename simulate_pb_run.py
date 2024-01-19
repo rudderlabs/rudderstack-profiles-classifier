@@ -11,8 +11,6 @@ import predict as P
 
 if __name__ == "__main__":
     train_file_extension = ".json"
-    # schema = 'shopify_wh_rs'
-    # schema = "rs360"
     schema = "dev_wh"
     project_folder = "samples/application_project"
     feature_table_name = "rudder_user_base_features"
@@ -111,9 +109,6 @@ if __name__ == "__main__":
     # Read train results
     with open(t_output_filename, "r") as f:
         results = json.load(f)
-
-    model_hash = results["config"]["material_hash"]
-    feature_table_name_from_train = results["input_model_name"]
 
     material_table_name = results['config']['material_names'][0][-1] 
     predict_inputs = [f"SELECT * FROM {creds['schema']}.{material_table_name}",]

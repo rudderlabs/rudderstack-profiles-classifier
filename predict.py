@@ -247,7 +247,7 @@ def predict(
     )
     logger.debug("Writing predictions to warehouse")
     connector.write_table(
-        preds_with_percentile, output_tablename, write_mode="overwrite", local=False , if_exists="replace"
+        preds_with_percentile, output_tablename, write_mode="overwrite", local=False , if_exists="replace", s3_config=aws_config
     )
     logger.debug("Closing the session")    
     connector.cleanup(session, udf_name=udf_name,close_session=True)

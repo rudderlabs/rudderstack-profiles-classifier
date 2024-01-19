@@ -217,8 +217,13 @@ def train(
                 model_file,
             )
 
-            results['column_names']['numeric_columns'] = numeric_columns
-            results['column_names']['categorical_columns'] = categorical_columns
+            results['column_names'] = {
+                'numeric_columns': numeric_columns,
+                'categorical_columns': categorical_columns,
+                'arraytype_columns' : [],
+                'timestamp_columns' : []
+            }
+
 
             trainer.plot_diagnostics(
                 connector,
@@ -229,6 +234,8 @@ def train(
                 test_y,
                 trainer.label_column,
             )
+
+            connector.save_file(session, model_file, stage_name, overwrite=True)
        
             try:
                 figure_file = os.path.join(

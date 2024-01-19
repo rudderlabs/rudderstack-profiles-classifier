@@ -50,7 +50,7 @@ def predict(
     Returns:
         None: save the prediction results but returns nothing
     """
-
+    logger.debug("Starting Predict job")
     model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
@@ -119,12 +119,11 @@ def predict(
     end_ts = connector.get_end_ts(
         session, material_table, input_model_name, model_hash, seq_no
     )
-    logger.debug(f"Feature table name: {feature_table_name}")
-
+    logger.debug(f"Pulling data from Feature table - {feature_table_name}")
     raw_data = connector.get_table(
         session, feature_table_name, filter_condition=eligible_users
     )
-
+    logger.debug(f"No:of rows in feature table for predictions - {len(raw_data)}")
     arraytype_columns = connector.get_arraytype_columns_from_table(raw_data, features_path=features_path)
     ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_columns)
     predict_data = connector.drop_cols(raw_data, ignore_features)
@@ -231,7 +230,8 @@ def predict(
             return predictions
 
         prediction_udf = predict_scores_rs
-
+    
+    logger.debug("Creating predictions on the feature data")
     preds_with_percentile = connector.call_prediction_udf(
         predict_data,
         prediction_udf,
@@ -245,8 +245,10 @@ def predict(
         prob_th,
         input,
     )
+    logger.debug("Writing predictions to warehouse")
     connector.write_table(
         preds_with_percentile, output_tablename, write_mode="overwrite", local=False , if_exists="replace"
     )
-    
+    logger.debug("Closing the session")    
     connector.cleanup(session, udf_name=udf_name,close_session=True)
+    logger.debug("Finished Predict job")

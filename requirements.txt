@@ -18,3 +18,4 @@ xgboost>=1.5.0
 snowflake_connector_python>=3.1.0
 snowflake-snowpark-python[pandas]>=0.10.0
 setuptools>=65.5.1 # not directly required, pinned by Snyk to avoid a vulnerability
+pillow>=10.2.0 # not directly required, pinned by Snyk to avoid a vulnerability

@@ -2,12 +2,10 @@
 # coding: utf-8
 import os
 import json
-import yaml
 import pandas as pd
 import sys
 import hashlib
 
-from pathlib import Path
 from logger import logger
 from datetime import datetime
 from dataclasses import asdict
@@ -102,6 +100,7 @@ def train(
     logger.info("Initialising trainer")
     default_config = utils.load_yaml(config_path)
     _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
+    _ = config["data"].pop("features_profiles_model", None) # For backward compatibility. Not using it anywhere else, hence deleting.
     merged_config = utils.combine_config(default_config, config)
 
     user_preference_order_infra = merged_config["data"].pop(
@@ -280,11 +279,10 @@ def train(
         session, material_registry_table_prefix
     )
 
-    # update feature profiles model name for the trainer
-    trainer.features_profiles_model = trainer.entity_key + constants.VAR_TABLE_SUFFIX
+    features_profiles_model = trainer.entity_key + constants.VAR_TABLE_SUFFIX
 
     model_hash = connector.get_latest_material_hash(
-        trainer.features_profiles_model,
+        features_profiles_model,
         output_filename,
         site_config_path,
         project_folder,
@@ -293,7 +291,7 @@ def train(
     creation_ts = connector.get_creation_ts(
         session,
         material_table,
-        trainer.features_profiles_model,
+        features_profiles_model,
         model_hash,
         trainer.entity_key,
     )
@@ -307,12 +305,13 @@ def train(
 
     logger.info("Getting past data for training")
     try:
-        material_names, training_dates = connector.get_material_names(
+        #material_names, training_dates 
+        materials = connector.get_material_names(
             session,
             material_table,
             start_date,
             end_date,
-            trainer.features_profiles_model,
+            features_profiles_model,
             model_hash,
             material_table_prefix,
             trainer.prediction_horizon_days,
@@ -321,18 +320,15 @@ def train(
             project_folder,
             trainer.inputs,
         )
-
-        feature_end_ts, _ = training_dates[0] #TODO: This is assuming we take a single material pair. Need to fix this.
-        trainer.set_end_ts(feature_end_ts)
-        merged_config["end_ts"] = feature_end_ts
     except TypeError:
         raise Exception(
             "Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly"
         )
 
     if trainer.label_value is None and prediction_task == "classification":
+        sample_label_table_name = materials[0][1]["name"]
         label_value = connector.get_default_label_value(
-            session, material_names[0][0], trainer.label_column, positive_boolean_flags
+            session, sample_label_table_name, trainer.label_column, positive_boolean_flags
         )
         trainer.label_value = label_value
 
@@ -341,7 +337,7 @@ def train(
     )
     processor = processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for training")
-    train_results = processor.train(train_procedure, material_names, merged_config, prediction_task, creds)
+    train_results = processor.train(train_procedure, materials, merged_config, prediction_task, creds)
     logger.debug("Training completed. Saving the artefacts")
     _ = merged_config.pop("end_ts", None)
 
@@ -357,11 +353,15 @@ def train(
         f"{trainer.output_profiles_ml_model}_{model_id}_array_time_feature_names.json"
     )
     json.dump(column_dict, open(column_name_file, "w"))
-
+    training_dates_ = []
+    material_names_ = []
+    for material_pair in materials:
+        material_names_.append([material_pair[0]["name"], material_pair[1]["name"]])
+        training_dates_.append([material_pair[0]["end_dt"], material_pair[1]["end_dt"]])
     results = {
         "config": {
-            "training_dates": training_dates,
-            "material_names": material_names,
+            "training_dates": training_dates_,
+            "material_names": material_names_,
             "material_hash": model_hash,
             **asdict(trainer),
         },
@@ -373,7 +373,7 @@ def train(
             "model_id": model_id,
             "threshold": train_results["prob_th"],
         },
-        "input_model_name": trainer.features_profiles_model,
+        "input_model_name": features_profiles_model,
     }
     json.dump(results, open(output_filename, "w"))
 

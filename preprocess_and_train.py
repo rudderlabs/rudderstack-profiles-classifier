@@ -3,7 +3,7 @@ import json
 from botocore.exceptions import NoCredentialsError
 from botocore.exceptions import WaiterError
 import pandas as pd
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 from S3Utils import S3Utils
 
 import warnings
@@ -125,16 +125,16 @@ def train_and_store_model_results_rs(
 
 
 def prepare_feature_table(
-    feature_table_name: str,
-    label_table_name: str,
+    feature_table_info: Dict[str, str],
+    label_table_info: Dict[str,str],
     cardinal_feature_threshold: float,
     **kwargs,
 ) -> tuple:
     """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
 
     Args:
-        feature_table_name (str): feature table from the retrieved material_names tuple
-        label_table_name (str): label table from the retrieved material_names tuple
+        feature_table_info (str): feature table from the retrieved material_names tuple. Format: {"name": material_<>_<>, "end_dt": '2021-01-01'}
+        label_table_name (str): label table from the retrieved material_names tuple. Same as above format
     Returns:
         snowflake.snowpark.Table: feature table made using given instance from material names
     """
@@ -142,6 +142,9 @@ def prepare_feature_table(
     connector = kwargs.get("connector", None)
     trainer = kwargs.get("trainer", None)
     try:
+        feature_table_name = feature_table_info["name"]
+        feature_table_dt = feature_table_info["end_dt"]
+        label_table_name = label_table_info["name"]
         if trainer.eligible_users:
             feature_table = connector.get_table(
                 session, feature_table_name, filter_condition=trainer.eligible_users
@@ -176,7 +179,7 @@ def prepare_feature_table(
             )
         for col in timestamp_columns:
             feature_table = connector.add_days_diff(
-                feature_table, col, col, trainer.end_ts
+                feature_table, col, col, feature_table_dt
             )
         label_table = trainer.prepare_label_table(
             connector, session, label_table_name
@@ -204,7 +207,7 @@ def prepare_feature_table(
 
 
 def preprocess_and_train(
-    train_procedure, material_names: List[Tuple[str]], merged_config: dict, **kwargs
+    train_procedure, materials: List[Tuple[Dict[str, str], Dict[str, str]]], merged_config: dict, **kwargs
 ):
     session = kwargs.get("session", None)
     connector = kwargs.get("connector", None)
@@ -213,18 +216,17 @@ def preprocess_and_train(
     cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESOLD
 
     feature_table = None
-    for row in material_names:
-        feature_table_name, label_table_name = row
+    for (feature_table_info, label_table_info) in materials:
         logger.info(
-            f"Preparing training dataset using {feature_table_name} and {label_table_name} as feature and label tables respectively"
+            f"Preparing training dataset using {feature_table_info['name']} and {label_table_info['name']} as feature and label tables respectively"
         )
         (
             feature_table_instance,
             arraytype_columns,
             timestamp_columns,
         ) = prepare_feature_table(
-            feature_table_name,
-            label_table_name,
+            feature_table_info,
+            label_table_info,
             cardinal_feature_threshold,
             session=session,
             connector=connector,

@@ -247,7 +247,8 @@ def predict(
     )
     logger.debug("Writing predictions to warehouse")
     # TODO - Get role, bucket, path from site config
-    if bool(aws_config) & "access_key_id" not in aws_config:
+    # TODO - replace the aws check with infra mode check
+    if bool(aws_config) & ("access_key_id" not in aws_config):
         s3_creds = S3Utils.get_temporary_credentials("arn:aws:iam::454531037350:role/profiles-ml-s3")
         aws_config["bucket"] = constants.S3_BUCKET
         aws_config["path"] = constants.S3_PATH

@@ -10,6 +10,7 @@ import pandas as pd
 from typing import Any , List
 from logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+from S3Utils import S3Utils
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
@@ -245,6 +246,15 @@ def predict(
         input,
     )
     logger.debug("Writing predictions to warehouse")
+    # TODO - Get role, bucket, path from site config
+    # TODO - replace the aws check with infra mode check
+    if bool(aws_config) & ("access_key_id" not in aws_config):
+        s3_creds = S3Utils.get_temporary_credentials("arn:aws:iam::454531037350:role/profiles-ml-s3")
+        aws_config["bucket"] = constants.S3_BUCKET
+        aws_config["path"] = constants.S3_PATH
+        aws_config["access_key_id"] = s3_creds["access_key_id"]
+        aws_config["access_key_secret"] = s3_creds["access_key_secret"]
+        aws_config["aws_session_token"] = s3_creds["aws_session_token"]
     connector.write_table(
         preds_with_percentile, output_tablename, write_mode="overwrite", local=False , if_exists="replace"
     )

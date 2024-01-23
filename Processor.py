@@ -1,7 +1,7 @@
 from logger import logger
 from abc import ABC
 from typing import Any, List, Tuple, Union, Dict
-
+from constants import TrainTablesInfo
 from MLTrainer import MLTrainer
 from Connector import Connector
 from preprocess_and_train import preprocess_and_train
@@ -25,7 +25,7 @@ class Processor(ABC):
     def train(
         self,
         train_procedure,
-        materials: List[Tuple[Dict[str, str], Dict[str, str]]],
+        materials: List[TrainTablesInfo],
         model_config: dict,
         prediction_task: str,
         wh_creds: dict,

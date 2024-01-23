@@ -173,9 +173,6 @@ class MLTrainer(ABC):
             )
         return space
 
-    def set_end_ts(self, end_ts: str):
-        self.end_ts = end_ts
-
     @abstractmethod
     def get_name(self):
         pass

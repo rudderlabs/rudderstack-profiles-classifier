@@ -307,7 +307,7 @@ def train(
     logger.info("Getting past data for training")
     try:
         #material_names, training_dates 
-        materials = connector.get_material_names(
+        train_table_pairs = connector.get_material_names(
             session,
             material_table,
             start_date,
@@ -327,9 +327,9 @@ def train(
         )
 
     if trainer.label_value is None and prediction_task == "classification":
-        sample_label_table_name = materials[0][1]["name"]
+        sample_material_ = train_table_pairs[0]
         label_value = connector.get_default_label_value(
-            session, sample_label_table_name, trainer.label_column, positive_boolean_flags
+            session, sample_material_.label_table_name, trainer.label_column, positive_boolean_flags
         )
         trainer.label_value = label_value
 
@@ -338,9 +338,8 @@ def train(
     )
     processor = processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for training")
-    train_results = processor.train(train_procedure, materials, merged_config, prediction_task, creds)
+    train_results = processor.train(train_procedure, train_table_pairs, merged_config, prediction_task, creds)
     logger.debug("Training completed. Saving the artefacts")
-    _ = merged_config.pop("end_ts", None)
 
     logger.info("Saving train results to file")
     model_id = train_results["model_id"]
@@ -356,9 +355,9 @@ def train(
     json.dump(column_dict, open(column_name_file, "w"))
     training_dates_ = []
     material_names_ = []
-    for material_pair in materials:
-        material_names_.append([material_pair[0]["name"], material_pair[1]["name"]])
-        training_dates_.append([material_pair[0]["end_dt"], material_pair[1]["end_dt"]])
+    for train_table_pair_ in train_table_pairs:
+        material_names_.append([train_table_pair_.feature_table_name, train_table_pair_.label_table_name])
+        training_dates_.append([train_table_pair_.feature_table_date, train_table_pair_.label_table_date])
     results = {
         "config": {
             "training_dates": training_dates_,

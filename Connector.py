@@ -5,6 +5,7 @@ from typing import Any, List, Tuple, Union, Sequence, Optional, Dict
 
 import utils
 import constants
+from constants import TrainTablesInfo
 from logger import logger
 
 
@@ -39,7 +40,7 @@ class Connector(ABC):
         site_config_path: str,
         project_folder: str,
         input_models: List[str],
-    ) -> List[Tuple[Dict[str, str], Dict[str, str]]]:
+    ) -> List[TrainTablesInfo]:
         """
         Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
         If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
@@ -105,15 +106,13 @@ class Connector(ABC):
                 raise Exception(
                     f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data"
                 )
-        # materials = [({"name": feature_table_name, "end_dt": feature_table_dt}, {"name": label_table_name, "end_dt": label_table_dt})....]
         materials = []
         for material_pair, date_pair in zip(material_names, training_dates):
-            materials.append(
-                (
-                    {"name": material_pair[0], "end_dt": date_pair[0]},
-                    {"name": material_pair[1], "end_dt": date_pair[1]},
-                )
-            )
+            train_table_info = TrainTablesInfo(feature_table_name = material_pair[0],
+                                               feature_table_date = date_pair[0],
+                                               label_table_name = material_pair[1],
+                                               label_table_date = date_pair[1])
+            materials.append(train_table_info)
         return materials
         
 

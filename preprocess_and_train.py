@@ -125,26 +125,25 @@ def train_and_store_model_results_rs(
 
 
 def prepare_feature_table(
-    feature_table_info: Dict[str, str],
-    label_table_info: Dict[str,str],
+    train_table_pair: constants.TrainTablesInfo,
     cardinal_feature_threshold: float,
     **kwargs,
 ) -> tuple:
     """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
 
     Args:
-        feature_table_info (str): feature table from the retrieved material_names tuple. Format: {"name": material_<>_<>, "end_dt": '2021-01-01'}
-        label_table_name (str): label table from the retrieved material_names tuple. Same as above format
+        train_table_pair (constants.TrainTablesInfo): 
+        cardinal_feature_threshold (float): The threshold value for the cardinality of the feature. Any feature with cardinality higher than this will be dropped.
     Returns:
-        snowflake.snowpark.Table: feature table made using given instance from material names
+        Tuple of feature_table, arraytype_columns, timestamp_columns
     """
     session = kwargs.get("session", None)
     connector = kwargs.get("connector", None)
     trainer = kwargs.get("trainer", None)
     try:
-        feature_table_name = feature_table_info["name"]
-        feature_table_dt = feature_table_info["end_dt"]
-        label_table_name = label_table_info["name"]
+        feature_table_name = train_table_pair.feature_table_name
+        feature_table_dt = train_table_pair.feature_table_date
+        label_table_name = train_table_pair.label_table_name
         if trainer.eligible_users:
             feature_table = connector.get_table(
                 session, feature_table_name, filter_condition=trainer.eligible_users
@@ -207,7 +206,7 @@ def prepare_feature_table(
 
 
 def preprocess_and_train(
-    train_procedure, materials: List[Tuple[Dict[str, str], Dict[str, str]]], merged_config: dict, **kwargs
+    train_procedure, train_table_pairs: List[constants.TrainTablesInfo], merged_config: dict, **kwargs
 ):
     session = kwargs.get("session", None)
     connector = kwargs.get("connector", None)
@@ -216,17 +215,16 @@ def preprocess_and_train(
     cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESOLD
 
     feature_table = None
-    for (feature_table_info, label_table_info) in materials:
+    for train_table_pair in train_table_pairs:
         logger.info(
-            f"Preparing training dataset using {feature_table_info['name']} and {label_table_info['name']} as feature and label tables respectively"
+            f"Preparing training dataset using {train_table_pair.feature_table_name} and {train_table_pair.label_table_name} as feature and label tables respectively"
         )
         (
             feature_table_instance,
             arraytype_columns,
             timestamp_columns,
         ) = prepare_feature_table(
-            feature_table_info,
-            label_table_info,
+            train_table_pair,
             cardinal_feature_threshold,
             session=session,
             connector=connector,
@@ -313,16 +311,20 @@ if __name__ == "__main__":
         trainer = ClassificationTrainer(**args.merged_config["data"], prep=prep_config)
     elif args.prediction_task == "regression":
         trainer = RegressionTrainer(**args.merged_config["data"], prep=prep_config)
-    end_ts = args.merged_config.get("end_ts", None)
-    trainer.set_end_ts(end_ts)
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
     train_procedure = train_and_store_model_results_rs
     connector = RedshiftConnector("./")
     session = connector.build_session(wh_creds)
-
+    material_info_ = args.material_names
+    # converting material info back to named tuple after serialisation and deserialisation 
+    material_info = []
+    if isinstance(material_info_[0], list):
+        for material in material_info_:
+            material_info.append(constants.TrainTablesInfo(*material))
+                    
     train_results_json = preprocess_and_train(
         train_procedure,
-        args.material_names,
+        material_info,
         args.merged_config,
         session=session,
         connector=connector,

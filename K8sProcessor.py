@@ -1,6 +1,7 @@
 import os
 import json
 import constants
+from constants import TrainTablesInfo
 import uuid
 import time
 from Processor import Processor
@@ -121,7 +122,7 @@ class K8sProcessor(Processor):
                 break
         return error_message
 
-    def train(self, train_procedure, materials: List[Tuple[Dict[str, str], Dict[str, str]]], merged_config: dict, prediction_task: str, wh_creds: dict):
+    def train(self, train_procedure, materials: List[TrainTablesInfo], merged_config: dict, prediction_task: str, wh_creds: dict):
         namespace = "profiles-qa" # TODO - Get it from argument
         resources = { "cpu": "1000m", "memory": "2Gi" } # TODO - Get it from argument
         job_name = "sources-wht-ml-job-" + str(uuid.uuid4())

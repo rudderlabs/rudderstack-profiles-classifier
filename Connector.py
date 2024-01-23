@@ -70,7 +70,8 @@ class Connector(ABC):
                                                                   features_profiles_model,
                                                                   model_hash,
                                                                   material_table_prefix,
-                                                                  prediction_horizon_days)
+                                                                  prediction_horizon_days,
+                                                                  input_models)
         if len(material_names) == 0:
             try:
                 _ = self.generate_training_materials(
@@ -88,7 +89,8 @@ class Connector(ABC):
                                                                           features_profiles_model,
                                                                           model_hash,
                                                                           material_table_prefix,
-                                                                          prediction_horizon_days)
+                                                                          prediction_horizon_days,
+                                                                          input_models)
             except Exception as e:
                 raise Exception(
                     f"Following exception occured while generating past materials with hash {model_hash} for {features_profiles_model} between dates {start_date} and {end_date}: {e}"
@@ -362,6 +364,7 @@ class Connector(ABC):
         model_hash: str,
         material_table_prefix: str,
         prediction_horizon_days: int,
+        inputs: List[str]
     ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         pass
 

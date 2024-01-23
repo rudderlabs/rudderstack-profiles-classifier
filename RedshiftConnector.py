@@ -401,6 +401,7 @@ class RedshiftConnector(Connector):
         model_hash: str,
         material_table_prefix: str,
         prediction_horizon_days: int,
+        inputs: List[str],
     ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
 
@@ -465,25 +466,40 @@ class RedshiftConnector(Connector):
             )
 
             for _, row in feature_label_df.iterrows():
-                material_names.append(
-                    (
-                        utils.generate_material_name(
-                            material_table_prefix,
-                            model_name,
-                            model_hash,
-                            str(row["feature_seq_no"]),
-                        ),
-                        utils.generate_material_name(
-                            material_table_prefix,
-                            model_name,
-                            model_hash,
-                            str(row["label_seq_no"]),
-                        ),
-                    )
+                feat_seq_no = str(row["feature_seq_no"])
+                feature_material_name = utils.generate_material_name(
+                    material_table_prefix,
+                    model_name,
+                    model_hash,
+                    str(row["feature_seq_no"]),
                 )
-                training_dates.append(
-                    (str(row["feature_end_ts"]), str(row["label_end_ts"]))
+
+                label_meterial_name = utils.generate_material_name(
+                    material_table_prefix,
+                    model_name,
+                    model_hash,
+                    str(row["label_seq_no"]),
                 )
+
+                # Iterate over inputs and validate meterial names
+                for input in inputs:
+                    # Replace the last seq_no with the current seq_no
+                    # and prepare sql statement to check for the table existence
+                    # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
+                    temp_input = "_".join(input.split("_")[:-1])  \
+                        + "_" + feat_seq_no \
+                        + " limit 1"
+
+                    try:
+                        cursor.sql(temp_input)
+                        material_names.append((feature_material_name, label_meterial_name))
+                        training_dates.append(
+                            (str(row["feature_end_ts"]), str(row["label_end_ts"]))
+                        )
+                    except:
+                        logger.warning(f"Input is not materialized for seq_no {feat_seq_no}, \
+                                       ignoring the material_name {feature_material_name}")
+
             return material_names, training_dates
         except Exception as e:
             raise Exception(

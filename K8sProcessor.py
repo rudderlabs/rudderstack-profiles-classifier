@@ -135,11 +135,12 @@ class K8sProcessor(Processor):
           "merged_config": merged_config,
           "prediction_task": prediction_task
         }
-        self._create_job(job_name=job_name, secret=secret, namespace=namespace, command_args=command_args, resources=resources, batch_v1_api=batch_v1_api)
-        pod_name = self._wait_for_pod(job_name=job_name, namespace=namespace, core_v1_api=core_v1_api)
-        error_message = self._stream_logs(pod_name=pod_name, namespace=namespace, core_v1_api=core_v1_api)
-        # TODO - Ensure secrets are deleted even 
-        core_v1_api.delete_namespaced_secret(name=secret["name"], namespace=namespace)
+        try:
+            self._create_job(job_name=job_name, secret=secret, namespace=namespace, command_args=command_args, resources=resources, batch_v1_api=batch_v1_api)
+            pod_name = self._wait_for_pod(job_name=job_name, namespace=namespace, core_v1_api=core_v1_api)
+            error_message = self._stream_logs(pod_name=pod_name, namespace=namespace, core_v1_api=core_v1_api)
+        finally: 
+            core_v1_api.delete_namespaced_secret(name=secret["name"], namespace=namespace)
         if error_message != "":
             raise Exception(error_message)
         # TODO - Add job status check

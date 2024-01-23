@@ -4,6 +4,7 @@ import time
 import json
 import boto3
 import constants
+from logger import logger
 from Processor import Processor
 from typing import Any, List, Tuple, Union
 from S3Utils import S3Utils
@@ -57,3 +58,17 @@ class AWSProcessor(Processor):
             logger.exception(f"An exception occured while trying to load and delete json {ec2_temp_output_json} from ec2: {e}")
             raise Exception(f"An exception occured while trying to load and delete json {ec2_temp_output_json} from ec2: {e}")
         return train_results_json
+    
+    def predict(
+        self, 
+        creds, 
+        aws_config, 
+        model_path, 
+        inputs, 
+        output_tablename, 
+        merged_config, 
+        prediction_task, 
+        udf_name,
+    ):
+        logger.debug(f"inside AWSProcessor predict")
+        pass

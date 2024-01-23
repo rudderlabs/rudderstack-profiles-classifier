@@ -52,6 +52,7 @@ class MLTrainer(ABC):
         inputs: List[str],
         max_row_count: int,
         prep: utils.PreprocessorConfig,
+        outputs: utils.OutputsConfig,
     ):
         self.label_value = label_value
         self.label_column = label_column
@@ -67,6 +68,7 @@ class MLTrainer(ABC):
         self.inputs = inputs
         self.max_row_count = max_row_count
         self.prep = prep
+        self.outputs = outputs
         self.isStratify = None
 
     hyperopts_expressions_map = {

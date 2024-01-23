@@ -5,6 +5,7 @@ from typing import Any, List, Tuple, Union
 from MLTrainer import MLTrainer
 from Connector import Connector
 from preprocess_and_train import preprocess_and_train
+from preprocess_and_predict import preprocess_and_predict
 
 import snowflake.snowpark
 import redshift_connector
@@ -34,6 +35,30 @@ class Processor(ABC):
             train_procedure,
             material_names,
             merged_config,
+            session=self.session,
+            connector=self.connector,
+            trainer=self.trainer,
+        )
+
+    def predict(
+        self, 
+        creds, 
+        aws_config, 
+        model_path, 
+        inputs, 
+        output_tablename, 
+        merged_config, 
+        prediction_task, 
+        udf_name,
+    ):
+        return preprocess_and_predict(
+            creds, 
+            aws_config, 
+            model_path, 
+            inputs, 
+            output_tablename,
+            prediction_task, 
+            udf_name,
             session=self.session,
             connector=self.connector,
             trainer=self.trainer,

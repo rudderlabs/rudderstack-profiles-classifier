@@ -72,6 +72,13 @@ class PreprocessorConfig:
     test_size: float
     val_size: float
 
+@dataclass
+class OutputsConfig:
+    """OutputsConfig class is used to store the outputs configuration parameters"""
+
+    column_names: dict
+    feature_meta_data: List[dict]
+
 
 class TrainerUtils:
     evalution_metrics_map_regressor = {

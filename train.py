@@ -112,10 +112,11 @@ def train(
     )  # Assuming default as classification
 
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
+    outputs_config = utils.OutputsConfig(**merged_config["outputs"])
     if prediction_task == "classification":
-        trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config)
+        trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config, outputs=outputs_config)
     elif prediction_task == "regression":
-        trainer = RegressionTrainer(**merged_config["data"], prep=prep_config)
+        trainer = RegressionTrainer(**merged_config["data"], prep=prep_config, outputs=outputs_config)
 
     logger.debug(
         f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"

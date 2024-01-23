@@ -5,7 +5,7 @@ from redshift_connector.cursor import Cursor
 from RedshiftConnector import RedshiftConnector
 import pandas as pd
 from unittest.mock import Mock
-
+from constants import TrainTablesInfo
 import unittest
 
 
@@ -79,10 +79,10 @@ class TestGetMaterialNames(unittest.TestCase):
         # Set up the expected input and output
         input_materials = [("feature_table_name", "label_table_name")]
         input_training_dates = [("feature_table_dt", "label_table_dt")]
-        expected_materials = [({"name": "feature_table_name", "end_dt": "feature_table_dt"}, 
-                               {"name": "label_table_name", "end_dt": "label_table_dt"}
-                               )
-                              ]
+        expected_materials = [TrainTablesInfo(feature_table_name="feature_table_name", 
+                                              feature_table_date="feature_table_dt", 
+                                              label_table_name="label_table_name", 
+                                              label_table_date="label_table_dt")]
 
         # Mock the internal method get_material_names_
         self.connector.get_material_names_ = Mock(return_value=(input_materials, input_training_dates))
@@ -109,9 +109,10 @@ class TestGetMaterialNames(unittest.TestCase):
         # Set up the expected input and output
         input_materials = [("feature_table_name", "label_table_name")]
         input_training_dates = [("feature_table_dt", "label_table_dt")]
-        expected_materials = [
-            ({"name": "feature_table_name", "end_dt": "feature_table_dt"}, {"name": "label_table_name", "end_dt": "label_table_dt"})
-        ]        
+        expected_materials = [TrainTablesInfo(feature_table_name="feature_table_name", 
+                                        feature_table_date="feature_table_dt", 
+                                        label_table_name="label_table_name", 
+                                        label_table_date="label_table_dt")]
         # Mock the internal methods get_material_names_ and generate_training_materials
         self.connector.get_material_names_ = Mock(side_effect=[([], []), (input_materials, input_training_dates)])
         self.connector.generate_training_materials = self.session_mock()

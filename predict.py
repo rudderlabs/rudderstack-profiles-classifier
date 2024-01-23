@@ -247,6 +247,7 @@ def predict(
     )
     logger.debug("Writing predictions to warehouse")
     # TODO - Get role, bucket, path from site config
+    print(aws_config)
     if aws_config is not None & aws_config["access_key_id"] is None:
         s3_creds = S3Utils.get_temporary_credentials("arn:aws:iam::454531037350:role/profiles-ml-s3")
         aws_config["bucket"] = constants.S3_BUCKET

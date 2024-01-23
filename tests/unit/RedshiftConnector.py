@@ -144,7 +144,7 @@ class TestGetMaterialNames(unittest.TestCase):
             self.input_models
         )
         
-    def test_materializes_data_only_once_even_if_it_cant_find_right_materials(self):
+    def test_materializes_data_once_even_if_it_cant_find_right_materials(self):
         # Mock the internal methods get_material_names_ and generate_training_materials
         self.connector.get_material_names_ = Mock(return_value=([], []))
         self.connector.generate_training_materials = Mock()
@@ -166,7 +166,7 @@ class TestGetMaterialNames(unittest.TestCase):
                 self.input_models
             )
         # Check the exception message
-        self.assertIn("No materialised data found with model_hash", str(context.exception))
+        self.assertIn("Tried to materialise past data but no materialized data found", str(context.exception))
 
         # Assert generate_training_materials called once
         self.connector.generate_training_materials.assert_called_once_with(

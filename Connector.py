@@ -63,49 +63,40 @@ class Connector(ABC):
             List[Tuple[Dict[str, str], Dict[str, str]]]: EXAMPLE:
             materials = [({"name": feature_table_name, "end_dt": feature_table_dt}, {"name": label_table_name, "end_dt": label_table_dt})....]
         """
-        materialised_past_data = False
-        material_names = []
-        training_dates = []
-        attempts = 0
-        max_attempts = 2
-        while len(material_names) == 0 and attempts < max_attempts:
-            attempts += 1
+        material_names, training_dates = self.get_material_names_(session,
+                                                                  material_table,
+                                                                  start_date,
+                                                                  end_date,
+                                                                  features_profiles_model,
+                                                                  model_hash,
+                                                                  material_table_prefix,
+                                                                  prediction_horizon_days)
+        if len(material_names) == 0:
             try:
-                material_names, training_dates = self.get_material_names_(
-                    session,
-                    material_table,
+                _ = self.generate_training_materials(
                     start_date,
-                    end_date,
-                    features_profiles_model,
-                    model_hash,
-                    material_table_prefix,
                     prediction_horizon_days,
+                    output_filename,
+                    site_config_path,
+                    project_folder,
+                    input_models,
                 )
+                material_names, training_dates = self.get_material_names_(session,
+                                                                          material_table,
+                                                                          start_date,
+                                                                          end_date,
+                                                                          features_profiles_model,
+                                                                          model_hash,
+                                                                          material_table_prefix,
+                                                                          prediction_horizon_days)
             except Exception as e:
-                logger.error(e)
                 raise Exception(
-                    f"Exception occured while retrieving material names with hash {model_hash} for {features_profiles_model} between dates {start_date} and {end_date}. Please check the logs for more details"
+                    f"Following exception occured while generating past materials with hash {model_hash} for {features_profiles_model} between dates {start_date} and {end_date}: {e}"
                 )
-            if len(material_names) == 0 and not materialised_past_data:
-                materialised_past_data = True
-                try:
-                    _ = self.generate_training_materials(
-                        start_date,
-                        prediction_horizon_days,
-                        output_filename,
-                        site_config_path,
-                        project_folder,
-                        input_models,
-                    )
-                except Exception as e:
-                    logger.error(e)
-                    raise Exception(
-                        f"Exception occured while generating past materialswith hash {model_hash} for {features_profiles_model} between dates {start_date} and {end_date}. Please check the logs for more details"
-                    )
-            elif len(material_names) == 0 and materialised_past_data:
-                raise Exception(
-                    f"No materialised data found with model_hash {model_hash} in the given date range. Generate {features_profiles_model} for atleast two dates separated by {prediction_horizon_days} days, where the first date is between {start_date} and {end_date}. This error means the model is unable to find historic data for training. In the python_model spec, ensure to give the paths to the feature table model correctly in train/inputs and point the same in train/config/data"
-                )
+        if len(material_names) == 0:
+            raise Exception(
+                f"Tried to materialise past data but no materialized data found for {features_profiles_model} between dates {start_date} and {end_date}"
+            )
         materials = []
         for material_pair, date_pair in zip(material_names, training_dates):
             train_table_info = TrainTablesInfo(feature_table_name = material_pair[0],

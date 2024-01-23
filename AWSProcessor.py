@@ -70,5 +70,29 @@ class AWSProcessor(Processor):
         prediction_task, 
         udf_name,
     ):
-        logger.debug(f"inside AWSProcessor predict")
-        pass
+        remote_dir = constants.REMOTE_DIR
+        instance_id = constants.INSTANCE_ID
+        ssm_sleep_time = constants.SSM_SLEEP_TIME
+
+        local_folder = self.connector.get_local_dir()
+        json_output_filename = model_path.split("/")[-1]
+
+        PREDICT_UPLOAD_WHITELIST = [file for file in os.listdir(local_folder) 
+                                        if os.path.isfile(os.path.join(local_folder, file)) and 
+                                        not file.endswith(".gzip")]+[json_output_filename]
+        S3Utils.upload_directory(aws_config["bucket"], aws_config["region"], aws_config["path"], os.path.dirname(local_folder), PREDICT_UPLOAD_WHITELIST)
+
+        ssm_client = boto3.client(service_name='ssm', region_name=aws_config["region"])
+        commands = [
+        f"cd {remote_dir}/rudderstack-profiles-classifier",
+        f"pip install -r requirements.txt",
+        f"""python3 preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' 
+                                            --aws_config '{json.dumps(aws_config)}' 
+                                            --json_output_filename {json_output_filename} 
+                                            --inputs '{json.dumps(inputs)}' 
+                                            --output_tablename {output_tablename} 
+                                            --merged_config '{json.dumps(merged_config)}' 
+                                            --prediction_task {prediction_task} 
+                                            --udf_name {udf_name}""",
+        ]
+        self._execute(ssm_client, instance_id, commands, ssm_sleep_time)

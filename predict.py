@@ -56,6 +56,25 @@ def predict(
         None: save the prediction results but returns nothing
     """
     logger.debug("Starting Predict job")
+
+    if aws_config is None:
+        import configparser
+        homedir = os.path.expanduser("~")
+        credentials_file_path = os.path.join(homedir, ".aws/credentials")
+        if os.path.exists(credentials_file_path):
+            config = configparser.ConfigParser()
+            config.read(credentials_file_path)
+        else:
+            raise Exception(f"Credentials file not found at {credentials_file_path}.")
+        aws_config = {
+            "access_key_id": config.get("default", "aws_access_key_id"),
+            "access_key_secret": config.get("default", "aws_secret_access_key"),
+            "aws_session_token": config.get("default", "aws_session_token"),
+            "bucket": constants.S3_BUCKET,
+            "path": constants.S3_PATH,
+            "region": constants.AWS_REGION_NAME,
+        }
+
     is_rudder_backend = utils.fetch_key_from_dict(
         runtime_info, "is_rudder_backend", False
     )
@@ -103,7 +122,6 @@ def predict(
     elif creds["type"] == "redshift":
         connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
-        local_folder = connector.get_local_dir()
 
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend

@@ -13,6 +13,7 @@ import snowflake.snowpark.functions as F
 
 import utils
 import constants
+from S3Utils import S3Utils
 from logger import logger
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -204,3 +205,66 @@ def preprocess_and_predict(
     logger.debug("Closing the session")    
     connector.cleanup(session, udf_name=udf_name,close_session=True)
     logger.debug("Finished Predict job")
+
+
+
+if __name__ == "__main__":
+    import argparse
+    from MLTrainer import ClassificationTrainer, RegressionTrainer
+
+    try:
+        from RedshiftConnector import RedshiftConnector
+    except ImportError:
+        raise Exception("Could not import RedshiftConnector")
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--wh_creds", type=json.loads)
+    parser.add_argument("--aws_config", type=json.loads)
+    parser.add_argument("--json_output_filename", type=str)
+    parser.add_argument("--inputs", type=json.loads)
+    parser.add_argument("--output_tablename", type=str)
+    parser.add_argument("--merged_config", type=json.loads)
+    parser.add_argument("--prediction_task", type=str)
+    parser.add_argument("--udf_name", type=str)
+    parser.add_argument("--mode", type=str)
+    args = parser.parse_args()
+
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.join(current_dir, "output")
+
+    S3Utils.download_directory_using_keys(args.aws_config, output_dir)
+
+    if args.mode == constants.K8S_MODE:
+        wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
+        wh_creds = json.loads(wh_creds_str)
+    else:
+        wh_creds = args.wh_creds
+
+    prep_config = utils.PreprocessorConfig(**args.merged_config["preprocessing"])
+    outputs_config = utils.OutputsConfig(**args.merged_config["outputs"])
+    if args.prediction_task == "classification":
+        trainer = ClassificationTrainer(**args.merged_config["data"], prep=prep_config, outputs=outputs_config)
+    elif args.prediction_task == "regression":
+        trainer = RegressionTrainer(**args.merged_config["data"], prep=prep_config, outputs=outputs_config)
+
+    end_ts = args.merged_config.get("end_ts", None)
+    trainer.set_end_ts(end_ts)
+    # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
+    connector = RedshiftConnector(output_dir)
+    session = connector.build_session(wh_creds)
+
+    model_path = os.path.join(output_dir, args.json_output_filename)
+
+    _ = preprocess_and_predict(
+        wh_creds,
+        args.aws_config,
+        model_path,
+        args.inputs,
+        args.output_tablename,
+        args.prediction_task,
+        args.udf_name,
+        session=session,
+        connector=connector,
+        trainer=trainer,
+    )

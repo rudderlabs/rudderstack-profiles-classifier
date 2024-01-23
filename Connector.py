@@ -40,6 +40,7 @@ class Connector(ABC):
         site_config_path: str,
         project_folder: str,
         input_models: List[str],
+        inputs: List[str]
     ) -> List[TrainTablesInfo]:
         """
         Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
@@ -58,6 +59,7 @@ class Connector(ABC):
             site_config_path (str): path to the siteconfig.yaml file
             project_folder (str): project folder path to pb_project.yaml file
             input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model.
+            inputs (List[str]): List of input material queries
 
         Returns:
             List[Tuple[Dict[str, str], Dict[str, str]]]: EXAMPLE:
@@ -71,7 +73,7 @@ class Connector(ABC):
                                                                   model_hash,
                                                                   material_table_prefix,
                                                                   prediction_horizon_days,
-                                                                  input_models)
+                                                                  inputs)
         if len(material_names) == 0:
             try:
                 _ = self.generate_training_materials(
@@ -90,7 +92,7 @@ class Connector(ABC):
                                                                           model_hash,
                                                                           material_table_prefix,
                                                                           prediction_horizon_days,
-                                                                          input_models)
+                                                                          inputs)
             except Exception as e:
                 raise Exception(
                     f"Following exception occured while generating past materials with hash {model_hash} for {features_profiles_model} between dates {start_date} and {end_date}: {e}"

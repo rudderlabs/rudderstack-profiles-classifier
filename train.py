@@ -111,9 +111,6 @@ def train(
         "task", "classification"
     )  # Assuming default as classification
 
-    # update inputs for the trainer
-    merged_config["data"]["inputs"] = inputs
-
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == "classification":
         trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config)
@@ -323,6 +320,7 @@ def train(
             site_config_path,
             project_folder,
             trainer.inputs,
+            inputs,
         )
     except TypeError:
         raise Exception(

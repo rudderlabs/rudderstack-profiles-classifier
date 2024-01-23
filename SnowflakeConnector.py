@@ -550,7 +550,7 @@ class SnowflakeConnector(Connector):
                         + " limit 1"
 
                     try:
-                        session.sql(temp_input)
+                        session.sql(temp_input).collect()
                         material_names.append((feature_table_name_, label_table_name_))
                         training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
                     except:

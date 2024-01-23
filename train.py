@@ -111,6 +111,9 @@ def train(
         "task", "classification"
     )  # Assuming default as classification
 
+    # update inputs for the trainer
+    merged_config["data"]["inputs"] = inputs
+
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == "classification":
         trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config)

@@ -491,7 +491,8 @@ class RedshiftConnector(Connector):
                         + " limit 1"
 
                     try:
-                        cursor.sql(temp_input)
+                        temp_df = cursor.execute(temp_input).fetch_dataframe()
+                        assert len(temp_df) != 0
                         material_names.append((feature_material_name, label_meterial_name))
                         training_dates.append(
                             (str(row["feature_end_ts"]), str(row["label_end_ts"]))

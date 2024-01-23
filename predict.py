@@ -54,7 +54,6 @@ def predict(
     model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
-    target_path = utils.get_output_directory(folder_path)
 
     default_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
     _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
@@ -217,7 +216,7 @@ def predict(
             predictions = predict_helper(
                 df, model_name, column_names_path=column_names_file, model_task=task
             )
-            return predictions
+            return predictions.round(4)
 
         prediction_udf = predict_scores
     elif creds["type"] == "redshift":
@@ -227,7 +226,7 @@ def predict(
             predictions = predict_helper(
                 df, model_name, column_names_path=column_names_path, model_task=task
             )
-            return predictions
+            return predictions.round(4)
 
         prediction_udf = predict_scores_rs
     

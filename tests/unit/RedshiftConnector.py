@@ -73,6 +73,7 @@ class TestGetMaterialNames(unittest.TestCase):
         self.site_config_path = "siteconfig.yaml"
         self.project_folder = "project_folder"
         self.input_models = ["model1.yaml", "model2.yaml"]
+        self.inputs = ["""select * from material_user_var_736465_0"""]
 
     # Retrieves material names and training dates when materialized data is available within the specified date range
     def test_retrieves_material_names_within_date_range(self):
@@ -99,7 +100,8 @@ class TestGetMaterialNames(unittest.TestCase):
             self.output_filename,
             self.site_config_path,
             self.project_folder,
-            self.input_models
+            self.input_models,
+            self.inputs
         )
         # Assert the result
         self.assertEqual(materials, expected_materials)
@@ -130,7 +132,8 @@ class TestGetMaterialNames(unittest.TestCase):
             self.output_filename,
             self.site_config_path,
             self.project_folder,
-            self.input_models
+            self.input_models,
+            self.inputs
         )
 
         # Assert the result
@@ -163,7 +166,8 @@ class TestGetMaterialNames(unittest.TestCase):
                 self.output_filename,
                 self.site_config_path,
                 self.project_folder,
-                self.input_models
+                self.input_models,
+                self.inputs
             )
         # Check the exception message
         self.assertIn("Tried to materialise past data but no materialized data found", str(context.exception))

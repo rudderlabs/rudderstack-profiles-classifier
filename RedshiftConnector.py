@@ -471,36 +471,29 @@ class RedshiftConnector(Connector):
                     material_table_prefix,
                     model_name,
                     model_hash,
-                    str(row["feature_seq_no"]),
+                    feat_seq_no,
                 )
 
+                label_seq_no = str(row["label_seq_no"])
                 label_meterial_name = utils.generate_material_name(
                     material_table_prefix,
                     model_name,
                     model_hash,
-                    str(row["label_seq_no"]),
+                    label_seq_no,
                 )
 
                 # Iterate over inputs and validate meterial names
-                for input in inputs:
-                    # Replace the last seq_no with the current seq_no
-                    # and prepare sql statement to check for the table existence
-                    # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
-                    temp_input = "_".join(input.split("_")[:-1])  \
-                        + "_" + feat_seq_no \
-                        + " limit 1"
-
-                    try:
-                        temp_df = cursor.execute(temp_input).fetch_dataframe()
-                        assert len(temp_df) != 0
+                for input_material_query in inputs:
+                    if self.validate_historical_materials_hash(
+                        cursor,
+                        input_material_query,
+                        feat_seq_no,
+                        label_seq_no
+                    ):
                         material_names.append((feature_material_name, label_meterial_name))
                         training_dates.append(
                             (str(row["feature_end_ts"]), str(row["label_end_ts"]))
                         )
-                    except:
-                        logger.warning(f"Input is not materialized for seq_no {feat_seq_no}, \
-                                       ignoring the material_name {feature_material_name}")
-
             return material_names, training_dates
         except Exception as e:
             raise Exception(

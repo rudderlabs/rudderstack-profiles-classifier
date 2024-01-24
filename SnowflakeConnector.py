@@ -541,21 +541,15 @@ class SnowflakeConnector(Connector):
                     continue
 
                 # Iterate over inputs and validate meterial names
-                for input in inputs:
-                    # Replace the last seq_no with the current seq_no
-                    # and prepare sql statement to check for the table existence
-                    # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
-                    temp_input = "_".join(input.split("_")[:-1])  \
-                        + "_" + f"{row.FEATURE_SEQ_NO}" \
-                        + " limit 1"
-
-                    try:
-                        session.sql(temp_input).collect()
+                for input_material_query in inputs:
+                    if self.validate_historical_materials_hash(
+                        session,
+                        input_material_query,
+                        row.FEATURE_SEQ_NO,
+                        row.LABEL_SEQ_NO
+                    ):
                         material_names.append((feature_table_name_, label_table_name_))
                         training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
-                    except:
-                        logger.warning(f"Input are not materialized for seq_no {row.FEATURE_SEQ_NO}, \
-                                       ignoring the material_name {feature_table_name_}")
             return material_names, training_dates
         except Exception as e:
             raise Exception(

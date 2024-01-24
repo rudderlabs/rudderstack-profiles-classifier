@@ -170,7 +170,7 @@ def test_regressor():
         project_path,
     )
 
-    train_inputs = [f"""SELECT * FROM PROFILES_INTEGRATION_TEST.material_user_var_table_{latest_model_hash}_0""",]
+    train_inputs = [f"""SELECT * FROM {creds['schema']}.material_user_var_table_{latest_model_hash}_0""",]
 
     try:
         train(creds, train_inputs, output_filename, train_config, siteconfig_path, project_path)
@@ -181,7 +181,7 @@ def test_regressor():
             results = json.load(f)
 
         material_table_name = results['config']['material_names'][0][-1] 
-        predict_inputs = [f"SELECT * FROM PROFILES_INTEGRATION_TEST.{material_table_name}",]
+        predict_inputs = [f"SELECT * FROM {creds['schema']}.{material_table_name}",]
 
         predict(creds, s3_config, output_filename, predict_inputs, p_output_tablename, predict_config)
         validate_predictions_df()

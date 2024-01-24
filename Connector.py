@@ -246,6 +246,46 @@ class Connector(ABC):
             )
         return model_hash
 
+    def validate_historical_materials_hash(
+        self,
+        session,
+        material_table_query: str,
+        feature_material_seq_no: str,
+        label_material_seq_no: str
+    ) -> bool:
+        """ This function will validate the input material query with seq number from historical material tables
+
+        Args:
+            session: WH connector session/cursor for data warehouse access
+            material_table_query (str): Query to fetch the material table names
+            feature_material_seq_no (str): feature material seq no
+            label_material_seq_no (str): label material seq no
+        Returns:
+            bool: True if the material table exists with given seq no else False
+        """
+        try:
+            # Replace the last seq_no with the current seq_no
+            # and prepare sql statement to check for the table existence
+            # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
+            feature_table_query = utils.replace_seq_no_in_query(
+                material_table_query,
+                feature_material_seq_no
+            ) + " limit 1"
+            result = self.run_query(session, feature_table_query, response=True)
+            assert len(result) != 0
+
+            label_table_query = utils.replace_seq_no_in_query(
+                material_table_query,
+                label_material_seq_no
+            ) + " limit 1"
+            result = self.run_query(session, label_table_query, response=True)
+            assert len(result) != 0
+            return True
+        except:
+            logger.info(f"{material_table_query} is not materialized for one of the \
+                        seq nos {feature_material_seq_no}, {label_material_seq_no}")
+            return False
+
     @abstractmethod
     def build_session(self, credentials: dict):
         pass

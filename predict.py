@@ -10,6 +10,7 @@ import pandas as pd
 from typing import Any , List
 from logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+from S3Utils import S3Utils
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
@@ -54,7 +55,6 @@ def predict(
     model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
-    target_path = utils.get_output_directory(folder_path)
 
     default_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
     _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
@@ -217,7 +217,7 @@ def predict(
             predictions = predict_helper(
                 df, model_name, column_names_path=column_names_file, model_task=task
             )
-            return predictions
+            return predictions.round(4)
 
         prediction_udf = predict_scores
     elif creds["type"] == "redshift":
@@ -227,7 +227,7 @@ def predict(
             predictions = predict_helper(
                 df, model_name, column_names_path=column_names_path, model_task=task
             )
-            return predictions
+            return predictions.round(4)
 
         prediction_udf = predict_scores_rs
     
@@ -246,6 +246,15 @@ def predict(
         input,
     )
     logger.debug("Writing predictions to warehouse")
+    # TODO - Get role, bucket, path from site config
+    # TODO - replace the aws check with infra mode check
+    if bool(aws_config) & ("access_key_id" not in aws_config):
+        s3_creds = S3Utils.get_temporary_credentials("arn:aws:iam::454531037350:role/profiles-ml-s3")
+        aws_config["bucket"] = constants.S3_BUCKET
+        aws_config["path"] = constants.S3_PATH
+        aws_config["access_key_id"] = s3_creds["access_key_id"]
+        aws_config["access_key_secret"] = s3_creds["access_key_secret"]
+        aws_config["aws_session_token"] = s3_creds["aws_session_token"]
     connector.write_table(
         preds_with_percentile, output_tablename, write_mode="overwrite", local=False , if_exists="replace", s3_config=aws_config
     )

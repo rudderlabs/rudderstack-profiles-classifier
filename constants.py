@@ -20,8 +20,17 @@ INSTANCE_ID = "i-001c6544decab0fa3"
 EC2_TEMP_OUTPUT_JSON = "train_results.json"
 S3_BUCKET = "ml-usecases-poc-srinivas"
 AWS_REGION_NAME="us-east-1"
-S3_PATH = "test_export/"
+S3_PATH = "jobId/jobRunId/taskRunId"
 SSM_SLEEP_TIME = 5
 K8S_WH_CREDS_KEY="WAREHOUSE_CREDS"
 K8S_MODE="K8S"
 K8S_TIMEOUT_IN_SEC=120
+
+
+from typing import NamedTuple
+
+class TrainTablesInfo(NamedTuple):
+    feature_table_name: str
+    feature_table_date: int
+    label_table_name: str
+    label_table_date: int

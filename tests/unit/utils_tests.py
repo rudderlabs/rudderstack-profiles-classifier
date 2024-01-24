@@ -1,6 +1,7 @@
 import sys
 import unittest
-sys.path.append('../..')
+
+sys.path.append("../..")
 
 from utils import replace_seq_no_in_query
 

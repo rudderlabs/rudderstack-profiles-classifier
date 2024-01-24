@@ -402,6 +402,7 @@ def get_output_directory(folder_path: str) -> str:
     target_path.mkdir(parents=True, exist_ok=True)
     return str(target_path)
 
+
 def delete_file(file_path):
     try:
         os.remove(file_path)
@@ -412,6 +413,7 @@ def delete_file(file_path):
         logger.error(f"Error: Permission denied. Unable to delete '{file_path}'.")
     except OSError as e:
         logger.error(f"Error occurred while deleting file '{file_path}': {e}")
+
 
 def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple:
     """This function will return the start_date and end_date on basis of latest hash
@@ -501,7 +503,7 @@ def get_project_folder(project_folder: str, output_path: str) -> str:
     return project_folder
 
 
-def get_feature_package_path( input_models: List[str]) -> str:
+def get_feature_package_path(input_models: List[str]) -> str:
     """Returns the feature package path
 
     Args:
@@ -510,8 +512,10 @@ def get_feature_package_path( input_models: List[str]) -> str:
     Returns:
         str: feature package path
     """
-    assert len(input_models)>0 , "No input models provided in the config. Path to profiles input models (ex: models/<entity_var_name>) must be specified in the train data config."
-    return ','.join(input_models) 
+    assert (
+        len(input_models) > 0
+    ), "No input models provided in the config. Path to profiles input models (ex: models/<entity_var_name>) must be specified in the train data config."
+    return ",".join(input_models)
 
 
 def subprocess_run(args):

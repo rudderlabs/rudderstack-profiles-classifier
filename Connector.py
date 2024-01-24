@@ -40,7 +40,7 @@ class Connector(ABC):
         site_config_path: str,
         project_folder: str,
         input_models: List[str],
-        inputs: List[str]
+        inputs: List[str],
     ) -> List[TrainTablesInfo]:
         """
         Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
@@ -65,15 +65,17 @@ class Connector(ABC):
             List[Tuple[Dict[str, str], Dict[str, str]]]: EXAMPLE:
             materials = [({"name": feature_table_name, "end_dt": feature_table_dt}, {"name": label_table_name, "end_dt": label_table_dt})....]
         """
-        material_names, training_dates = self.get_material_names_(session,
-                                                                  material_table,
-                                                                  start_date,
-                                                                  end_date,
-                                                                  features_profiles_model,
-                                                                  model_hash,
-                                                                  material_table_prefix,
-                                                                  prediction_horizon_days,
-                                                                  inputs)
+        material_names, training_dates = self.get_material_names_(
+            session,
+            material_table,
+            start_date,
+            end_date,
+            features_profiles_model,
+            model_hash,
+            material_table_prefix,
+            prediction_horizon_days,
+            inputs,
+        )
         if len(material_names) == 0:
             try:
                 _ = self.generate_training_materials(
@@ -84,15 +86,17 @@ class Connector(ABC):
                     project_folder,
                     input_models,
                 )
-                material_names, training_dates = self.get_material_names_(session,
-                                                                          material_table,
-                                                                          start_date,
-                                                                          end_date,
-                                                                          features_profiles_model,
-                                                                          model_hash,
-                                                                          material_table_prefix,
-                                                                          prediction_horizon_days,
-                                                                          inputs)
+                material_names, training_dates = self.get_material_names_(
+                    session,
+                    material_table,
+                    start_date,
+                    end_date,
+                    features_profiles_model,
+                    model_hash,
+                    material_table_prefix,
+                    prediction_horizon_days,
+                    inputs,
+                )
             except Exception as e:
                 raise Exception(
                     f"Following exception occured while generating past materials with hash {model_hash} for {features_profiles_model} between dates {start_date} and {end_date}: {e}"
@@ -103,13 +107,14 @@ class Connector(ABC):
             )
         materials = []
         for material_pair, date_pair in zip(material_names, training_dates):
-            train_table_info = TrainTablesInfo(feature_table_name = material_pair[0],
-                                               feature_table_date = date_pair[0],
-                                               label_table_name = material_pair[1],
-                                               label_table_date = date_pair[1])
+            train_table_info = TrainTablesInfo(
+                feature_table_name=material_pair[0],
+                feature_table_date=date_pair[0],
+                label_table_name=material_pair[1],
+                label_table_date=date_pair[1],
+            )
             materials.append(train_table_info)
         return materials
-        
 
     def generate_training_materials(
         self,
@@ -133,9 +138,7 @@ class Connector(ABC):
         Returns:
             Tuple[str, str]: A tuple containing feature table date and label table date strings
         """
-        feature_package_path = utils.get_feature_package_path(
-           input_models
-        )
+        feature_package_path = utils.get_feature_package_path(input_models)
         feature_date = utils.date_add(start_date, prediction_horizon_days)
         label_date = utils.date_add(feature_date, prediction_horizon_days)
         materialise_feature_data = utils.materialise_past_data(
@@ -241,15 +244,13 @@ class Connector(ABC):
             )
         
         material_file_prefix = (
-            constants.MATERIAL_TABLE_PREFIX
-            + features_profiles_model
-            + "_"
+            constants.MATERIAL_TABLE_PREFIX + features_profiles_model + "_"
         ).lower()
 
         try:
             model_hash = pb_compile_output[
                 pb_compile_output.index(material_file_prefix)
-                + len(material_file_prefix):
+                + len(material_file_prefix) :
             ].split("_")[0]
         except ValueError:
             raise Exception(
@@ -262,9 +263,9 @@ class Connector(ABC):
         session,
         material_table_query: str,
         feature_material_seq_no: str,
-        label_material_seq_no: str
+        label_material_seq_no: str,
     ) -> bool:
-        """ This function will validate the input material query with seq number from historical material tables
+        """This function will validate the input material query with seq number from historical material tables
 
         Args:
             session: WH connector session/cursor for data warehouse access
@@ -278,23 +279,29 @@ class Connector(ABC):
             # Replace the last seq_no with the current seq_no
             # and prepare sql statement to check for the table existence
             # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
-            feature_table_query = utils.replace_seq_no_in_query(
-                material_table_query,
-                feature_material_seq_no
-            ) + " limit 1"
+            feature_table_query = (
+                utils.replace_seq_no_in_query(
+                    material_table_query, feature_material_seq_no
+                )
+                + " limit 1"
+            )
             result = self.run_query(session, feature_table_query, response=True)
             assert len(result) != 0
 
-            label_table_query = utils.replace_seq_no_in_query(
-                material_table_query,
-                label_material_seq_no
-            ) + " limit 1"
+            label_table_query = (
+                utils.replace_seq_no_in_query(
+                    material_table_query, label_material_seq_no
+                )
+                + " limit 1"
+            )
             result = self.run_query(session, label_table_query, response=True)
             assert len(result) != 0
             return True
         except:
-            logger.info(f"{material_table_query} is not materialized for one of the \
-                        seq nos {feature_material_seq_no}, {label_material_seq_no}")
+            logger.info(
+                f"{material_table_query} is not materialized for one of the \
+                        seq nos {feature_material_seq_no}, {label_material_seq_no}"
+            )
             return False
 
     @abstractmethod
@@ -316,7 +323,7 @@ class Connector(ABC):
     @abstractmethod
     def get_merged_table(self, feature_table, feature_table_instance):
         pass
-    
+
     @abstractmethod
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
@@ -417,7 +424,7 @@ class Connector(ABC):
         model_hash: str,
         material_table_prefix: str,
         prediction_horizon_days: int,
-        inputs: List[str]
+        inputs: List[str],
     ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         pass
 
@@ -443,7 +450,7 @@ class Connector(ABC):
         material_table: str,
         model_name: str,
         model_hash: str,
-        seq_no: int
+        seq_no: int,
     ):
         pass
 

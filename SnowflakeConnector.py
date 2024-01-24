@@ -63,22 +63,22 @@ class SnowflakeConnector(Connector):
             Results of the query run on the snowpark session
         """
         return session.sql(query).collect()
-    
+
     def call_procedure(self, *args, **kwargs):
         """Calls the given procedure on the snowpark session
 
         Args:
             session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
             args (list): List of arguments to be passed to the procedure
-        
+
         Returns:
             Results of the procedure call
         """
-        session = kwargs.get('session', None)
+        session = kwargs.get("session", None)
         if session == None:
             raise Exception("Session object not found")
         return session.call(*args)
-    
+
     def get_merged_table(self, base_table, incoming_table):
         """Returns the merged table of base_table and incoming_table.
 
@@ -89,8 +89,12 @@ class SnowflakeConnector(Connector):
         Returns:
             snowflake.snowpark.Table: Merged table of feature table and feature table instance
         """
-        return incoming_table if base_table is None else base_table.unionAllByName(incoming_table)
-    
+        return (
+            incoming_table
+            if base_table is None
+            else base_table.unionAllByName(incoming_table)
+        )
+
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:
@@ -469,7 +473,7 @@ class SnowflakeConnector(Connector):
         model_hash: str,
         material_table_prefix: str,
         prediction_horizon_days: int,
-        inputs: List[str]
+        inputs: List[str],
     ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
 
@@ -546,10 +550,12 @@ class SnowflakeConnector(Connector):
                         session,
                         input_material_query,
                         row.FEATURE_SEQ_NO,
-                        row.LABEL_SEQ_NO
+                        row.LABEL_SEQ_NO,
                     ):
                         material_names.append((feature_table_name_, label_table_name_))
-                        training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
+                        training_dates.append(
+                            (str(row.FEATURE_END_TS), str(row.LABEL_END_TS))
+                        )
             return material_names, training_dates
         except Exception as e:
             raise Exception(
@@ -592,7 +598,7 @@ class SnowflakeConnector(Connector):
         material_table: str,
         model_name: str,
         model_hash: str,
-        entity_key: str
+        entity_key: str,
     ):
         """This function will return the model hash that is latest for given model name in material table
 
@@ -626,12 +632,7 @@ class SnowflakeConnector(Connector):
         return creation_ts
 
     def get_end_ts(
-        self,
-        session,
-        material_table,
-        model_name: str,
-        model_hash: str,
-        seq_no: int
+        self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
         """This function will return the end_ts with given model hash and model name
 
@@ -797,16 +798,17 @@ class SnowflakeConnector(Connector):
             None
         """
         try:
-
             if label_column.upper() not in feature_table.columns:
-                raise Exception(f"Label column {label_column} is not present in the feature table.")
+                raise Exception(
+                    f"Label column {label_column} is not present in the feature table."
+                )
 
             # Check if feature_table has at least one column apart from label_column and entity_column
             if feature_table.shape[1] < 3:
                 raise Exception(
                     f"Feature table must have at least one column apart from the label column {label_column}."
                 )
-        
+
             distinct_values_count = feature_table.groupBy(label_column).count()
 
             if task_type == "classification":
@@ -1106,7 +1108,7 @@ class SnowflakeConnector(Connector):
         stored_procedure_name = kwargs.get("stored_procedure_name", None)
         udf_name = kwargs.get("udf_name", None)
         delete_files = kwargs.get("delete_files", None)
-        close_session = kwargs.get('close_session', False)
+        close_session = kwargs.get("close_session", False)
 
         stage_name = kwargs.get("stage_name", None)
         if stored_procedure_name:

@@ -30,7 +30,7 @@ class AWSProcessor(Processor):
 
         print("Error logs : ", output2)
 
-    def train(self, train_procedure, materials: List[constants.TrainTablesInfo], merged_config: dict, prediction_task: str, wh_creds: dict):
+    def train(self, train_procedure, materials: List[constants.TrainTablesInfo], merged_config: dict, prediction_task: str, wh_creds: dict, site_config: dict):
         remote_dir = constants.REMOTE_DIR
         instance_id = constants.INSTANCE_ID
         ec2_temp_output_json = constants.EC2_TEMP_OUTPUT_JSON

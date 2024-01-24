@@ -89,3 +89,6 @@ class AWSProcessor(Processor):
         f"python3 preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' --aws_config '{json.dumps(aws_config)}' --json_output_filename {json_output_filename} --inputs '{json.dumps(inputs)}' --output_tablename {output_tablename} --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --udf_name {udf_name}",
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
+        
+        S3Utils.delete_directory(aws_config["bucket"], aws_config["region"], aws_config["path"])
+        logger.debug("Done predicting")

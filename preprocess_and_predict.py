@@ -268,3 +268,5 @@ if __name__ == "__main__":
         connector=connector,
         trainer=trainer,
     )
+
+    utils.delete_folder(output_dir)

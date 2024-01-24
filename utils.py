@@ -409,7 +409,10 @@ def get_output_directory(folder_path: str) -> str:
     target_path.mkdir(parents=True, exist_ok=True)
     return str(target_path)
 
-def delete_file(file_path):
+def delete_file(file_path: str) -> None:
+    """
+    Delete a file.
+    """
     try:
         os.remove(file_path)
         logger.info(f"File '{file_path}' deleted successfully from local.")
@@ -419,6 +422,34 @@ def delete_file(file_path):
         logger.error(f"Error: Permission denied. Unable to delete '{file_path}'.")
     except OSError as e:
         logger.error(f"Error occurred while deleting file '{file_path}': {e}")
+
+def delete_folder(folder_path: str) -> None:
+    """
+    Delete a folder and its contents recursively.
+
+    Parameters:
+        folder_path (str): The path of the folder to be deleted.
+
+    Returns:
+        None: The function does not return any value.
+
+    Raises:
+        FileNotFoundError: If the specified folder does not exist.
+        PermissionError: If there are permission issues while deleting the folder.
+        OSError: If an error occurs during the deletion process.
+
+    Example:
+        delete_folder("path/to/your/folder")
+    """
+    try:
+        shutil.rmtree(folder_path)
+        logger.info(f"Folder '{folder_path}' deleted successfully from local.")
+    except FileNotFoundError:
+        logger.error(f"Error: Folder '{folder_path}' not found.")
+    except PermissionError:
+        logger.error(f"Error: Permission denied. Unable to delete '{folder_path}'.")
+    except OSError as e:
+        logger.error(f"Error occurred while deleting folder '{folder_path}': {e}")
 
 def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple:
     """This function will return the start_date and end_date on basis of latest hash

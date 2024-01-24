@@ -58,25 +58,16 @@ def predict(
     """
     logger.debug("Starting Predict job")
 
-    #TODO: Remove this once we have a better way to pass aws_config
-    aws_config = None
-    if aws_config is None:
-        import configparser
-        homedir = os.path.expanduser("~")
-        credentials_file_path = os.path.join(homedir, ".aws/credentials")
-        if os.path.exists(credentials_file_path):
-            config_obj = configparser.ConfigParser()
-            config_obj.read(credentials_file_path)
-        else:
-            raise Exception(f"Credentials file not found at {credentials_file_path}.")
-        aws_config = {
-            "access_key_id": config_obj.get("default", "aws_access_key_id"),
-            "access_key_secret": config_obj.get("default", "aws_secret_access_key"),
-            "aws_session_token": config_obj.get("default", "aws_session_token"),
-            "bucket": constants.S3_BUCKET,
-            "path": constants.S3_PATH,
-            "region": constants.AWS_REGION_NAME,
-        }
+    # TODO - Get role, bucket, path from site config
+    # TODO - replace the aws check with infra mode check
+    if bool(aws_config) & ("access_key_id" not in aws_config):
+        s3_creds = S3Utils.get_temporary_credentials("arn:aws:iam::454531037350:role/profiles-ml-s3")
+        aws_config["bucket"] = constants.S3_BUCKET
+        aws_config["path"] = constants.S3_PATH
+        aws_config["region"] = constants.AWS_REGION_NAME
+        aws_config["access_key_id"] = s3_creds["access_key_id"]
+        aws_config["access_key_secret"] = s3_creds["access_key_secret"]
+        aws_config["aws_session_token"] = s3_creds["aws_session_token"]
 
     is_rudder_backend = utils.fetch_key_from_dict(
         runtime_info, "is_rudder_backend", False

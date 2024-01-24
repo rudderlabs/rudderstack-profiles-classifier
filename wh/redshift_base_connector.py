@@ -47,7 +47,7 @@ class RedShiftConnector(ConnectorBase):
             if self.s3_config is None:
                 df.to_sql(name=table_name.lower(), con=self.engine, schema=schema, index=False, if_exists=if_exists)
             else:
-                self.logger.info(f"Establishing connection to Redshift")
+                logger.info(f"Establishing connection to Redshift")
                 pr.connect_to_redshift(
                     dbname=self.db_config["database"],
                     host=self.creds["host"],
@@ -59,7 +59,7 @@ class RedShiftConnector(ConnectorBase):
                 s3_bucket = self.s3_config.get("bucket", None)
                 s3_sub_dir = self.s3_config.get("path", None)
 
-                self.logger.info(f"Establishing connection to S3")
+                logger.info(f"Establishing connection to S3")
                 pr.connect_to_s3(
                     aws_access_key_id=self.s3_config["access_key_id"],
                     aws_secret_access_key=self.s3_config["access_key_secret"],
@@ -70,13 +70,13 @@ class RedShiftConnector(ConnectorBase):
                 )
 
                 # Write the DataFrame to S3 and then to redshift
-                self.logger.info(f"Writing pandas df to S3 and then to Redshift")
+                logger.info(f"Writing pandas df to S3 and then to Redshift")
                 pr.pandas_to_redshift(
                     data_frame=df,
                     redshift_table_name=f"{schema}.{table_name}",
                     append=if_exists == "append",
                 )
-                self.logger.info(f"Successfully wrote table {table_name} to S3 and then to Redshift")
+                logger.info(f"Successfully wrote table {table_name} to S3 and then to Redshift")
         except Exception as e:
             #Check for non existing schema
             if "cannot copy into nonexistent table" in str(e).lower():

@@ -16,6 +16,7 @@ def build_trainer_config():
     config['inputs'] = None
     config['max_row_count'] = None
     config['prep'] = None
+    config['outputs'] = None
     config['recall_to_precision_importance'] = 0.
     return config
 

@@ -307,10 +307,12 @@ if __name__ == "__main__":
         wh_creds = args.wh_creds
 
     prep_config = utils.PreprocessorConfig(**args.merged_config["preprocessing"])
+    outputs_config = utils.OutputsConfig(**args.merged_config["outputs"])
     if args.prediction_task == "classification":
-        trainer = ClassificationTrainer(**args.merged_config["data"], prep=prep_config)
+        trainer = ClassificationTrainer(**args.merged_config["data"], prep=prep_config, outputs=outputs_config)
     elif args.prediction_task == "regression":
-        trainer = RegressionTrainer(**args.merged_config["data"], prep=prep_config)
+        trainer = RegressionTrainer(**args.merged_config["data"], prep=prep_config, outputs=outputs_config)
+
     end_ts = args.merged_config.get("end_ts", None)
     trainer.set_end_ts(end_ts)
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift

@@ -19,7 +19,7 @@ class S3Utils():
 
     def download_directory_using_keys(aws_config, local_directory):
         s3 = boto3.client('s3', region_name=aws_config['region'], aws_access_key_id=aws_config['access_key_id'],
-                          aws_secret_access_key=aws_config['secret_access_key'], aws_session_token=aws_config['aws_session_token'])
+                          aws_secret_access_key=aws_config['access_key_secret'], aws_session_token=aws_config['aws_session_token'])
         objects = s3.list_objects(Bucket=aws_config['bucket'], Prefix=aws_config['path'])['Contents']
         for obj in objects:
             key = obj['Key']

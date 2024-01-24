@@ -49,8 +49,8 @@ class AWSProcessor(Processor):
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 
-        S3Utils._download_directory_from_s3(s3_bucket, aws_region_name, s3_path, self.connector.get_local_dir())
-        S3Utils._delete_directory_from_s3(s3_bucket, aws_region_name, s3_path)
+        S3Utils.download_directory(s3_bucket, aws_region_name, s3_path, self.connector.get_local_dir())
+        S3Utils.delete_directory(s3_bucket, aws_region_name, s3_path)
 
         try:
             train_results_json = self.connector.load_and_delete_json(ec2_temp_output_json)
@@ -86,13 +86,6 @@ class AWSProcessor(Processor):
         commands = [
         f"cd {remote_dir}/rudderstack-profiles-classifier",
         f"pip install -r requirements.txt",
-        f"""python3 preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' 
-                                            --aws_config '{json.dumps(aws_config)}' 
-                                            --json_output_filename {json_output_filename} 
-                                            --inputs '{json.dumps(inputs)}' 
-                                            --output_tablename {output_tablename} 
-                                            --merged_config '{json.dumps(merged_config)}' 
-                                            --prediction_task {prediction_task} 
-                                            --udf_name {udf_name}""",
+        f"python3 preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' --aws_config '{json.dumps(aws_config)}' --json_output_filename {json_output_filename} --inputs '{json.dumps(inputs)}' --output_tablename {output_tablename} --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --udf_name {udf_name}",
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)

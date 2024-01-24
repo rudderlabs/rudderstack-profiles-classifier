@@ -233,13 +233,13 @@ if __name__ == "__main__":
     current_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = os.path.join(current_dir, "output")
 
-    S3Utils.download_directory_using_keys(args.aws_config, output_dir)
-
     if args.mode == constants.K8S_MODE:
         wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
         wh_creds = json.loads(wh_creds_str)
+        S3Utils.download_directory(args.aws_config["bucket"], args.aws_config["region"], args.aws_config["path"], output_dir)
     else:
         wh_creds = args.wh_creds
+        S3Utils.download_directory_using_keys(args.aws_config, output_dir)
 
     prep_config = utils.PreprocessorConfig(**args.merged_config["preprocessing"])
     outputs_config = utils.OutputsConfig(**args.merged_config["outputs"])

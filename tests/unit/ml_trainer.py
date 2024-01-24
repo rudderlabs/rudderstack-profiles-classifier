@@ -22,7 +22,6 @@ def build_trainer_config():
 
 
 class TestClassificationTrainer(unittest.TestCase):
-
     def test_prepare_training_summary(self):
         config = build_trainer_config()
         trainer = ClassificationTrainer(**config)
@@ -42,7 +41,6 @@ class TestClassificationTrainer(unittest.TestCase):
 
 
 class TestRegressionTrainer(unittest.TestCase):
-
     def test_prepare_training_summary(self):
         config = build_trainer_config()
         trainer = RegressionTrainer(**config)

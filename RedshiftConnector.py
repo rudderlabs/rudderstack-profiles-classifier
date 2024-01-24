@@ -418,72 +418,77 @@ class RedshiftConnector(Connector):
             Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
             ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
         """
-        material_names = list()
-        training_dates = list()
+        try:
+            material_names = list()
+            training_dates = list()
 
-        df = self.get_material_registry_table(cursor, material_table)
+            df = self.get_material_registry_table(cursor, material_table)
 
-        feature_df = (
-            df.loc[
-                (df["model_name"] == model_name)
-                & (df["model_type"] == constants.ENTITY_VAR_MODEL)
-                & (df["model_hash"] == model_hash)
-                & (df["end_ts"] >= start_time)
-                & (df["end_ts"] <= end_time),
-                ["seq_no", "end_ts"],
-            ]
-            .drop_duplicates()
-            .rename(columns={"seq_no": "feature_seq_no", "end_ts": "feature_end_ts"})
-        )
-        feature_df["label_end_ts"] = feature_df["feature_end_ts"] + timedelta(
-            days=prediction_horizon_days
-        )
+            feature_df = (
+                df.loc[
+                    (df["model_name"] == model_name)
+                    & (df["model_type"] == constants.ENTITY_VAR_MODEL)
+                    & (df["model_hash"] == model_hash)
+                    & (df["end_ts"] >= start_time)
+                    & (df["end_ts"] <= end_time),
+                    ["seq_no", "end_ts"],
+                ]
+                .drop_duplicates()
+                .rename(columns={"seq_no": "feature_seq_no", "end_ts": "feature_end_ts"})
+            )
+            feature_df["label_end_ts"] = feature_df["feature_end_ts"] + timedelta(
+                days=prediction_horizon_days
+            )
 
-        time_format = "%Y-%m-%d"
-        label_start_time = datetime.strptime(start_time, time_format) + timedelta(
-            days=prediction_horizon_days
-        )
-        label_end_time = datetime.strptime(end_time, time_format) + timedelta(
-            days=prediction_horizon_days
-        )
-        label_df = (
-            df.loc[
-                (df["model_name"] == model_name)
-                & (df["model_type"] == constants.ENTITY_VAR_MODEL)
-                & (df["model_hash"] == model_hash)
-                & (df["end_ts"] >= label_start_time)
-                & (df["end_ts"] <= label_end_time),
-                ["seq_no", "end_ts"],
-            ]
-            .drop_duplicates()
-            .rename(columns={"seq_no": "label_seq_no", "end_ts": "label_end_ts"})
-        )
+            time_format = "%Y-%m-%d"
+            label_start_time = datetime.strptime(start_time, time_format) + timedelta(
+                days=prediction_horizon_days
+            )
+            label_end_time = datetime.strptime(end_time, time_format) + timedelta(
+                days=prediction_horizon_days
+            )
+            label_df = (
+                df.loc[
+                    (df["model_name"] == model_name)
+                    & (df["model_type"] == constants.ENTITY_VAR_MODEL)
+                    & (df["model_hash"] == model_hash)
+                    & (df["end_ts"] >= label_start_time)
+                    & (df["end_ts"] <= label_end_time),
+                    ["seq_no", "end_ts"],
+                ]
+                .drop_duplicates()
+                .rename(columns={"seq_no": "label_seq_no", "end_ts": "label_end_ts"})
+            )
 
-        feature_label_df = pd.merge(
-            feature_df, label_df, on="label_end_ts", how="inner"
-        )
+            feature_label_df = pd.merge(
+                feature_df, label_df, on="label_end_ts", how="inner"
+            )
 
-        for _, row in feature_label_df.iterrows():
-            material_names.append(
-                (
-                    utils.generate_material_name(
-                        material_table_prefix,
-                        model_name,
-                        model_hash,
-                        str(row["feature_seq_no"]),
-                    ),
-                    utils.generate_material_name(
-                        material_table_prefix,
-                        model_name,
-                        model_hash,
-                        str(row["label_seq_no"]),
-                    ),
+            for _, row in feature_label_df.iterrows():
+                material_names.append(
+                    (
+                        utils.generate_material_name(
+                            material_table_prefix,
+                            model_name,
+                            model_hash,
+                            str(row["feature_seq_no"]),
+                        ),
+                        utils.generate_material_name(
+                            material_table_prefix,
+                            model_name,
+                            model_hash,
+                            str(row["label_seq_no"]),
+                        ),
+                    )
                 )
+                training_dates.append(
+                    (str(row["feature_end_ts"]), str(row["label_end_ts"]))
+                )
+            return material_names, training_dates
+        except Exception as e:
+            raise Exception(
+                f"Following exception occured while retrieving material names with hash {model_hash} for {model_name} between dates {start_time} and {end_time}: {e}"
             )
-            training_dates.append(
-                (str(row["feature_end_ts"]), str(row["label_end_ts"]))
-            )
-        return material_names, training_dates
 
     def get_creation_ts(
         self,
@@ -659,6 +664,17 @@ class RedshiftConnector(Connector):
         task_type: str,
     ):
         try:
+            
+            # Check if label_column is present in feature_table
+            if label_column not in feature_table.columns:
+                raise Exception(f"Label column {label_column} is not present in the feature table.")
+
+            # Check if feature_table has at least one column apart from label_column and entity_column
+            if feature_table.shape[1] < 3:
+                raise Exception(
+                    f"Feature table must have at least one column apart from the label column {label_column}."
+                )
+            
             if task_type == "classification":
                 min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
                 max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION

@@ -10,6 +10,7 @@ import pandas as pd
 from typing import Any , List
 from logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+from S3Utils import S3Utils
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F

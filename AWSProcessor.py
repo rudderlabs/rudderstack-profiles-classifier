@@ -1,13 +1,12 @@
-import os
-import yaml
 import time
 import json
 import boto3
 import constants
 from logger import logger
 from Processor import Processor
-from typing import Any, List, Tuple, Union
+from typing import List, Tuple, Dict
 from S3Utils import S3Utils
+from logger import logger
 
 class AWSProcessor(Processor):
     def _execute(self, ssm_client, instance_id, commands, ssm_sleep_time):
@@ -32,7 +31,7 @@ class AWSProcessor(Processor):
 
         print("Error logs : ", output2)
 
-    def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict):
+    def train(self, train_procedure, materials: List[constants.TrainTablesInfo], merged_config: dict, prediction_task: str, wh_creds: dict):
         remote_dir = constants.REMOTE_DIR
         instance_id = constants.INSTANCE_ID
         ec2_temp_output_json = constants.EC2_TEMP_OUTPUT_JSON
@@ -45,7 +44,7 @@ class AWSProcessor(Processor):
         commands = [
         f"cd {remote_dir}/rudderstack-profiles-classifier",
         f"pip install -r requirements.txt",
-        f"python3 preprocess_and_train.py --s3_bucket {s3_bucket} --aws_region_name {aws_region_name} --s3_path {s3_path} --ec2_temp_output_json {ec2_temp_output_json} --material_names '{json.dumps(material_names)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}'"
+        f"python3 preprocess_and_train.py --s3_bucket {s3_bucket} --aws_region_name {aws_region_name} --s3_path {s3_path} --ec2_temp_output_json {ec2_temp_output_json} --material_names '{json.dumps(materials)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}'"
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 

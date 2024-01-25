@@ -40,6 +40,7 @@ class Connector(ABC):
         site_config_path: str,
         project_folder: str,
         input_models: List[str],
+        inputs: List[str]
     ) -> List[TrainTablesInfo]:
         """
         Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
@@ -58,6 +59,7 @@ class Connector(ABC):
             site_config_path (str): path to the siteconfig.yaml file
             project_folder (str): project folder path to pb_project.yaml file
             input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model.
+            inputs (List[str]): List of input material queries
 
         Returns:
             List[Tuple[Dict[str, str], Dict[str, str]]]: EXAMPLE:
@@ -70,7 +72,8 @@ class Connector(ABC):
                                                                   features_profiles_model,
                                                                   model_hash,
                                                                   material_table_prefix,
-                                                                  prediction_horizon_days)
+                                                                  prediction_horizon_days,
+                                                                  inputs)
         if len(material_names) == 0:
             try:
                 _ = self.generate_training_materials(
@@ -88,7 +91,8 @@ class Connector(ABC):
                                                                           features_profiles_model,
                                                                           model_hash,
                                                                           material_table_prefix,
-                                                                          prediction_horizon_days)
+                                                                          prediction_horizon_days,
+                                                                          inputs)
             except Exception as e:
                 raise Exception(
                     f"Following exception occured while generating past materials with hash {model_hash} for {features_profiles_model} between dates {start_date} and {end_date}: {e}"
@@ -242,6 +246,46 @@ class Connector(ABC):
             )
         return model_hash
 
+    def validate_historical_materials_hash(
+        self,
+        session,
+        material_table_query: str,
+        feature_material_seq_no: str,
+        label_material_seq_no: str
+    ) -> bool:
+        """ This function will validate the input material query with seq number from historical material tables
+
+        Args:
+            session: WH connector session/cursor for data warehouse access
+            material_table_query (str): Query to fetch the material table names
+            feature_material_seq_no (str): feature material seq no
+            label_material_seq_no (str): label material seq no
+        Returns:
+            bool: True if the material table exists with given seq no else False
+        """
+        try:
+            # Replace the last seq_no with the current seq_no
+            # and prepare sql statement to check for the table existence
+            # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
+            feature_table_query = utils.replace_seq_no_in_query(
+                material_table_query,
+                feature_material_seq_no
+            ) + " limit 1"
+            result = self.run_query(session, feature_table_query, response=True)
+            assert len(result) != 0
+
+            label_table_query = utils.replace_seq_no_in_query(
+                material_table_query,
+                label_material_seq_no
+            ) + " limit 1"
+            result = self.run_query(session, label_table_query, response=True)
+            assert len(result) != 0
+            return True
+        except:
+            logger.info(f"{material_table_query} is not materialized for one of the \
+                        seq nos {feature_material_seq_no}, {label_material_seq_no}")
+            return False
+
     @abstractmethod
     def build_session(self, credentials: dict):
         pass
@@ -362,6 +406,7 @@ class Connector(ABC):
         model_hash: str,
         material_table_prefix: str,
         prediction_horizon_days: int,
+        inputs: List[str]
     ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         pass
 

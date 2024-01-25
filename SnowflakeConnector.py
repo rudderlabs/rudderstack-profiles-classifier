@@ -469,6 +469,7 @@ class SnowflakeConnector(Connector):
         model_hash: str,
         material_table_prefix: str,
         prediction_horizon_days: int,
+        inputs: List[str]
     ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
 
@@ -481,6 +482,7 @@ class SnowflakeConnector(Connector):
             model_hash (str) : latest model hash
             material_table_prefix (str): constant
             prediction_horizon_days (int): period of days
+            inputs (List[str]): list of input features
 
         Returns:
             Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
@@ -532,11 +534,22 @@ class SnowflakeConnector(Connector):
                     model_hash,
                     str(row.LABEL_SEQ_NO),
                 )
-                if utils.is_valid_table(
+
+                if not utils.is_valid_table(
                     session, feature_table_name_
-                ) and utils.is_valid_table(session, label_table_name_):
-                    material_names.append((feature_table_name_, label_table_name_))
-                    training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
+                ) or not utils.is_valid_table(session, label_table_name_):
+                    continue
+
+                # Iterate over inputs and validate meterial names
+                for input_material_query in inputs:
+                    if self.validate_historical_materials_hash(
+                        session,
+                        input_material_query,
+                        row.FEATURE_SEQ_NO,
+                        row.LABEL_SEQ_NO
+                    ):
+                        material_names.append((feature_table_name_, label_table_name_))
+                        training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
             return material_names, training_dates
         except Exception as e:
             raise Exception(

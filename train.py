@@ -321,6 +321,7 @@ def train(
             site_config_path,
             project_folder,
             trainer.inputs,
+            inputs,
         )
     except TypeError:
         raise Exception(

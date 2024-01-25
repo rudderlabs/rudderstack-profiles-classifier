@@ -401,6 +401,7 @@ class RedshiftConnector(Connector):
         model_hash: str,
         material_table_prefix: str,
         prediction_horizon_days: int,
+        inputs: List[str],
     ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
 
@@ -465,25 +466,34 @@ class RedshiftConnector(Connector):
             )
 
             for _, row in feature_label_df.iterrows():
-                material_names.append(
-                    (
-                        utils.generate_material_name(
-                            material_table_prefix,
-                            model_name,
-                            model_hash,
-                            str(row["feature_seq_no"]),
-                        ),
-                        utils.generate_material_name(
-                            material_table_prefix,
-                            model_name,
-                            model_hash,
-                            str(row["label_seq_no"]),
-                        ),
-                    )
+                feat_seq_no = str(row["feature_seq_no"])
+                feature_material_name = utils.generate_material_name(
+                    material_table_prefix,
+                    model_name,
+                    model_hash,
+                    feat_seq_no,
                 )
-                training_dates.append(
-                    (str(row["feature_end_ts"]), str(row["label_end_ts"]))
+
+                label_seq_no = str(row["label_seq_no"])
+                label_meterial_name = utils.generate_material_name(
+                    material_table_prefix,
+                    model_name,
+                    model_hash,
+                    label_seq_no,
                 )
+
+                # Iterate over inputs and validate meterial names
+                for input_material_query in inputs:
+                    if self.validate_historical_materials_hash(
+                        cursor,
+                        input_material_query,
+                        feat_seq_no,
+                        label_seq_no
+                    ):
+                        material_names.append((feature_material_name, label_meterial_name))
+                        training_dates.append(
+                            (str(row["feature_end_ts"]), str(row["label_end_ts"]))
+                        )
             return material_names, training_dates
         except Exception as e:
             raise Exception(

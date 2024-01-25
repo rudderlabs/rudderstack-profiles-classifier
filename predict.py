@@ -206,9 +206,9 @@ def predict(
                 "xgboost==1.5.0",
                 "numpy==1.23.1",
                 "pandas==1.5.3",
-                "joblib",
-                "cachetools",
-                "PyYAML",
+                "joblib==1.2.0",
+                "cachetools==4.2.2",
+                "PyYAML==6.0.1",
                 "simplejson",
             ],
         )

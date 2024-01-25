@@ -469,6 +469,7 @@ class SnowflakeConnector(Connector):
         model_hash: str,
         material_table_prefix: str,
         prediction_horizon_days: int,
+        inputs: List[str]
     ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
 
@@ -481,62 +482,79 @@ class SnowflakeConnector(Connector):
             model_hash (str) : latest model hash
             material_table_prefix (str): constant
             prediction_horizon_days (int): period of days
+            inputs (List[str]): list of input features
 
         Returns:
             Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
             ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
         """
-        material_names = list()
-        training_dates = list()
+        try:
+            material_names = list()
+            training_dates = list()
 
-        snowpark_df = self.get_material_registry_table(session, material_table)
+            snowpark_df = self.get_material_registry_table(session, material_table)
 
-        feature_snowpark_df = (
-            snowpark_df.filter(col("model_name") == features_profiles_model)
-            .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-            .filter(col("model_hash") == model_hash)
-            .filter(f"end_ts between '{start_time}' and '{end_time}'")
-            .select("seq_no", "end_ts")
-        ).distinct()
-        label_snowpark_df = (
-            snowpark_df.filter(col("model_name") == features_profiles_model)
-            .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-            .filter(col("model_hash") == model_hash)
-            .filter(
-                f"end_ts between dateadd(day, {prediction_horizon_days}, '{start_time}') and dateadd(day, {prediction_horizon_days}, '{end_time}')"
-            )
-            .select("seq_no", "end_ts")
-        ).distinct()
+            feature_snowpark_df = (
+                snowpark_df.filter(col("model_name") == features_profiles_model)
+                .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
+                .filter(col("model_hash") == model_hash)
+                .filter(f"end_ts between '{start_time}' and '{end_time}'")
+                .select("seq_no", "end_ts")
+            ).distinct()
+            label_snowpark_df = (
+                snowpark_df.filter(col("model_name") == features_profiles_model)
+                .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
+                .filter(col("model_hash") == model_hash)
+                .filter(
+                    f"end_ts between dateadd(day, {prediction_horizon_days}, '{start_time}') and dateadd(day, {prediction_horizon_days}, '{end_time}')"
+                )
+                .select("seq_no", "end_ts")
+            ).distinct()
 
-        feature_label_snowpark_df = feature_snowpark_df.join(
-            label_snowpark_df,
-            F.datediff("day", feature_snowpark_df.end_ts, label_snowpark_df.end_ts)
-            == prediction_horizon_days,
-        ).select(
-            feature_snowpark_df.seq_no.alias("feature_seq_no"),
-            feature_snowpark_df.end_ts.alias("feature_end_ts"),
-            label_snowpark_df.seq_no.alias("label_seq_no"),
-            label_snowpark_df.end_ts.alias("label_end_ts"),
-        )
-        for row in feature_label_snowpark_df.collect():
-            feature_table_name_ = utils.generate_material_name(
-                material_table_prefix,
-                features_profiles_model,
-                model_hash,
-                str(row.FEATURE_SEQ_NO),
+            feature_label_snowpark_df = feature_snowpark_df.join(
+                label_snowpark_df,
+                F.datediff("day", feature_snowpark_df.end_ts, label_snowpark_df.end_ts)
+                == prediction_horizon_days,
+            ).select(
+                feature_snowpark_df.seq_no.alias("feature_seq_no"),
+                feature_snowpark_df.end_ts.alias("feature_end_ts"),
+                label_snowpark_df.seq_no.alias("label_seq_no"),
+                label_snowpark_df.end_ts.alias("label_end_ts"),
             )
-            label_table_name_ = utils.generate_material_name(
-                material_table_prefix,
-                features_profiles_model,
-                model_hash,
-                str(row.LABEL_SEQ_NO),
+            for row in feature_label_snowpark_df.collect():
+                feature_table_name_ = utils.generate_material_name(
+                    material_table_prefix,
+                    features_profiles_model,
+                    model_hash,
+                    str(row.FEATURE_SEQ_NO),
+                )
+                label_table_name_ = utils.generate_material_name(
+                    material_table_prefix,
+                    features_profiles_model,
+                    model_hash,
+                    str(row.LABEL_SEQ_NO),
+                )
+
+                if not utils.is_valid_table(
+                    session, feature_table_name_
+                ) or not utils.is_valid_table(session, label_table_name_):
+                    continue
+
+                # Iterate over inputs and validate meterial names
+                for input_material_query in inputs:
+                    if self.validate_historical_materials_hash(
+                        session,
+                        input_material_query,
+                        row.FEATURE_SEQ_NO,
+                        row.LABEL_SEQ_NO
+                    ):
+                        material_names.append((feature_table_name_, label_table_name_))
+                        training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
+            return material_names, training_dates
+        except Exception as e:
+            raise Exception(
+                f"Following exception occured while retrieving material names with hash {model_hash} for {features_profiles_model} between dates {start_time} and {end_time}: {e}"
             )
-            if utils.is_valid_table(
-                session, feature_table_name_
-            ) and utils.is_valid_table(session, label_table_name_):
-                material_names.append((feature_table_name_, label_table_name_))
-                training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
-        return material_names, training_dates
 
     def get_material_registry_name(
         self,
@@ -779,6 +797,16 @@ class SnowflakeConnector(Connector):
             None
         """
         try:
+
+            if label_column.upper() not in feature_table.columns:
+                raise Exception(f"Label column {label_column} is not present in the feature table.")
+
+            # Check if feature_table has at least one column apart from label_column and entity_column
+            if feature_table.shape[1] < 3:
+                raise Exception(
+                    f"Feature table must have at least one column apart from the label column {label_column}."
+                )
+        
             distinct_values_count = feature_table.groupBy(label_column).count()
 
             if task_type == "classification":

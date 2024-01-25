@@ -1173,3 +1173,9 @@ def plot_user_feature_importance(
     user_feat_imp_dict = dict(zip(col_names_, shap_score.values[0]))
     figure = shap.plots.waterfall(shap_score[0], max_display=10, show=False)
     return figure, user_feat_imp_dict
+
+
+def replace_seq_no_in_query(query: str, seq_no: str) -> str:
+    query_split = query.split("_")
+    new_query = "_".join(query_split[:-1]) + "_" + f"{seq_no}"
+    return new_query

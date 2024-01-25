@@ -11,14 +11,13 @@ from sqlalchemy import create_engine
 from sqlalchemy import orm as sa_orm
 from sqlalchemy import text
 
-from logging import Logger
+from logger import logger
 from wh.connector_base import ConnectorBase, register_connector
 
 @register_connector
 class RedShiftConnector(ConnectorBase):
     def __init__(self, creds: dict, db_config: dict, **kwargs) -> None:
         super().__init__(creds, db_config, **kwargs)
-        self.logger = Logger("RedShiftConnector")
 
         self.s3_config = kwargs.get("s3_config", None)
         encoded_password = urllib.parse.quote(creds["password"], safe="")
@@ -77,10 +76,10 @@ class RedShiftConnector(ConnectorBase):
         except Exception as e:
             #Check for non existing schema
             if "cannot copy into nonexistent table" in str(e).lower():
-                self.logger.info(f"{table_name} not found. Creating it")
+                logger.info(f"{table_name} not found. Creating it")
                 self.create_table(df, table_name, schema)
                 # Try again
-                self.logger.info("Trying again")
+                logger.info("Trying again")
                 self.write_to_table(df, table_name, schema, if_exists)
             else:
                 raise e

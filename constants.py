@@ -1,6 +1,6 @@
 MATERIAL_REGISTRY_TABLE_PREFIX = 'MATERIAL_REGISTRY'
 MATERIAL_TABLE_PREFIX = "material_"
-VAR_TABLE_SUFFIX = "_var_table"
+VAR_TABLE_SUFFIX = ["_var_table", "_all_var_table"]
 ENTITY_VAR_MODEL = "entity_var_model"
 MODEL_FILE_NAME = 'classifier.joblib'
 CARDINAL_FEATURE_THRESOLD = 0.01

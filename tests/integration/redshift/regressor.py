@@ -31,7 +31,8 @@ pred_horizon_days = 7
 pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
 s3_config = {}
 p_output_tablename = 'test_run_can_delete_2'
-user_var_table_name = "user_var_table"
+entity_key = "user"
+var_table_suffix = ["_var_table", "_all_var_table"]
 
 
 data = {
@@ -170,8 +171,9 @@ def test_regressor():
     reports_folders = [folder for folder in folders if folder.endswith('_reports')]
 
     connector = RedshiftConnector(folder_path_output_file)
-    latest_model_hash = connector.get_latest_material_hash(
-        user_var_table_name,
+    latest_model_hash, user_var_table_name = connector.get_latest_material_hash(
+        entity_key,
+        var_table_suffix,
         output_filename,
         siteconfig_path,
         project_path,

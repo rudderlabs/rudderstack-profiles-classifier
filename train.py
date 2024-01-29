@@ -280,10 +280,9 @@ def train(
         session, material_registry_table_prefix
     )
 
-    features_profiles_model = trainer.entity_key + constants.VAR_TABLE_SUFFIX
-
-    model_hash = connector.get_latest_material_hash(
-        features_profiles_model,
+    model_hash, features_profiles_model = connector.get_latest_material_hash(
+        trainer.entity_key,
+        constants.VAR_TABLE_SUFFIX,
         output_filename,
         site_config_path,
         project_folder,

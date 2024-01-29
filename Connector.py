@@ -208,11 +208,12 @@ class Connector(ABC):
 
     def get_latest_material_hash(
         self,
-        features_profiles_model: str,
+        entity_key: str,
+        var_table_suffix: List[str],
         output_filename: str,
         site_config_path: str = None,
         project_folder: str = None,
-    ) -> str:
+    ) -> Tuple[str, str]:
         project_folder = utils.get_project_folder(project_folder, output_filename)
         pb = utils.get_pb_path()
         args = [
@@ -229,6 +230,16 @@ class Connector(ABC):
         pb_compile_output = (pb_compile_output_response.stdout).lower()
         logger.info(f"pb compile output: {pb_compile_output}")
 
+        features_profiles_model = None
+        for var_table in var_table_suffix:
+            if entity_key+var_table in pb_compile_output:
+                features_profiles_model = entity_key + var_table
+                break
+        if features_profiles_model is None:
+            raise Exception(
+                f"Could not find any matching var table in the output of pb compile command"
+            )
+        
         material_file_prefix = (
             constants.MATERIAL_TABLE_PREFIX
             + features_profiles_model
@@ -244,7 +255,7 @@ class Connector(ABC):
             raise Exception(
                 f"Could not find material file prefix {material_file_prefix} in the output of pb compile command: {pb_compile_output}"
             )
-        return model_hash
+        return model_hash, features_profiles_model
 
     def validate_historical_materials_hash(
         self,

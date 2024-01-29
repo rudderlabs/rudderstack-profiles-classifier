@@ -415,8 +415,10 @@ class SnowflakeConnector(Connector):
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
         timestamp_columns = []
-        for field in table.schema.fields:
-            if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()]:
+        date_types = [type(T.TimestampType()), type(T.DateType()), type(T.TimeType())]
+        fields_ = table.schema.fields
+        for field in fields_:
+            if any(isinstance(field.datatype, date_type) for date_type in date_types):
                 timestamp_columns.append(field.name)
         return timestamp_columns
 

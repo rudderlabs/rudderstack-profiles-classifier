@@ -44,7 +44,7 @@ class RedShiftConnector(ConnectorBase):
         )
 
         try:
-            if self.s3_config is None or not self.s3_config:
+            if not self.s3_config:
                 df.to_sql(name=table_name.lower(), con=self.engine, schema=schema, index=False, if_exists=if_exists)
             else:
                 logger.info(f"Establishing connection to Redshift")

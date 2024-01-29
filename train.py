@@ -344,13 +344,19 @@ def train(
     logger.info("Saving train results to file")
     model_id = train_results["model_id"]
 
+    training_dates_ = []
+    material_names_ = []
+    for train_table_pair_ in train_table_pairs:
+        material_names_.append([train_table_pair_.feature_table_name, train_table_pair_.label_table_name])
+        training_dates_.append([train_table_pair_.feature_table_date, train_table_pair_.label_table_date])
+
     results = {
         "config": {
             "training_dates": training_dates_,
             "material_names": material_names_,
             "material_hash": model_hash,
             **asdict(trainer),
-            "input_model_name": trainer.features_profiles_model,
+            "input_model_name": features_profiles_model,
         },
         "model_info": {
             "file_location": {

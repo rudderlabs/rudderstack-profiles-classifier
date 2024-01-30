@@ -22,12 +22,11 @@ warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
 def preprocess_and_predict(
     creds, 
-    aws_config, 
+    s3_config, 
     model_path, 
     inputs, 
     output_tablename, 
-    prediction_task, 
-    udf_name,
+    prediction_task,
     **kwargs,
 ):
     """
@@ -150,7 +149,7 @@ def preprocess_and_predict(
             is_permanent=True,
             replace=True,
             stage_location=stage_name,
-            name=udf_name,
+            name=connector.udf_name,
             imports=[f"{stage_name}/{model_name}", f"{stage_name}/{column_names_file}"],
             packages=[
                 "snowflake-snowpark-python>=0.10.0",
@@ -203,7 +202,7 @@ def preprocess_and_predict(
         preds_with_percentile, output_tablename, write_mode="overwrite", local=False , if_exists="replace"
     )
     logger.debug("Closing the session")    
-    connector.cleanup(session, udf_name=udf_name,close_session=True)
+    connector.cleanup(session, udf_name=connector.udf_name,close_session=True)
     logger.debug("Finished Predict job")
 
 
@@ -220,53 +219,49 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--wh_creds", type=json.loads)
-    parser.add_argument("--aws_config", type=json.loads)
+    parser.add_argument("--s3_config", type=json.loads)
     parser.add_argument("--json_output_filename", type=str)
     parser.add_argument("--inputs", type=json.loads)
     parser.add_argument("--output_tablename", type=str)
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--prediction_task", type=str)
-    parser.add_argument("--udf_name", type=str)
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    output_dir = os.path.join(current_dir, "output")
-
     if args.mode == constants.K8S_MODE:
         wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
         wh_creds = json.loads(wh_creds_str)
-        S3Utils.download_directory(args.aws_config["bucket"], args.aws_config["region"], args.aws_config["path"], output_dir)
     else:
         wh_creds = args.wh_creds
-        S3Utils.download_directory_using_keys(args.aws_config, output_dir)
 
-    prep_config = utils.PreprocessorConfig(**args.merged_config["preprocessing"])
-    outputs_config = utils.OutputsConfig(**args.merged_config["outputs"])
     if args.prediction_task == "classification":
-        trainer = ClassificationTrainer(**args.merged_config["data"], prep=prep_config, outputs=outputs_config)
+        trainer = ClassificationTrainer(**args.merged_config)
     elif args.prediction_task == "regression":
-        trainer = RegressionTrainer(**args.merged_config["data"], prep=prep_config, outputs=outputs_config)
+        trainer = RegressionTrainer(**args.merged_config)
 
-    end_ts = args.merged_config.get("end_ts", None)
-    trainer.set_end_ts(end_ts)
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
-    connector = RedshiftConnector(output_dir)
+    connector = RedshiftConnector(current_dir)
     session = connector.build_session(wh_creds)
+    local_folder = connector.get_local_dir()
+    model_path = os.path.join(local_folder, args.json_output_filename)
+    udf_name = connector.get_udf_name(model_path)
 
-    model_path = os.path.join(output_dir, args.json_output_filename)
+    if args.mode == constants.K8S_MODE:
+        S3Utils.download_directory(args.s3_config["bucket"], args.s3_config["region"], args.s3_config["path"], local_folder)
+    else:
+        S3Utils.download_directory_using_keys(args.s3_config, local_folder)
 
     _ = preprocess_and_predict(
         wh_creds,
-        args.aws_config,
+        args.s3_config,
         model_path,
         args.inputs,
         args.output_tablename,
         args.prediction_task,
-        args.udf_name,
         session=session,
         connector=connector,
         trainer=trainer,
     )
-
-    utils.delete_folder(output_dir)
+    logger.debug(f"Deleting additional local directory from infra mode")
+    connector.cleanup(delete_local_data=True)

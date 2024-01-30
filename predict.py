@@ -20,9 +20,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import utils
 import constants
-from AWSProcessor import AWSProcessor
-from LocalProcessor import LocalProcessor
-from SnowflakeProcessor import SnowflakeProcessor
+import S3Constants
 from SnowflakeConnector import SnowflakeConnector
 from MLTrainer import ClassificationTrainer, RegressionTrainer
 
@@ -37,7 +35,7 @@ except Exception as e:
 
 def predict(
     creds: dict,
-    aws_config: dict,
+    s3_config: dict,
     model_path: str,
     inputs: str,
     output_tablename: str,
@@ -48,7 +46,7 @@ def predict(
 
     Args:
         creds (dict): credentials to access the data warehouse - in same format as site_config.yaml from profiles
-        aws_config (dict): aws credentials - not required for snowflake. only used for redshift
+        s3_config (dict): aws credentials - not required for snowflake. only used for redshift
         model_path (str): path to the file where the model details including model id etc are present. Created in training step
         inputs: (List[str]), containing sql queries such as "select * from <feature_table_name>" from which the script infers input tables        output_tablename (str): name of output table where prediction results are written
         config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
@@ -60,14 +58,14 @@ def predict(
 
     # TODO - Get role, bucket, path from site config
     # TODO - replace the aws check with infra mode check
-    if bool(aws_config) & ("access_key_id" not in aws_config):
-        s3_creds = S3Utils.get_temporary_credentials("arn:aws:iam::454531037350:role/profiles-ml-s3")
-        aws_config["bucket"] = constants.S3_BUCKET
-        aws_config["path"] = constants.S3_PATH
-        aws_config["region"] = constants.AWS_REGION_NAME
-        aws_config["access_key_id"] = s3_creds["access_key_id"]
-        aws_config["access_key_secret"] = s3_creds["access_key_secret"]
-        aws_config["aws_session_token"] = s3_creds["aws_session_token"]
+    if bool(s3_config) & ("access_key_id" not in s3_config):
+        s3_creds = S3Utils.get_temporary_credentials(constants.ARN_AWS_ROLE)
+        s3_config["bucket"] = constants.S3_BUCKET
+        s3_config["path"] = constants.S3_PATH
+        s3_config["region"] = constants.AWS_REGION_NAME
+        s3_config["access_key_id"] = s3_creds["access_key_id"]
+        s3_config["access_key_secret"] = s3_creds["access_key_secret"]
+        s3_config["aws_session_token"] = s3_creds["aws_session_token"]
 
     is_rudder_backend = utils.fetch_key_from_dict(
         runtime_info, "is_rudder_backend", False
@@ -75,11 +73,6 @@ def predict(
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
-    processor_mode_map = {
-        "local": LocalProcessor,
-        "native-warehouse": SnowflakeProcessor,
-        "rudderstack-infra": AWSProcessor,
-    }
 
     default_config = utils.load_yaml(os.path.join(current_dir, "config", "model_configs.yaml"))
     _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
@@ -92,25 +85,19 @@ def predict(
         "task", "classification"
     )  # Assuming default as classification
 
-    prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
-    outputs_config = utils.OutputsConfig(**merged_config["outputs"])
     if prediction_task == "classification":
-        trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config, outputs=outputs_config)
+        trainer = ClassificationTrainer(**merged_config)
     elif prediction_task == "regression":
-        trainer = RegressionTrainer(**merged_config["data"], prep=prep_config, outputs=outputs_config)
+        trainer = RegressionTrainer(**merged_config)
 
     logger.debug(
         f"Started Predicting for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
     )
 
-    with open(model_path, "r") as f:
-        results = json.load(f)
-    stage_name = results["model_info"]["file_location"]["stage"]
-
     udf_name = None
     if creds["type"] == "snowflake":
-        udf_name = f"prediction_score_{stage_name.replace('@','')}"
         connector = SnowflakeConnector()
+        udf_name = connector.get_udf_name(model_path)
         session = connector.build_session(creds)
         connector.cleanup(session, udf_name=udf_name)
     elif creds["type"] == "redshift":
@@ -120,6 +107,6 @@ def predict(
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = processor_mode_map[mode](trainer, connector, session)
+    processor = S3Constants.processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for predictions")
-    _ = processor.predict(creds, aws_config, model_path, inputs, output_tablename, merged_config, prediction_task, udf_name)
+    _ = processor.predict(creds, s3_config, model_path, inputs, output_tablename, merged_config, prediction_task)

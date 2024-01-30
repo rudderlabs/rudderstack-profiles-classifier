@@ -1,3 +1,4 @@
+import os
 import time
 import json
 import boto3
@@ -61,13 +62,12 @@ class AWSProcessor(Processor):
     def predict(
         self, 
         creds, 
-        aws_config, 
+        s3_config, 
         model_path, 
         inputs, 
         output_tablename, 
         merged_config, 
-        prediction_task, 
-        udf_name,
+        prediction_task,
     ):
         remote_dir = constants.REMOTE_DIR
         instance_id = constants.INSTANCE_ID
@@ -76,22 +76,21 @@ class AWSProcessor(Processor):
         local_folder = self.connector.get_local_dir()
         json_output_filename = model_path.split("/")[-1]
 
-        PREDICT_UPLOAD_WHITELIST = [file for file in os.listdir(local_folder) 
-                                        if os.path.isfile(os.path.join(local_folder, file)) and 
-                                        not file.endswith(".gzip")]+[json_output_filename]
+        predict_upload_whitelist = [file for file in os.listdir(local_folder) 
+                            if file.endswith(constants.PREDICT_UPLOAD_EXTENSION)]+[json_output_filename]
         
         logger.debug("Uploading files required for prediction to S3")
-        S3Utils.upload_directory(aws_config["bucket"], aws_config["region"], aws_config["path"], os.path.dirname(local_folder), PREDICT_UPLOAD_WHITELIST)
+        S3Utils.upload_directory(s3_config["bucket"], s3_config["region"], s3_config["path"], os.path.dirname(local_folder), predict_upload_whitelist)
 
         logger.debug("Starting prediction on ec2")
-        ssm_client = boto3.client(service_name='ssm', region_name=aws_config["region"])
+        ssm_client = boto3.client(service_name='ssm', region_name=s3_config["region"])
         commands = [
         f"cd {remote_dir}/rudderstack-profiles-classifier",
         f"pip install -r requirements.txt",
-        f"python3 preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' --aws_config '{json.dumps(aws_config)}' --json_output_filename {json_output_filename} --inputs '{json.dumps(inputs)}' --output_tablename {output_tablename} --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --udf_name {udf_name}",
+        f"python3 preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' --s3_config '{json.dumps(s3_config)}' --json_output_filename {json_output_filename} --inputs '{json.dumps(inputs)}' --output_tablename {output_tablename} --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task}",
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 
         logger.debug("Deleting additional files from S3")
-        S3Utils.delete_directory(aws_config["bucket"], aws_config["region"], aws_config["path"])
+        S3Utils.delete_directory(s3_config["bucket"], s3_config["region"], s3_config["path"])
         logger.debug("Done predicting")

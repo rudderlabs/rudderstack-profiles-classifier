@@ -116,6 +116,18 @@ class RedshiftConnector(Connector):
             "rudderstack-infra" if is_rudder_backend else user_preference_order_infra[0]
         )
         return mode
+    
+    def get_udf_name(self, model_path:str) -> str:
+        """Returns the udf name using info from the model_path
+
+        Args:
+            model_path (str): Path of the model
+
+        Returns:
+            str: UDF name
+        """
+        self.udf_name = None
+        return self.udf_name
 
     def get_table(
         self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs

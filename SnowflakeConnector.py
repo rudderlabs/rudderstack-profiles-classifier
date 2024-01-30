@@ -1,5 +1,6 @@
 import os
 import gzip
+import json
 import shutil
 import pandas as pd
 
@@ -96,6 +97,21 @@ class SnowflakeConnector(Connector):
     ) -> str:
         mode = "native-warehouse"
         return mode
+    
+    def get_udf_name(self, model_path:str) -> str:
+        """Returns the udf name using info from the model_path
+
+        Args:
+            model_path (str): Path of the model
+
+        Returns:
+            str: UDF name
+        """
+        with open(model_path, "r") as f:
+            results = json.load(f)
+        stage_name = results["model_info"]["file_location"]["stage"]
+        self.udf_name = f"prediction_score_{stage_name.replace('@','')}"
+        return self.udf_name
 
     def get_table(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs

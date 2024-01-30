@@ -7,7 +7,10 @@ import configparser
 class S3Utils():
     def download_directory(bucket_name, aws_region_name, s3_path, local_directory):
         s3 = boto3.client('s3', region_name=aws_region_name)
-        objects = s3.list_objects(Bucket=bucket_name, Prefix=s3_path)['Contents']
+        S3Utils._download(bucket_name, s3_path, s3, local_directory)
+
+    def _download(bucket_name, s3_path, client, local_directory):
+        objects = client.list_objects(Bucket=bucket_name, Prefix=s3_path)['Contents']
         for obj in objects:
             key = obj['Key']
             if key == s3_path:
@@ -16,22 +19,14 @@ class S3Utils():
             local_file_path = os.path.join(local_directory, os.path.relpath(key, s3_path))
             if not os.path.exists(os.path.dirname(local_file_path)):
                 os.makedirs(os.path.dirname(local_file_path))
-            s3.download_file(bucket_name, key, local_file_path)
+            client.download_file(bucket_name, key, local_file_path)
             logger.debug(f"File {key} downloaded to {local_file_path}")
         logger.debug(f"All files from {bucket_name}/{s3_path} downloaded to {local_directory}")
 
-    def download_directory_using_keys(aws_config, local_directory):
-        s3 = boto3.client('s3', region_name=aws_config['region'], aws_access_key_id=aws_config['access_key_id'],
-                          aws_secret_access_key=aws_config['access_key_secret'], aws_session_token=aws_config['aws_session_token'])
-        objects = s3.list_objects(Bucket=aws_config['bucket'], Prefix=aws_config['path'])['Contents']
-        for obj in objects:
-            key = obj['Key']
-            local_file_path = os.path.join(local_directory, os.path.relpath(key, aws_config['path']))
-            if not os.path.exists(os.path.dirname(local_file_path)):
-                os.makedirs(os.path.dirname(local_file_path))
-            s3.download_file(aws_config['bucket'], key, local_file_path)
-            print(f"File {key} downloaded to {local_file_path}")
-        print(f"All files from {aws_config['bucket']}/{aws_config['path']} downloaded to {local_directory}")
+    def download_directory_using_keys(s3_config, local_directory):
+        s3 = boto3.client('s3', region_name=s3_config['region'], aws_access_key_id=s3_config['access_key_id'],
+                          aws_secret_access_key=s3_config['access_key_secret'], aws_session_token=s3_config['aws_session_token'])
+        S3Utils._download(s3_config['bucket'], s3_config['path'], s3, local_directory)
 
     def delete_directory(bucket_name, aws_region_name, folder_name):
         s3 = boto3.client('s3', region_name=aws_region_name)

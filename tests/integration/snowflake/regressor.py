@@ -28,6 +28,8 @@ pred_horizon_days = 7
 pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
 s3_config = {}
 p_output_tablename = 'test_run_can_delete_2'
+entity_key = "user"
+var_table_suffix = ["_var_table", "_all_var_table"]
 
 
 data = {
@@ -161,8 +163,19 @@ def test_regressor():
     folders = [os.path.join(output_folder, folder) for folder in os.listdir(output_folder) if os.path.isdir(os.path.join(output_folder, folder))]
     reports_folders = [folder for folder in folders if folder.endswith('_reports')]
     
+    connector = SnowflakeConnector()
+    latest_model_hash, user_var_table_name = connector.get_latest_material_hash(
+        entity_key,
+        var_table_suffix,
+        output_filename,
+        siteconfig_path,
+        project_path,
+    )
+
+    train_inputs = [f"""SELECT * FROM {creds['schema']}.material_user_var_table_{latest_model_hash}_0""",]
+
     try:
-        train(creds, None, output_filename, train_config, siteconfig_path, project_path)
+        train(creds, train_inputs, output_filename, train_config, siteconfig_path, project_path)
         validate_training_summary_regression()
         validate_reports_regression()
 
@@ -170,7 +183,7 @@ def test_regressor():
             results = json.load(f)
 
         material_table_name = results['config']['material_names'][0][-1] 
-        predict_inputs = [f"SELECT * FROM PROFILES_INTEGRATION_TEST.{material_table_name}",]
+        predict_inputs = [f"SELECT * FROM {creds['schema']}.{material_table_name}",]
 
         predict(creds, s3_config, output_filename, predict_inputs, p_output_tablename, predict_config)
         validate_predictions_df()

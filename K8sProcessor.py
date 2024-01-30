@@ -1,10 +1,11 @@
 import os
 import json
 import constants
+from constants import TrainTablesInfo
 import uuid
 import time
 from Processor import Processor
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 from kubernetes import client, config, watch
 import base64
 from S3Utils import S3Utils
@@ -121,7 +122,7 @@ class K8sProcessor(Processor):
                 break
         return error_message
 
-    def train(self, train_procedure, material_names: List[Tuple[str]], merged_config: dict, prediction_task: str, wh_creds: dict):
+    def train(self, train_procedure, materials: List[TrainTablesInfo], merged_config: dict, prediction_task: str, wh_creds: dict):
         namespace = "profiles-qa" # TODO - Get it from argument
         resources = { "cpu": "1000m", "memory": "2Gi" } # TODO - Get it from argument
         job_name = "sources-wht-ml-job-" + str(uuid.uuid4())
@@ -130,15 +131,16 @@ class K8sProcessor(Processor):
         batch_v1_api = client.BatchV1Api()
         secret = self._create_wh_creds_secret(job_name=job_name, namespace=namespace, wh_creds=wh_creds, core_v1_api=core_v1_api)
         command_args = {
-          "material_names": material_names,
+          "material_names": materials,
           "merged_config": merged_config,
           "prediction_task": prediction_task
         }
-        self._create_job(job_name=job_name, secret=secret, namespace=namespace, command_args=command_args, resources=resources, batch_v1_api=batch_v1_api)
-        pod_name = self._wait_for_pod(job_name=job_name, namespace=namespace, core_v1_api=core_v1_api)
-        error_message = self._stream_logs(pod_name=pod_name, namespace=namespace, core_v1_api=core_v1_api)
-        # TODO - Ensure secrets are deleted even 
-        core_v1_api.delete_namespaced_secret(name=secret["name"], namespace=namespace)
+        try:
+            self._create_job(job_name=job_name, secret=secret, namespace=namespace, command_args=command_args, resources=resources, batch_v1_api=batch_v1_api)
+            pod_name = self._wait_for_pod(job_name=job_name, namespace=namespace, core_v1_api=core_v1_api)
+            error_message = self._stream_logs(pod_name=pod_name, namespace=namespace, core_v1_api=core_v1_api)
+        finally: 
+            core_v1_api.delete_namespaced_secret(name=secret["name"], namespace=namespace)
         if error_message != "":
             raise Exception(error_message)
         # TODO - Add job status check

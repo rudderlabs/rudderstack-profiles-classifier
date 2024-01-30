@@ -13,10 +13,10 @@ from snowflake.snowpark.window import Window
 from snowflake.snowpark.functions import col
 from snowflake.snowpark.session import Session
 
-import utils
-import constants
-from logger import logger
-from Connector import Connector
+from src.utils import utils 
+from src.constants import constants
+from src.utils.logger import logger
+from src.connectors.Connector import Connector
 
 local_folder = constants.SF_LOCAL_STORAGE_DIR
 

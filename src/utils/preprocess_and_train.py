@@ -4,7 +4,7 @@ from botocore.exceptions import NoCredentialsError
 from botocore.exceptions import WaiterError
 import pandas as pd
 from typing import List, Tuple, Union, Dict
-from S3Utils import S3Utils
+from src.utils.S3Utils import S3Utils
 
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -12,10 +12,9 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
-import utils
-from logger import logger
-import constants
-
+import src.utils as utils
+from src.utils.logger import logger
+from src.constants import constants
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
@@ -280,10 +279,10 @@ def preprocess_and_train(
 
 if __name__ == "__main__":
     import argparse
-    from MLTrainer import ClassificationTrainer, RegressionTrainer
+    from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 
     try:
-        from RedshiftConnector import RedshiftConnector
+        from src.connectors.RedshiftConnector import RedshiftConnector
     except ImportError:
         raise Exception("Could not import RedshiftConnector")
 

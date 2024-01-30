@@ -1,7 +1,7 @@
 import os
 import boto3
-from logger import logger
-import constants
+from src.utils.logger import logger
+import src.constants.constants as constants
 import configparser
 
 class S3Utils():

@@ -40,7 +40,6 @@ import yaml
 
 from datetime import datetime, timedelta, timezone
 
-
 import os
 import gzip
 import shutil
@@ -50,13 +49,13 @@ import seaborn as sns
 
 from sklearn.preprocessing import OneHotEncoder
 import shap
-import constants as constants
+from src.constants import constants
 import joblib
 import json
-import subprocess
+import subprocess   
 
 from dataclasses import dataclass
-from logger import logger
+from src.utils.logger import logger
 
 
 @dataclass

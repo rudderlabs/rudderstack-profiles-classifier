@@ -1,11 +1,13 @@
 import time
 import json
 import boto3
-import constants
-from Processor import Processor
+from src.processors.Processor import Processor
 from typing import List, Tuple, Dict
-from S3Utils import S3Utils
-from logger import logger
+
+from src.utils import utils 
+from src.constants import constants
+from src.utils.logger import logger
+from src.utils.S3Utils import S3Utils
 
 class AWSProcessor(Processor):
     def _execute(self, ssm_client, instance_id, commands, ssm_sleep_time):

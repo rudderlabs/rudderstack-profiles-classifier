@@ -1,4 +1,4 @@
-from Processor import Processor
+from src.processors.Processor import Processor
 
 
 class SnowflakeProcessor(Processor):

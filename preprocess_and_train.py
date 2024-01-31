@@ -71,9 +71,9 @@ def train_and_store_model_results_rs(
         feature_df, categorical_columns, numeric_columns, merged_config, model_file
     )
 
-    results['column_names'] = {
-        'numeric_columns': numeric_columns,
-        'categorical_columns': categorical_columns
+    results["column_names"] = {
+        "numeric_columns": numeric_columns,
+        "categorical_columns": categorical_columns,
     }
 
     trainer.plot_diagnostics(
@@ -128,7 +128,7 @@ def prepare_feature_table(
     """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
 
     Args:
-        train_table_pair (constants.TrainTablesInfo): 
+        train_table_pair (constants.TrainTablesInfo):
         cardinal_feature_threshold (float): The threshold value for the cardinality of the feature. Any feature with cardinality higher than this will be dropped.
     Returns:
         Tuple of feature_table, arraytype_columns, timestamp_columns
@@ -176,9 +176,7 @@ def prepare_feature_table(
             feature_table = connector.add_days_diff(
                 feature_table, col, col, feature_table_dt
             )
-        label_table = trainer.prepare_label_table(
-            connector, session, label_table_name
-        )
+        label_table = trainer.prepare_label_table(connector, session, label_table_name)
         uppercase_list = lambda names: [name.upper() for name in names]
         lowercase_list = lambda names: [name.lower() for name in names]
         ignore_features_ = [
@@ -202,7 +200,10 @@ def prepare_feature_table(
 
 
 def preprocess_and_train(
-    train_procedure, train_table_pairs: List[constants.TrainTablesInfo], merged_config: dict, **kwargs
+    train_procedure,
+    train_table_pairs: List[constants.TrainTablesInfo],
+    merged_config: dict,
+    **kwargs,
 ):
     session = kwargs.get("session", None)
     connector = kwargs.get("connector", None)
@@ -269,8 +270,8 @@ def preprocess_and_train(
     if not isinstance(train_results_json, dict):
         train_results_json = json.loads(train_results_json)
 
-    train_results_json['column_names']['arraytype_columns'] = arraytype_columns
-    train_results_json['column_names']['timestamp_columns'] = timestamp_columns
+    train_results_json["column_names"]["arraytype_columns"] = arraytype_columns
+    train_results_json["column_names"]["timestamp_columns"] = timestamp_columns
 
     return train_results_json
 
@@ -313,12 +314,12 @@ if __name__ == "__main__":
     connector = RedshiftConnector("./")
     session = connector.build_session(wh_creds)
     material_info_ = args.material_names
-    # converting material info back to named tuple after serialisation and deserialisation 
+    # converting material info back to named tuple after serialisation and deserialisation
     material_info = []
     if isinstance(material_info_[0], list):
         for material in material_info_:
             material_info.append(constants.TrainTablesInfo(*material))
-                    
+
     train_results_json = preprocess_and_train(
         train_procedure,
         material_info,
@@ -332,19 +333,32 @@ if __name__ == "__main__":
     ) as file:
         json.dump(train_results_json, file)
 
-
     logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
     model_id = train_results_json["model_id"]
-    S3_UPLOAD_WHITELIST = [trainer.figure_names["feature-importance-chart"],
-                            trainer.figure_names["lift-chart"],
-                            trainer.figure_names["pr-auc-curve"],
-                            trainer.figure_names["roc-auc-curve"],
-                            f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json",
-                            f"{trainer.output_profiles_ml_model}_{model_file_name}",
-                            "train_results.json"]
+    S3_UPLOAD_WHITELIST = [
+        trainer.figure_names["feature-importance-chart"],
+        trainer.figure_names["lift-chart"],
+        trainer.figure_names["pr-auc-curve"],
+        trainer.figure_names["roc-auc-curve"],
+        f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json",
+        f"{trainer.output_profiles_ml_model}_{model_file_name}",
+        "train_results.json",
+    ]
     if args.mode == constants.K8S_MODE:
-        S3Utils.upload_directory(args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir(), S3_UPLOAD_WHITELIST)
+        S3Utils.upload_directory(
+            args.s3_bucket,
+            args.aws_region_name,
+            args.s3_path,
+            connector.get_local_dir(),
+            S3_UPLOAD_WHITELIST,
+        )
     else:
-        S3Utils.upload_directory_using_keys(args.s3_bucket, args.aws_region_name, args.s3_path, connector.get_local_dir(), S3_UPLOAD_WHITELIST)
+        S3Utils.upload_directory_using_keys(
+            args.s3_bucket,
+            args.aws_region_name,
+            args.s3_path,
+            connector.get_local_dir(),
+            S3_UPLOAD_WHITELIST,
+        )
     logger.debug(f"Deleting local directory from ec2 machine")
     connector.cleanup(delete_local_data=True)

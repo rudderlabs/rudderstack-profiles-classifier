@@ -19,11 +19,11 @@ if __name__ == "__main__":
     label_column = "days_since_last_seen"
     label_value = 1
     pred_horizon_days = 7
-    p_output_tablename = 'test_run_can_delete_2'
-    t_output_filename = 'output/dev/seq_no/1/train_output' + train_file_extension
+    p_output_tablename = "test_run_can_delete_2"
+    t_output_filename = "output/dev/seq_no/1/train_output" + train_file_extension
     should_train = True
     material_seq = 295  # seq no of most recent material from pb run
-    model_hash = '8a719ff2'  # hash of the feature_table_name from current pb run
+    model_hash = "8a719ff2"  # hash of the feature_table_name from current pb run
     entity_key = "user"
     output_model_name = "shopify_churn"
     inputs = [f"packages/{package_name}/models/{feature_table_name}"]
@@ -36,11 +36,14 @@ if __name__ == "__main__":
     # End of user inputs.
 
     from logger import logger
+
     logger.setLevel("DEBUG")
 
-    if creds['type'] == 'snowflake':
-        print(f"Using {creds['schema']} schema in snowflake account: {creds['account']}")
-    elif creds['type'] == 'redshift':
+    if creds["type"] == "snowflake":
+        print(
+            f"Using {creds['schema']} schema in snowflake account: {creds['account']}"
+        )
+    elif creds["type"] == "redshift":
         print(f"Using {creds['schema']} schema in Redshift account: {creds['host']}")
     else:
         raise Exception(f"Unknown database type: {creds['type']}")
@@ -88,7 +91,7 @@ if __name__ == "__main__":
         },
     }
 
-    runtime_info = {'is_rudder_backend': False}
+    runtime_info = {"is_rudder_backend": False}
 
     if should_train:
         T.train(
@@ -98,7 +101,7 @@ if __name__ == "__main__":
             train_config,
             site_config_path,
             project_folder,
-            runtime_info
+            runtime_info,
         )
 
     if credentials_presets is None:
@@ -110,10 +113,17 @@ if __name__ == "__main__":
     with open(t_output_filename, "r") as f:
         results = json.load(f)
 
-    material_table_name = results['config']['material_names'][0][-1] 
-    predict_inputs = [f"SELECT * FROM {creds['schema']}.{material_table_name}",]
+    material_table_name = results["config"]["material_names"][0][-1]
+    predict_inputs = [
+        f"SELECT * FROM {creds['schema']}.{material_table_name}",
+    ]
     print(f"Using table {material_table_name} for predictions")
 
     P.predict(
-        creds, s3_config, t_output_filename, predict_inputs, p_output_tablename, predict_config
+        creds,
+        s3_config,
+        t_output_filename,
+        predict_inputs,
+        p_output_tablename,
+        predict_config,
     )

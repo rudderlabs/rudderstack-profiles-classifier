@@ -30,13 +30,14 @@ class AWSProcessor(Processor):
 
         print("Error logs : ", output2)
 
-    def train(self, train_procedure, materials: List[constants.TrainTablesInfo], merged_config: dict, prediction_task: str, wh_creds: dict):
+    def train(self, train_procedure, materials: List[constants.TrainTablesInfo], merged_config: dict, prediction_task: str, wh_creds: dict, site_config: dict):
+        s3_config = site_config["py_models"]["credentials_presets"]["s3"]
         remote_dir = constants.REMOTE_DIR
         instance_id = constants.INSTANCE_ID
         ec2_temp_output_json = constants.EC2_TEMP_OUTPUT_JSON
-        s3_bucket = constants.S3_BUCKET
-        aws_region_name = constants.AWS_REGION_NAME
-        s3_path = constants.S3_PATH
+        s3_bucket = s3_config["bucket"]
+        aws_region_name = s3_config["region"]
+        s3_path = s3_config["path"]
         ssm_sleep_time = constants.SSM_SLEEP_TIME
 
         ssm_client = boto3.client(service_name='ssm', region_name=aws_region_name)

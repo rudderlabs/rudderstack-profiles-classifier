@@ -115,11 +115,11 @@ def predict(
     processor = S3Constants.processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for predictions")
     _ = processor.predict(
-        creds, 
-        s3_config, 
-        model_path, 
-        inputs, 
-        output_tablename, 
-        merged_config, 
-        prediction_task
+        creds,
+        s3_config,
+        model_path,
+        inputs,
+        output_tablename,
+        merged_config,
+        prediction_task,
     )

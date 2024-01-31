@@ -4,7 +4,7 @@ from MLTrainer import *
 
 def build_trainer_config():
     config = {"data": {}, "preprocessing": {}, "outputs": {}}
-    
+
     config["data"]["label_value"] = None
     config["data"]["label_column"] = None
     config["data"]["entity_column"] = None
@@ -18,7 +18,7 @@ def build_trainer_config():
     config["data"]["inputs"] = None
     config["data"]["max_row_count"] = None
     config["data"]["prep"] = None
-    config["data"]["recall_to_precision_importance"] = 0.
+    config["data"]["recall_to_precision_importance"] = 0.0
 
     config["preprocessing"]["timestamp_columns"] = None
     config["preprocessing"]["ignore_features"] = None

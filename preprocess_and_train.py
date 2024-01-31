@@ -331,9 +331,7 @@ if __name__ == "__main__":
         connector=connector,
         trainer=trainer,
     )
-    with open(
-        os.path.join(local_folder, args.ec2_temp_output_json), "w"
-    ) as file:
+    with open(os.path.join(local_folder, args.ec2_temp_output_json), "w") as file:
         json.dump(train_results_json, file)
 
     logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")

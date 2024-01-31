@@ -6,7 +6,7 @@ import warnings
 import cachetools
 import numpy as np
 import pandas as pd
-from typing import Any , List
+from typing import Any, List
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
@@ -17,20 +17,22 @@ from S3Utils import S3Utils
 from logger import logger
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
+
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
+
 def preprocess_and_predict(
-    creds, 
-    s3_config, 
-    model_path, 
-    inputs, 
-    output_tablename, 
+    creds,
+    s3_config,
+    model_path,
+    inputs,
+    output_tablename,
     prediction_task,
     **kwargs,
 ):
     """
-    This function is responsible for preprocessing 
+    This function is responsible for preprocessing
     and predicting on the data.
     """
     session = kwargs.get("session", None)
@@ -57,11 +59,11 @@ def preprocess_and_predict(
     try:
         seq_no = int(inputs[0].split("_")[-1])
     except Exception as e:
-        raise Exception(
-            f"Error while parsing seq_no from inputs: {inputs}. Error: {e}"
-        )
+        raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 
-    feature_table_name = f"{constants.MATERIAL_TABLE_PREFIX}{input_model_name}_{model_hash}_{seq_no}"
+    feature_table_name = (
+        f"{constants.MATERIAL_TABLE_PREFIX}{input_model_name}_{model_hash}_{seq_no}"
+    )
 
     material_table = connector.get_material_registry_name(
         session, constants.MATERIAL_REGISTRY_TABLE_PREFIX
@@ -74,8 +76,10 @@ def preprocess_and_predict(
     raw_data = connector.get_table(
         session, feature_table_name, filter_condition=trainer.eligible_users
     )
-    
-    ignore_features = utils.merge_lists_to_unique(trainer.prep.ignore_features, arraytype_columns)
+
+    ignore_features = utils.merge_lists_to_unique(
+        trainer.prep.ignore_features, arraytype_columns
+    )
     predict_data = connector.drop_cols(raw_data, ignore_features)
 
     if len(trainer.prep.timestamp_columns) == 0:
@@ -146,23 +150,20 @@ def preprocess_and_predict(
         )
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
-            predictions = predict_helper(
-                df, model_name
-            )
+            predictions = predict_helper(df, model_name)
             return predictions.round(4)
 
         prediction_udf = predict_scores
     elif creds["type"] == "redshift":
         local_folder = connector.get_local_dir()
+
         def predict_scores_rs(df: pd.DataFrame) -> pd.Series:
             df.columns = features
-            predictions = predict_helper(
-                df, model_name
-            )
+            predictions = predict_helper(df, model_name)
             return predictions.round(4)
 
         prediction_udf = predict_scores_rs
-    
+
     logger.debug("Creating predictions on the feature data")
     preds_with_percentile = connector.call_prediction_udf(
         predict_data,
@@ -178,12 +179,15 @@ def preprocess_and_predict(
     )
     logger.debug("Writing predictions to warehouse")
     connector.write_table(
-        preds_with_percentile, output_tablename, write_mode="overwrite", local=False , if_exists="replace"
+        preds_with_percentile,
+        output_tablename,
+        write_mode="overwrite",
+        local=False,
+        if_exists="replace",
     )
-    logger.debug("Closing the session")    
-    connector.cleanup(session, udf_name=connector.udf_name,close_session=True)
+    logger.debug("Closing the session")
+    connector.cleanup(session, udf_name=connector.udf_name, close_session=True)
     logger.debug("Finished Predict job")
-
 
 
 if __name__ == "__main__":
@@ -224,7 +228,12 @@ if __name__ == "__main__":
     session = connector.build_session(wh_creds)
 
     if args.mode == constants.K8S_MODE:
-        S3Utils.download_directory(args.s3_config["bucket"], args.s3_config["region"], args.s3_config["path"], current_dir)
+        S3Utils.download_directory(
+            args.s3_config["bucket"],
+            args.s3_config["region"],
+            args.s3_config["path"],
+            current_dir,
+        )
     else:
         S3Utils.download_directory_using_keys(args.s3_config, current_dir)
 

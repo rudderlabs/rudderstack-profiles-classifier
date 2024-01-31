@@ -101,8 +101,8 @@ class SnowflakeConnector(Connector):
     ) -> str:
         mode = "native-warehouse"
         return mode
-    
-    def set_udf_name(self, model_path:str) -> str:
+
+    def set_udf_name(self, model_path: str) -> str:
         """Returns the udf name using info from the model_path
 
         Args:

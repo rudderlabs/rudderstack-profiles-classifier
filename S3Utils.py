@@ -29,11 +29,13 @@ class S3Utils:
         )
 
     def download_directory_using_keys(s3_config, local_directory):
-        s3 = boto3.client("s3", 
-                          region_name=s3_config["region"], 
-                          aws_access_key_id=s3_config["access_key_id"],
-                          aws_secret_access_key=s3_config["access_key_secret"], 
-                          aws_session_token=s3_config["aws_session_token"])
+        s3 = boto3.client(
+            "s3",
+            region_name=s3_config["region"],
+            aws_access_key_id=s3_config["access_key_id"],
+            aws_secret_access_key=s3_config["access_key_secret"],
+            aws_session_token=s3_config["aws_session_token"],
+        )
         S3Utils._download(s3_config["bucket"], s3_config["path"], s3, local_directory)
 
     def delete_directory(bucket_name, aws_region_name, folder_name):

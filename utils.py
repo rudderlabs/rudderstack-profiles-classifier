@@ -72,6 +72,7 @@ class PreprocessorConfig:
     test_size: float
     val_size: float
 
+
 @dataclass
 class OutputsConfig:
     """OutputsConfig class is used to store the outputs configuration parameters"""
@@ -408,6 +409,7 @@ def get_output_directory(folder_path: str) -> str:
     target_path = Path(os.path.join(folder_path, f"{materialized_folder}_reports"))
     target_path.mkdir(parents=True, exist_ok=True)
     return str(target_path)
+
 
 def delete_file(file_path: str) -> None:
     """

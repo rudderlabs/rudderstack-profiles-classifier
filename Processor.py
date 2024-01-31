@@ -42,20 +42,20 @@ class Processor(ABC):
         )
 
     def predict(
-        self, 
-        creds, 
-        s3_config, 
-        model_path, 
-        inputs, 
-        output_tablename, 
-        merged_config, 
+        self,
+        creds,
+        s3_config,
+        model_path,
+        inputs,
+        output_tablename,
+        merged_config,
         prediction_task,
     ):
         return preprocess_and_predict(
-            creds, 
-            s3_config, 
-            model_path, 
-            inputs, 
+            creds,
+            s3_config,
+            model_path,
+            inputs,
             output_tablename,
             prediction_task,
             session=self.session,

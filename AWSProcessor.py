@@ -76,15 +76,15 @@ class AWSProcessor(Processor):
                 f"An exception occured while trying to load and delete json {ec2_temp_output_json} from ec2: {e}"
             )
         return train_results_json
-    
+
     def predict(
-        self, 
-        creds, 
-        s3_config, 
-        model_path, 
-        inputs, 
-        output_tablename, 
-        merged_config, 
+        self,
+        creds,
+        s3_config,
+        model_path,
+        inputs,
+        output_tablename,
+        merged_config,
         prediction_task,
     ):
         remote_dir = constants.REMOTE_DIR
@@ -94,27 +94,32 @@ class AWSProcessor(Processor):
         local_folder = self.connector.get_local_dir()
         json_output_filename = model_path.split("/")[-1]
 
-        predict_upload_whitelist = [file for file in os.listdir(local_folder) 
-                            if file.endswith(constants.PREDICT_UPLOAD_EXTENSION)]+[json_output_filename]
-        
+        predict_upload_whitelist = [
+            file
+            for file in os.listdir(local_folder)
+            if file.endswith(constants.PREDICT_UPLOAD_EXTENSION)
+        ] + [json_output_filename]
+
         logger.debug("Uploading files required for prediction to S3")
         S3Utils.upload_directory(
-            s3_config["bucket"], 
-            s3_config["region"], 
-            s3_config["path"], 
-            os.path.dirname(local_folder), 
-            predict_upload_whitelist
+            s3_config["bucket"],
+            s3_config["region"],
+            s3_config["path"],
+            os.path.dirname(local_folder),
+            predict_upload_whitelist,
         )
 
         logger.debug("Starting prediction on ec2")
-        ssm_client = boto3.client(service_name='ssm', region_name=s3_config["region"])
+        ssm_client = boto3.client(service_name="ssm", region_name=s3_config["region"])
         commands = [
-        f"cd {remote_dir}/rudderstack-profiles-classifier",
-        f"pip install -r requirements.txt",
-        f"python3 preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' --s3_config '{json.dumps(s3_config)}' --json_output_filename {json_output_filename} --inputs '{json.dumps(inputs)}' --output_tablename {output_tablename} --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task}",
+            f"cd {remote_dir}/rudderstack-profiles-classifier",
+            f"pip install -r requirements.txt",
+            f"python3 preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' --s3_config '{json.dumps(s3_config)}' --json_output_filename {json_output_filename} --inputs '{json.dumps(inputs)}' --output_tablename {output_tablename} --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task}",
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 
         logger.debug("Deleting additional files from S3")
-        S3Utils.delete_directory(s3_config["bucket"], s3_config["region"], s3_config["path"])
+        S3Utils.delete_directory(
+            s3_config["bucket"], s3_config["region"], s3_config["path"]
+        )
         logger.debug("Done predicting")

@@ -222,14 +222,13 @@ if __name__ == "__main__":
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
     connector = RedshiftConnector(current_dir)
     session = connector.build_session(wh_creds)
-    local_folder = connector.get_local_dir()
 
     if args.mode == constants.K8S_MODE:
-        S3Utils.download_directory(args.s3_config["bucket"], args.s3_config["region"], args.s3_config["path"], local_folder)
+        S3Utils.download_directory(args.s3_config["bucket"], args.s3_config["region"], args.s3_config["path"], current_dir)
     else:
-        S3Utils.download_directory_using_keys(args.s3_config, local_folder)
+        S3Utils.download_directory_using_keys(args.s3_config, current_dir)
 
-    model_path = os.path.join(local_folder, args.json_output_filename)
+    model_path = os.path.join(current_dir, args.json_output_filename)
     connector.set_udf_name(model_path)
 
     _ = preprocess_and_predict(
@@ -244,4 +243,5 @@ if __name__ == "__main__":
         trainer=trainer,
     )
     logger.debug(f"Deleting additional local directory from infra mode")
+    utils.delete_file(model_path)
     connector.cleanup(delete_local_data=True)

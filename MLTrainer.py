@@ -52,6 +52,7 @@ class MLTrainer(ABC):
         self.prediction_horizon_days = kwargs["data"]["prediction_horizon_days"]
         self.inputs = kwargs["data"]["inputs"]
         self.max_row_count = kwargs["data"]["max_row_count"]
+        self.recall_to_precision_importance = kwargs["data"]["recall_to_precision_importance"]
         self.prep = utils.PreprocessorConfig(**kwargs["preprocessing"])
         self.outputs = utils.OutputsConfig(**kwargs["outputs"])
         self.isStratify = None
@@ -293,9 +294,6 @@ class ClassificationTrainer(MLTrainer):
     }
 
     def __init__(self, **kwargs):
-        self.recall_to_precision_importance = kwargs.get("data").pop(
-            "recall_to_precision_importance"
-        )
         super().__init__(**kwargs)
 
         self.figure_names = {
@@ -495,7 +493,6 @@ class RegressionTrainer(MLTrainer):
     }
 
     def __init__(self, **kwargs):
-        _ = kwargs.get("data").pop("recall_to_precision_importance", 0.0)
         super().__init__(**kwargs)
 
         self.figure_names = {

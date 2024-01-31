@@ -13,7 +13,7 @@ warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
 import src.utils.utils as utils
-from src.utils.logger import logger
+import src.utils.logger as logger
 from src.constants import constants
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME

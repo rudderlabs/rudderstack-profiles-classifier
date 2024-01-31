@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 from typing import Any , List
-from src.utils.logger import logger
+import src.utils.logger as logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from src.utils.S3Utils import S3Utils
 

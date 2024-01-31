@@ -1,6 +1,6 @@
 import os
 import boto3
-from src.utils.logger import logger
+import src.utils.logger as logger
 import src.constants.constants as constants
 import configparser
 

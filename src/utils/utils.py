@@ -55,7 +55,7 @@ import json
 import subprocess   
 
 from dataclasses import dataclass
-from src.utils.logger import logger
+import src.utils.logger as logger
 
 
 @dataclass

@@ -1,5 +1,5 @@
 import unittest
-from MLTrainer import *
+from src.trainers.MLTrainer import *
 
 def build_trainer_config():
     config = {}

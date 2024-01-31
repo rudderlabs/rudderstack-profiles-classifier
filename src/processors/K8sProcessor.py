@@ -8,7 +8,7 @@ import base64
 
 from src.processors.Processor import Processor
 from src.constants import constants
-from src.utils.logger import logger
+import src.utils.logger as logger
 from src.utils.S3Utils import S3Utils
 from src.constants.constants import TrainTablesInfo
 

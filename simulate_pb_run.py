@@ -11,14 +11,14 @@ import predict as P
 
 if __name__ == "__main__":
     train_file_extension = ".json"
-    schema = 'shopify_wh'
+    # schema = 'shopify_wh_rs'
     # schema = "rs360"
-    # schema = "shopify_wh"
-    project_folder = "../../rudderstack-profiles-shopify-churn"
-    feature_table_name = "shopify_user_features"
+    schema = "dev_wh"
+    project_folder = "samples/application_project"
+    feature_table_name = "rudder_user_base_features"
     eligible_users = "1=1"
     package_name = "feature_table"
-    label_column = "is_churned_7_days"
+    label_column = "days_since_last_seen"
     label_value = 1
     pred_horizon_days = 7
     p_output_tablename = 'test_run_can_delete_2'
@@ -96,7 +96,7 @@ if __name__ == "__main__":
     if should_train:
         T.train(
             creds,
-            ["""SELECT * FROM rs_profiles_3.Material_shopify_user_features_d10140c3_1185""",],
+            None,
             t_output_filename,
             train_config,
             site_config_path,
@@ -113,8 +113,14 @@ if __name__ == "__main__":
     with open(t_output_filename, "r") as f:
         results = json.load(f)
 
-    material_table_name = results['config']['material_names'][0][-1] 
-    predict_inputs = [f"SELECT * FROM {creds['schema']}.{material_table_name}",]
-    print(f"Using table {material_table_name} for predictions")
+    model_hash = results["config"]["material_hash"]
+    feature_table_name_from_train = results["input_model_name"]
 
-    P.predict(creds, s3_config, t_output_filename, predict_inputs, p_output_tablename, predict_config, runtime_info)
+    # Seq no is required to run the predict step
+    material_seq = 295
+    predict_inputs = [f"SELECT * FROM SOMESCHEMA.Material_{feature_table_name_from_train}_{model_hash}_{material_seq}",]
+    print(f"Using table Material_{feature_table_name_from_train}_{model_hash}_{material_seq} for predictions")
+
+    P.predict(
+        creds, s3_config, t_output_filename, predict_inputs, p_output_tablename, predict_config
+    )

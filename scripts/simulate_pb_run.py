@@ -11,8 +11,6 @@ import src.predict as P
 
 if __name__ == "__main__":
     train_file_extension = ".json"
-    # schema = 'shopify_wh_rs'
-    # schema = "rs360"
     schema = "dev_wh"
     project_folder = "../samples/application_project"
     feature_table_name = "rudder_user_base_features"
@@ -26,7 +24,6 @@ if __name__ == "__main__":
     should_train = True
     material_seq = 295  # seq no of most recent material from pb run
     model_hash = '8a719ff2'  # hash of the feature_table_name from current pb run
-    json_argument = {'is_rudder_backend': False}
     entity_key = "user"
     output_model_name = "shopify_churn"
     inputs = [f"packages/{package_name}/models/{feature_table_name}"]
@@ -113,13 +110,9 @@ if __name__ == "__main__":
     with open(t_output_filename, "r") as f:
         results = json.load(f)
 
-    model_hash = results["config"]["material_hash"]
-    feature_table_name_from_train = results["input_model_name"]
-
-    # Seq no is required to run the predict step
-    material_seq = 295
-    predict_inputs = [f"SELECT * FROM SOMESCHEMA.Material_{feature_table_name_from_train}_{model_hash}_{material_seq}",]
-    print(f"Using table Material_{feature_table_name_from_train}_{model_hash}_{material_seq} for predictions")
+    material_table_name = results['config']['material_names'][0][-1] 
+    predict_inputs = [f"SELECT * FROM {creds['schema']}.{material_table_name}",]
+    print(f"Using table {material_table_name} for predictions")
 
     P.predict(
         creds, s3_config, t_output_filename, predict_inputs, p_output_tablename, predict_config

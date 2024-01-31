@@ -147,7 +147,20 @@ def train(
         )
 
         @sproc(name=train_procedure, is_permanent=False, stage_location=stage_name, replace=True, imports=import_paths, 
-            packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas==1.4.3", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
+            packages=[
+                "snowflake-snowpark-python>=0.10.0", 
+                "scikit-learn==1.1.1", 
+                "xgboost==1.5.0", 
+                "joblib==1.2.0", 
+                "PyYAML==6.0.1", 
+                "numpy==1.23.1", 
+                "pandas==1.5.3", 
+                "hyperopt==0.2.7", 
+                "shap==0.41.0", 
+                "matplotlib==3.7.1", 
+                "seaborn==0.12.0", 
+                "scikit-plot==0.3.7"
+            ])
         def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
                     feature_table_name: str,
                     merged_config: dict) -> dict:
@@ -303,7 +316,7 @@ def train(
 
     logger.info("Getting past data for training")
     try:
-        #material_names, training_dates 
+        #material_names, training_dates
         train_table_pairs = connector.get_material_names(
             session,
             material_table,
@@ -336,7 +349,7 @@ def train(
     )
     processor = processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for training")
-    train_results = processor.train(train_procedure, train_table_pairs, merged_config, prediction_task, creds)
+    train_results = processor.train(train_procedure, train_table_pairs, merged_config, prediction_task, creds, utils.load_yaml(site_config_path))
     logger.debug("Training completed. Saving the artefacts")
 
     logger.info("Saving train results to file")

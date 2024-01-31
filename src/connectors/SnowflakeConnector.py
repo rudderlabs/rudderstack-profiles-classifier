@@ -259,7 +259,7 @@ class SnowflakeConnector(Connector):
         feature_table = self.get_table(session, feature_table_name)
         non_stringtype_features = []
         for field in feature_table.schema.fields:
-            if field.datatype != T.StringType() and field.name.lower() not in (
+            if not isinstance(field.datatype, T.StringType) and field.name.lower() not in (
                 label_column.lower(),
                 entity_column.lower(),
             ):
@@ -294,7 +294,7 @@ class SnowflakeConnector(Connector):
         feature_table = self.get_table(session, feature_table_name)
         stringtype_features = []
         for field in feature_table.schema.fields:
-            if field.datatype == T.StringType() and field.name.lower() not in (
+            if isinstance(field.datatype, T.StringType) and field.name.lower() not in (
                 label_column.lower(),
                 entity_column.lower(),
             ):
@@ -327,7 +327,7 @@ class SnowflakeConnector(Connector):
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
         arraytype_columns = [
-            row.name for row in table.schema.fields if row.datatype == T.ArrayType()
+            row.name for row in table.schema.fields if isinstance(row.datatype, T.ArrayType)
         ]
         return arraytype_columns
 
@@ -416,7 +416,7 @@ class SnowflakeConnector(Connector):
         """
         timestamp_columns = []
         for field in table.schema.fields:
-            if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()]:
+            if isinstance(field.datatype, (T.TimestampType, T.DateType, T.TimeType)):
                 timestamp_columns.append(field.name)
         return timestamp_columns
 

@@ -29,6 +29,7 @@ class Processor(ABC):
         model_config: dict,
         prediction_task: str,
         wh_creds: dict,
+        site_config: dict
     ):
         return preprocess_and_train(
             train_procedure,

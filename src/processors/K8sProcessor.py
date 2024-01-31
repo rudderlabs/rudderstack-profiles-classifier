@@ -28,15 +28,15 @@ class K8sProcessor(Processor):
         logger.info("Created secret %s", secret_name)
         return { "name": secret_name, "key": secret_key }
 
-    def _create_job(self, job_name: str, secret: dict, namespace: str, command_args: dict, resources: dict, batch_v1_api):
+    def _create_job(self, job_name: str, secret: dict, namespace: str, command_args: dict, resources: dict, batch_v1_api, s3_config: dict):
         command = [
           "python3",
           "-u",
           "preprocess_and_train.py",
-          "--s3_bucket", constants.S3_BUCKET,
+          "--s3_bucket", s3_config["bucket"],
           "--mode", constants.K8S_MODE,
-          "--aws_region_name", constants.AWS_REGION_NAME,
-          "--s3_path", constants.S3_PATH,
+          "--aws_region_name", s3_config["region"],
+          "--s3_path", s3_config["path"],
           "--ec2_temp_output_json", constants.EC2_TEMP_OUTPUT_JSON,
           "--material_names", json.dumps(command_args["material_names"]),
           "--merged_config", json.dumps(command_args["merged_config"]),
@@ -124,10 +124,13 @@ class K8sProcessor(Processor):
                 break
         return error_message
 
-    def train(self, train_procedure, materials: List[TrainTablesInfo], merged_config: dict, prediction_task: str, wh_creds: dict):
-        namespace = "profiles-qa" # TODO - Get it from argument
-        resources = { "cpu": "1000m", "memory": "2Gi" } # TODO - Get it from argument
-        job_name = "sources-wht-ml-job-" + str(uuid.uuid4())
+    def train(self, train_procedure, materials: List[TrainTablesInfo], merged_config: dict, prediction_task: str, wh_creds: dict, site_config: dict):
+        credentials_presets = site_config["py_models"]["credentials_presets"]
+        k8s_config = credentials_presets["kubernetes"]
+        s3_config = credentials_presets["s3"]
+        namespace = k8s_config["namespace"]
+        resources = { "cpu": k8s_config["resources"]["limits_cpu"], "memory": k8s_config["resources"]["limits_memory"] }
+        job_name = "ml-training-" + str(uuid.uuid4())
         config.load_incluster_config()
         core_v1_api = client.CoreV1Api()
         batch_v1_api = client.BatchV1Api()
@@ -138,16 +141,16 @@ class K8sProcessor(Processor):
           "prediction_task": prediction_task
         }
         try:
-            self._create_job(job_name=job_name, secret=secret, namespace=namespace, command_args=command_args, resources=resources, batch_v1_api=batch_v1_api)
+            self._create_job(job_name=job_name, secret=secret, namespace=namespace, command_args=command_args, resources=resources, batch_v1_api=batch_v1_api, s3_config=s3_config)
             pod_name = self._wait_for_pod(job_name=job_name, namespace=namespace, core_v1_api=core_v1_api)
             error_message = self._stream_logs(pod_name=pod_name, namespace=namespace, core_v1_api=core_v1_api)
-        finally: 
+        finally:
             core_v1_api.delete_namespaced_secret(name=secret["name"], namespace=namespace)
         if error_message != "":
             raise Exception(error_message)
         # TODO - Add job status check
-        S3Utils.download_directory(constants.S3_BUCKET, constants.AWS_REGION_NAME, constants.S3_PATH, self.connector.get_local_dir())
-        S3Utils.delete_directory(constants.S3_BUCKET, constants.AWS_REGION_NAME, constants.S3_PATH)
+        S3Utils.download_directory(s3_config["bucket"], s3_config["region"], s3_config["path"], self.connector.get_local_dir())
+        S3Utils.delete_directory(s3_config["bucket"], s3_config["region"], s3_config["path"])
         with open(os.path.join(self.connector.get_local_dir(), constants.EC2_TEMP_OUTPUT_JSON), 'r') as file:
             train_results_json = json.load(file)
         return train_results_json

@@ -1110,8 +1110,9 @@ class SnowflakeConnector(Connector):
         
     def select_relevant_columns(self, 
                                 table: snowflake.snowpark.Table, 
-                                training_features_columns: dict) -> snowflake.snowpark.Table:
-        training_feature_columns_list = [col for cols in training_features_columns.values() for col in cols]
+                                training_features_columns: dict, 
+                                ignore_features: List[str]) -> snowflake.snowpark.Table:
+        training_feature_columns_list = [col for cols in training_features_columns.values() for col in cols if col not in ignore_features]
         for col in training_feature_columns_list:
             if col not in table.columns:
                 raise Exception(f"Expected feature column {col} not found in the predictions input table")

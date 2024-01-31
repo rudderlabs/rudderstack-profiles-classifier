@@ -71,7 +71,12 @@ class TestSelectRelevantColumns(unittest.TestCase):
     # Returns a pandas DataFrame with only the columns specified in the training_features_columns dictionary.
     def test_relevant_columns_only(self):
         training_features_columns = {'features': ['COL1', 'COL2'], 'timestamp_columns': ['COL3']}
-        relevant_columns = self.connector.select_relevant_columns(self.table, training_features_columns)
+        relevant_columns = self.connector.select_relevant_columns(self.table, training_features_columns, [])
+        expected_columns = ['COL1', 'COL2', "COL3"]
+        self.assertEqual(list(relevant_columns.columns), expected_columns)
+    def test_relevant_columns_only_with_ignore_features(self):
+        training_features_columns = {'features': ['COL1', 'COL2'], 'timestamp_columns': ['COL3', "COL5"]}
+        relevant_columns = self.connector.select_relevant_columns(self.table, training_features_columns, ["COL5"])
         expected_columns = ['COL1', 'COL2', "COL3"]
         self.assertEqual(list(relevant_columns.columns), expected_columns)
         
@@ -79,5 +84,6 @@ class TestSelectRelevantColumns(unittest.TestCase):
     def test_relevant_columns_not_found(self):
         training_features_columns = {'features': ['COL1', 'COL2'], 'timestamp_columns': ['COL5']}
         with self.assertRaises(Exception) as context:
-            self.connector.select_relevant_columns(self.table, training_features_columns)
-        self.assertIn('Expected feature column COL5 not found in the predictions input table', str(context.exception))        
+            self.connector.select_relevant_columns(self.table, training_features_columns, [])
+        self.assertIn('Expected feature column COL5 not found in the predictions input table', str(context.exception), [])   
+         

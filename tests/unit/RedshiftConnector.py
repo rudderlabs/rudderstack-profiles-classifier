@@ -246,9 +246,25 @@ class TestSelectRelevantColumns(unittest.TestCase):
         table = pd.DataFrame({'col1': [1, 2, 3], 'col2': [4, 5, 6], 'col3': [7, 8, 9], "col4": [10, 11, 12]})
         training_features_columns = {'features': ['col1', 'col2'], 'timestamp_columns': ['col3']}
         redshift_connector = RedshiftConnector('data')
-        relevant_columns = redshift_connector.select_relevant_columns(table, training_features_columns)
+        relevant_columns = redshift_connector.select_relevant_columns(table, training_features_columns, [])
         expected_columns = ['col1', 'col2', "col3"]
         self.assertEqual(list(relevant_columns.columns), expected_columns)
+        
+    def test_relevant_columns_only_handling_case_sensitivity(self):
+        table = pd.DataFrame({'COL1': [1, 2, 3], 'col2': [4, 5, 6], 'col3': [7, 8, 9], "col4": [10, 11, 12]})
+        training_features_columns = {'features': ['col1', 'col2'], 'timestamp_columns': ['col3']}
+        redshift_connector = RedshiftConnector('data')
+        relevant_columns = redshift_connector.select_relevant_columns(table, training_features_columns, [])
+        expected_columns = ['COL1', 'col2', "col3"]
+        self.assertEqual(list(relevant_columns.columns), expected_columns)        
+        
+    def test_relevant_columns_only_with_ignore_features(self):
+        table = pd.DataFrame({'col1': [1, 2, 3], 'col2': [4, 5, 6], 'col3': [7, 8, 9], "col4": [10, 11, 12]})
+        training_features_columns = {'features': ['col1', 'col2'], 'timestamp_columns': ['col3', 'col5']}
+        redshift_connector = RedshiftConnector('data')
+        relevant_columns = redshift_connector.select_relevant_columns(table, training_features_columns, ['col5'])
+        expected_columns = ['col1', 'col2', "col3"]
+        self.assertEqual(list(relevant_columns.columns), expected_columns)        
         
     # Throws an exception that the expected column is not found
     def test_relevant_columns_not_found(self):
@@ -256,5 +272,5 @@ class TestSelectRelevantColumns(unittest.TestCase):
         training_features_columns = {'features': ['col1', 'col2'], 'timestamp_columns': ['col3'], 'entity_column': ['col5']}
         redshift_connector = RedshiftConnector('data')
         with self.assertRaises(Exception) as context:
-            redshift_connector.select_relevant_columns(table, training_features_columns)
+            redshift_connector.select_relevant_columns(table, training_features_columns,[])
         self.assertIn('Expected feature column col5 not found in the predictions input table', str(context.exception))

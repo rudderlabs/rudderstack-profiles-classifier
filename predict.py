@@ -135,7 +135,7 @@ def predict(
     for col in timestamp_columns:
         predict_data = connector.add_days_diff(predict_data, col, col, end_ts)
         
-    input = connector.select_relevant_columns(predict_data, results["column_names"])
+    input = connector.select_relevant_columns(predict_data, results["column_names"], ignore_features)
     types = connector.generate_type_hint(input)
 
     predict_data = connector.add_index_timestamp_colum_for_predict_data(

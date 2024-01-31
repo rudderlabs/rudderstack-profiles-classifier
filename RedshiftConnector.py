@@ -956,12 +956,19 @@ class RedshiftConnector(Connector):
         
     def select_relevant_columns(self, 
                                 table: pd.DataFrame, 
-                                training_features_columns: dict) -> pd.DataFrame:
-        training_feature_columns_list = [col for cols in training_features_columns.values() for col in cols]
+                                training_features_columns: dict,
+                                ignore_features: List[str]) -> pd.DataFrame:
+        # table can have columns in upper case or lower case. We need to handle both
+        training_feature_columns_list = [col for cols in training_features_columns.values() for col in cols if col not in ignore_features]
+        matching_columns = []
         for col in training_feature_columns_list:
-            if col not in list(table):
+            if col.lower() in list(table):
+                matching_columns.append(col.lower())
+            elif col.upper() in list(table):
+                matching_columns.append(col.upper())
+            else:
                 raise Exception(f"Expected feature column {col} not found in the predictions input table")
-        return table.filter(training_feature_columns_list) 
+        return table.filter(matching_columns) 
 
     def cleanup(self, *args, **kwargs) -> None:
         delete_local_data = kwargs.get("delete_local_data", None)

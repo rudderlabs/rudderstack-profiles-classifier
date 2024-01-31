@@ -238,7 +238,7 @@ def predict(
         aws_config["access_key_secret"] = s3_creds["access_key_secret"]
         aws_config["aws_session_token"] = s3_creds["aws_session_token"]
     connector.write_table(
-        preds_with_percentile, output_tablename, write_mode="overwrite", local=False , if_exists="replace"
+        preds_with_percentile, output_tablename, write_mode="overwrite", local=False , if_exists="replace", s3_config=aws_config
     )
     logger.debug("Closing the session")    
     connector.cleanup(session, udf_name=udf_name,close_session=True)

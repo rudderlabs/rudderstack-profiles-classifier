@@ -341,9 +341,8 @@ if __name__ == "__main__":
                             trainer.figure_names["lift-chart"],
                             trainer.figure_names["pr-auc-curve"],
                             trainer.figure_names["roc-auc-curve"],
-                            f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json",
                             f"{trainer.output_profiles_ml_model}_{model_file_name}",
-                            "train_results.json"]
+                            args.ec2_temp_output_json]
     if args.mode == constants.K8S_MODE:
         S3Utils.upload_directory(args.s3_bucket, args.aws_region_name, args.s3_path, local_folder, train_upload_whitelist)
     else:

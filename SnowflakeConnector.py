@@ -1107,6 +1107,15 @@ class SnowflakeConnector(Connector):
             Nothing
         """
         _ = session.file.get(file_stage_path, target_folder)
+        
+    def select_relevant_columns(self, 
+                                table: snowflake.snowpark.Table, 
+                                training_features_columns: dict) -> snowflake.snowpark.Table:
+        training_feature_columns_list = [col for cols in training_features_columns.values() for col in cols]
+        for col in training_feature_columns_list:
+            if col not in table.columns:
+                raise Exception(f"Expected feature column {col} not found in the predictions input table")
+        return table.select(*training_feature_columns_list) 
 
     def cleanup(self, session: snowflake.snowpark.Session, **kwargs):
         stored_procedure_name = kwargs.get("stored_procedure_name", None)

@@ -136,8 +136,8 @@ def predict(
 
     for col in timestamp_columns:
         predict_data = connector.add_days_diff(predict_data, col, col, end_ts)
-
-    input = connector.drop_cols(predict_data, [label_column, entity_column])
+        
+    input = connector.select_relevant_columns(predict_data, results["column_names"])
     types = connector.generate_type_hint(input)
 
     predict_data = connector.add_index_timestamp_colum_for_predict_data(

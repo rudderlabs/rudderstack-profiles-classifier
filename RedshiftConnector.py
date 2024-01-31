@@ -953,6 +953,15 @@ class RedshiftConnector(Connector):
         except OSError as o:
             logger.info("Local directory not present")
             pass
+        
+    def select_relevant_columns(self, 
+                                table: pd.DataFrame, 
+                                training_features_columns: dict) -> pd.DataFrame:
+        training_feature_columns_list = [col for cols in training_features_columns.values() for col in cols]
+        for col in training_feature_columns_list:
+            if col not in list(table):
+                raise Exception(f"Expected feature column {col} not found in the predictions input table")
+        return table.filter(training_feature_columns_list) 
 
     def cleanup(self, *args, **kwargs) -> None:
         delete_local_data = kwargs.get("delete_local_data", None)

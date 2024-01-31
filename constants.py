@@ -19,7 +19,6 @@ REMOTE_DIR = "/home/ec2-user"
 INSTANCE_ID = "i-001c6544decab0fa3"
 EC2_TEMP_OUTPUT_JSON = "train_results.json"
 S3_BUCKET = "ml-usecases-poc-srinivas"
-AWS_REGION_NAME="us-east-1"
 S3_PATH = "jobId/jobRunId/taskRunId"
 SSM_SLEEP_TIME = 5
 K8S_WH_CREDS_KEY="WAREHOUSE_CREDS"

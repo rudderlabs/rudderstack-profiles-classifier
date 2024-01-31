@@ -38,7 +38,7 @@ if __name__ == "__main__":
 
     # End of user inputs.
 
-    import src.utils.logger as logger
+    from src.utils.logger import logger
     logger.setLevel("DEBUG")
 
     if creds['type'] == 'snowflake':

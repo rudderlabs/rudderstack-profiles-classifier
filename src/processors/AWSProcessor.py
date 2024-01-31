@@ -6,7 +6,7 @@ from typing import List, Tuple, Dict
 
 import src.utils.utils as utils 
 from src.constants import constants
-import src.utils.logger as logger
+from src.utils.logger import logger
 from src.utils.S3Utils import S3Utils
 
 class AWSProcessor(Processor):

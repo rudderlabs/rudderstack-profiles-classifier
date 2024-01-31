@@ -7,7 +7,7 @@ import pandas as pd
 import sys
 import hashlib
 
-import src.utils.logger as logger
+from src.utils.logger import logger
 from datetime import datetime
 from dataclasses import asdict
 

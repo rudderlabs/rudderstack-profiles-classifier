@@ -5,7 +5,7 @@ from typing import Any, List, Tuple, Union, Sequence, Optional, Dict
 
 import src.utils.utils as utils 
 from src.constants import constants
-import src.utils.logger as logger
+from src.utils.logger import logger
 from src.constants.constants import TrainTablesInfo
 
 

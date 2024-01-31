@@ -15,7 +15,7 @@ from snowflake.snowpark.session import Session
 
 import src.utils.utils as utils 
 from src.constants import constants
-import src.utils.logger as logger
+from src.utils.logger import logger
 from src.connectors.Connector import Connector
 
 local_folder = constants.SF_LOCAL_STORAGE_DIR

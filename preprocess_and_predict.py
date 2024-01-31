@@ -45,7 +45,11 @@ def preprocess_and_predict(
     prob_th = results["model_info"].get("threshold")
     stage_name = results["model_info"]["file_location"]["stage"]
     model_hash = results["config"]["material_hash"]
-    input_model_name = results["input_model_name"]
+    input_model_name = results["config"]["input_model_name"]
+
+    numeric_columns = results["column_names"]["numeric_columns"]
+    categorical_columns = results["column_names"]["categorical_columns"]
+    arraytype_columns = results["column_names"]["arraytype_columns"]
 
     model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
     seq_no = None
@@ -58,11 +62,6 @@ def preprocess_and_predict(
         )
 
     feature_table_name = f"{constants.MATERIAL_TABLE_PREFIX}{input_model_name}_{model_hash}_{seq_no}"
-    column_names_file = f"{trainer.output_profiles_ml_model}_{train_model_id}_column_names.json"
-    column_names_path = connector.join_file_path(column_names_file)
-    features_path = connector.join_file_path(
-        f"{trainer.output_profiles_ml_model}_{train_model_id}_array_time_feature_names.json"
-    )
 
     material_table = connector.get_material_registry_name(
         session, constants.MATERIAL_REGISTRY_TABLE_PREFIX
@@ -76,14 +75,12 @@ def preprocess_and_predict(
         session, feature_table_name, filter_condition=trainer.eligible_users
     )
     
-    arraytype_columns = connector.get_arraytype_columns_from_table(raw_data, features_path=features_path)
     ignore_features = utils.merge_lists_to_unique(trainer.prep.ignore_features, arraytype_columns)
     predict_data = connector.drop_cols(raw_data, ignore_features)
 
     if len(trainer.prep.timestamp_columns) == 0:
-        timestamp_columns = connector.get_timestamp_columns_from_table(
-            predict_data, features_path=features_path
-        )
+        timestamp_columns = results["column_names"]["timestamp_columns"]
+
     for col in timestamp_columns:
         predict_data = connector.add_days_diff(predict_data, col, col, end_ts)
 
@@ -111,32 +108,15 @@ def preprocess_and_predict(
             m = joblib.load(file)
             return m
 
-    @cachetools.cached(cache={})
-    def load_column_names(filename: str):
-        """session.import adds the staged model file to an import directory. We load the model file from this location"""
-        import_dir = sys._xoptions.get("snowflake_import_directory")
-
-        if import_dir:
-            assert import_dir.startswith("/home/udf/")
-            filename = os.path.join(import_dir, filename)
-
-        with open(filename, "r") as file:
-            column_names = json.load(file)
-            return column_names
-
     def predict_helper(df, model_name: str, **kwargs) -> Any:
         trained_model = load_model(model_name)
         df.columns = [x.upper() for x in df.columns]
-        column_names_path = kwargs.get("column_names_path", None)
-        model_task = kwargs.get("model_task", prediction_task)
-        column_names = load_column_names(column_names_path)
-        categorical_columns = column_names["categorical_columns"]
-        numeric_columns = column_names["numeric_columns"]
+
         df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
         df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
-        if model_task == "classification":
+        if prediction_task == "classification":
             return trained_model.predict_proba(df)[:, 1]
-        elif model_task == "regression":
+        elif prediction_task == "regression":
             return trained_model.predict(df)
 
     features = input.columns
@@ -150,7 +130,7 @@ def preprocess_and_predict(
             replace=True,
             stage_location=stage_name,
             name=connector.udf_name,
-            imports=[f"{stage_name}/{model_name}", f"{stage_name}/{column_names_file}"],
+            imports=[f"{stage_name}/{model_name}"],
             packages=[
                 "snowflake-snowpark-python>=0.10.0",
                 "typing",
@@ -167,19 +147,19 @@ def preprocess_and_predict(
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
             predictions = predict_helper(
-                df, model_name, column_names_path=column_names_file, model_task=prediction_task
+                df, model_name
             )
-            return predictions
+            return predictions.round(4)
 
         prediction_udf = predict_scores
     elif creds["type"] == "redshift":
         local_folder = connector.get_local_dir()
-        def predict_scores_rs(df: pd.DataFrame, column_names_path: str) -> pd.Series:
+        def predict_scores_rs(df: pd.DataFrame) -> pd.Series:
             df.columns = features
             predictions = predict_helper(
-                df, model_name, column_names_path=column_names_path, model_task=prediction_task
+                df, model_name
             )
-            return predictions
+            return predictions.round(4)
 
         prediction_udf = predict_scores_rs
     
@@ -193,7 +173,6 @@ def preprocess_and_predict(
         trainer.outputs.column_names.get("percentile"),
         trainer.outputs.column_names.get("output_label_column"),
         train_model_id,
-        column_names_path,
         prob_th,
         input,
     )

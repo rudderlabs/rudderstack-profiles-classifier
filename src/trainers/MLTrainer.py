@@ -26,7 +26,7 @@ from sklearn.metrics import (
     r2_score,
 )
 
-from src.utils import utils 
+import src.utils.utils as utils 
 from src.constants import constants
 from src.utils.logger import logger
 from src.connectors.Connector import Connector

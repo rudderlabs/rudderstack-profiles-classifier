@@ -13,7 +13,7 @@ from snowflake.snowpark.window import Window
 from snowflake.snowpark.functions import col
 from snowflake.snowpark.session import Session
 
-from src.utils import utils 
+import src.utils.utils as utils 
 from src.constants import constants
 from src.utils.logger import logger
 from src.connectors.Connector import Connector

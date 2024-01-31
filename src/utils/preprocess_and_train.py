@@ -12,7 +12,7 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
-import src.utils as utils
+import src.utils.utils as utils
 from src.utils.logger import logger
 from src.constants import constants
 metrics_table = constants.METRICS_TABLE

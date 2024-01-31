@@ -2,6 +2,7 @@ from src.train import *
 from src.predict import *
 import shutil
 import time
+from src.connectors.RedshiftConnector import RedshiftConnector
 
 # homedir = os.path.expanduser("~") 
 # with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:

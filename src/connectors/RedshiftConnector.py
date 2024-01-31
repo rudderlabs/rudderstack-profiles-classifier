@@ -11,7 +11,7 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Tuple, Any, Union, Optional
 
-from src.utils import utils 
+import src.utils.utils as utils 
 from src.constants import constants
 from src.utils.logger import logger
 from src.connectors.Connector import Connector

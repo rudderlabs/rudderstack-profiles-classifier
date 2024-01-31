@@ -11,14 +11,12 @@ import predict as P
 
 if __name__ == "__main__":
     train_file_extension = ".json"
-    schema = "shopify_wh_rs"
-    # schema = "rs360"
-    # schema = "shopify_wh"
-    project_folder = "../rudderstack-profiles-shopify-churn"
-    feature_table_name = "shopify_user_features"
+    schema = "dev_wh"
+    project_folder = "samples/application_project"
+    feature_table_name = "rudder_user_base_features"
     eligible_users = "1=1"
     package_name = "feature_table"
-    label_column = "is_churned_7_days"
+    label_column = "days_since_last_seen"
     label_value = 1
     pred_horizon_days = 7
     p_output_tablename = "test_run_can_delete_2"
@@ -26,7 +24,6 @@ if __name__ == "__main__":
     should_train = True
     material_seq = 295  # seq no of most recent material from pb run
     model_hash = "8a719ff2"  # hash of the feature_table_name from current pb run
-    json_argument = {"is_rudder_backend": False}
     entity_key = "user"
     output_model_name = "shopify_churn"
     inputs = [f"packages/{package_name}/models/{feature_table_name}"]
@@ -99,9 +96,7 @@ if __name__ == "__main__":
     if should_train:
         T.train(
             creds,
-            [
-                """SELECT * FROM material_shopify_user_features_f3b8cb5a_1241""",
-            ],
+            None,
             t_output_filename,
             train_config,
             site_config_path,

@@ -78,6 +78,7 @@ def predict(
     numeric_columns = results["column_names"]["numeric_columns"]
     categorical_columns = results["column_names"]["categorical_columns"]
     arraytype_columns = results["column_names"]["arraytype_columns"]
+    timestamp_columns = results["column_names"]["timestamp_columns"]
 
     score_column_name = merged_config["outputs"]["column_names"]["score"]
     percentile_column_name = merged_config["outputs"]["column_names"]["percentile"]
@@ -130,10 +131,7 @@ def predict(
 
     ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_columns)
     predict_data = connector.drop_cols(raw_data, ignore_features)
-
-    if len(timestamp_columns) == 0:
-        timestamp_columns = results["column_names"]["timestamp_columns"]
-
+    
     for col in timestamp_columns:
         predict_data = connector.add_days_diff(predict_data, col, col, end_ts)
         

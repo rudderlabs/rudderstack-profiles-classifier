@@ -948,7 +948,6 @@ class SnowflakeConnector(Connector):
         percentile_column_name: str,
         output_label_column: str,
         train_model_id: str,
-        column_names_path: str,
         prob_th: Optional[float],
         input: snowflake.snowpark.Table,
     ) -> pd.DataFrame:
@@ -963,7 +962,6 @@ class SnowflakeConnector(Connector):
             percentile_column_name (str): Name of the percentile column
             output_label_column (str): Name of the output label column
             train_model_id (str): Model id
-            column_names_path (str): Path to the column names file
             prob_th (float): Probability threshold
             input (pd.DataFrame): Input dataframe
         Returns:

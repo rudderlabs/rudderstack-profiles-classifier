@@ -1,5 +1,5 @@
-from train import *
-from predict import *
+from src.train import *
+from src.predict import *
 import shutil
 import time
 

@@ -8,9 +8,9 @@ import numpy as np
 import pandas as pd
 
 from typing import Any , List
-from utils.logger import logger
+from src.utils.logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-from utils.S3Utils import S3Utils
+from src.utils.S3Utils import S3Utils
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
@@ -18,15 +18,15 @@ import snowflake.snowpark.functions as F
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import utils
-import constants
-from connectors.SnowflakeConnector import SnowflakeConnector
+from src.utils import utils
+from src.constants import constants
+from src.connectors.SnowflakeConnector import SnowflakeConnector
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
 try:
-    from connectors.RedshiftConnector import RedshiftConnector
+    from src.connectors.RedshiftConnector import RedshiftConnector
 except Exception as e:
     logger.warning(f"Could not import RedshiftConnector")
 

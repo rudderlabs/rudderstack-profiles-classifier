@@ -1,7 +1,7 @@
-from train import *
+from src.train import *
 import shutil
 import time
-from predict import * 
+from src.predict import * 
 
 # homedir = os.path.expanduser("~") 
 # with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:

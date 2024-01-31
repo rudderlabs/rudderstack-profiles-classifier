@@ -2,7 +2,8 @@ import unittest
 from MLTrainer import *
 
 def build_trainer_config():
-    config = {}
+    config = {'data': {}, 'preprocessing': {}, 'outputs': {}}
+    
     config['data']['label_value'] = None
     config['data']['label_column'] = None
     config['data']['entity_column'] = None
@@ -16,8 +17,19 @@ def build_trainer_config():
     config['data']['inputs'] = None
     config['data']['max_row_count'] = None
     config['data']['recall_to_precision_importance'] = 0.
-    config['prep'] = None
-    config['outputs'] = None
+
+    config['preprocessing']['timestamp_columns'] = None
+    config['preprocessing']['ignore_features'] = None
+    config['preprocessing']['numeric_pipeline'] = None
+    config['preprocessing']['categorical_pipeline'] = None
+    config['preprocessing']['feature_selectors'] = None
+    config['preprocessing']['train_size'] = None
+    config['preprocessing']['test_size'] = None
+    config['preprocessing']['val_size'] = None
+
+    config['outputs']['column_names'] = None
+    config['outputs']['feature_meta_data'] = None
+
     return config
 
 class TestClassificationTrainer(unittest.TestCase):

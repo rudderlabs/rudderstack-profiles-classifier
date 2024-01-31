@@ -318,7 +318,7 @@ def train(
 
     logger.info("Getting past data for training")
     try:
-        #material_names, training_dates 
+        #material_names, training_dates
         train_table_pairs = connector.get_material_names(
             session,
             material_table,
@@ -351,7 +351,7 @@ def train(
     )
     processor = processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for training")
-    train_results = processor.train(train_procedure, train_table_pairs, merged_config, prediction_task, creds)
+    train_results = processor.train(train_procedure, train_table_pairs, merged_config, prediction_task, creds, utils.load_yaml(site_config_path))
     logger.debug("Training completed. Saving the artefacts")
 
     logger.info("Saving train results to file")

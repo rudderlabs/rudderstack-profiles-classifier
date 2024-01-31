@@ -38,6 +38,7 @@ def predict(
     inputs: str,
     output_tablename: str,
     config: dict,
+    runtime_info: dict=None,
 ) -> None:
     """Generates the prediction probabilities and save results for given model_path
 
@@ -47,6 +48,7 @@ def predict(
         model_path (str): path to the file where the model details including model id etc are present. Created in training step
         inputs: (List[str]), containing sql queries such as "select * from <feature_table_name>" from which the script infers input tables        output_tablename (str): name of output table where prediction results are written
         config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
+        runtime_info (dict): Whether the code is running on rudder infra or local. Useful to decide if redshift processor should run locally or in k8s
 
     Returns:
         None: save the prediction results but returns nothing

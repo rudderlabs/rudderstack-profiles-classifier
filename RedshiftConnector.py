@@ -117,7 +117,7 @@ class RedshiftConnector(Connector):
         )
         return mode
     
-    def get_udf_name(self, model_path:str) -> str:
+    def set_udf_name(self, model_path:str) -> str:
         """Returns the udf name using info from the model_path
 
         Args:
@@ -127,7 +127,6 @@ class RedshiftConnector(Connector):
             str: UDF name
         """
         self.udf_name = None
-        return self.udf_name
 
     def get_table(
         self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs

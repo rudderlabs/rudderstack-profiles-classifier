@@ -94,15 +94,15 @@ def predict(
         f"Started Predicting for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
     )
 
-    udf_name = None
     if creds["type"] == "snowflake":
         connector = SnowflakeConnector()
-        udf_name = connector.get_udf_name(model_path)
         session = connector.build_session(creds)
-        connector.cleanup(session, udf_name=udf_name)
     elif creds["type"] == "redshift":
         connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
+
+    connector.set_udf_name(model_path)
+    connector.cleanup(session, udf_name=connector.udf_name)
 
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend

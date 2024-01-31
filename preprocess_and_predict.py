@@ -223,13 +223,14 @@ if __name__ == "__main__":
     connector = RedshiftConnector(current_dir)
     session = connector.build_session(wh_creds)
     local_folder = connector.get_local_dir()
-    model_path = os.path.join(local_folder, args.json_output_filename)
-    udf_name = connector.get_udf_name(model_path)
 
     if args.mode == constants.K8S_MODE:
         S3Utils.download_directory(args.s3_config["bucket"], args.s3_config["region"], args.s3_config["path"], local_folder)
     else:
         S3Utils.download_directory_using_keys(args.s3_config, local_folder)
+
+    model_path = os.path.join(local_folder, args.json_output_filename)
+    connector.set_udf_name(model_path)
 
     _ = preprocess_and_predict(
         wh_creds,

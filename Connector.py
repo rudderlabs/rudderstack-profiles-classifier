@@ -235,14 +235,14 @@ class Connector(ABC):
 
         features_profiles_model = None
         for var_table in var_table_suffix:
-            if entity_key+var_table in pb_compile_output:
+            if entity_key + var_table in pb_compile_output:
                 features_profiles_model = entity_key + var_table
                 break
         if features_profiles_model is None:
             raise Exception(
                 f"Could not find any matching var table in the output of pb compile command"
             )
-        
+
         material_file_prefix = (
             constants.MATERIAL_TABLE_PREFIX + features_profiles_model + "_"
         ).lower()

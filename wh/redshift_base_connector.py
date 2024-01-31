@@ -14,6 +14,7 @@ from sqlalchemy import text
 from logger import logger
 from wh.connector_base import ConnectorBase, register_connector
 
+
 @register_connector
 class RedShiftConnector(ConnectorBase):
     def __init__(self, creds: dict, db_config: dict, **kwargs) -> None:
@@ -37,7 +38,7 @@ class RedShiftConnector(ConnectorBase):
         df: pd.DataFrame,
         table_name: str,
         schema: str,
-        if_exists: Literal['fail', 'replace', 'append'] = "append",
+        if_exists: Literal["fail", "replace", "append"] = "append",
     ):
         table_name, schema = (
             table_name.split(".") if "." in table_name else (table_name, schema)
@@ -45,7 +46,13 @@ class RedShiftConnector(ConnectorBase):
 
         try:
             if not self.s3_config:
-                df.to_sql(name=table_name.lower(), con=self.engine, schema=schema, index=False, if_exists=if_exists)
+                df.to_sql(
+                    name=table_name.lower(),
+                    con=self.engine,
+                    schema=schema,
+                    index=False,
+                    if_exists=if_exists,
+                )
             else:
                 logger.info(f"Establishing connection to Redshift")
                 pr.connect_to_redshift(
@@ -66,7 +73,7 @@ class RedShiftConnector(ConnectorBase):
                     bucket=s3_bucket,
                     subdirectory=s3_sub_dir,
                     # As of release 1.1.1 you are able to specify an aws_session_token (if necessary):
-                    aws_session_token=self.s3_config["aws_session_token"]
+                    aws_session_token=self.s3_config["aws_session_token"],
                 )
 
                 # Write the DataFrame to S3 and then to redshift
@@ -76,9 +83,11 @@ class RedShiftConnector(ConnectorBase):
                     redshift_table_name=f"{schema}.{table_name}",
                     append=if_exists == "append",
                 )
-                logger.info(f"Successfully wrote table {table_name} to S3 and then to Redshift")
+                logger.info(
+                    f"Successfully wrote table {table_name} to S3 and then to Redshift"
+                )
         except Exception as e:
-            #Check for non existing schema
+            # Check for non existing schema
             if "cannot copy into nonexistent table" in str(e).lower():
                 logger.info(f"{table_name} not found. Creating it")
                 self.create_table(df, table_name, schema)

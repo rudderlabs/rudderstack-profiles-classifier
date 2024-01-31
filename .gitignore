@@ -21,3 +21,5 @@ testenv2/
 tmp/
 *.log
 **/output/*
+.vscode/
+.idea/

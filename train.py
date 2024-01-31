@@ -42,6 +42,7 @@ except Exception as e:
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
+
 def train(
     creds: dict,
     inputs: str,
@@ -96,8 +97,12 @@ def train(
     """ Initialising trainer """
     logger.info("Initialising trainer")
     default_config = utils.load_yaml(config_path)
-    _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
-    _ = config["data"].pop("features_profiles_model", None) # For backward compatibility. Not using it anywhere else, hence deleting.
+    _ = config["data"].pop(
+        "package_name", None
+    )  # For backward compatibility. Not using it anywhere else, hence deleting.
+    _ = config["data"].pop(
+        "features_profiles_model", None
+    )  # For backward compatibility. Not using it anywhere else, hence deleting.
     merged_config = utils.combine_config(default_config, config)
 
     user_preference_order_infra = merged_config["data"].pop(
@@ -143,11 +148,32 @@ def train(
             delete_files=import_paths,
         )
 
-        @sproc(name=train_procedure, is_permanent=False, stage_location=stage_name, replace=True, imports=import_paths, 
-            packages=["snowflake-snowpark-python>=0.10.0", "scikit-learn==1.1.1", "xgboost==1.5.0", "joblib==1.2.0", "PyYAML", "numpy==1.23.1", "pandas==1.4.3", "hyperopt", "shap==0.41.0", "matplotlib==3.7.1", "seaborn==0.12.0", "scikit-plot==0.3.7"])
-        def train_and_store_model_results_sf(session: snowflake.snowpark.Session,
-                    feature_table_name: str,
-                    merged_config: dict) -> dict:
+        @sproc(
+            name=train_procedure,
+            is_permanent=False,
+            stage_location=stage_name,
+            replace=True,
+            imports=import_paths,
+            packages=[
+                "snowflake-snowpark-python>=0.10.0",
+                "scikit-learn==1.1.1",
+                "xgboost==1.5.0",
+                "joblib==1.2.0",
+                "PyYAML==6.0.1",
+                "numpy==1.23.1",
+                "pandas==1.5.3",
+                "hyperopt==0.2.7",
+                "shap==0.41.0",
+                "matplotlib==3.7.1",
+                "seaborn==0.12.0",
+                "scikit-plot==0.3.7",
+            ],
+        )
+        def train_and_store_model_results_sf(
+            session: snowflake.snowpark.Session,
+            feature_table_name: str,
+            merged_config: dict,
+        ) -> dict:
             """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
 
             Args:
@@ -212,13 +238,12 @@ def train(
                 model_file,
             )
 
-            results['column_names'] = {
-                'numeric_columns': numeric_columns,
-                'categorical_columns': categorical_columns,
-                'arraytype_columns' : [],
-                'timestamp_columns' : []
+            results["column_names"] = {
+                "numeric_columns": numeric_columns,
+                "categorical_columns": categorical_columns,
+                "arraytype_columns": [],
+                "timestamp_columns": [],
             }
-
 
             trainer.plot_diagnostics(
                 connector,
@@ -231,7 +256,7 @@ def train(
             )
 
             connector.save_file(session, model_file, stage_name, overwrite=True)
-       
+
             try:
                 figure_file = os.path.join(
                     "tmp", trainer.figure_names["feature-importance-chart"]
@@ -300,7 +325,7 @@ def train(
 
     logger.info("Getting past data for training")
     try:
-        #material_names, training_dates 
+        # material_names, training_dates
         train_table_pairs = connector.get_material_names(
             session,
             material_table,
@@ -324,7 +349,10 @@ def train(
     if trainer.label_value is None and prediction_task == "classification":
         sample_material_ = train_table_pairs[0]
         label_value = connector.get_default_label_value(
-            session, sample_material_.label_table_name, trainer.label_column, positive_boolean_flags
+            session,
+            sample_material_.label_table_name,
+            trainer.label_column,
+            positive_boolean_flags,
         )
         trainer.label_value = label_value
 
@@ -333,7 +361,14 @@ def train(
     )
     processor = S3Constants.processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for training")
-    train_results = processor.train(train_procedure, train_table_pairs, merged_config, prediction_task, creds)
+    train_results = processor.train(
+        train_procedure,
+        train_table_pairs,
+        merged_config,
+        prediction_task,
+        creds,
+        utils.load_yaml(site_config_path),
+    )
     logger.debug("Training completed. Saving the artefacts")
 
     logger.info("Saving train results to file")
@@ -342,8 +377,12 @@ def train(
     training_dates_ = []
     material_names_ = []
     for train_table_pair_ in train_table_pairs:
-        material_names_.append([train_table_pair_.feature_table_name, train_table_pair_.label_table_name])
-        training_dates_.append([train_table_pair_.feature_table_date, train_table_pair_.label_table_date])
+        material_names_.append(
+            [train_table_pair_.feature_table_name, train_table_pair_.label_table_name]
+        )
+        training_dates_.append(
+            [train_table_pair_.feature_table_date, train_table_pair_.label_table_date]
+        )
 
     results = {
         "config": {
@@ -361,7 +400,7 @@ def train(
             "model_id": model_id,
             "threshold": train_results["prob_th"],
         },
-        "column_names": train_results["column_names"]
+        "column_names": train_results["column_names"],
     }
     json.dump(results, open(output_filename, "w"))
 
@@ -377,14 +416,13 @@ def train(
             connector.fetch_staged_file(session, stage_name, figure_name, target_path)
         except:
             logger.warning(f"Could not fetch {figure_name}")
-            
+
     logger.debug("Cleaning up the training session")
     connector.cleanup(
         session,
         stored_procedure_name=train_procedure,
         delete_files=import_paths,
         stage_name=stage_name,
-        close_session=True
+        close_session=True,
     )
     logger.debug("Training completed")
-    

@@ -7,7 +7,7 @@ import cachetools
 import numpy as np
 import pandas as pd
 
-from typing import Any , List
+from typing import Any, List
 from logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from S3Utils import S3Utils
@@ -50,6 +50,7 @@ def predict(
         model_path (str): path to the file where the model details including model id etc are present. Created in training step
         inputs: (List[str]), containing sql queries such as "select * from <feature_table_name>" from which the script infers input tables        output_tablename (str): name of output table where prediction results are written
         config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
+        runtime_info (dict): Whether the code is running on rudder infra or local. Useful to decide if redshift processor should run locally or in k8s
 
     Returns:
         None: save the prediction results but returns nothing
@@ -74,8 +75,12 @@ def predict(
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
 
-    default_config = utils.load_yaml(os.path.join(current_dir, "config", "model_configs.yaml"))
-    _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
+    default_config = utils.load_yaml(
+        os.path.join(current_dir, "config", "model_configs.yaml")
+    )
+    _ = config["data"].pop(
+        "package_name", None
+    )  # For backward compatibility. Not using it anywhere else, hence deleting.
     merged_config = utils.combine_config(default_config, config)
 
     user_preference_order_infra = merged_config["data"].pop(
@@ -109,4 +114,12 @@ def predict(
     )
     processor = S3Constants.processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for predictions")
-    _ = processor.predict(creds, s3_config, model_path, inputs, output_tablename, merged_config, prediction_task)
+    _ = processor.predict(
+        creds, 
+        s3_config, 
+        model_path, 
+        inputs, 
+        output_tablename, 
+        merged_config, 
+        prediction_task
+    )

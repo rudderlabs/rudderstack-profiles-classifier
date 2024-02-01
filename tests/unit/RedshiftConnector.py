@@ -237,3 +237,87 @@ class TestGetMaterialNames(unittest.TestCase):
             self.project_folder,
             self.input_models,
         )
+
+
+class TestSelectRelevantColumns(unittest.TestCase):
+    # Returns a pandas DataFrame with only the columns specified in the training_features_columns dictionary.
+    def test_relevant_columns_only(self):
+        table = pd.DataFrame(
+            {
+                "col1": [1, 2, 3],
+                "col2": [4, 5, 6],
+                "col3": [7, 8, 9],
+                "col4": [10, 11, 12],
+            }
+        )
+        training_features_columns = ["COL1", "COL2", "COL3"]
+        redshift_connector = RedshiftConnector("data")
+        relevant_columns = redshift_connector.select_relevant_columns(
+            table, training_features_columns
+        )
+        expected_columns = ["col1", "col2", "col3"]
+        self.assertEqual(list(relevant_columns.columns), expected_columns)
+
+    def test_relevant_columns_only_handling_case_sensitivity(self):
+        table = pd.DataFrame(
+            {
+                "COL1": [1, 2, 3],
+                "col2": [4, 5, 6],
+                "col3": [7, 8, 9],
+                "col4": [10, 11, 12],
+            }
+        )
+        training_features_columns = ["COL1", "COL2", "COL3"]
+        redshift_connector = RedshiftConnector("data")
+        relevant_columns = redshift_connector.select_relevant_columns(
+            table, training_features_columns
+        )
+        expected_columns = ["COL1", "col2", "col3"]
+        self.assertEqual(list(relevant_columns.columns), expected_columns)
+
+    # Throws an exception that the expected column is not found
+    def test_relevant_columns_not_found(self):
+        table = pd.DataFrame(
+            {
+                "col1": [1, 2, 3],
+                "col2": [4, 5, 6],
+                "col3": [7, 8, 9],
+                "col4": [10, 11, 12],
+            }
+        )
+        training_features_columns = ["COL1", "COL2", "COL3", "COL5"]
+        redshift_connector = RedshiftConnector("data")
+        with self.assertRaises(Exception) as context:
+            redshift_connector.select_relevant_columns(table, training_features_columns)
+        self.assertIn(
+            f"Expected columns {training_features_columns} not found in table ['COL1', 'COL2', 'COL3']",
+            str(context.exception),
+        )
+
+
+class TestGenerateTypeHint(unittest.TestCase):
+    def setUp(self) -> None:
+        self.connector = RedshiftConnector("data")
+        self.column_types = {
+            "categorical_columns": ["col2"],
+            "numeric_columns": ["col1"],
+        }
+        return super().setUp()
+
+    # Returns a list of type hints for given pandas DataFrame's fields
+    def test_returns_type_hints(self):
+        df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
+        type_hints = self.connector.generate_type_hint(df, self.column_types)
+        self.assertEqual(type_hints, [float, str])
+
+    # Handles empty DataFrame
+    def test_handles_empty_dataframe(self):
+        df = pd.DataFrame()
+        type_hints = self.connector.generate_type_hint(df, self.column_types)
+        self.assertEqual(type_hints, [])
+
+    # Handles DataFrame with single row and column
+    def test_handles_single_row_and_column(self):
+        df = pd.DataFrame({"col1": [1]})
+        type_hints = self.connector.generate_type_hint(df, self.column_types)
+        self.assertEqual(type_hints, [float])

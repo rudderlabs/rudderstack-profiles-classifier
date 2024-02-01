@@ -5,7 +5,7 @@ import shutil
 import pandas as pd
 
 from datetime import datetime
-from typing import Any, List, Tuple, Union, Optional
+from typing import Any, List, Tuple, Union, Optional, Sequence, Dict
 
 import snowflake.snowpark
 import snowflake.snowpark.types as T
@@ -940,23 +940,19 @@ class SnowflakeConnector(Connector):
         )
         return material_registry_table
 
-    def generate_type_hint(self, df: snowflake.snowpark.Table):
-        """Returns the type hints for given snowpark DataFrame's fields
-
-        Args:
-            df (snowflake.snowpark.Table): snowpark DataFrame
-
-        Returns:
-            _type_: Returns the type hints for given snowpark DataFrame's fields
-        """
-        type_map = {
-            T.BooleanType(): float,
-            T.DoubleType(): float,
-            T.DecimalType(36, 6): float,
-            T.LongType(): float,
-            T.StringType(): str,
-        }
-        types = [type_map[d.datatype] for d in df.schema.fields]
+    def generate_type_hint(
+        self, df: snowflake.snowpark.Table, column_types: Dict[str, List[str]]
+    ):
+        types = []
+        for col in df.columns:
+            if col in column_types["categorical_columns"]:
+                types.append(str)
+            elif col in column_types["numeric_columns"]:
+                types.append(float)
+            else:
+                raise Exception(
+                    f"Column {col} not found in the training data config either as categorical or numeric column"
+                )
         return T.PandasDataFrame[tuple(types)]
 
     def call_prediction_udf(
@@ -1122,6 +1118,23 @@ class SnowflakeConnector(Connector):
             Nothing
         """
         _ = session.file.get(file_stage_path, target_folder)
+
+    def select_relevant_columns(
+        self,
+        table: snowflake.snowpark.Table,
+        training_features_columns_upper_case: Sequence[str],
+    ) -> snowflake.snowpark.Table:
+        table_cols = [col.upper() for col in table.columns]
+        for col in training_features_columns_upper_case:
+            if col not in table_cols:
+                raise Exception(
+                    f"Expected feature column {col} not found in the predictions input table"
+                )
+        shortlisted_columns = []
+        shortlisted_columns = [
+            col for col in table_cols if col in training_features_columns_upper_case
+        ]
+        return table.select(*shortlisted_columns)
 
     def cleanup(self, session: snowflake.snowpark.Session, **kwargs):
         stored_procedure_name = kwargs.get("stored_procedure_name", None)

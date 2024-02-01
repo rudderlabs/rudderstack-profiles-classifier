@@ -59,7 +59,7 @@ def predict(
 
     # TODO - Get role, bucket, path from site config
     # TODO - replace the aws check with infra mode check
-    if bool(s3_config) & ("access_key_id" not in s3_config):
+    if bool(s3_config) and ("access_key_id" not in s3_config):
         s3_creds = S3Utils.get_temporary_credentials(constants.ARN_AWS_ROLE)
         s3_config["bucket"] = constants.S3_BUCKET
         s3_config["path"] = constants.S3_PATH

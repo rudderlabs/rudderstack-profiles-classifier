@@ -525,5 +525,9 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def select_relevant_columns(self, table, training_features_columns):
+        pass
+
+    @abstractmethod
     def cleanup(self, *args, **kwargs) -> None:
         pass

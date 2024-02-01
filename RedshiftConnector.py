@@ -9,7 +9,7 @@ import redshift_connector.cursor
 
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import List, Tuple, Any, Union, Optional
+from typing import List, Tuple, Any, Union, Optional, Sequence, Dict
 
 import utils
 import constants
@@ -847,21 +847,19 @@ class RedshiftConnector(Connector):
         )
         return material_registry_table[material_registry_table["status"] == 2]
 
-    def generate_type_hint(self, df: pd.DataFrame):
-        """Returns the type hints for given pandas DataFrame's fields
-
-        Args:
-            sp_df (snowflake.snowpark.Table): pandas DataFrame
-
-        Returns:
-            _type_: Returns the type hints for given snowpark DataFrame's fields
-        """
+    def generate_type_hint(self, df: pd.DataFrame, column_types: Dict[str, List[str]]):
         types = []
+        cat_columns = [col.lower() for col in column_types["categorical_columns"]]
+        numeric_columns = [col.lower() for col in column_types["numeric_columns"]]
         for col in df.columns:
-            if df[col].dtype == "object":
+            if col.lower() in cat_columns:
                 types.append(str)
-            else:
+            elif col.lower() in numeric_columns:
                 types.append(float)
+            else:
+                raise Exception(
+                    f"Column {col} not found in the training data config either as categorical or numeric column"
+                )
         return types
 
     def call_prediction_udf(
@@ -953,22 +951,22 @@ class RedshiftConnector(Connector):
         except OSError as o:
             logger.info("Local directory not present")
             pass
-        
-    def select_relevant_columns(self, 
-                                table: pd.DataFrame, 
-                                training_features_columns: dict,
-                                ignore_features: List[str]) -> pd.DataFrame:
+
+    def select_relevant_columns(
+        self, table: pd.DataFrame, training_features_columns: Sequence[str]
+    ) -> pd.DataFrame:
         # table can have columns in upper case or lower case. We need to handle both
-        training_feature_columns_list = [col for cols in training_features_columns.values() for col in cols if col not in ignore_features]
         matching_columns = []
-        for col in training_feature_columns_list:
+        for col in training_features_columns:
             if col.lower() in list(table):
                 matching_columns.append(col.lower())
             elif col.upper() in list(table):
                 matching_columns.append(col.upper())
             else:
-                raise Exception(f"Expected feature column {col} not found in the predictions input table")
-        return table.filter(matching_columns) 
+                raise Exception(
+                    f"Expected feature column {col} not found in the predictions input table"
+                )
+        return table.filter(matching_columns)
 
     def cleanup(self, *args, **kwargs) -> None:
         delete_local_data = kwargs.get("delete_local_data", None)

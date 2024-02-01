@@ -523,9 +523,9 @@ class Connector(ABC):
         input: Any,
     ) -> pd.DataFrame:
         pass
-    
+
     @abstractmethod
-    def select_relevant_columns(self, table, label_column, entity_column, training_features_columns):
+    def select_relevant_columns(self, table, training_features_columns):
         pass
 
     @abstractmethod

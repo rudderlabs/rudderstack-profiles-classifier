@@ -219,11 +219,19 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.join(current_dir, "output")
+
     if args.mode == constants.K8S_MODE:
         wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
         wh_creds = json.loads(wh_creds_str)
+        S3Utils.download_directory(
+            args.s3_config["bucket"],
+            args.s3_config["path"],
+            output_dir,
+        )
     else:
         wh_creds = args.wh_creds
+        S3Utils.download_directory_using_keys(args.s3_config, output_dir)
 
     if args.prediction_task == "classification":
         trainer = ClassificationTrainer(**args.merged_config)
@@ -231,20 +239,10 @@ if __name__ == "__main__":
         trainer = RegressionTrainer(**args.merged_config)
 
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
-    connector = RedshiftConnector(current_dir)
+    connector = RedshiftConnector(output_dir)
     session = connector.build_session(wh_creds)
 
-    if args.mode == constants.K8S_MODE:
-        S3Utils.download_directory(
-            args.s3_config["bucket"],
-            args.s3_config["region"],
-            args.s3_config["path"],
-            current_dir,
-        )
-    else:
-        S3Utils.download_directory_using_keys(args.s3_config, current_dir)
-
-    model_path = os.path.join(current_dir, args.json_output_filename)
+    model_path = os.path.join(output_dir, args.json_output_filename)
 
     _ = preprocess_and_predict(
         wh_creds,
@@ -258,4 +256,4 @@ if __name__ == "__main__":
         trainer=trainer,
     )
     logger.debug(f"Deleting additional local directory from infra mode")
-    utils.remove_additional_data([connector.get_local_dir(), model_path])
+    utils.delete_folder(output_dir)

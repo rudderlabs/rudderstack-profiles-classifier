@@ -451,27 +451,6 @@ def delete_folder(folder_path: str) -> None:
         logger.error(f"Error occurred while deleting folder '{folder_path}': {e}")
 
 
-def remove_additional_data(items_to_delete: List[str]) -> None:
-    """
-    Delete additional data.
-    Parameters:
-        items_to_delete (List[str]): A list of files and folders to be deleted.
-    Returns:
-        None: The function does not return any value.
-    Example:
-        remove_additional_data(["path/to/your/file", "path/to/your/folder"])
-    """
-    for item in items_to_delete:
-        if os.path.isfile(item):
-            delete_file(item)
-        elif os.path.isdir(item):
-            delete_folder(item)
-        else:
-            logger.debug(
-                f"Skipping deletion of item: '{item}' as it is neither a file nor a folder."
-            )
-
-
 def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple:
     """This function will return the start_date and end_date on basis of latest hash
 

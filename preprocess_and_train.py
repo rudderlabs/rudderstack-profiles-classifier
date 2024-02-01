@@ -288,7 +288,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--s3_bucket", type=str)
-    parser.add_argument("--aws_region_name", type=str)
     parser.add_argument("--s3_path", type=str)
     parser.add_argument("--ec2_temp_output_json", type=str)
     parser.add_argument("--material_names", type=json.loads)
@@ -347,7 +346,6 @@ if __name__ == "__main__":
     if args.mode == constants.K8S_MODE:
         S3Utils.upload_directory(
             args.s3_bucket,
-            args.aws_region_name,
             args.s3_path,
             local_folder,
             train_upload_whitelist,
@@ -355,7 +353,6 @@ if __name__ == "__main__":
     else:
         S3Utils.upload_directory_using_keys(
             args.s3_bucket,
-            args.aws_region_name,
             args.s3_path,
             local_folder,
             train_upload_whitelist,

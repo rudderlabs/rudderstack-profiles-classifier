@@ -5,6 +5,7 @@ from constants import TrainTablesInfo
 from MLTrainer import MLTrainer
 from Connector import Connector
 from preprocess_and_train import preprocess_and_train
+from preprocess_and_predict import preprocess_and_predict
 
 import snowflake.snowpark
 import redshift_connector
@@ -35,6 +36,28 @@ class Processor(ABC):
             train_procedure,
             materials,
             model_config,
+            session=self.session,
+            connector=self.connector,
+            trainer=self.trainer,
+        )
+
+    def predict(
+        self,
+        creds,
+        s3_config,
+        model_path,
+        inputs,
+        output_tablename,
+        merged_config,
+        prediction_task,
+    ):
+        return preprocess_and_predict(
+            creds,
+            s3_config,
+            model_path,
+            inputs,
+            output_tablename,
+            prediction_task,
             session=self.session,
             connector=self.connector,
             trainer=self.trainer,

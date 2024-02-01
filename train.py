@@ -23,6 +23,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import utils
 import constants
+import ProcessorMap
 from AWSProcessor import AWSProcessor
 from LocalProcessor import LocalProcessor
 from SnowflakeProcessor import SnowflakeProcessor
@@ -75,11 +76,6 @@ def train(
     stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    processor_mode_map = {
-        "local": LocalProcessor,
-        "native-warehouse": SnowflakeProcessor,
-        "rudderstack-infra": AWSProcessor,
-    }
     import_files = (
         "utils.py",
         "constants.py",
@@ -116,11 +112,10 @@ def train(
         "task", "classification"
     )  # Assuming default as classification
 
-    prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == "classification":
-        trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config)
+        trainer = ClassificationTrainer(**merged_config)
     elif prediction_task == "regression":
-        trainer = RegressionTrainer(**merged_config["data"], prep=prep_config)
+        trainer = RegressionTrainer(**merged_config)
 
     logger.debug(
         f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
@@ -364,7 +359,7 @@ def train(
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = processor_mode_map[mode](trainer, connector, session)
+    processor = ProcessorMap.processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for training")
     train_results = processor.train(
         train_procedure,

@@ -304,15 +304,18 @@ if __name__ == "__main__":
     else:
         wh_creds = args.wh_creds
 
-    prep_config = utils.PreprocessorConfig(**args.merged_config["preprocessing"])
     if args.prediction_task == "classification":
-        trainer = ClassificationTrainer(**args.merged_config["data"], prep=prep_config)
+        trainer = ClassificationTrainer(**args.merged_config)
     elif args.prediction_task == "regression":
-        trainer = RegressionTrainer(**args.merged_config["data"], prep=prep_config)
+        trainer = RegressionTrainer(**args.merged_config)
+
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
+    current_dir = os.path.dirname(os.path.abspath(__file__))
     train_procedure = train_and_store_model_results_rs
-    connector = RedshiftConnector("./")
+    connector = RedshiftConnector(current_dir)
     session = connector.build_session(wh_creds)
+    local_folder = connector.get_local_dir()
+
     material_info_ = args.material_names
     # converting material info back to named tuple after serialisation and deserialisation
     material_info = []
@@ -328,37 +331,34 @@ if __name__ == "__main__":
         connector=connector,
         trainer=trainer,
     )
-    with open(
-        os.path.join(connector.get_local_dir(), args.ec2_temp_output_json), "w"
-    ) as file:
+    with open(os.path.join(local_folder, args.ec2_temp_output_json), "w") as file:
         json.dump(train_results_json, file)
 
     logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
     model_id = train_results_json["model_id"]
-    S3_UPLOAD_WHITELIST = [
+    train_upload_whitelist = [
         trainer.figure_names["feature-importance-chart"],
         trainer.figure_names["lift-chart"],
         trainer.figure_names["pr-auc-curve"],
         trainer.figure_names["roc-auc-curve"],
-        f"{trainer.output_profiles_ml_model}_{model_id}_column_names.json",
         f"{trainer.output_profiles_ml_model}_{model_file_name}",
-        "train_results.json",
+        args.ec2_temp_output_json,
     ]
     if args.mode == constants.K8S_MODE:
         S3Utils.upload_directory(
             args.s3_bucket,
             args.aws_region_name,
             args.s3_path,
-            connector.get_local_dir(),
-            S3_UPLOAD_WHITELIST,
+            local_folder,
+            train_upload_whitelist,
         )
     else:
         S3Utils.upload_directory_using_keys(
             args.s3_bucket,
             args.aws_region_name,
             args.s3_path,
-            connector.get_local_dir(),
-            S3_UPLOAD_WHITELIST,
+            local_folder,
+            train_upload_whitelist,
         )
-    logger.debug(f"Deleting local directory from ec2 machine")
+    logger.debug(f"Deleting additional local directory from infra mode")
     connector.cleanup(delete_local_data=True)

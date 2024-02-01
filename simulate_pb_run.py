@@ -126,4 +126,5 @@ if __name__ == "__main__":
         predict_inputs,
         p_output_tablename,
         predict_config,
+        runtime_info,
     )

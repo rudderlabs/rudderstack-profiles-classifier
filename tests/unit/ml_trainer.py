@@ -3,21 +3,35 @@ from MLTrainer import *
 
 
 def build_trainer_config():
-    config = {}
-    config["label_value"] = None
-    config["label_column"] = None
-    config["entity_column"] = None
-    config["entity_key"] = None
-    config["output_profiles_ml_model"] = None
-    config["index_timestamp"] = None
-    config["train_start_dt"] = None
-    config["train_end_dt"] = None
-    config["eligible_users"] = None
-    config["prediction_horizon_days"] = None
-    config["inputs"] = None
-    config["max_row_count"] = None
-    config["prep"] = None
-    config["recall_to_precision_importance"] = 0.0
+    config = {"data": {}, "preprocessing": {}, "outputs": {}}
+
+    config["data"]["label_value"] = None
+    config["data"]["label_column"] = None
+    config["data"]["entity_column"] = None
+    config["data"]["entity_key"] = None
+    config["data"]["output_profiles_ml_model"] = None
+    config["data"]["index_timestamp"] = None
+    config["data"]["train_start_dt"] = None
+    config["data"]["train_end_dt"] = None
+    config["data"]["eligible_users"] = None
+    config["data"]["prediction_horizon_days"] = None
+    config["data"]["inputs"] = None
+    config["data"]["max_row_count"] = None
+    config["data"]["prep"] = None
+    config["data"]["recall_to_precision_importance"] = 0.0
+
+    config["preprocessing"]["timestamp_columns"] = None
+    config["preprocessing"]["ignore_features"] = None
+    config["preprocessing"]["numeric_pipeline"] = None
+    config["preprocessing"]["categorical_pipeline"] = None
+    config["preprocessing"]["feature_selectors"] = None
+    config["preprocessing"]["train_size"] = None
+    config["preprocessing"]["test_size"] = None
+    config["preprocessing"]["val_size"] = None
+
+    config["outputs"]["column_names"] = None
+    config["outputs"]["feature_meta_data"] = None
+
     return config
 
 

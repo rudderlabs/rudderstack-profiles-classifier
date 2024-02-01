@@ -34,6 +34,7 @@ CLASSIFIER_MAX_LABEL_PROPORTION = 0.95
 REGRESSOR_MIN_LABEL_DISTINCT_VALUES = 3
 REMOTE_DIR = "/home/ec2-user"
 INSTANCE_ID = "i-001c6544decab0fa3"
+ARN_AWS_ROLE = "arn:aws:iam::454531037350:role/profiles-ml-s3"
 EC2_TEMP_OUTPUT_JSON = "train_results.json"
 S3_BUCKET = "ml-usecases-poc-srinivas"
 S3_PATH = "jobId/jobRunId/taskRunId"

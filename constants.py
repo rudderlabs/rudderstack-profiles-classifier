@@ -38,6 +38,7 @@ ARN_AWS_ROLE = "arn:aws:iam::454531037350:role/profiles-ml-s3"
 EC2_TEMP_OUTPUT_JSON = "train_results.json"
 S3_BUCKET = "ml-usecases-poc-srinivas"
 S3_PATH = "jobId/jobRunId/taskRunId"
+AWS_REGION_NAME = "us-east-1"
 SSM_SLEEP_TIME = 5
 K8S_WH_CREDS_KEY = "WAREHOUSE_CREDS"
 K8S_MODE = "K8S"

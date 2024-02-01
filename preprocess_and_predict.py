@@ -258,5 +258,4 @@ if __name__ == "__main__":
         trainer=trainer,
     )
     logger.debug(f"Deleting additional local directory from infra mode")
-    utils.delete_file(model_path)
-    connector.cleanup(delete_local_data=True)
+    utils.remove_additional_data([connector.get_local_dir(), model_path])

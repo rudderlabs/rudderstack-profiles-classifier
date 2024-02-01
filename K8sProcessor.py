@@ -212,9 +212,7 @@ class K8sProcessor(Processor):
             s3_config["path"],
             self.connector.get_local_dir(),
         )
-        S3Utils.delete_directory(
-            s3_config["bucket"], s3_config["path"]
-        )
+        S3Utils.delete_directory(s3_config["bucket"], s3_config["path"])
         with open(
             os.path.join(
                 self.connector.get_local_dir(), constants.EC2_TEMP_OUTPUT_JSON

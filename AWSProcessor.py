@@ -58,9 +58,7 @@ class AWSProcessor(Processor):
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 
-        S3Utils.download_directory(
-            s3_bucket, s3_path, self.connector.get_local_dir()
-        )
+        S3Utils.download_directory(s3_bucket, s3_path, self.connector.get_local_dir())
         S3Utils.delete_directory(s3_bucket, s3_path)
 
         try:
@@ -116,7 +114,5 @@ class AWSProcessor(Processor):
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 
         logger.debug("Deleting additional files from S3")
-        S3Utils.delete_directory(
-            s3_config["bucket"], s3_config["path"]
-        )
+        S3Utils.delete_directory(s3_config["bucket"], s3_config["path"])
         logger.debug("Done predicting")

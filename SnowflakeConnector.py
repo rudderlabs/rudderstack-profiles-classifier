@@ -1112,7 +1112,11 @@ class SnowflakeConnector(Connector):
                 raise Exception(
                     f"Expected feature column {col} not found in the predictions input table"
                 )
-        return table.select(*training_features_columns)
+        shortlisted_columns = []
+        shortlisted_columns = [
+            col for col in table.columns if col in training_features_columns
+        ]
+        return table.select(*shortlisted_columns)
 
     def cleanup(self, session: snowflake.snowpark.Session, **kwargs):
         stored_procedure_name = kwargs.get("stored_procedure_name", None)

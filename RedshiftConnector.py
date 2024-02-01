@@ -957,15 +957,17 @@ class RedshiftConnector(Connector):
     ) -> pd.DataFrame:
         # table can have columns in upper case or lower case. We need to handle both
         matching_columns = []
-        for col in training_features_columns:
-            if col.lower() in list(table):
-                matching_columns.append(col.lower())
-            elif col.upper() in list(table):
-                matching_columns.append(col.upper())
-            else:
-                raise Exception(
-                    f"Expected feature column {col} not found in the predictions input table"
-                )
+        training_features_columns_lower = [
+            col.lower() for col in training_features_columns
+        ]
+        for col in list(table):
+            if col.lower() in training_features_columns_lower:
+                matching_columns.append(col)
+        # Assert all columns in training_features_columns are part of matching_columns handing case sensitivity
+        matching_columns_lower = [col.lower() for col in matching_columns]
+        assert len(matching_columns_lower) == len(
+            training_features_columns_lower
+        ), f"Expected columns {training_features_columns_lower} not found in table {matching_columns_lower}"
         return table.filter(matching_columns)
 
     def cleanup(self, *args, **kwargs) -> None:

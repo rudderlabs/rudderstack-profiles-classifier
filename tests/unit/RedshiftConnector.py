@@ -290,7 +290,7 @@ class TestSelectRelevantColumns(unittest.TestCase):
         with self.assertRaises(Exception) as context:
             redshift_connector.select_relevant_columns(table, training_features_columns)
         self.assertIn(
-            "Expected feature column col5 not found in the predictions input table",
+            f"Expected columns {[col.lower() for col in training_features_columns]} not found in table ['col1', 'col2', 'col3']",
             str(context.exception),
         )
 

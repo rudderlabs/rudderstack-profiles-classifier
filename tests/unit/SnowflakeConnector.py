@@ -69,7 +69,7 @@ class TestSelectRelevantColumns(unittest.TestCase):
 
     # Returns a pandas DataFrame with only the columns specified in the training_features_columns dictionary.
     def test_relevant_columns_only(self):
-        training_features_columns = ["COL1", "COL2", "COL3"]
+        training_features_columns = ["COL3", "COL2", "COL1"]
         relevant_columns = self.connector.select_relevant_columns(
             self.table, training_features_columns
         )

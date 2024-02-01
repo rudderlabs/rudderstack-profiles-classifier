@@ -114,8 +114,7 @@ class SnowflakeConnector(Connector):
         with open(model_path, "r") as f:
             results = json.load(f)
         stage_name = results["model_info"]["file_location"]["stage"]
-        self.udf_name = f"prediction_score_{stage_name.replace('@','')}"
-        return self.udf_name
+        return f"prediction_score_{stage_name.replace('@','')}"
 
     def get_table(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs

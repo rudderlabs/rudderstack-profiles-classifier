@@ -25,7 +25,6 @@ PROCESSOR_MODE_PREFERENCE = {
     "snowflake": ["native-warehouse"],
     "redshift": ["local", "rudderstack-infra"],
 }
-PREDICT_UPLOAD_EXTENSION = (".json", ".joblib")
 LOCAL_STORAGE_DIR = "data"
 SF_LOCAL_STORAGE_DIR = "/tmp"
 rs_dtypes = '{"text": "character varying(65535)", "num": "float", "bool": "bool", "timestamp": "timestamp without time zone"}'

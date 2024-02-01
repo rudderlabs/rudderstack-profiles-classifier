@@ -128,8 +128,7 @@ class RedshiftConnector(Connector):
         Returns:
             str: UDF name
         """
-        self.udf_name = None
-        return self.udf_name
+        return None
 
     def get_table(
         self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs

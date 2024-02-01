@@ -134,15 +134,17 @@ def predict(
     for col in timestamp_columns:
         predict_data = connector.add_days_diff(predict_data, col, col, end_ts)
 
-    required_features = set(
+    required_features_upper_case = set(
         [
-            col
+            col.upper()
             for cols in results["column_names"].values()
             for col in cols
             if col not in ignore_features
         ]
     )
-    input_df = connector.select_relevant_columns(predict_data, required_features)
+    input_df = connector.select_relevant_columns(
+        predict_data, required_features_upper_case
+    )
     types = connector.generate_type_hint(input_df, results["column_names"])
 
     predict_data = connector.add_index_timestamp_colum_for_predict_data(

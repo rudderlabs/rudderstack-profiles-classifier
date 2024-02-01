@@ -250,7 +250,7 @@ class TestSelectRelevantColumns(unittest.TestCase):
                 "col4": [10, 11, 12],
             }
         )
-        training_features_columns = ["col1", "col2", "col3"]
+        training_features_columns = ["COL1", "COL2", "COL3"]
         redshift_connector = RedshiftConnector("data")
         relevant_columns = redshift_connector.select_relevant_columns(
             table, training_features_columns
@@ -267,7 +267,7 @@ class TestSelectRelevantColumns(unittest.TestCase):
                 "col4": [10, 11, 12],
             }
         )
-        training_features_columns = ["col1", "col2", "col3"]
+        training_features_columns = ["COL1", "COL2", "COL3"]
         redshift_connector = RedshiftConnector("data")
         relevant_columns = redshift_connector.select_relevant_columns(
             table, training_features_columns
@@ -285,12 +285,12 @@ class TestSelectRelevantColumns(unittest.TestCase):
                 "col4": [10, 11, 12],
             }
         )
-        training_features_columns = ["col1", "col2", "col3", "col5"]
+        training_features_columns = ["COL1", "COL2", "COL3", "COL5"]
         redshift_connector = RedshiftConnector("data")
         with self.assertRaises(Exception) as context:
             redshift_connector.select_relevant_columns(table, training_features_columns)
         self.assertIn(
-            f"Expected columns {[col.lower() for col in training_features_columns]} not found in table ['col1', 'col2', 'col3']",
+            f"Expected columns {training_features_columns} not found in table ['COL1', 'COL2', 'COL3']",
             str(context.exception),
         )
 

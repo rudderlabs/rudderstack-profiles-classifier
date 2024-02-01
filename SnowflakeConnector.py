@@ -1105,16 +1105,19 @@ class SnowflakeConnector(Connector):
         _ = session.file.get(file_stage_path, target_folder)
 
     def select_relevant_columns(
-        self, table: snowflake.snowpark.Table, training_features_columns: Sequence[str]
+        self,
+        table: snowflake.snowpark.Table,
+        training_features_columns_upper_case: Sequence[str],
     ) -> snowflake.snowpark.Table:
-        for col in training_features_columns:
-            if col not in table.columns:
+        table_cols = [col.upper() for col in table.columns]
+        for col in training_features_columns_upper_case:
+            if col not in table_cols:
                 raise Exception(
                     f"Expected feature column {col} not found in the predictions input table"
                 )
         shortlisted_columns = []
         shortlisted_columns = [
-            col for col in table.columns if col in training_features_columns
+            col for col in table_cols if col in training_features_columns_upper_case
         ]
         return table.select(*shortlisted_columns)
 

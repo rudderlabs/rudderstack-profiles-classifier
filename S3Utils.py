@@ -67,7 +67,9 @@ class S3Utils:
                             f"The file {full_path} was not found in ec2 while uploading trained files to s3."
                         )
 
-    def upload_directory_using_keys(bucket, aws_region_name, destination, path, allowedFiles):
+    def upload_directory_using_keys(
+        bucket, aws_region_name, destination, path, allowedFiles
+    ):
         credentials_file_path = os.path.join(constants.REMOTE_DIR, ".aws/credentials")
         if os.path.exists(credentials_file_path):
             config = configparser.ConfigParser()

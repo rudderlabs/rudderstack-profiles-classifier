@@ -425,6 +425,7 @@ def delete_file(file_path: str) -> None:
     except OSError as e:
         logger.error(f"Error occurred while deleting file '{file_path}': {e}")
 
+
 def delete_folder(folder_path: str) -> None:
     """
     Delete a folder and its contents recursively.
@@ -449,6 +450,7 @@ def delete_folder(folder_path: str) -> None:
     except OSError as e:
         logger.error(f"Error occurred while deleting folder '{folder_path}': {e}")
 
+
 def remove_additional_data(items_to_delete: List[str]) -> None:
     """
     Delete additional data.
@@ -465,7 +467,10 @@ def remove_additional_data(items_to_delete: List[str]) -> None:
         elif os.path.isdir(item):
             delete_folder(item)
         else:
-            logger.debug(f"Skipping deletion of item: '{item}' as it is neither a file nor a folder.")
+            logger.debug(
+                f"Skipping deletion of item: '{item}' as it is neither a file nor a folder."
+            )
+
 
 def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple:
     """This function will return the start_date and end_date on basis of latest hash

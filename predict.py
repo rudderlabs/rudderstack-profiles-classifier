@@ -7,7 +7,7 @@ import cachetools
 import numpy as np
 import pandas as pd
 
-from typing import Any , List
+from typing import Any, List
 from logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from S3Utils import S3Utils
@@ -38,7 +38,7 @@ def predict(
     inputs: str,
     output_tablename: str,
     config: dict,
-    runtime_info: dict=None,
+    runtime_info: dict = None,
 ) -> None:
     """Generates the prediction probabilities and save results for given model_path
 
@@ -58,8 +58,12 @@ def predict(
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
 
-    default_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
-    _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
+    default_config = utils.load_yaml(
+        os.path.join(current_dir, "config/model_configs.yaml")
+    )
+    _ = config["data"].pop(
+        "package_name", None
+    )  # For backward compatibility. Not using it anywhere else, hence deleting.
     merged_config = utils.combine_config(default_config, config)
 
     with open(model_path, "r") as f:
@@ -74,7 +78,6 @@ def predict(
     numeric_columns = results["column_names"]["numeric_columns"]
     categorical_columns = results["column_names"]["categorical_columns"]
     arraytype_columns = results["column_names"]["arraytype_columns"]
-    
 
     score_column_name = merged_config["outputs"]["column_names"]["score"]
     percentile_column_name = merged_config["outputs"]["column_names"]["percentile"]
@@ -96,11 +99,11 @@ def predict(
     try:
         seq_no = int(inputs[0].split("_")[-1])
     except Exception as e:
-        raise Exception(
-            f"Error while parsing seq_no from inputs: {inputs}. Error: {e}"
-        )
+        raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 
-    feature_table_name = f"{constants.MATERIAL_TABLE_PREFIX}{input_model_name}_{model_hash}_{seq_no}"
+    feature_table_name = (
+        f"{constants.MATERIAL_TABLE_PREFIX}{input_model_name}_{model_hash}_{seq_no}"
+    )
 
     udf_name = None
     if creds["type"] == "snowflake":
@@ -124,19 +127,17 @@ def predict(
     raw_data = connector.get_table(
         session, feature_table_name, filter_condition=eligible_users
     )
-    
+
     ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_columns)
     predict_data = connector.drop_cols(raw_data, ignore_features)
 
     if len(timestamp_columns) == 0:
         timestamp_columns = results["column_names"]["timestamp_columns"]
-        
+
     for col in timestamp_columns:
         predict_data = connector.add_days_diff(predict_data, col, col, end_ts)
 
-    input = connector.drop_cols(
-        predict_data, [label_column, entity_column]
-    )
+    input = connector.drop_cols(predict_data, [label_column, entity_column])
     types = connector.generate_type_hint(input)
 
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
@@ -157,12 +158,11 @@ def predict(
         with open(filename, "rb") as file:
             m = joblib.load(file)
             return m
-        
-    def predict_helper(df, model_name: str, **kwargs) -> Any:
 
+    def predict_helper(df, model_name: str, **kwargs) -> Any:
         trained_model = load_model(model_name)
         df.columns = [x.upper() for x in df.columns]
-  
+
         df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
         df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
         if task == "classification":
@@ -197,9 +197,7 @@ def predict(
         )
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
-            predictions = predict_helper(
-                df, model_name
-            )
+            predictions = predict_helper(df, model_name)
             return predictions.round(4)
 
         prediction_udf = predict_scores
@@ -207,13 +205,11 @@ def predict(
 
         def predict_scores_rs(df: pd.DataFrame) -> pd.Series:
             df.columns = features
-            predictions = predict_helper(
-                df, model_name
-            )
+            predictions = predict_helper(df, model_name)
             return predictions.round(4)
 
         prediction_udf = predict_scores_rs
-    
+
     logger.debug("Creating predictions on the feature data")
     preds_with_percentile = connector.call_prediction_udf(
         predict_data,
@@ -231,15 +227,22 @@ def predict(
     # TODO - Get role, bucket, path from site config
     # TODO - replace the aws check with infra mode check
     if bool(aws_config) & ("access_key_id" not in aws_config):
-        s3_creds = S3Utils.get_temporary_credentials("arn:aws:iam::454531037350:role/profiles-ml-s3")
+        s3_creds = S3Utils.get_temporary_credentials(
+            "arn:aws:iam::454531037350:role/profiles-ml-s3"
+        )
         aws_config["bucket"] = constants.S3_BUCKET
         aws_config["path"] = constants.S3_PATH
         aws_config["access_key_id"] = s3_creds["access_key_id"]
         aws_config["access_key_secret"] = s3_creds["access_key_secret"]
         aws_config["aws_session_token"] = s3_creds["aws_session_token"]
     connector.write_table(
-        preds_with_percentile, output_tablename, write_mode="overwrite", local=False , if_exists="replace"
+        preds_with_percentile,
+        output_tablename,
+        write_mode="overwrite",
+        local=False,
+        if_exists="replace",
+        s3_config=aws_config,
     )
-    logger.debug("Closing the session")    
-    connector.cleanup(session, udf_name=udf_name,close_session=True)
+    logger.debug("Closing the session")
+    connector.cleanup(session, udf_name=udf_name, close_session=True)
     logger.debug("Finished Predict job")

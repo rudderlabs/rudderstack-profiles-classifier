@@ -515,7 +515,7 @@ class RegressionTrainer(MLTrainer):
             "residuals-chart": f"02-residuals-chart-{self.output_profiles_ml_model}.png",
             "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png",
         }
-        self.isStratify=False
+        self.isStratify = False
 
     def build_model(
         self,

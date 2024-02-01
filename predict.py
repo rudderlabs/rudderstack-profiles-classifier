@@ -63,7 +63,6 @@ def predict(
         s3_creds = S3Utils.get_temporary_credentials(constants.ARN_AWS_ROLE)
         s3_config["bucket"] = constants.S3_BUCKET
         s3_config["path"] = constants.S3_PATH
-        s3_config["region"] = constants.AWS_REGION_NAME
         s3_config["access_key_id"] = s3_creds["access_key_id"]
         s3_config["access_key_secret"] = s3_creds["access_key_secret"]
         s3_config["aws_session_token"] = s3_creds["aws_session_token"]

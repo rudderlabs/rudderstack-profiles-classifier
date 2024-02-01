@@ -226,6 +226,7 @@ if __name__ == "__main__":
         wh_creds = json.loads(wh_creds_str)
         S3Utils.download_directory(
             args.s3_config["bucket"],
+            args.s3_config["region"],
             args.s3_config["path"],
             output_dir,
         )

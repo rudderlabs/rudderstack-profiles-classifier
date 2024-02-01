@@ -6,8 +6,8 @@ import configparser
 
 
 class S3Utils:
-    def download_directory(bucket_name, s3_path, local_directory):
-        s3 = boto3.client("s3")
+    def download_directory(bucket_name, aws_region_name, s3_path, local_directory):
+        s3 = boto3.client("s3", region_name=aws_region_name)
         S3Utils._download(bucket_name, s3_path, s3, local_directory)
 
     def _download(bucket_name, s3_path, client, local_directory):
@@ -31,14 +31,15 @@ class S3Utils:
     def download_directory_using_keys(s3_config, local_directory):
         s3 = boto3.client(
             "s3",
+            region_name=s3_config["region"],
             aws_access_key_id=s3_config["access_key_id"],
             aws_secret_access_key=s3_config["access_key_secret"],
             aws_session_token=s3_config["aws_session_token"],
         )
         S3Utils._download(s3_config["bucket"], s3_config["path"], s3, local_directory)
 
-    def delete_directory(bucket_name, folder_name):
-        s3 = boto3.client("s3")
+    def delete_directory(bucket_name, aws_region_name, folder_name):
+        s3 = boto3.client("s3", region_name=aws_region_name)
         objects = s3.list_objects(Bucket=bucket_name, Prefix=folder_name)["Contents"]
         for obj in objects:
             s3.delete_object(Bucket=bucket_name, Key=obj["Key"])
@@ -46,8 +47,8 @@ class S3Utils:
         s3.delete_object(Bucket=bucket_name, Key=folder_name)
         logger.debug(f"Deleted folder: {folder_name}")
 
-    def upload_directory(bucket, destination, path, allowedFiles):
-        s3 = boto3.client("s3")
+    def upload_directory(bucket, aws_region_name, destination, path, allowedFiles):
+        s3 = boto3.client("s3", region_name=aws_region_name)
         S3Utils._upload(bucket, destination, path, s3, allowedFiles)
 
     def _upload(bucket, destination, path, client, allowedFiles):
@@ -66,7 +67,7 @@ class S3Utils:
                             f"The file {full_path} was not found in ec2 while uploading trained files to s3."
                         )
 
-    def upload_directory_using_keys(bucket, destination, path, allowedFiles):
+    def upload_directory_using_keys(bucket, aws_region_name, destination, path, allowedFiles):
         credentials_file_path = os.path.join(constants.REMOTE_DIR, ".aws/credentials")
         if os.path.exists(credentials_file_path):
             config = configparser.ConfigParser()
@@ -78,6 +79,7 @@ class S3Utils:
             raise Exception(f"Credentials file not found at {credentials_file_path}.")
         s3 = boto3.client(
             "s3",
+            region_name=aws_region_name,
             aws_access_key_id=aws_access_key_id,
             aws_secret_access_key=aws_secret_access_key,
             aws_session_token=aws_session_token,

@@ -48,6 +48,8 @@ class K8sProcessor(Processor):
             s3_config["bucket"],
             "--mode",
             constants.K8S_MODE,
+            "--aws_region_name",
+            s3_config["region"],
             "--s3_path",
             s3_config["path"],
             "--ec2_temp_output_json",
@@ -209,10 +211,11 @@ class K8sProcessor(Processor):
         # TODO - Add job status check
         S3Utils.download_directory(
             s3_config["bucket"],
+            s3_config["region"],
             s3_config["path"],
             self.connector.get_local_dir(),
         )
-        S3Utils.delete_directory(s3_config["bucket"], s3_config["path"])
+        S3Utils.delete_directory(s3_config["bucket"], s3_config["region"], s3_config["path"])
         with open(
             os.path.join(
                 self.connector.get_local_dir(), constants.EC2_TEMP_OUTPUT_JSON

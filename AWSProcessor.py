@@ -95,10 +95,9 @@ class AWSProcessor(Processor):
         json_output_filename = model_path.split("/")[-1]
 
         predict_upload_whitelist = [
-            file
-            for file in os.listdir(local_folder)
-            if file.endswith(constants.PREDICT_UPLOAD_EXTENSION)
-        ] + [json_output_filename]
+            f"{trainer.output_profiles_ml_model}_{model_file_name}",
+            json_output_filename
+        ]
 
         logger.debug("Uploading files required for prediction to S3")
         S3Utils.upload_directory(

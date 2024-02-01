@@ -102,7 +102,7 @@ class SnowflakeConnector(Connector):
         mode = "native-warehouse"
         return mode
 
-    def set_udf_name(self, model_path: str) -> str:
+    def get_udf_name(self, model_path: str) -> str:
         """Returns the udf name using info from the model_path
 
         Args:
@@ -115,6 +115,7 @@ class SnowflakeConnector(Connector):
             results = json.load(f)
         stage_name = results["model_info"]["file_location"]["stage"]
         self.udf_name = f"prediction_score_{stage_name.replace('@','')}"
+        return self.udf_name
 
     def get_table(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs

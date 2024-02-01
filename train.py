@@ -23,7 +23,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import utils
 import constants
-import S3Constants
+import ProcessorMap
 from AWSProcessor import AWSProcessor
 from LocalProcessor import LocalProcessor
 from SnowflakeProcessor import SnowflakeProcessor
@@ -359,7 +359,7 @@ def train(
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = S3Constants.processor_mode_map[mode](trainer, connector, session)
+    processor = ProcessorMap.processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for training")
     train_results = processor.train(
         train_procedure,

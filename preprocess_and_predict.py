@@ -40,6 +40,7 @@ def preprocess_and_predict(
     trainer = kwargs.get("trainer", None)
 
     model_file_name = constants.MODEL_FILE_NAME
+    udf_name = connector.get_udf_name(model_path)
 
     with open(model_path, "r") as f:
         results = json.load(f)
@@ -133,7 +134,7 @@ def preprocess_and_predict(
             is_permanent=True,
             replace=True,
             stage_location=stage_name,
-            name=connector.udf_name,
+            name=udf_name,
             imports=[f"{stage_name}/{model_name}"],
             packages=[
                 "snowflake-snowpark-python>=0.10.0",
@@ -186,7 +187,7 @@ def preprocess_and_predict(
         if_exists="replace",
     )
     logger.debug("Closing the session")
-    connector.cleanup(session, udf_name=connector.udf_name, close_session=True)
+    connector.cleanup(session, udf_name=udf_name, close_session=True)
     logger.debug("Finished Predict job")
 
 
@@ -238,7 +239,6 @@ if __name__ == "__main__":
         S3Utils.download_directory_using_keys(args.s3_config, current_dir)
 
     model_path = os.path.join(current_dir, args.json_output_filename)
-    connector.set_udf_name(model_path)
 
     _ = preprocess_and_predict(
         wh_creds,

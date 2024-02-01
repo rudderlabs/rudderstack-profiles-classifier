@@ -20,7 +20,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import utils
 import constants
-import S3Constants
+import ProcessorMap
 from SnowflakeConnector import SnowflakeConnector
 from MLTrainer import ClassificationTrainer, RegressionTrainer
 
@@ -106,13 +106,13 @@ def predict(
         connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
 
-    connector.set_udf_name(model_path)
-    connector.cleanup(session, udf_name=connector.udf_name)
+    udf_name = connector.get_udf_name(model_path)
+    connector.cleanup(session, udf_name=udf_name)
 
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = S3Constants.processor_mode_map[mode](trainer, connector, session)
+    processor = ProcessorMap.processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for predictions")
     _ = processor.predict(
         creds,

@@ -9,7 +9,7 @@ import redshift_connector.cursor
 
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import List, Tuple, Any, Union, Optional
+from typing import List, Tuple, Any, Union, Optional, Sequence, Dict
 
 import utils
 import constants
@@ -847,21 +847,19 @@ class RedshiftConnector(Connector):
         )
         return material_registry_table[material_registry_table["status"] == 2]
 
-    def generate_type_hint(self, df: pd.DataFrame):
-        """Returns the type hints for given pandas DataFrame's fields
-
-        Args:
-            sp_df (snowflake.snowpark.Table): pandas DataFrame
-
-        Returns:
-            _type_: Returns the type hints for given snowpark DataFrame's fields
-        """
+    def generate_type_hint(self, df: pd.DataFrame, column_types: Dict[str, List[str]]):
         types = []
+        cat_columns = [col.lower() for col in column_types["categorical_columns"]]
+        numeric_columns = [col.lower() for col in column_types["numeric_columns"]]
         for col in df.columns:
-            if df[col].dtype == "object":
+            if col.lower() in cat_columns:
                 types.append(str)
-            else:
+            elif col.lower() in numeric_columns:
                 types.append(float)
+            else:
+                raise Exception(
+                    f"Column {col} not found in the training data config either as categorical or numeric column"
+                )
         return types
 
     def call_prediction_udf(
@@ -953,6 +951,21 @@ class RedshiftConnector(Connector):
         except OSError as o:
             logger.info("Local directory not present")
             pass
+
+    def select_relevant_columns(
+        self, table: pd.DataFrame, training_features_columns: Sequence[str]
+    ) -> pd.DataFrame:
+        # table can have columns in upper case or lower case. We need to handle both
+        matching_columns = []
+        for col in list(table):
+            if col.upper() in training_features_columns:
+                matching_columns.append(col)
+        # Assert all columns in training_features_columns are part of matching_columns handing case sensitivity
+        matching_columns_upper = [col.upper() for col in matching_columns]
+        assert len(matching_columns_upper) == len(
+            training_features_columns
+        ), f"Expected columns {training_features_columns} not found in table {matching_columns_upper}"
+        return table.filter(matching_columns)
 
     def cleanup(self, *args, **kwargs) -> None:
         delete_local_data = kwargs.get("delete_local_data", None)

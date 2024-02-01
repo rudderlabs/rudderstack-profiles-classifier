@@ -78,6 +78,7 @@ def predict(
     numeric_columns = results["column_names"]["numeric_columns"]
     categorical_columns = results["column_names"]["categorical_columns"]
     arraytype_columns = results["column_names"]["arraytype_columns"]
+    timestamp_columns = results["column_names"]["timestamp_columns"]
 
     score_column_name = merged_config["outputs"]["column_names"]["score"]
     percentile_column_name = merged_config["outputs"]["column_names"]["percentile"]
@@ -89,7 +90,6 @@ def predict(
     index_timestamp = merged_config["data"]["index_timestamp"]
     eligible_users = merged_config["data"]["eligible_users"]
     ignore_features = merged_config["preprocessing"]["ignore_features"]
-    timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
     entity_column = merged_config["data"]["entity_column"]
     task = merged_config["data"].pop("task", "classification")
 
@@ -131,14 +131,21 @@ def predict(
     ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_columns)
     predict_data = connector.drop_cols(raw_data, ignore_features)
 
-    if len(timestamp_columns) == 0:
-        timestamp_columns = results["column_names"]["timestamp_columns"]
-
     for col in timestamp_columns:
         predict_data = connector.add_days_diff(predict_data, col, col, end_ts)
 
-    input = connector.drop_cols(predict_data, [label_column, entity_column])
-    types = connector.generate_type_hint(input)
+    required_features_upper_case = set(
+        [
+            col.upper()
+            for cols in results["column_names"].values()
+            for col in cols
+            if col not in ignore_features
+        ]
+    )
+    input_df = connector.select_relevant_columns(
+        predict_data, required_features_upper_case
+    )
+    types = connector.generate_type_hint(input_df, results["column_names"])
 
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
         predict_data, index_timestamp, end_ts
@@ -170,7 +177,7 @@ def predict(
         elif task == "regression":
             return trained_model.predict(df)
 
-    features = input.columns
+    features = input_df.columns
 
     if creds["type"] == "snowflake":
 
@@ -221,12 +228,12 @@ def predict(
         output_label_column,
         train_model_id,
         prob_th,
-        input,
+        input_df,
     )
     logger.debug("Writing predictions to warehouse")
     # TODO - Get role, bucket, path from site config
     # TODO - replace the aws check with infra mode check
-    if bool(aws_config) & ("access_key_id" not in aws_config):
+    if bool(aws_config) and ("access_key_id" not in aws_config):
         s3_creds = S3Utils.get_temporary_credentials(
             "arn:aws:iam::454531037350:role/profiles-ml-s3"
         )

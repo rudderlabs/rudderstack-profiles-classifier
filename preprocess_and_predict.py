@@ -53,6 +53,7 @@ def preprocess_and_predict(
     numeric_columns = results["column_names"]["numeric_columns"]
     categorical_columns = results["column_names"]["categorical_columns"]
     arraytype_columns = results["column_names"]["arraytype_columns"]
+    timestamp_columns = results["column_names"]["timestamp_columns"]
 
     model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
     seq_no = None
@@ -83,16 +84,21 @@ def preprocess_and_predict(
     )
     predict_data = connector.drop_cols(raw_data, ignore_features)
 
-    if len(trainer.prep.timestamp_columns) == 0:
-        timestamp_columns = results["column_names"]["timestamp_columns"]
-
     for col in timestamp_columns:
         predict_data = connector.add_days_diff(predict_data, col, col, end_ts)
 
-    input = connector.drop_cols(
-        predict_data, [trainer.label_column, trainer.entity_column]
+    required_features_upper_case = set(
+        [
+            col.upper()
+            for cols in results["column_names"].values()
+            for col in cols
+            if col not in ignore_features
+        ]
     )
-    types = connector.generate_type_hint(input)
+    input_df = connector.select_relevant_columns(
+        predict_data, required_features_upper_case
+    )
+    types = connector.generate_type_hint(input_df, results["column_names"])
 
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
         predict_data, trainer.index_timestamp, end_ts
@@ -124,7 +130,7 @@ def preprocess_and_predict(
         elif prediction_task == "regression":
             return trained_model.predict(df)
 
-    features = input.columns
+    features = input_df.columns
 
     if creds["type"] == "snowflake":
 
@@ -143,9 +149,9 @@ def preprocess_and_predict(
                 "xgboost==1.5.0",
                 "numpy==1.23.1",
                 "pandas==1.5.3",
-                "joblib",
-                "cachetools",
-                "PyYAML",
+                "joblib==1.2.0",
+                "cachetools==4.2.2",
+                "PyYAML==6.0.1",
                 "simplejson",
             ],
         )
@@ -176,7 +182,7 @@ def preprocess_and_predict(
         trainer.outputs.column_names.get("output_label_column"),
         train_model_id,
         prob_th,
-        input,
+        input_df,
     )
     logger.debug("Writing predictions to warehouse")
     connector.write_table(

@@ -7,7 +7,6 @@ numpy>=1.23.1
 pandas>=1.4.3
 PyYAML>=6.0.1
 scikit_learn>=1.1.1
-scikit_plot>=0.3.7
 shap>=0.41.0
 platformdirs>=3.8.1
 xgboost>=1.5.0

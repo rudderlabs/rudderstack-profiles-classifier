@@ -500,10 +500,10 @@ def merge_lists_to_unique(l1: list, l2: list) -> list:
     return list(set(l1 + l2))
 
 
-def fetch_key_from_dict(runtime_info, key, default_value=None):
-    if not runtime_info:
-        runtime_info = dict()
-    return runtime_info.get(key, default_value)
+def fetch_key_from_dict(dictionary, key, default_value=None):
+    if not dictionary:
+        dictionary = dict()
+    return dictionary.get(key, default_value)
 
 
 def get_pb_path() -> str:

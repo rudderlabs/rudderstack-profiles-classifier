@@ -16,6 +16,7 @@ import constants
 from logger import logger
 from Connector import Connector
 from wh import ProfilesConnector
+import ProcessorMap
 
 local_folder = constants.LOCAL_STORAGE_DIR
 
@@ -115,7 +116,9 @@ class RedshiftConnector(Connector):
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:
         mode = (
-            "rudderstack-infra" if is_rudder_backend else user_preference_order_infra[0]
+            ProcessorMap.RUDDERSTACK_MODE
+            if is_rudder_backend
+            else user_preference_order_infra[0]
         )
         return mode
 

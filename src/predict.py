@@ -33,18 +33,18 @@ except Exception as e:
 
 def predict(
     creds: dict,
-    s3_config: dict,
+    aws_config: dict,
     model_path: str,
     inputs: str,
     output_tablename: str,
     config: dict,
-    runtime_info: dict = None,
+    runtime_info: dict=None,
 ) -> None:
     """Generates the prediction probabilities and save results for given model_path
 
     Args:
         creds (dict): credentials to access the data warehouse - in same format as site_config.yaml from profiles
-        s3_config (dict): aws credentials - not required for snowflake. only used for redshift
+        aws_config (dict): aws credentials - not required for snowflake. only used for redshift
         model_path (str): path to the file where the model details including model id etc are present. Created in training step
         inputs: (List[str]), containing sql queries such as "select * from <feature_table_name>" from which the script infers input tables        output_tablename (str): name of output table where prediction results are written
         config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
@@ -54,69 +54,192 @@ def predict(
         None: save the prediction results but returns nothing
     """
     logger.debug("Starting Predict job")
-
-    # TODO - Get role, bucket, path from site config
-    # TODO - replace the aws check with infra mode check
-    if bool(s3_config) and ("access_key_id" not in s3_config):
-        s3_creds = S3Utils.get_temporary_credentials(constants.ARN_AWS_ROLE)
-        s3_config["bucket"] = constants.S3_BUCKET
-        s3_config["path"] = constants.S3_PATH
-        s3_config["access_key_id"] = s3_creds["access_key_id"]
-        s3_config["access_key_secret"] = s3_creds["access_key_secret"]
-        s3_config["aws_session_token"] = s3_creds["aws_session_token"]
-
-    is_rudder_backend = utils.fetch_key_from_dict(
-        runtime_info, "is_rudder_backend", False
-    )
-
+    model_file_name = constants.MODEL_FILE_NAME
     current_dir = os.path.dirname(os.path.abspath(__file__))
     folder_path = os.path.dirname(model_path)
 
-    default_config = utils.load_yaml(
-        os.path.join(current_dir, "config", "model_configs.yaml")
-    )
-    _ = config["data"].pop(
-        "package_name", None
-    )  # For backward compatibility. Not using it anywhere else, hence deleting.
+    default_config = utils.load_yaml(os.path.join(current_dir, "config/model_configs.yaml"))
+    _ = config["data"].pop("package_name", None) # For backward compatibility. Not using it anywhere else, hence deleting.
     merged_config = utils.combine_config(default_config, config)
 
-    user_preference_order_infra = merged_config["data"].pop(
-        "user_preference_order_infra", None
+    with open(model_path, "r") as f:
+        results = json.load(f)
+
+    train_model_id = results["model_info"]["model_id"]
+    prob_th = results["model_info"].get("threshold")
+    stage_name = results["model_info"]["file_location"]["stage"]
+    model_hash = results["config"]["material_hash"]
+    input_model_name = results["config"]["input_model_name"]
+
+    numeric_columns = results["column_names"]["numeric_columns"]
+    categorical_columns = results["column_names"]["categorical_columns"]
+    arraytype_columns = results["column_names"]["arraytype_columns"]
+    
+
+    score_column_name = merged_config["outputs"]["column_names"]["score"]
+    percentile_column_name = merged_config["outputs"]["column_names"]["percentile"]
+    output_label_column = merged_config["outputs"]["column_names"].get(
+        "output_label_column"
     )
-    prediction_task = merged_config["data"].pop(
-        "task", "classification"
-    )  # Assuming default as classification
+    output_profiles_ml_model = merged_config["data"]["output_profiles_ml_model"]
+    label_column = merged_config["data"]["label_column"]
+    index_timestamp = merged_config["data"]["index_timestamp"]
+    eligible_users = merged_config["data"]["eligible_users"]
+    ignore_features = merged_config["preprocessing"]["ignore_features"]
+    timestamp_columns = merged_config["preprocessing"]["timestamp_columns"]
+    entity_column = merged_config["data"]["entity_column"]
+    task = merged_config["data"].pop("task", "classification")
 
-    if prediction_task == "classification":
-        trainer = ClassificationTrainer(**merged_config)
-    elif prediction_task == "regression":
-        trainer = RegressionTrainer(**merged_config)
+    model_name = f"{output_profiles_ml_model}_{model_file_name}"
+    seq_no = None
 
-    logger.debug(
-        f"Started Predicting for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
-    )
+    try:
+        seq_no = int(inputs[0].split("_")[-1])
+    except Exception as e:
+        raise Exception(
+            f"Error while parsing seq_no from inputs: {inputs}. Error: {e}"
+        )
 
+    feature_table_name = f"{constants.MATERIAL_TABLE_PREFIX}{input_model_name}_{model_hash}_{seq_no}"
+
+    udf_name = None
     if creds["type"] == "snowflake":
+        udf_name = f"prediction_score_{stage_name.replace('@','')}"
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
+        connector.cleanup(session, udf_name=udf_name)
     elif creds["type"] == "redshift":
         connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
+        local_folder = connector.get_local_dir()
 
-    udf_name = connector.get_udf_name(model_path)
-    connector.cleanup(session, udf_name=udf_name)
+    material_table = connector.get_material_registry_name(
+        session, constants.MATERIAL_REGISTRY_TABLE_PREFIX
+    )
 
-    mode = connector.fetch_processor_mode(
-        user_preference_order_infra, is_rudder_backend
+    end_ts = connector.get_end_ts(
+        session, material_table, input_model_name, model_hash, seq_no
     )
-    processor = ProcessorMap.processor_mode_map[mode](trainer, connector, session)
-    logger.debug(f"Using {mode} processor for predictions")
-    _ = processor.predict(
-        creds,
-        s3_config,
-        model_path,
-        inputs,
-        output_tablename,
-        merged_config,
-        prediction_task,
+    logger.debug(f"Pulling data from Feature table - {feature_table_name}")
+    raw_data = connector.get_table(
+        session, feature_table_name, filter_condition=eligible_users
     )
+    
+    ignore_features = utils.merge_lists_to_unique(ignore_features, arraytype_columns)
+    predict_data = connector.drop_cols(raw_data, ignore_features)
+
+    if len(timestamp_columns) == 0:
+        timestamp_columns = results["column_names"]["timestamp_columns"]
+        
+    for col in timestamp_columns:
+        predict_data = connector.add_days_diff(predict_data, col, col, end_ts)
+
+    input = connector.drop_cols(
+        predict_data, [label_column, entity_column]
+    )
+    types = connector.generate_type_hint(input)
+
+    predict_data = connector.add_index_timestamp_colum_for_predict_data(
+        predict_data, index_timestamp, end_ts
+    )
+
+    @cachetools.cached(cache={})
+    def load_model(filename: str):
+        """session.import adds the staged model file to an import directory. We load the model file from this location"""
+        import_dir = sys._xoptions.get("snowflake_import_directory")
+
+        if import_dir:
+            assert import_dir.startswith("/home/udf/")
+            filename = os.path.join(import_dir, filename)
+        else:
+            filename = os.path.join(local_folder, filename)
+
+        with open(filename, "rb") as file:
+            m = joblib.load(file)
+            return m
+        
+    def predict_helper(df, model_name: str, **kwargs) -> Any:
+
+        trained_model = load_model(model_name)
+        df.columns = [x.upper() for x in df.columns]
+  
+        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+        if task == "classification":
+            return trained_model.predict_proba(df)[:, 1]
+        elif task == "regression":
+            return trained_model.predict(df)
+
+    features = input.columns
+
+    if creds["type"] == "snowflake":
+
+        @F.pandas_udf(
+            session=session,
+            max_batch_size=10000,
+            is_permanent=True,
+            replace=True,
+            stage_location=stage_name,
+            name=udf_name,
+            imports=[f"{stage_name}/{model_name}"],
+            packages=[
+                "snowflake-snowpark-python>=0.10.0",
+                "typing",
+                "scikit-learn==1.1.1",
+                "xgboost==1.5.0",
+                "numpy==1.23.1",
+                "pandas==1.5.3",
+                "joblib==1.2.0",
+                "cachetools==4.2.2",
+                "PyYAML==6.0.1",
+                "simplejson",
+            ],
+        )
+        def predict_scores(df: types) -> T.PandasSeries[float]:
+            df.columns = features
+            predictions = predict_helper(
+                df, model_name
+            )
+            return predictions.round(4)
+
+        prediction_udf = predict_scores
+    elif creds["type"] == "redshift":
+
+        def predict_scores_rs(df: pd.DataFrame) -> pd.Series:
+            df.columns = features
+            predictions = predict_helper(
+                df, model_name
+            )
+            return predictions.round(4)
+
+        prediction_udf = predict_scores_rs
+    
+    logger.debug("Creating predictions on the feature data")
+    preds_with_percentile = connector.call_prediction_udf(
+        predict_data,
+        prediction_udf,
+        entity_column,
+        index_timestamp,
+        score_column_name,
+        percentile_column_name,
+        output_label_column,
+        train_model_id,
+        prob_th,
+        input,
+    )
+    logger.debug("Writing predictions to warehouse")
+    # TODO - Get role, bucket, path from site config
+    # TODO - replace the aws check with infra mode check
+    if bool(aws_config) & ("access_key_id" not in aws_config):
+        s3_creds = S3Utils.get_temporary_credentials("arn:aws:iam::454531037350:role/profiles-ml-s3")
+        aws_config["bucket"] = constants.S3_BUCKET
+        aws_config["path"] = constants.S3_PATH
+        aws_config["access_key_id"] = s3_creds["access_key_id"]
+        aws_config["access_key_secret"] = s3_creds["access_key_secret"]
+        aws_config["aws_session_token"] = s3_creds["aws_session_token"]
+    connector.write_table(
+        preds_with_percentile, output_tablename, write_mode="overwrite", local=False , if_exists="replace"
+    )
+    logger.debug("Closing the session")    
+    connector.cleanup(session, udf_name=udf_name,close_session=True)
+    logger.debug("Finished Predict job")

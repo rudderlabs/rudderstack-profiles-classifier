@@ -1,0 +1,193 @@
+{
+  "sample_application_project/inputs/rsTracks": {
+    "warehouse_name": "rsTracks",
+    "model_type": "sql_template",
+    "output_type": "ephemeral",
+    "run_type": "discrete",
+    "sql_type": "single",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/inputs/rsTracks/var_table": {
+    "warehouse_name": "rsTracks_var_table",
+    "model_type": "input_var_model",
+    "output_type": "table",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/inputs/rsTracks/var_table/user_main_id": {
+    "warehouse_name": "user_main_id_inputs_rsTracks_var_table",
+    "model_type": "input_var_item",
+    "output_type": "column",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/models/rudder_user_base_features_1": {
+    "warehouse_name": "rudder_user_base_features_1",
+    "model_type": "feature_table_model",
+    "output_type": "view",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/packages/feature_table/inputs/rsTracks": {
+    "warehouse_name": "rsTracks",
+    "model_type": "sql_template",
+    "output_type": "ephemeral",
+    "run_type": "discrete",
+    "sql_type": "single",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/packages/feature_table/inputs/rsTracks/var_table": {
+    "warehouse_name": "rsTracks_var_table",
+    "model_type": "input_var_model",
+    "output_type": "table",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/packages/feature_table/inputs/rsTracks/var_table/user_main_id": {
+    "warehouse_name": "user_main_id_inputs_rsTracks_var_table",
+    "model_type": "input_var_item",
+    "output_type": "column",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/packages/feature_table/models/rudder_user_base_features": {
+    "warehouse_name": "rudder_user_base_features",
+    "model_type": "feature_table_model",
+    "output_type": "view",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/packages/feature_table/models/rudder_user_id_stitcher": {
+    "warehouse_name": "rudder_user_id_stitcher",
+    "model_type": "id_stitcher",
+    "output_type": "view",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/packages/feature_table/user/all": {
+    "warehouse_name": "user_all",
+    "model_type": "entity_cohort",
+    "output_type": "ephemeral",
+    "run_type": "discrete",
+    "sql_type": "single",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/packages/feature_table/user/all/days_since_last_seen": {
+    "warehouse_name": "days_since_last_seen",
+    "model_type": "entity_var_item",
+    "output_type": "column",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/packages/feature_table/user/all/is_churned_10_days": {
+    "warehouse_name": "is_churned_10_days",
+    "model_type": "entity_var_item",
+    "output_type": "column",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/packages/feature_table/user/all/max_timestamp_bw_tracks_pages_1": {
+    "warehouse_name": "max_timestamp_bw_tracks_pages_1",
+    "model_type": "entity_var_item",
+    "output_type": "column",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/packages/feature_table/user/all/var_table": {
+    "warehouse_name": "user_var_table",
+    "model_type": "entity_var_model",
+    "output_type": "table",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/raw_inputs/rsTracks": {
+    "warehouse_name": "RUDDERSTACK_TEST_DB.DATA_APPS_SIMULATED_SHOPIFY.tracks",
+    "model_type": "input",
+    "output_type": "table",
+    "run_type": "pre_existing",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/raw_inputs/rsTracks/var_table": {
+    "warehouse_name": "rsTracks_var_table",
+    "model_type": "input_var_model",
+    "output_type": "table",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/raw_inputs/rsTracks/var_table/user_main_id": {
+    "warehouse_name": "user_main_id_raw_inputs_rsTracks_var_table",
+    "model_type": "input_var_item",
+    "output_type": "column",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/user/all": {
+    "warehouse_name": "user_all",
+    "model_type": "entity_cohort",
+    "output_type": "ephemeral",
+    "run_type": "discrete",
+    "sql_type": "single",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/user/all/days_since_last_seen": {
+    "warehouse_name": "days_since_last_seen",
+    "model_type": "entity_var_item",
+    "output_type": "column",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/user/all/is_churned_10_days": {
+    "warehouse_name": "is_churned_10_days",
+    "model_type": "entity_var_item",
+    "output_type": "column",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/user/all/max_timestamp_bw_tracks_pages_1": {
+    "warehouse_name": "max_timestamp_bw_tracks_pages_1",
+    "model_type": "entity_var_item",
+    "output_type": "column",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/user/all/var_table": {
+    "warehouse_name": "user_var_table",
+    "model_type": "entity_var_model",
+    "output_type": "table",
+    "run_type": "discrete",
+    "sql_type": "multi",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/user/main_id_stitched_features": {
+    "warehouse_name": "main_id_stitched_features",
+    "model_type": "entity_traits_360",
+    "output_type": "view",
+    "run_type": "discrete",
+    "sql_type": "single",
+    "enable_status": "enabled"
+  },
+  "sample_application_project/user/user_id_stitched_features": {
+    "warehouse_name": "user_id_stitched_features",
+    "model_type": "entity_traits_360",
+    "output_type": "view",
+    "run_type": "discrete",
+    "sql_type": "single",
+    "enable_status": "enabled"
+  }
+}

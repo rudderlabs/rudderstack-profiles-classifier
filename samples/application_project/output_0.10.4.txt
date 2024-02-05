@@ -1,0 +1,186 @@
+Syntax for vars definition has been modified.:
+In the list of vars, to refer to an entity-var, use {{ <entity_name>.Var('entity_var_name') }}. 
+To refer to an input-var, use {{ <associated_input_model_name>.Var('input_var_name') }}.
+In the auto-migration, we try to grep the var references and convert them to the newer dot var syntax.
+But it is recommended to check the migrated file once as regex operations may cause issues (for example some column name is same as a var-name).
+Below is an example of old style entity-var and the expected new syntax entity var.
+vars:
+  - entity_var:
+		name: a_num_min
+		select: min(num_a)
+		from: inputs/tbl_a
+  - entity_var:
+		name: a_range
+		select: "{{ subtract_range('a_max', 'a_num_min') }}"
+It will be changed to following syntax:.
+vars:
+  - entity_var:
+		name: a_num_min
+		select: min({{tbl_a.Var("num_a")}})
+		from: inputs/tbl_a
+  - entity_var:
+		name: a_range
+		select: '{{ subtract_range("{{user.Var(\'a_max\')}}", "{{user.Var(\'a_num_min\')}}") }}'
+
+2024-02-02T18:44:15.963+0530	INFO	show/models.go:29	Printing models
+
+/
+	raw_inputs/
+		rsTracks
+			warehouse_name: RUDDERSTACK_TEST_DB.DATA_APPS_SIMULATED_SHOPIFY.tracks
+			model_type: input
+			output_type: table
+			run_type: pre_existing
+			sql_type: 
+			enable_status: enabled
+	inputs/
+		rsTracks
+			warehouse_name: rsTracks
+			model_type: sql_template
+			output_type: ephemeral
+			run_type: discrete
+			sql_type: single
+			enable_status: enabled
+		rsTracks/
+			rsTracks_var_table
+				warehouse_name: rsTracks_var_table
+				model_type: input_var_model
+				output_type: table
+				run_type: discrete
+				sql_type: multi
+				enable_status: enabled
+	models/
+		rudder_user_base_features_1
+			warehouse_name: rudder_user_base_features_1
+			model_type: feature_table_model
+			output_type: view
+			run_type: discrete
+			sql_type: multi
+			enable_status: enabled
+	queries/
+	entity/
+		user/
+			max_timestamp_bw_tracks_pages_1
+				warehouse_name: max_timestamp_bw_tracks_pages_1
+				model_type: entity_var_item
+				output_type: column
+				run_type: discrete
+				sql_type: multi
+				enable_status: enabled
+			days_since_last_seen
+				warehouse_name: days_since_last_seen
+				model_type: entity_var_item
+				output_type: column
+				run_type: discrete
+				sql_type: multi
+				enable_status: enabled
+			is_churned_10_days
+				warehouse_name: is_churned_10_days
+				model_type: entity_var_item
+				output_type: column
+				run_type: discrete
+				sql_type: multi
+				enable_status: enabled
+			user_var_table
+				warehouse_name: user_var_table
+				model_type: entity_var_model
+				output_type: table
+				run_type: discrete
+				sql_type: multi
+				enable_status: enabled
+			user_id_stitched_features
+				warehouse_name: user_id_stitched_features
+				model_type: entity_traits_360
+				output_type: view
+				run_type: discrete
+				sql_type: single
+				enable_status: enabled
+			main_id_stitched_features
+				warehouse_name: main_id_stitched_features
+				model_type: entity_traits_360
+				output_type: view
+				run_type: discrete
+				sql_type: single
+				enable_status: enabled
+	reports/
+	packages/
+		feature_table/
+			reports/
+			packages/
+			raw_inputs/
+			inputs/
+				rsTracks
+					warehouse_name: rsTracks
+					model_type: sql_template
+					output_type: ephemeral
+					run_type: discrete
+					sql_type: single
+					enable_status: enabled
+				rsTracks/
+					rsTracks_var_table
+						warehouse_name: rsTracks_var_table
+						model_type: input_var_model
+						output_type: table
+						run_type: discrete
+						sql_type: multi
+						enable_status: enabled
+			models/
+				rudder_user_id_stitcher
+					warehouse_name: rudder_user_id_stitcher
+					model_type: id_stitcher
+					output_type: view
+					run_type: discrete
+					sql_type: multi
+					enable_status: enabled
+				rudder_user_base_features
+					warehouse_name: rudder_user_base_features
+					model_type: feature_table_model
+					output_type: view
+					run_type: discrete
+					sql_type: multi
+					enable_status: enabled
+			queries/
+			entity/
+				user/
+					max_timestamp_bw_tracks_pages
+						warehouse_name: max_timestamp_bw_tracks_pages
+						model_type: entity_var_item
+						output_type: column
+						run_type: discrete
+						sql_type: multi
+						enable_status: enabled
+					days_since_last_seen
+						warehouse_name: days_since_last_seen
+						model_type: entity_var_item
+						output_type: column
+						run_type: discrete
+						sql_type: multi
+						enable_status: enabled
+					is_churned_7_days
+						warehouse_name: is_churned_7_days
+						model_type: entity_var_item
+						output_type: column
+						run_type: discrete
+						sql_type: multi
+						enable_status: enabled
+					is_churned_90_days
+						warehouse_name: is_churned_90_days
+						model_type: entity_var_item
+						output_type: column
+						run_type: discrete
+						sql_type: multi
+						enable_status: enabled
+					days_since_account_creation
+						warehouse_name: days_since_account_creation
+						model_type: entity_var_item
+						output_type: column
+						run_type: discrete
+						sql_type: multi
+						enable_status: enabled
+					user_var_table
+						warehouse_name: user_var_table
+						model_type: entity_var_model
+						output_type: table
+						run_type: discrete
+						sql_type: multi
+						enable_status: enabled

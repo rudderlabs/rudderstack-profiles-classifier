@@ -1,0 +1,225 @@
+2024-02-02T18:42:54.819+0530	WARN	core/project.go:123	We have deprecated the support of projects with schema_version < 43. Please migrate your project /Users/admin/Desktop/Profiles/rudderstack_profiles_classifier/samples/application_project to a version equal to or above 43.
+
+Syntax for vars definition has been modified.:
+In the list of vars, to refer to an entity-var, use {{ <entity_name>.Var('entity_var_name') }}. 
+To refer to an input-var, use {{ <associated_input_model_name>.Var('input_var_name') }}.
+In the auto-migration, we try to grep the var references and convert them to the newer dot var syntax.
+But it is recommended to check the migrated file once as regex operations may cause issues (for example some column name is same as a var-name).
+Below is an example of old style entity-var and the expected new syntax entity var.
+vars:
+  - entity_var:
+		name: a_num_min
+		select: min(num_a)
+		from: inputs/tbl_a
+  - entity_var:
+		name: a_range
+		select: "{{ subtract_range('a_max', 'a_num_min') }}"
+It will be changed to following syntax:.
+vars:
+  - entity_var:
+		name: a_num_min
+		select: min({{tbl_a.Var("num_a")}})
+		from: inputs/tbl_a
+  - entity_var:
+		name: a_range
+		select: '{{ subtract_range("{{user.Var(\'a_max\')}}", "{{user.Var(\'a_num_min\')}}") }}'
+
+2024-02-02T18:42:54.842+0530	WARN	base/material.go:466	this.DeRef with pre_existing as true can only be used with incremental models
+
+2024-02-02T18:42:54.899+0530	WARN	base/material.go:466	this.DeRef with pre_existing as true can only be used with incremental models
+
+2024-02-02T18:42:54.917+0530	WARN	base/material.go:466	this.DeRef with pre_existing as true can only be used with incremental models
+
+2024-02-02T18:42:54.937+0530	WARN	core/project.go:1569	recommended to use dot var syntax to refer to user_main_id in days_since_last_seen
+
+2024-02-02T18:42:54.946+0530	WARN	core/project.go:1569	recommended to use dot var syntax to refer to user_main_id in is_churned_10_days
+
+2024-02-02T18:42:54.977+0530	WARN	core/project.go:1569	recommended to use dot var syntax to refer to user_main_id in max_timestamp_bw_tracks_pages_1
+
+2024-02-02T18:42:54.999+0530	INFO	api/show.go:62	Printing models
+
+sample_application_project/
+	packages/
+		feature_table/
+			inputs/
+				rsTracks
+					sql_type: single
+					enable_status: enabled
+					warehouse_name: rsTracks
+					model_type: sql_template
+					output_type: ephemeral
+					run_type: discrete
+				rsTracks/
+					var_table
+						sql_type: multi
+						enable_status: enabled
+						warehouse_name: rsTracks_var_table
+						model_type: input_var_model
+						output_type: table
+						run_type: discrete
+					var_table/
+						user_main_id
+							output_type: column
+							run_type: discrete
+							sql_type: multi
+							enable_status: enabled
+							warehouse_name: user_main_id_inputs_rsTracks_var_table
+							model_type: input_var_item
+			models/
+				rudder_user_id_stitcher
+					warehouse_name: rudder_user_id_stitcher
+					model_type: id_stitcher
+					output_type: view
+					run_type: discrete
+					sql_type: multi
+					enable_status: enabled
+				rudder_user_base_features
+					model_type: feature_table_model
+					output_type: view
+					run_type: discrete
+					sql_type: multi
+					enable_status: enabled
+					warehouse_name: rudder_user_base_features
+			user/
+				all
+					enable_status: enabled
+					warehouse_name: user_all
+					model_type: entity_cohort
+					output_type: ephemeral
+					run_type: discrete
+					sql_type: single
+				all/
+					days_since_last_seen
+						warehouse_name: days_since_last_seen
+						model_type: entity_var_item
+						output_type: column
+						run_type: discrete
+						sql_type: multi
+						enable_status: enabled
+					is_churned_10_days
+						sql_type: multi
+						enable_status: enabled
+						warehouse_name: is_churned_10_days
+						model_type: entity_var_item
+						output_type: column
+						run_type: discrete
+					var_table
+						enable_status: enabled
+						warehouse_name: user_var_table
+						model_type: entity_var_model
+						output_type: table
+						run_type: discrete
+						sql_type: multi
+					max_timestamp_bw_tracks_pages_1
+						sql_type: multi
+						enable_status: enabled
+						warehouse_name: max_timestamp_bw_tracks_pages_1
+						model_type: entity_var_item
+						output_type: column
+						run_type: discrete
+	user/
+		user_id_stitched_features
+			run_type: discrete
+			sql_type: single
+			enable_status: enabled
+			warehouse_name: user_id_stitched_features
+			model_type: entity_traits_360
+			output_type: view
+		main_id_stitched_features
+			run_type: discrete
+			sql_type: single
+			enable_status: enabled
+			warehouse_name: main_id_stitched_features
+			model_type: entity_traits_360
+			output_type: view
+		all
+			enable_status: enabled
+			warehouse_name: user_all
+			model_type: entity_cohort
+			output_type: ephemeral
+			run_type: discrete
+			sql_type: single
+		all/
+			var_table
+				warehouse_name: user_var_table
+				model_type: entity_var_model
+				output_type: table
+				run_type: discrete
+				sql_type: multi
+				enable_status: enabled
+			max_timestamp_bw_tracks_pages_1
+				output_type: column
+				run_type: discrete
+				sql_type: multi
+				enable_status: enabled
+				warehouse_name: max_timestamp_bw_tracks_pages_1
+				model_type: entity_var_item
+			days_since_last_seen
+				model_type: entity_var_item
+				output_type: column
+				run_type: discrete
+				sql_type: multi
+				enable_status: enabled
+				warehouse_name: days_since_last_seen
+			is_churned_10_days
+				run_type: discrete
+				sql_type: multi
+				enable_status: enabled
+				warehouse_name: is_churned_10_days
+				model_type: entity_var_item
+				output_type: column
+	raw_inputs/
+		rsTracks
+			warehouse_name: RUDDERSTACK_TEST_DB.DATA_APPS_SIMULATED_SHOPIFY.tracks
+			model_type: input
+			output_type: table
+			run_type: pre_existing
+			enable_status: enabled
+		rsTracks/
+			var_table
+				enable_status: enabled
+				warehouse_name: rsTracks_var_table
+				model_type: input_var_model
+				output_type: table
+				run_type: discrete
+				sql_type: multi
+			var_table/
+				user_main_id
+					warehouse_name: user_main_id_raw_inputs_rsTracks_var_table
+					model_type: input_var_item
+					output_type: column
+					run_type: discrete
+					sql_type: multi
+					enable_status: enabled
+	inputs/
+		rsTracks
+			run_type: discrete
+			sql_type: single
+			enable_status: enabled
+			warehouse_name: rsTracks
+			model_type: sql_template
+			output_type: ephemeral
+		rsTracks/
+			var_table
+				sql_type: multi
+				enable_status: enabled
+				warehouse_name: rsTracks_var_table
+				model_type: input_var_model
+				output_type: table
+				run_type: discrete
+			var_table/
+				user_main_id
+					sql_type: multi
+					enable_status: enabled
+					warehouse_name: user_main_id_inputs_rsTracks_var_table
+					model_type: input_var_item
+					output_type: column
+					run_type: discrete
+	models/
+		rudder_user_base_features_1
+			warehouse_name: rudder_user_base_features_1
+			model_type: feature_table_model
+			output_type: view
+			run_type: discrete
+			sql_type: multi
+			enable_status: enabled

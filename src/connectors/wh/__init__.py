@@ -8,8 +8,11 @@ from src.wh.redshift_base_connector import RedShiftConnector
 from src.wh.snowflake_base_connector import SnowflakeConnector
 from src.wh.connector_base import connector_classes
 
+
 # SnowflakeConnector not used currently in profiles_rudderstack
-def ProfilesConnector(config: dict, **kwargs) -> Union[RedShiftConnector, SnowflakeConnector]:
+def ProfilesConnector(
+    config: dict, **kwargs
+) -> Union[RedShiftConnector, SnowflakeConnector]:
     """Creates a connector object based on the config provided
 
     Args:
@@ -40,10 +43,7 @@ def ProfilesConnector(config: dict, **kwargs) -> Union[RedShiftConnector, Snowfl
     if "role" in config:
         creds["role"] = config.get("role")
 
-    db_config = {
-        "database": config.get("dbname"),
-        "schema": config.get("schema")
-    }
+    db_config = {"database": config.get("dbname"), "schema": config.get("schema")}
 
     connector = connector(creds, db_config, **kwargs)
     return connector

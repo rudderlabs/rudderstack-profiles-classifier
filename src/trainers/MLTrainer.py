@@ -38,33 +38,25 @@ trainer_utils = utils.TrainerUtils()
 class MLTrainer(ABC):
     def __init__(
         self,
-        label_value: int,
-        label_column: str,
-        entity_column: str,
-        entity_key: str,
-        output_profiles_ml_model: str,
-        index_timestamp: str,
-        eligible_users: str,
-        train_start_dt: str,
-        train_end_dt: str,
-        prediction_horizon_days: int,
-        inputs: List[str],
-        max_row_count: int,
-        prep: utils.PreprocessorConfig,
+        **kwargs,
     ):
-        self.label_value = label_value
-        self.label_column = label_column
-        self.entity_column = entity_column
-        self.entity_key = entity_key
-        self.output_profiles_ml_model = output_profiles_ml_model
-        self.index_timestamp = index_timestamp
-        self.eligible_users = eligible_users
-        self.train_start_dt = train_start_dt
-        self.train_end_dt = train_end_dt
-        self.prediction_horizon_days = prediction_horizon_days
-        self.inputs = inputs
-        self.max_row_count = max_row_count
-        self.prep = prep
+        self.label_value = kwargs["data"]["label_value"]
+        self.label_column = kwargs["data"]["label_column"]
+        self.entity_column = kwargs["data"]["entity_column"]
+        self.entity_key = kwargs["data"]["entity_key"]
+        self.output_profiles_ml_model = kwargs["data"]["output_profiles_ml_model"]
+        self.index_timestamp = kwargs["data"]["index_timestamp"]
+        self.eligible_users = kwargs["data"]["eligible_users"]
+        self.train_start_dt = kwargs["data"]["train_start_dt"]
+        self.train_end_dt = kwargs["data"]["train_end_dt"]
+        self.prediction_horizon_days = kwargs["data"]["prediction_horizon_days"]
+        self.inputs = kwargs["data"]["inputs"]
+        self.max_row_count = kwargs["data"]["max_row_count"]
+        self.recall_to_precision_importance = kwargs["data"][
+            "recall_to_precision_importance"
+        ]
+        self.prep = utils.PreprocessorConfig(**kwargs["preprocessing"])
+        self.outputs = utils.OutputsConfig(**kwargs["outputs"])
         self.isStratify = None
 
     hyperopts_expressions_map = {
@@ -304,9 +296,6 @@ class ClassificationTrainer(MLTrainer):
     }
 
     def __init__(self, **kwargs):
-        self.recall_to_precision_importance = kwargs.pop(
-            "recall_to_precision_importance"
-        )
         super().__init__(**kwargs)
 
         self.figure_names = {
@@ -506,7 +495,6 @@ class RegressionTrainer(MLTrainer):
     }
 
     def __init__(self, **kwargs):
-        _ = kwargs.pop("recall_to_precision_importance", 0.0)
         super().__init__(**kwargs)
 
         self.figure_names = {
@@ -515,7 +503,7 @@ class RegressionTrainer(MLTrainer):
             "residuals-chart": f"02-residuals-chart-{self.output_profiles_ml_model}.png",
             "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png",
         }
-        self.isStratify=False
+        self.isStratify = False
 
     def build_model(
         self,

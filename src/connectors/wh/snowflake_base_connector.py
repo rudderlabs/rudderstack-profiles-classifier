@@ -14,13 +14,14 @@ from snowflake.connector import connect
 from src.connectors.wh.connector_base import ConnectorBase, register_connector
 from logging import Logger
 
+
 @register_connector
 class SnowflakeConnector(ConnectorBase):
     def __init__(self, creds: dict, db_config: dict, **kwargs) -> None:
         super().__init__(creds, db_config, **kwargs)
         self.logger = Logger("snowflake_connector")
 
-        encoded_password = urllib.parse.quote(creds["password"], safe="") 
+        encoded_password = urllib.parse.quote(creds["password"], safe="")
         url = f"snowflake://{creds['user']}:{encoded_password}@{creds['account_identifier']}"
         if "database" in db_config:
             url += f"/{db_config['database']}"
@@ -45,13 +46,15 @@ class SnowflakeConnector(ConnectorBase):
         table_name, schema = (
             table_name.split(".") if "." in table_name else (table_name, schema)
         )
-        
+
         try:
-            connection_params = {"user": self.creds["user"],
-                                 "password": self.creds["password"],
-                                 "account": self.creds["account_identifier"],
-                                 "database": self.db_config["database"],
-                                 "schema":schema}
+            connection_params = {
+                "user": self.creds["user"],
+                "password": self.creds["password"],
+                "account": self.creds["account_identifier"],
+                "database": self.db_config["database"],
+                "schema": schema,
+            }
 
             if "warehouse" in self.creds:
                 connection_params["warehouse"] = self.creds["warehouse"]
@@ -61,7 +64,9 @@ class SnowflakeConnector(ConnectorBase):
 
             write_conn = connect(**connection_params)
 
-            success, nchunks, nrows, _ = write_pandas(write_conn, df, table_name, quote_identifiers=False)
+            success, nchunks, nrows, _ = write_pandas(
+                write_conn, df, table_name, quote_identifiers=False
+            )
 
             # if success:
             #     print(f"Successfully wrote {nrows} rows across {nchunks} chunks to table {table_name}")
@@ -70,7 +75,7 @@ class SnowflakeConnector(ConnectorBase):
         except Exception as e:
             self.logger.error(f"Error while writing to Snowflake: {e}")
 
-            #Check for non existing schema
+            # Check for non existing schema
             err_str = f"table '{table_name}' does not exist".lower()
             if err_str in str(e).lower():
                 self.create_table(df, table_name, schema)

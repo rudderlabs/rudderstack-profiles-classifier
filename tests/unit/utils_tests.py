@@ -1,12 +1,12 @@
 import sys
 import unittest
-sys.path.append('../..')
+
+sys.path.append("../..")
 
 from src.utils.utils import replace_seq_no_in_query
 
 
 class TestReplaceSeqNoInQuery(unittest.TestCase):
-
     def test_replaces_seq_no_correctly(self):
         query = "SELECT * FROM material_user_var_table_123"
         seq_no = "567"

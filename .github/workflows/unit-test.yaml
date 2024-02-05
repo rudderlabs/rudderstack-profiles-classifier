@@ -1,4 +1,4 @@
-name: Unit tests
+name: Format and Unit tests
 
 on:
   pull_request:
@@ -16,8 +16,14 @@ jobs:
     - name: Install Python
       uses: actions/setup-python@v4
       with:
-        python-version: 3.8.15
+        python-version: 3.10.13
         cache: 'pip'
+    
+    - name: Install formatter
+      run: pip install black==23.12.1
+
+    - name: Check format
+      run: black --check . 
 
     - name: Install dependencies
       run: pip install -r tests/integration/requirements.txt

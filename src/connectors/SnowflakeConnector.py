@@ -1,10 +1,11 @@
 import os
 import gzip
+import json
 import shutil
 import pandas as pd
 
 from datetime import datetime
-from typing import Any, List, Tuple, Union, Optional
+from typing import Any, List, Tuple, Union, Optional, Sequence, Dict
 
 import snowflake.snowpark
 import snowflake.snowpark.types as T
@@ -63,22 +64,22 @@ class SnowflakeConnector(Connector):
             Results of the query run on the snowpark session
         """
         return session.sql(query).collect()
-    
+
     def call_procedure(self, *args, **kwargs):
         """Calls the given procedure on the snowpark session
 
         Args:
             session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
             args (list): List of arguments to be passed to the procedure
-        
+
         Returns:
             Results of the procedure call
         """
-        session = kwargs.get('session', None)
+        session = kwargs.get("session", None)
         if session == None:
             raise Exception("Session object not found")
         return session.call(*args)
-    
+
     def get_merged_table(self, base_table, incoming_table):
         """Returns the merged table of base_table and incoming_table.
 
@@ -89,13 +90,31 @@ class SnowflakeConnector(Connector):
         Returns:
             snowflake.snowpark.Table: Merged table of feature table and feature table instance
         """
-        return incoming_table if base_table is None else base_table.unionAllByName(incoming_table)
-    
+        return (
+            incoming_table
+            if base_table is None
+            else base_table.unionAllByName(incoming_table)
+        )
+
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:
         mode = "native-warehouse"
         return mode
+
+    def get_udf_name(self, model_path: str) -> str:
+        """Returns the udf name using info from the model_path
+
+        Args:
+            model_path (str): Path of the model
+
+        Returns:
+            str: UDF name
+        """
+        with open(model_path, "r") as f:
+            results = json.load(f)
+        stage_name = results["model_info"]["file_location"]["stage"]
+        return f"prediction_score_{stage_name.replace('@','')}"
 
     def get_table(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs
@@ -259,7 +278,9 @@ class SnowflakeConnector(Connector):
         feature_table = self.get_table(session, feature_table_name)
         non_stringtype_features = []
         for field in feature_table.schema.fields:
-            if not isinstance(field.datatype, T.StringType) and field.name.lower() not in (
+            if not isinstance(
+                field.datatype, T.StringType
+            ) and field.name.lower() not in (
                 label_column.lower(),
                 entity_column.lower(),
             ):
@@ -327,7 +348,9 @@ class SnowflakeConnector(Connector):
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
         arraytype_columns = [
-            row.name for row in table.schema.fields if isinstance(row.datatype, T.ArrayType)
+            row.name
+            for row in table.schema.fields
+            if isinstance(row.datatype, T.ArrayType)
         ]
         return arraytype_columns
 
@@ -469,7 +492,7 @@ class SnowflakeConnector(Connector):
         model_hash: str,
         material_table_prefix: str,
         prediction_horizon_days: int,
-        inputs: List[str]
+        inputs: List[str],
     ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
         """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
 
@@ -546,10 +569,12 @@ class SnowflakeConnector(Connector):
                         session,
                         input_material_query,
                         row.FEATURE_SEQ_NO,
-                        row.LABEL_SEQ_NO
+                        row.LABEL_SEQ_NO,
                     ):
                         material_names.append((feature_table_name_, label_table_name_))
-                        training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
+                        training_dates.append(
+                            (str(row.FEATURE_END_TS), str(row.LABEL_END_TS))
+                        )
             return material_names, training_dates
         except Exception as e:
             raise Exception(
@@ -592,7 +617,7 @@ class SnowflakeConnector(Connector):
         material_table: str,
         model_name: str,
         model_hash: str,
-        entity_key: str
+        entity_key: str,
     ):
         """This function will return the model hash that is latest for given model name in material table
 
@@ -626,12 +651,7 @@ class SnowflakeConnector(Connector):
         return creation_ts
 
     def get_end_ts(
-        self,
-        session,
-        material_table,
-        model_name: str,
-        model_hash: str,
-        seq_no: int
+        self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
         """This function will return the end_ts with given model hash and model name
 
@@ -797,16 +817,17 @@ class SnowflakeConnector(Connector):
             None
         """
         try:
-
             if label_column.upper() not in feature_table.columns:
-                raise Exception(f"Label column {label_column} is not present in the feature table.")
+                raise Exception(
+                    f"Label column {label_column} is not present in the feature table."
+                )
 
             # Check if feature_table has at least one column apart from label_column and entity_column
             if feature_table.shape[1] < 3:
                 raise Exception(
                     f"Feature table must have at least one column apart from the label column {label_column}."
                 )
-        
+
             distinct_values_count = feature_table.groupBy(label_column).count()
 
             if task_type == "classification":
@@ -919,23 +940,19 @@ class SnowflakeConnector(Connector):
         )
         return material_registry_table
 
-    def generate_type_hint(self, df: snowflake.snowpark.Table):
-        """Returns the type hints for given snowpark DataFrame's fields
-
-        Args:
-            df (snowflake.snowpark.Table): snowpark DataFrame
-
-        Returns:
-            _type_: Returns the type hints for given snowpark DataFrame's fields
-        """
-        type_map = {
-            T.BooleanType(): float,
-            T.DoubleType(): float,
-            T.DecimalType(36, 6): float,
-            T.LongType(): float,
-            T.StringType(): str,
-        }
-        types = [type_map[d.datatype] for d in df.schema.fields]
+    def generate_type_hint(
+        self, df: snowflake.snowpark.Table, column_types: Dict[str, List[str]]
+    ):
+        types = []
+        for col in df.columns:
+            if col in column_types["categorical_columns"]:
+                types.append(str)
+            elif col in column_types["numeric_columns"]:
+                types.append(float)
+            else:
+                raise Exception(
+                    f"Column {col} not found in the training data config either as categorical or numeric column"
+                )
         return T.PandasDataFrame[tuple(types)]
 
     def call_prediction_udf(
@@ -1102,11 +1119,28 @@ class SnowflakeConnector(Connector):
         """
         _ = session.file.get(file_stage_path, target_folder)
 
+    def select_relevant_columns(
+        self,
+        table: snowflake.snowpark.Table,
+        training_features_columns_upper_case: Sequence[str],
+    ) -> snowflake.snowpark.Table:
+        table_cols = [col.upper() for col in table.columns]
+        for col in training_features_columns_upper_case:
+            if col not in table_cols:
+                raise Exception(
+                    f"Expected feature column {col} not found in the predictions input table"
+                )
+        shortlisted_columns = []
+        shortlisted_columns = [
+            col for col in table_cols if col in training_features_columns_upper_case
+        ]
+        return table.select(*shortlisted_columns)
+
     def cleanup(self, session: snowflake.snowpark.Session, **kwargs):
         stored_procedure_name = kwargs.get("stored_procedure_name", None)
         udf_name = kwargs.get("udf_name", None)
         delete_files = kwargs.get("delete_files", None)
-        close_session = kwargs.get('close_session', False)
+        close_session = kwargs.get("close_session", False)
 
         stage_name = kwargs.get("stage_name", None)
         if stored_procedure_name:

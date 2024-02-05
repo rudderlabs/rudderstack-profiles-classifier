@@ -9,7 +9,7 @@ import redshift_connector.cursor
 
 from pathlib import Path
 from datetime import datetime, timedelta
-from typing import List, Tuple, Any, Union, Optional
+from typing import List, Tuple, Any, Union, Optional, Sequence, Dict
 
 import src.utils.utils as utils 
 from src.constants import constants
@@ -44,7 +44,9 @@ class RedshiftConnector(Connector):
         self.creds = credentials
         self.connection_parameters = self.remap_credentials(credentials)
         valid_params = inspect.signature(redshift_connector.connect).parameters
-        conn_params = {k:v for k,v in self.connection_parameters.items() if k in valid_params}  
+        conn_params = {
+            k: v for k, v in self.connection_parameters.items() if k in valid_params
+        }
         conn = redshift_connector.connect(**conn_params)
         self.creds["schema"] = self.schema
         conn.autocommit = True
@@ -81,7 +83,7 @@ class RedshiftConnector(Connector):
             return cursor.execute(query).fetchall()
         else:
             return cursor.execute(query)
-        
+
     def call_procedure(self, *args, **kwargs):
         """Calls the given function for training
 
@@ -89,14 +91,14 @@ class RedshiftConnector(Connector):
             cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
             args (list): List of arguments to be passed to the training function
             kwargs (dict): Dictionary of keyword arguments to be passed to the training function
-        
+
         Returns:
             Results of the training function
         """
         train_function = args[0]
         args = args[1:]
         return train_function(*args, **kwargs)
-    
+
     def get_merged_table(self, base_table, incoming_table):
         """Returns the merged table.
 
@@ -108,7 +110,7 @@ class RedshiftConnector(Connector):
             pd.DataFrame: Merged table
         """
         return pd.concat([base_table, incoming_table], axis=0, ignore_index=True)
-        
+
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:
@@ -116,6 +118,17 @@ class RedshiftConnector(Connector):
             "rudderstack-infra" if is_rudder_backend else user_preference_order_infra[0]
         )
         return mode
+
+    def get_udf_name(self, model_path: str) -> str:
+        """Returns the udf name using info from the model_path
+
+        Args:
+            model_path (str): Path of the model
+
+        Returns:
+            str: UDF name
+        """
+        return None
 
     def get_table(
         self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs
@@ -149,10 +162,10 @@ class RedshiftConnector(Connector):
             query += f" WHERE {filter_condition}"
         query += ";"
         return cursor.execute(query).fetch_dataframe()
-    
+
     def load_and_delete_json(self, json_file_name: str) -> dict:
         file_path = os.path.join(self.local_dir, json_file_name)
-        with open(file_path, 'r') as file:
+        with open(file_path, "r") as file:
             json_data = json.load(file)
         utils.delete_file(file_path)
         return json_data
@@ -435,7 +448,9 @@ class RedshiftConnector(Connector):
                     ["seq_no", "end_ts"],
                 ]
                 .drop_duplicates()
-                .rename(columns={"seq_no": "feature_seq_no", "end_ts": "feature_end_ts"})
+                .rename(
+                    columns={"seq_no": "feature_seq_no", "end_ts": "feature_end_ts"}
+                )
             )
             feature_df["label_end_ts"] = feature_df["feature_end_ts"] + timedelta(
                 days=prediction_horizon_days
@@ -485,12 +500,11 @@ class RedshiftConnector(Connector):
                 # Iterate over inputs and validate meterial names
                 for input_material_query in inputs:
                     if self.validate_historical_materials_hash(
-                        cursor,
-                        input_material_query,
-                        feat_seq_no,
-                        label_seq_no
+                        cursor, input_material_query, feat_seq_no, label_seq_no
                     ):
-                        material_names.append((feature_material_name, label_meterial_name))
+                        material_names.append(
+                            (feature_material_name, label_meterial_name)
+                        )
                         training_dates.append(
                             (str(row["feature_end_ts"]), str(row["label_end_ts"]))
                         )
@@ -506,7 +520,7 @@ class RedshiftConnector(Connector):
         material_table: str,
         model_name: str,
         model_hash: str,
-        entity_key: str
+        entity_key: str,
     ):
         """This function will return the model hash that is latest for given model name in material table
 
@@ -539,12 +553,7 @@ class RedshiftConnector(Connector):
         return creation_ts
 
     def get_end_ts(
-        self,
-        cursor,
-        material_table,
-        model_name: str,
-        model_hash: str,
-        seq_no: int
+        self, cursor, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
         """This function will return the end_ts with given model hash and model name
 
@@ -565,7 +574,7 @@ class RedshiftConnector(Connector):
                 df.query(f'model_type == "{constants.ENTITY_VAR_MODEL}"')
                 .query(f'model_name == "{model_name}"')
                 .query(f'model_hash == "{model_hash}"')
-                .query(f'seq_no == {seq_no}')
+                .query(f"seq_no == {seq_no}")
                 .reset_index(drop=True)[["end_ts"]]
                 .iloc[0]
             )
@@ -674,17 +683,18 @@ class RedshiftConnector(Connector):
         task_type: str,
     ):
         try:
-            
             # Check if label_column is present in feature_table
             if label_column not in feature_table.columns:
-                raise Exception(f"Label column {label_column} is not present in the feature table.")
+                raise Exception(
+                    f"Label column {label_column} is not present in the feature table."
+                )
 
             # Check if feature_table has at least one column apart from label_column and entity_column
             if feature_table.shape[1] < 3:
                 raise Exception(
                     f"Feature table must have at least one column apart from the label column {label_column}."
                 )
-            
+
             if task_type == "classification":
                 min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
                 max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
@@ -836,30 +846,31 @@ class RedshiftConnector(Connector):
         material_registry_table = self.get_table_as_dataframe(
             cursor, material_registry_table_name
         )
+
         def safe_parse_json(x):
             try:
                 return eval(x).get("complete", {}).get("status")
             except:
                 return None
-        material_registry_table["status"] = material_registry_table["metadata"].apply(safe_parse_json)
+
+        material_registry_table["status"] = material_registry_table["metadata"].apply(
+            safe_parse_json
+        )
         return material_registry_table[material_registry_table["status"] == 2]
-        
 
-    def generate_type_hint(self, df: pd.DataFrame):
-        """Returns the type hints for given pandas DataFrame's fields
-
-        Args:
-            sp_df (snowflake.snowpark.Table): pandas DataFrame
-
-        Returns:
-            _type_: Returns the type hints for given snowpark DataFrame's fields
-        """
+    def generate_type_hint(self, df: pd.DataFrame, column_types: Dict[str, List[str]]):
         types = []
+        cat_columns = [col.lower() for col in column_types["categorical_columns"]]
+        numeric_columns = [col.lower() for col in column_types["numeric_columns"]]
         for col in df.columns:
-            if df[col].dtype == "object":
+            if col.lower() in cat_columns:
                 types.append(str)
-            else:
+            elif col.lower() in numeric_columns:
                 types.append(float)
+            else:
+                raise Exception(
+                    f"Column {col} not found in the training data config either as categorical or numeric column"
+                )
         return types
 
     def call_prediction_udf(
@@ -951,6 +962,21 @@ class RedshiftConnector(Connector):
         except OSError as o:
             logger.info("Local directory not present")
             pass
+
+    def select_relevant_columns(
+        self, table: pd.DataFrame, training_features_columns: Sequence[str]
+    ) -> pd.DataFrame:
+        # table can have columns in upper case or lower case. We need to handle both
+        matching_columns = []
+        for col in list(table):
+            if col.upper() in training_features_columns:
+                matching_columns.append(col)
+        # Assert all columns in training_features_columns are part of matching_columns handing case sensitivity
+        matching_columns_upper = [col.upper() for col in matching_columns]
+        assert len(matching_columns_upper) == len(
+            training_features_columns
+        ), f"Expected columns {training_features_columns} not found in table {matching_columns_upper}"
+        return table.filter(matching_columns)
 
     def cleanup(self, *args, **kwargs) -> None:
         delete_local_data = kwargs.get("delete_local_data", None)

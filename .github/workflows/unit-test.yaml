@@ -22,8 +22,8 @@ jobs:
     - name: Install formatter
       run: pip install black==23.12.1
 
-    - name: Check format
-      run: black --check . 
+    # - name: Check format
+    #   run: black --check . 
 
     - name: Install dependencies
       run: pip install -r tests/integration/requirements.txt

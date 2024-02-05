@@ -29,7 +29,7 @@ from src.processors.LocalProcessor import LocalProcessor
 from src.processors.SnowflakeProcessor import SnowflakeProcessor
 from src.connectors.SnowflakeConnector import SnowflakeConnector
 from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
-from src.utils.preprocess_and_train import train_and_store_model_results_rs
+from src.processors.preprocess_and_train import train_and_store_model_results_rs
 
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
@@ -92,6 +92,7 @@ def train(
     # for file in import_files:
     #     import_paths.append(os.path.join(current_dir, file))
     config_path = os.path.join(current_dir, "config", "model_configs.yaml")
+    print(config_path)
     folder_path = os.path.dirname(output_filename)
     target_path = utils.get_output_directory(folder_path)
 
@@ -102,6 +103,8 @@ def train(
     _ = config["data"].pop("features_profiles_model", None) # For backward compatibility. Not using it anywhere else, hence deleting.
     merged_config = utils.combine_config(default_config, config)
 
+    print(merged_config)
+
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None
     )
@@ -111,9 +114,9 @@ def train(
 
     prep_config = utils.PreprocessorConfig(**merged_config["preprocessing"])
     if prediction_task == "classification":
-        trainer = ClassificationTrainer(**merged_config["data"], prep=prep_config)
+        trainer = ClassificationTrainer(**merged_config, prep=prep_config)
     elif prediction_task == "regression":
-        trainer = RegressionTrainer(**merged_config["data"], prep=prep_config)
+        trainer = RegressionTrainer(**merged_config, prep=prep_config)
 
     logger.debug(
         f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"

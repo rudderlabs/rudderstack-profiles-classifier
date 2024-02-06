@@ -157,7 +157,8 @@ def validate_predictions_df():
 
 def create_site_config_file(creds, siteconfig_path):
     json_data = {
-        "connections": {"test": {"target": "test", "outputs": {"test": creds}}}
+        "connections": {"test": {"target": "test", "outputs": {"test": creds}}},
+        "py_models": {"credentials_presets": None},
     }
     yaml_data = yaml.dump(json_data, default_flow_style=False)
     with open(siteconfig_path, "w") as file:
@@ -194,6 +195,7 @@ def test_regressor():
     train_inputs = [
         f"""SELECT * FROM {creds['schema']}.material_user_var_table_{latest_model_hash}_0""",
     ]
+    runtime_info = {"site_config_path": siteconfig_path}
 
     try:
         train(
@@ -222,6 +224,7 @@ def test_regressor():
             predict_inputs,
             p_output_tablename,
             predict_config,
+            runtime_info,
         )
         validate_predictions_df()
 

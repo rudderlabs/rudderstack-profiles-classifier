@@ -21,7 +21,7 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import src.utils.utils as utils 
+import src.utils.utils as utils
 from src.utils import constants
 
 import src.processors.ProcessorMap as ProcessorMap

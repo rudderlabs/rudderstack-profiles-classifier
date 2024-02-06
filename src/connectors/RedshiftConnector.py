@@ -11,11 +11,11 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Tuple, Any, Union, Optional, Sequence, Dict
 
-import src.utils.utils as utils 
+import src.utils.utils as utils
 from src.utils import constants
 from src.utils.logger import logger
 from src.connectors.Connector import Connector
-from src.wh import ProfilesConnector
+from src.connectors.wh import ProfilesConnector
 
 local_folder = constants.LOCAL_STORAGE_DIR
 

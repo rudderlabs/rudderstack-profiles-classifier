@@ -7,7 +7,7 @@ from src.processors.Processor import Processor
 from typing import List, Tuple, Dict
 
 
-import src.utils.utils as utils 
+import src.utils.utils as utils
 import src.utils.constants as constants
 from src.utils.logger import logger
 from src.utils.S3Utils import S3Utils

@@ -30,7 +30,7 @@ except Exception as e:
 
 def predict(
     creds: dict,
-    s3_config: dict,
+    _: dict, # s3_config is not being populated for some reason. Using site_config to get its value
     model_path: str,
     inputs: str,
     output_tablename: str,
@@ -120,6 +120,7 @@ def predict(
         }
     else:
         site_config = utils.load_yaml(site_config_path)
+        s3_config = site_config["py_models"]["credentials_presets"]["s3"]
     if mode == ProcessorMap.RUDDERSTACK_MODE:
         s3_creds = S3Utils.get_temporary_credentials(s3_config["role_arn"])
         s3_config["access_key_id"] = s3_creds["access_key_id"]

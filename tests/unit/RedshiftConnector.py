@@ -321,3 +321,80 @@ class TestGenerateTypeHint(unittest.TestCase):
         df = pd.DataFrame({"col1": [1]})
         type_hints = self.connector.generate_type_hint(df, self.column_types)
         self.assertEqual(type_hints, [float])
+
+
+class TestDoDataValidation(unittest.TestCase):
+    def setUp(self) -> None:
+        self.connector = RedshiftConnector("data")
+        df = pd.DataFrame.from_dict(
+            {
+                "COL1": ["a", "a"],
+                "COL2": [1, 2],
+                "COL3": [None, None],
+                "COL4": ["a1", "b1"],
+            }
+        )
+        self.table = df
+
+    # Checks for assertion error if label column is not present in the feature table.
+    def test_label_column_not_present(self):
+        label_column = "label"
+        with self.assertRaises(Exception) as context:
+            self.connector.do_data_validation(
+                self.table, label_column, "classification"
+            )
+        self.assertIn(
+            f"Label column {label_column} is not present in the feature table.",
+            str(context.exception),
+            [],
+        )
+
+    # Checks if no:of columns in the feature table is less than 3, then it raises an exception.
+    def expects_error_if_label_ratios_are_bad_classification(self):
+        label_column = "COL1"
+        with self.assertRaises(Exception) as context:
+            self.connector.do_data_validation(
+                self.table.select("COL1", "COL2", "COL3"),
+                label_column,
+                "classification",
+            )
+        self.assertIn(
+            f"Label column {label_column} has invalid proportions.",
+            str(context.exception),
+            [],
+        )
+
+    def expects_error_if_label_count_is_low_regression(self):
+        label_column = "COL1"
+        with self.assertRaises(Exception) as context:
+            self.connector.do_data_validation(self.table, label_column, "regression")
+        self.assertIn(
+            f"Label column {label_column} has invalid number of distinct values.",
+            str(context.exception),
+            [],
+        )
+
+    def passes_for_good_data_classification(self):
+        # constants.CLASSIFIER_MIN_LABEL_PROPORTION = 0.05
+        # constants.CLASSIFIER_MAX_LABEL_PROPORTION = 0.95
+        table = pd.DataFrame.from_dict(
+            {
+                "COL1": ["a", "b", "a"],
+                "COL2": [1, 2, 3],
+                "COL3": [None, None, None],
+                "COL4": ["a1", "b1", "c1"],
+            }
+        )
+        self.connector.do_data_validation(table, "COL1", "classification")
+
+    def passes_for_good_data_regression(self):
+        # constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES = 3
+        table = pd.DataFrame.from_dict(
+            {
+                "COL1": [1, 2, 3, 4],
+                "COL2": [1, 2, 3, 4],
+                "COL3": [None, None, None, None],
+                "COL4": ["a1", "b1", "c1", "d1"],
+            }
+        )
+        self.connector.do_data_validation(table, "COL1", "regression")

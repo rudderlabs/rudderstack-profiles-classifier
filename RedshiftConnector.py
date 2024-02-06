@@ -729,12 +729,10 @@ class RedshiftConnector(Connector):
                         f"Label column {label_column} has invalid number of distinct values. \
                             Please check if the label column has valid labels."
                     )
-        except AttributeError:
-            logger.warning(
-                "Could not perform data validation. Please check if the required \
-                    configuations are present in the constants.py file."
+        except AttributeError as e:
+            raise Exception(
+                f"Couldn't perform data validation check as a few attributes are missing in the constants file. Error message: {e}"
             )
-            pass
 
     def add_days_diff(
         self, table: pd.DataFrame, new_col: str, time_col: str, end_ts: str

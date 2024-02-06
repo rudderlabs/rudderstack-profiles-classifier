@@ -1,6 +1,6 @@
-from src.train import *
+from train import *
 import shutil
-from src.predict import *
+from predict import *
 
 
 # homedir = os.path.expanduser("~")

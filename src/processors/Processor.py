@@ -50,6 +50,7 @@ class Processor(ABC):
         output_tablename,
         merged_config,
         prediction_task,
+        site_config: dict,
     ):
         return preprocess_and_predict(
             creds,

@@ -191,6 +191,7 @@ def preprocess_and_predict(
         write_mode="overwrite",
         local=False,
         if_exists="replace",
+        s3_config=s3_config,
     )
     logger.debug("Closing the session")
     connector.cleanup(session, udf_name=udf_name, close_session=True)

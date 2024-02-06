@@ -30,7 +30,7 @@ except Exception as e:
 
 def predict(
     creds: dict,
-    _: dict, # s3_config is not being populated for some reason. Using site_config to get its value
+    _: dict,  # s3_config is not being populated for some reason. Using site_config to get its value
     model_path: str,
     inputs: str,
     output_tablename: str,
@@ -135,4 +135,4 @@ def predict(
         merged_config,
         prediction_task,
         site_config,
-     )
+    )

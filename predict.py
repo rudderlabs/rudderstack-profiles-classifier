@@ -120,8 +120,8 @@ def predict(
         }
     else:
         site_config = utils.load_yaml(site_config_path)
-        presets = site_config["py_models"]["credentials_presets"]
-        if presets is None or presets["s3"] is None:
+        presets = site_config["py_models"].get("credentials_presets")
+        if presets is None or presets.get("s3") is None:
             s3_config = {}
         else:
             s3_config = presets["s3"]

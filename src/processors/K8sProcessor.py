@@ -1,15 +1,19 @@
 import os
 import json
-import constants
-from constants import TrainTablesInfo
 import uuid
 import time
 from Processor import Processor
 from typing import List, Tuple, Dict
 from kubernetes import client, config, watch
 import base64
-from S3Utils import S3Utils
-from logger import logger
+
+
+from src.processors.Processor import Processor
+from src.utils import constants
+from src.utils.logger import logger
+from src.utils.S3Utils import S3Utils
+from src.utils.constants import TrainTablesInfo
+
 
 
 class K8sProcessor(Processor):

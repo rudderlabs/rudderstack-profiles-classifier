@@ -4,9 +4,9 @@
 
 from typing import Union
 
-from wh.redshift_base_connector import RedShiftConnector
-from wh.snowflake_base_connector import SnowflakeConnector
-from wh.connector_base import connector_classes
+from src.connectors.wh.redshift_base_connector import RedShiftConnector
+from src.connectors.wh.snowflake_base_connector import SnowflakeConnector
+from src.connectors.wh.connector_base import connector_classes
 
 
 # SnowflakeConnector not used currently in profiles_rudderstack

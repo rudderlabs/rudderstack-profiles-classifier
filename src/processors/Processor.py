@@ -1,11 +1,11 @@
-from logger import logger
 from abc import ABC
 from typing import Any, List, Tuple, Union, Dict
-from constants import TrainTablesInfo
-from MLTrainer import MLTrainer
-from Connector import Connector
-from preprocess_and_train import preprocess_and_train
-from preprocess_and_predict import preprocess_and_predict
+
+from src.utils.constants import TrainTablesInfo
+from src.trainers.MLTrainer import MLTrainer
+from src.connectors.Connector import Connector
+from src.processors.preprocess_and_train import preprocess_and_train
+from src.processors.preprocess_and_predict import preprocess_and_predict
 
 import snowflake.snowpark
 import redshift_connector

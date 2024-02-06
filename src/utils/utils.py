@@ -50,13 +50,13 @@ import seaborn as sns
 
 from sklearn.preprocessing import OneHotEncoder
 import shap
-import constants as constants
+from src.utils import constants
 import joblib
 import json
 import subprocess
 
 from dataclasses import dataclass
-from logger import logger
+from src.utils.logger import logger
 
 
 @dataclass

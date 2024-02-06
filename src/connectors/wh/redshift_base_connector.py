@@ -11,8 +11,8 @@ from sqlalchemy import create_engine
 from sqlalchemy import orm as sa_orm
 from sqlalchemy import text
 
-from logger import logger
-from wh.connector_base import ConnectorBase, register_connector
+import src.utils.logger as logger
+from src.connectors.wh.connector_base import ConnectorBase, register_connector
 
 
 @register_connector

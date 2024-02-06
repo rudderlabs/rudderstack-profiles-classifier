@@ -7,10 +7,10 @@ import cachetools
 import numpy as np
 import pandas as pd
 
-from typing import Any, List
-from logger import logger
+from typing import Any , List
+from src.utils.logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-from S3Utils import S3Utils
+from src.utils.S3Utils import S3Utils
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
@@ -18,11 +18,11 @@ import snowflake.snowpark.functions as F
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import utils
-import constants
-import ProcessorMap
-from SnowflakeConnector import SnowflakeConnector
-from MLTrainer import ClassificationTrainer, RegressionTrainer
+import src.utils.utils as utils 
+from src.utils import constants
+from src.connectors.SnowflakeConnector import SnowflakeConnector
+import src.processors.ProcessorMap as ProcessorMap
+from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)

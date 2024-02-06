@@ -3,7 +3,7 @@ import unittest
 
 sys.path.append("../..")
 
-from utils import replace_seq_no_in_query
+from src.utils.utils import replace_seq_no_in_query
 
 
 class TestReplaceSeqNoInQuery(unittest.TestCase):

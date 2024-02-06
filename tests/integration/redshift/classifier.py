@@ -205,6 +205,7 @@ def test_classification():
     train_inputs = [
         f"""SELECT * FROM {creds['schema']}.material_user_var_table_{latest_model_hash}_0""",
     ]
+    runtime_info = {"site_config_path": siteconfig_path}
 
     try:
         train(
@@ -233,6 +234,7 @@ def test_classification():
             predict_inputs,
             p_output_tablename,
             predict_config,
+            runtime_info,
         )
         validate_predictions_df()
 

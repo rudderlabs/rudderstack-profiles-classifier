@@ -120,7 +120,10 @@ def predict(
         }
     else:
         site_config = utils.load_yaml(site_config_path)
-        s3_config = site_config["py_models"]["credentials_presets"]["s3"]
+        presets = site_config["py_models"]["credentials_presets"]
+        if presets is None or presets["s3"] is None:
+            s3_config = {}
+        else: s3_config = presets["s3"]
     if mode == ProcessorMap.RUDDERSTACK_MODE:
         s3_creds = S3Utils.get_temporary_credentials(s3_config["role_arn"])
         s3_config["access_key_id"] = s3_creds["access_key_id"]

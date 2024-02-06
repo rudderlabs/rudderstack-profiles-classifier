@@ -118,7 +118,7 @@ class TestDoDataValidation(unittest.TestCase):
         )
 
     # Checks if no:of columns in the feature table is less than 3, then it raises an exception.
-    def expects_error_if_label_ratios_are_bad_classification(self):
+    def test_expects_error_if_label_ratios_are_bad_classification(self):
         label_column = "COL1"
         with self.assertRaises(Exception) as context:
             self.connector.do_data_validation(
@@ -132,7 +132,7 @@ class TestDoDataValidation(unittest.TestCase):
             [],
         )
 
-    def expects_error_if_label_count_is_low_regression(self):
+    def test_expects_error_if_label_count_is_low_regression(self):
         label_column = "COL1"
         with self.assertRaises(Exception) as context:
             self.connector.do_data_validation(self.table, label_column, "regression")
@@ -142,21 +142,23 @@ class TestDoDataValidation(unittest.TestCase):
             [],
         )
 
-    def passes_for_good_data_classification(self):
+    def test_passes_for_good_data_classification(self):
         # constants.CLASSIFIER_MIN_LABEL_PROPORTION = 0.05
         # constants.CLASSIFIER_MAX_LABEL_PROPORTION = 0.95
         df = pd.DataFrame.from_dict(
             {
-                "COL1": ["a", "b", "a"],
+                "COL1": ["a", "a", "b"],
                 "COL2": [1, 2, 3],
                 "COL3": [None, None, None],
                 "COL4": ["a1", "b1", "c1"],
             }
         )
         table = self.session.create_dataframe(df)
-        self.connector.do_data_validation(table, "COL1", "classification")
+        self.assertTrue(
+            self.connector.do_data_validation(table, "COL1", "classification")
+        )
 
-    def passes_for_good_data_regression(self):
+    def test_passes_for_good_data_regression(self):
         # constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES = 3
         df = pd.DataFrame.from_dict(
             {
@@ -167,4 +169,4 @@ class TestDoDataValidation(unittest.TestCase):
             }
         )
         table = self.session.create_dataframe(df)
-        self.connector.do_data_validation(table, "COL1", "regression")
+        self.assertTrue(self.connector.do_data_validation(table, "COL1", "regression"))

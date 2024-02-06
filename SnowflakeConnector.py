@@ -816,53 +816,49 @@ class SnowflakeConnector(Connector):
         Returns:
             None
         """
-        try:
-            if label_column.upper() not in feature_table.columns:
-                raise Exception(
-                    f"Label column {label_column} is not present in the feature table."
-                )
-
-            # Check if feature_table has at least one column apart from label_column and entity_column
-            if feature_table.shape[1] < 3:
-                raise Exception(
-                    f"Feature table must have at least one column apart from the label column {label_column}."
-                )
-
-            distinct_values_count = feature_table.groupBy(label_column).count()
-
-            if task_type == "classification":
-                total_count = feature_table.count()
-                result_table = distinct_values_count.withColumn(
-                    "normalized_count", F.col("count") / total_count
-                )
-
-                min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
-                max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
-
-                no_invalid_rows = result_table.filter(
-                    (F.col("normalized_count") < min_label_proportion)
-                    | (F.col("normalized_count") > max_label_proportion)
-                ).count()
-
-                if no_invalid_rows > 0:
-                    raise Exception(
-                        f"Label column {label_column} has invalid proportions. \
-                            Please check if the label column has valid labels."
-                    )
-            elif task_type == "regression":
-                if (
-                    distinct_values_count.count()
-                    < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
-                ):
-                    raise Exception(
-                        f"Label column {label_column} has invalid number of distinct values. \
-                            Please check if the label column has valid labels."
-                    )
-
-        except AttributeError as e:
+        if label_column.upper() not in feature_table.columns:
             raise Exception(
-                f"Couldn't perform data validation check as a few attributes are missing in the constants file. Error message: {e}"
+                f"Label column {label_column} is not present in the feature table."
             )
+
+        # Check if feature_table has at least one column apart from label_column and entity_column
+        if len(feature_table.columns) < 3:
+            raise Exception(
+                f"Feature table must have at least one column apart from the label column {label_column}."
+            )
+
+        distinct_values_count = feature_table.groupBy(label_column).count()
+
+        if task_type == "classification":
+            total_count = int(feature_table.count())
+            result_table = distinct_values_count.withColumn(
+                "NORMALIZED_COUNT", F.col("count") / total_count
+            ).collect()
+
+            min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+            max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
+
+            no_invalid_rows = [
+                row
+                for row in result_table
+                if row["NORMALIZED_COUNT"] < min_label_proportion
+                or row["NORMALIZED_COUNT"] > max_label_proportion
+            ]
+
+            if len(no_invalid_rows) > 0:
+                raise Exception(
+                    f"Label column {label_column} has invalid proportions. {no_invalid_rows} \
+                        Please check if the label column has valid labels."
+                )
+        elif task_type == "regression":
+            if distinct_values_count.count() < int(
+                constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
+            ):
+                raise Exception(
+                    f"Label column {label_column} has invalid number of distinct values. \
+                        Please check if the label column has valid labels."
+                )
+        return True
 
     def add_days_diff(
         self, table: snowflake.snowpark.Table, new_col, time_col, end_ts

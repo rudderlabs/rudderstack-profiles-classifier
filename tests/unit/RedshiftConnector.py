@@ -350,11 +350,11 @@ class TestDoDataValidation(unittest.TestCase):
         )
 
     # Checks if no:of columns in the feature table is less than 3, then it raises an exception.
-    def expects_error_if_label_ratios_are_bad_classification(self):
+    def test_expects_error_if_label_ratios_are_bad_classification(self):
         label_column = "COL1"
         with self.assertRaises(Exception) as context:
             self.connector.do_data_validation(
-                self.table.select("COL1", "COL2", "COL3"),
+                self.table[["COL1", "COL2", "COL3"]],
                 label_column,
                 "classification",
             )
@@ -364,7 +364,7 @@ class TestDoDataValidation(unittest.TestCase):
             [],
         )
 
-    def expects_error_if_label_count_is_low_regression(self):
+    def test_expects_error_if_label_count_is_low_regression(self):
         label_column = "COL1"
         with self.assertRaises(Exception) as context:
             self.connector.do_data_validation(self.table, label_column, "regression")
@@ -374,7 +374,7 @@ class TestDoDataValidation(unittest.TestCase):
             [],
         )
 
-    def passes_for_good_data_classification(self):
+    def test_passes_for_good_data_classification(self):
         # constants.CLASSIFIER_MIN_LABEL_PROPORTION = 0.05
         # constants.CLASSIFIER_MAX_LABEL_PROPORTION = 0.95
         table = pd.DataFrame.from_dict(
@@ -387,7 +387,7 @@ class TestDoDataValidation(unittest.TestCase):
         )
         self.connector.do_data_validation(table, "COL1", "classification")
 
-    def passes_for_good_data_regression(self):
+    def test_passes_for_good_data_regression(self):
         # constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES = 3
         table = pd.DataFrame.from_dict(
             {

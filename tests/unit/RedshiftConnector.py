@@ -385,7 +385,9 @@ class TestDoDataValidation(unittest.TestCase):
                 "COL4": ["a1", "b1", "c1"],
             }
         )
-        self.connector.do_data_validation(table, "COL1", "classification")
+        self.assertTrue(
+            self.connector.do_data_validation(table, "COL1", "classification")
+        )
 
     def test_passes_for_good_data_regression(self):
         # constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES = 3
@@ -397,4 +399,4 @@ class TestDoDataValidation(unittest.TestCase):
                 "COL4": ["a1", "b1", "c1", "d1"],
             }
         )
-        self.connector.do_data_validation(table, "COL1", "regression")
+        self.assertTrue(self.connector.do_data_validation(table, "COL1", "regression"))

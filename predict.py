@@ -72,10 +72,11 @@ def predict(
     )
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    src_dir = os.path.join(current_dir, "src")
     folder_path = os.path.dirname(model_path)
 
     default_config = utils.load_yaml(
-        os.path.join(current_dir, "config", "model_configs.yaml")
+        os.path.join(src_dir, "config", "model_configs.yaml")
     )
     _ = config["data"].pop(
         "package_name", None

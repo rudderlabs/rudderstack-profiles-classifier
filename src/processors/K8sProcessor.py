@@ -46,7 +46,7 @@ class K8sProcessor(Processor):
         command = [
             "python3",
             "-u",
-            "preprocess_and_train.py",
+            "src/ml_core/preprocess_and_train.py",
             "--s3_bucket",
             s3_config["bucket"],
             "--mode",

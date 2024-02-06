@@ -4,8 +4,8 @@ from typing import Any, List, Tuple, Union, Dict
 from src.utils.constants import TrainTablesInfo
 from src.trainers.MLTrainer import MLTrainer
 from src.connectors.Connector import Connector
-from src.processors.preprocess_and_train import preprocess_and_train
-from src.processors.preprocess_and_predict import preprocess_and_predict
+from src.ml_core.preprocess_and_train import preprocess_and_train
+from src.ml_core.preprocess_and_predict import preprocess_and_predict
 
 import snowflake.snowpark
 import redshift_connector

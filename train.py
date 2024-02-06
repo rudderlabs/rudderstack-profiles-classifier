@@ -27,14 +27,14 @@ from src.utils import constants
 import src.processors.ProcessorMap as ProcessorMap
 from src.connectors.SnowflakeConnector import SnowflakeConnector
 from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
-from src.processors.preprocess_and_train import train_and_store_model_results_rs
+from src.ml_core.preprocess_and_train import train_and_store_model_results_rs
 
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
 try:
-    from connectors.RedshiftConnector import RedshiftConnector
+    from src.connectors.RedshiftConnector import RedshiftConnector
 except Exception as e:
     logger.warning(f"Could not import RedshiftConnector")
 
@@ -75,8 +75,9 @@ def train(
     stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    import_paths = [current_dir]
-    config_path = os.path.join(current_dir, "config", "model_configs.yaml")
+    src_dir = os.path.join(current_dir, "src")
+    import_paths = [src_dir]
+    config_path = os.path.join(src_dir, "config", "model_configs.yaml")
     folder_path = os.path.dirname(output_filename)
     target_path = utils.get_output_directory(folder_path)
 

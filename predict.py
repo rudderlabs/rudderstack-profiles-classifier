@@ -135,4 +135,4 @@ def predict(
         merged_config,
         prediction_task,
         site_config,
-    )
+     )

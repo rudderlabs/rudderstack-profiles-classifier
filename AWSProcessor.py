@@ -86,6 +86,7 @@ class AWSProcessor(Processor):
         output_tablename,
         merged_config,
         prediction_task,
+        *args,
     ):
         remote_dir = constants.REMOTE_DIR
         instance_id = constants.INSTANCE_ID

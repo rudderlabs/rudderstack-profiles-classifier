@@ -1,3 +1,4 @@
+import json
 import pandas as pd
 
 from abc import ABC, abstractmethod
@@ -25,6 +26,74 @@ class Connector(ABC):
             if k != "type"
         }
         return new_creds
+
+    def extract_json_from_stdout(self,stdout):
+        lines = stdout.splitlines()
+
+        start_index = next((i for i, line in enumerate(lines) if line.strip().startswith('{')), None)
+        if start_index is None:
+            return None
+
+        # Parse JSON
+        json_string = ''.join(lines[start_index:])
+        json_data = json.loads(json_string)
+
+        return json_data
+    
+    def get_input_models(self, 
+                         original_input_models: List[str],
+                         output_filename: str,
+                         project_folder: str,
+                         site_config_path: str
+                         ) -> List[str]:
+        """Find matches for input models in the JSON data. If no matches are found, an exception is raised.
+
+        Args:
+            original_input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model.
+            output_filename (str): output filename
+            project_folder (str): project folder path to pb_project.yaml file
+            site_config_path (str): path to the siteconfig.yaml file
+        
+        Returns:
+            List[str]: List of input models - relative paths in the profiles project for models that are required to generate the current model.
+        """ 
+        project_folder = utils.get_project_folder(project_folder, output_filename)
+        pb = utils.get_pb_path()
+        args = [
+            pb,
+            "show",
+            "models",
+            "--json",
+            "--migrate_on_load=True",
+            "-p",
+            project_folder,
+        ]
+        if site_config_path is not None:
+            args.extend(["-c", site_config_path])
+        logger.info(f"Fetching models list by running command: {' '.join(args)}")
+
+        pb_show_models_response = utils.subprocess_run(args)
+        pb_show_models_response_output = (pb_show_models_response.stdout).lower()
+
+        # Extract JSON from the output
+        json_data = self.extract_json_from_stdout(pb_show_models_response_output)
+        print(f"pb show models output: {json_data}")
+
+        # Find matches for input models in the JSON data
+        new_input_models = []
+
+        for model in original_input_models:
+            target_chunk = model.split("/")[-1]
+            found_unique_match = False
+            for key in json_data:
+                if key.endswith(target_chunk) and key.count(target_chunk) == 1:
+                    if found_unique_match:
+                        raise ValueError(f"Multiple unique occurrences found for {target_chunk}")
+                    mapping_value = key.split("/", 1)[-1]
+                    new_input_models.append(mapping_value)
+                    found_unique_match = True
+
+        return new_input_models
 
     def get_material_names(
         self,
@@ -76,6 +145,17 @@ class Connector(ABC):
             prediction_horizon_days,
             inputs,
         )
+
+        print(f"Old input models: {input_models}")
+
+        input_models = self.get_input_models(
+            input_models,
+            output_filename,
+            project_folder,
+            site_config_path
+        )
+        print(f"input models: {input_models}")
+
         if len(material_names) == 0:
             try:
                 _ = self.generate_training_materials(

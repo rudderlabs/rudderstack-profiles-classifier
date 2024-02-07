@@ -23,3 +23,7 @@ tmp/
 **/output/*
 .vscode/
 .idea/
+lookup.py
+new_input_models.json
+parserxyz.py
+output.json

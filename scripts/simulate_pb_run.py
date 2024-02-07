@@ -11,8 +11,8 @@ import predict as P
 
 if __name__ == "__main__":
     train_file_extension = ".json"
-    schema = "dev_wh"
-    project_folder = "samples/application_project"
+    schema = "dev_wh2"
+    project_folder = "../samples/application_project"
     feature_table_name = "rudder_user_base_features"
     eligible_users = "1=1"
     package_name = "feature_table"
@@ -35,7 +35,7 @@ if __name__ == "__main__":
 
     # End of user inputs.
 
-    from logger import logger
+    from src.utils.logger import logger
 
     logger.setLevel("DEBUG")
 

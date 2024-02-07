@@ -28,5 +28,11 @@ jobs:
     - name: Install dependencies
       run: pip install -r tests/integration/requirements.txt
 
+    - name: Compile train
+      run: python train.py
+    
+    - name: Compile predict
+      run: python train.py
+
     - name: Run tests
       run: python -m unittest tests/unit/*.py

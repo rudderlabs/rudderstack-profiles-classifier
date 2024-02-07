@@ -1,6 +1,6 @@
-from AWSProcessor import AWSProcessor
-from LocalProcessor import LocalProcessor
-from SnowflakeProcessor import SnowflakeProcessor
+from src.processors.AWSProcessor import AWSProcessor
+from src.processors.LocalProcessor import LocalProcessor
+from src.processors.SnowflakeProcessor import SnowflakeProcessor
 
 LOCAL_MODE = "local"
 WAREHOUSE_MODE = "native-warehouse"

@@ -11,10 +11,10 @@ from typing import Any, List
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 
-import utils
-import constants
-from S3Utils import S3Utils
-from logger import logger
+import src.utils.utils as utils
+from src.utils.logger import logger
+from src.utils import constants
+from src.utils.S3Utils import S3Utils
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 

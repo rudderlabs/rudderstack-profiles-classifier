@@ -1,7 +1,7 @@
 from train import *
 import shutil
 from predict import *
-
+from src.connectors.RedshiftConnector import RedshiftConnector
 
 # homedir = os.path.expanduser("~")
 # with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:

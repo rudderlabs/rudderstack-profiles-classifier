@@ -4,7 +4,6 @@ from botocore.exceptions import NoCredentialsError
 from botocore.exceptions import WaiterError
 import pandas as pd
 from typing import List, Tuple, Union, Dict
-from S3Utils import S3Utils
 
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -12,9 +11,10 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
-import utils
-from logger import logger
-import constants
+import src.utils.utils as utils
+from src.utils.logger import logger
+from src.utils import constants
+from src.utils.S3Utils import S3Utils
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME

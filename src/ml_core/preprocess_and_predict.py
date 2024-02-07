@@ -228,6 +228,8 @@ if __name__ == "__main__":
             args.s3_config["path"],
             output_dir,
         )
+    elif args.mode == constants.CI_MODE:
+        sys.exit(0)
     else:
         wh_creds = args.wh_creds
         S3Utils.download_directory_using_keys(args.s3_config, output_dir)

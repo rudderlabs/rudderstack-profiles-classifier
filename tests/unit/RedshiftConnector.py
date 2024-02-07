@@ -3,9 +3,10 @@ from pandas.core.api import DataFrame as DataFrame
 from redshift_connector.cursor import Cursor
 from RedshiftConnector import RedshiftConnector
 import pandas as pd
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 from constants import TrainTablesInfo
 import unittest
+import constants
 
 
 class TestGetMaterialRegistryTable(unittest.TestCase):
@@ -323,7 +324,7 @@ class TestGenerateTypeHint(unittest.TestCase):
         self.assertEqual(type_hints, [float])
 
 
-class TestDoDataValidation(unittest.TestCase):
+class TestValidations(unittest.TestCase):
     def setUp(self) -> None:
         self.connector = RedshiftConnector("data")
         df = pd.DataFrame.from_dict(
@@ -340,9 +341,7 @@ class TestDoDataValidation(unittest.TestCase):
     def test_label_column_not_present(self):
         label_column = "label"
         with self.assertRaises(Exception) as context:
-            self.connector.do_data_validation(
-                self.table, label_column, "classification"
-            )
+            self.connector.validate_columns_are_present(self.table, label_column)
         self.assertIn(
             f"Label column {label_column} is not present in the feature table.",
             str(context.exception),
@@ -353,10 +352,9 @@ class TestDoDataValidation(unittest.TestCase):
     def test_expects_error_if_label_ratios_are_bad_classification(self):
         label_column = "COL1"
         with self.assertRaises(Exception) as context:
-            self.connector.do_data_validation(
+            self.connector.validate_class_proportions(
                 self.table[["COL1", "COL2", "COL3"]],
                 label_column,
-                "classification",
             )
         self.assertIn(
             f"Label column {label_column} has invalid proportions.",
@@ -367,16 +365,16 @@ class TestDoDataValidation(unittest.TestCase):
     def test_expects_error_if_label_count_is_low_regression(self):
         label_column = "COL1"
         with self.assertRaises(Exception) as context:
-            self.connector.do_data_validation(self.table, label_column, "regression")
+            self.connector.validate_label_distinct_values(self.table, label_column)
         self.assertIn(
             f"Label column {label_column} has invalid number of distinct values.",
             str(context.exception),
             [],
         )
 
+    @patch("constants.CLASSIFIER_MIN_LABEL_PROPORTION", new=0.05)
+    @patch("constants.CLASSIFIER_MAX_LABEL_PROPORTION", new=0.95)
     def test_passes_for_good_data_classification(self):
-        # constants.CLASSIFIER_MIN_LABEL_PROPORTION = 0.05
-        # constants.CLASSIFIER_MAX_LABEL_PROPORTION = 0.95
         table = pd.DataFrame.from_dict(
             {
                 "COL1": ["a", "b", "a"],
@@ -385,12 +383,11 @@ class TestDoDataValidation(unittest.TestCase):
                 "COL4": ["a1", "b1", "c1"],
             }
         )
-        self.assertTrue(
-            self.connector.do_data_validation(table, "COL1", "classification")
-        )
+        self.assertTrue(self.connector.validate_columns_are_present(table, "COL1"))
+        self.assertTrue(self.connector.validate_class_proportions(table, "COL1"))
 
+    @patch("constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES", new=3)
     def test_passes_for_good_data_regression(self):
-        # constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES = 3
         table = pd.DataFrame.from_dict(
             {
                 "COL1": [1, 2, 3, 4],
@@ -399,4 +396,5 @@ class TestDoDataValidation(unittest.TestCase):
                 "COL4": ["a1", "b1", "c1", "d1"],
             }
         )
-        self.assertTrue(self.connector.do_data_validation(table, "COL1", "regression"))
+        self.assertTrue(self.connector.validate_columns_are_present(table, "COL1"))
+        self.assertTrue(self.connector.validate_label_distinct_values(table, "COL1"))

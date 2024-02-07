@@ -808,7 +808,9 @@ class SnowflakeConnector(Connector):
             )
         return table
 
-    def do_data_validation(self, feature_table, label_column, task_type: str):
+    def validate_columns_are_present(
+        self, feature_table: snowflake.snowpark.Table, label_column: str
+    ) -> bool:
         """This function will do the data validation on feature table and label column
         Args:
             feature_table (snowflake.snowpark.Table): feature table
@@ -820,44 +822,49 @@ class SnowflakeConnector(Connector):
             raise Exception(
                 f"Label column {label_column} is not present in the feature table."
             )
-
-        # Check if feature_table has at least one column apart from label_column and entity_column
         if len(feature_table.columns) < 3:
             raise Exception(
-                f"Feature table must have at least one column apart from the label column {label_column}."
+                f"Feature table must have at least one column apart from the label column {label_column} and entity_column."
             )
+        return True
 
+    def validate_class_proportions(
+        self, feature_table: snowflake.snowpark.Table, label_column: str
+    ) -> bool:
         distinct_values_count = feature_table.groupBy(label_column).count()
+        total_count = int(feature_table.count())
+        result_table = distinct_values_count.withColumn(
+            "NORMALIZED_COUNT", F.col("count") / total_count
+        ).collect()
 
-        if task_type == "classification":
-            total_count = int(feature_table.count())
-            result_table = distinct_values_count.withColumn(
-                "NORMALIZED_COUNT", F.col("count") / total_count
-            ).collect()
+        min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+        max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
 
-            min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
-            max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
+        no_invalid_rows = [
+            row
+            for row in result_table
+            if row["NORMALIZED_COUNT"] < min_label_proportion
+            or row["NORMALIZED_COUNT"] > max_label_proportion
+        ]
 
-            no_invalid_rows = [
-                row
-                for row in result_table
-                if row["NORMALIZED_COUNT"] < min_label_proportion
-                or row["NORMALIZED_COUNT"] > max_label_proportion
-            ]
+        if len(no_invalid_rows) > 0:
+            raise Exception(
+                f"Label column {label_column} has invalid proportions. {no_invalid_rows} \
+                    Please check if the label column has valid labels."
+            )
+        return True
 
-            if len(no_invalid_rows) > 0:
-                raise Exception(
-                    f"Label column {label_column} has invalid proportions. {no_invalid_rows} \
-                        Please check if the label column has valid labels."
-                )
-        elif task_type == "regression":
-            if distinct_values_count.count() < int(
-                constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
-            ):
-                raise Exception(
-                    f"Label column {label_column} has invalid number of distinct values. \
-                        Please check if the label column has valid labels."
-                )
+    def validate_label_distinct_values(
+        self, feature_table: snowflake.snowpark.Table, label_column: str
+    ) -> bool:
+        distinct_values_count = feature_table.groupBy(label_column).count()
+        if distinct_values_count.count() < int(
+            constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
+        ):
+            raise Exception(
+                f"Label column {label_column} has invalid number of distinct values. \
+                    Please check if the label column has valid labels."
+            )
         return True
 
     def add_days_diff(

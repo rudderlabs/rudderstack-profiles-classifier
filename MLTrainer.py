@@ -284,6 +284,10 @@ class MLTrainer(ABC):
 
         return train_x, test_x, test_y, pipe, model_id, metrics_df, results
 
+    @abstractmethod
+    def validate_data(self, connector, feature_table):
+        pass
+
 
 class ClassificationTrainer(MLTrainer):
     evalution_metrics_map = {
@@ -482,6 +486,11 @@ class ClassificationTrainer(MLTrainer):
         }
         return training_summary
 
+    def validate_data(self, connector, feature_table):
+        return connector.validate_columns_are_present(
+            feature_table, self.label_column
+        ) and connector.validate_class_proportions(feature_table, self.label_column)
+
 
 class RegressionTrainer(MLTrainer):
     evalution_metrics_map = {
@@ -653,3 +662,8 @@ class RegressionTrainer(MLTrainer):
             "data": {"metrics": model_results["metrics"]},
         }
         return training_summary
+
+    def validate_data(self, connector, feature_table):
+        return connector.validate_columns_are_present(
+            feature_table, self.label_column
+        ) and connector.validate_label_distinct_values(feature_table, self.label_column)

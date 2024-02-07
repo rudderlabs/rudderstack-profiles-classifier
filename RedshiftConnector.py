@@ -679,53 +679,56 @@ class RedshiftConnector(Connector):
             )
         return feature_table_filtered
 
-    def do_data_validation(
+    def validate_columns_are_present(
         self,
         feature_table: pd.DataFrame,
         label_column: str,
-        task_type: str,
-    ):
+    ) -> bool:
         # Check if label_column is present in feature_table
         if label_column not in feature_table.columns:
             raise Exception(
                 f"Label column {label_column} is not present in the feature table."
             )
 
-        # Check if feature_table has at least one column apart from label_column and entity_column
         if feature_table.shape[1] < 3:
             raise Exception(
-                f"Feature table must have at least one column apart from the label column {label_column}."
+                f"Feature table must have at least one column apart from the label column {label_column} and entity_column"
             )
+        return True
 
-        if task_type == "classification":
-            min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
-            max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
-
-            # Check for the class imbalance
-            label_proportion = feature_table[label_column].value_counts(normalize=True)
-
-            found_invalid_rows = (
-                (label_proportion < min_label_proportion)
-                | (label_proportion > max_label_proportion)
-            ).any()
-
-            if found_invalid_rows:
-                raise Exception(
-                    f"Label column {label_column} has invalid proportions. \
+    def validate_class_proportions(
+        self,
+        feature_table: pd.DataFrame,
+        label_column: str,
+    ) -> bool:
+        min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+        max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
+        label_proportion = feature_table[label_column].value_counts(normalize=True)
+        found_invalid_rows = (
+            (label_proportion < min_label_proportion)
+            | (label_proportion > max_label_proportion)
+        ).any()
+        if found_invalid_rows:
+            raise Exception(
+                f"Label column {label_column} has invalid proportions. \
                         Please check if the label column has valid labels."
-                )
-        elif task_type == "regression":
-            # Check for the label values
-            distinct_values_count_list = feature_table[label_column].value_counts()
+            )
+        return True
 
-            if (
-                len(distinct_values_count_list)
-                < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
-            ):
-                raise Exception(
-                    f"Label column {label_column} has invalid number of distinct values. \
-                        Please check if the label column has valid labels."
-                )
+    def validate_label_distinct_values(
+        self,
+        feature_table: pd.DataFrame,
+        label_column: str,
+    ) -> bool:
+        distinct_values_count_list = feature_table[label_column].value_counts()
+        if (
+            len(distinct_values_count_list)
+            < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
+        ):
+            raise Exception(
+                f"Label column {label_column} has invalid number of distinct values. \
+                    Please check if the label column has valid labels."
+            )
         return True
 
     def add_days_diff(

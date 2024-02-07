@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import snowflake.snowpark
 
-from logger import logger
 from copy import deepcopy
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
@@ -27,9 +26,10 @@ from sklearn.metrics import (
     r2_score,
 )
 
-import utils
-import constants
-from Connector import Connector
+import src.utils.utils as utils
+from src.utils import constants
+from src.utils.logger import logger
+from src.connectors.Connector import Connector
 
 trainer_utils = utils.TrainerUtils()
 

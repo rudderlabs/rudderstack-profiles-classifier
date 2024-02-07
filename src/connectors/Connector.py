@@ -3,10 +3,10 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from typing import Any, List, Tuple, Union, Sequence, Optional, Dict
 
-import utils
-import constants
-from constants import TrainTablesInfo
-from logger import logger
+import src.utils.utils as utils
+from src.utils import constants
+from src.utils.logger import logger
+from src.utils.constants import TrainTablesInfo
 
 
 class Connector(ABC):

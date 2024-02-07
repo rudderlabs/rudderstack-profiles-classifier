@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import Mock, patch
-from MLTrainer import *
+from src.trainers.MLTrainer import *
 
 
 def build_trainer_config():

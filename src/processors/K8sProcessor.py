@@ -2,8 +2,7 @@ import os
 import json
 import uuid
 import time
-from Processor import Processor
-from typing import List, Tuple, Dict
+from typing import List
 from kubernetes import client, config, watch
 import base64
 
@@ -169,7 +168,8 @@ class K8sProcessor(Processor):
         command = [
             "python3",
             "-u",
-            "src/ml_core/preprocess_and_train.py",
+            "-m",
+            "src.ml_core.preprocess_and_train",
             "--s3_bucket",
             s3_config["bucket"],
             "--mode",
@@ -274,7 +274,8 @@ class K8sProcessor(Processor):
         command = [
             "python3",
             "-u",
-            "src/ml_core/preprocess_and_predict.py",
+            "-m",
+            "src.ml_core.preprocess_and_predict",
             "--s3_config",
             json.dumps(s3_config),
             "--mode",

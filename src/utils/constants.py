@@ -35,6 +35,9 @@ SSM_SLEEP_TIME = 5
 K8S_WH_CREDS_KEY = "WAREHOUSE_CREDS"
 K8S_MODE = "K8S"
 K8S_TIMEOUT_IN_SEC = 120
+LOCAL_MODE = "local"
+WAREHOUSE_MODE = "native-warehouse"
+RUDDERSTACK_MODE = "rudderstack-infra"
 
 
 from typing import NamedTuple

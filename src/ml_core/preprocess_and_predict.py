@@ -16,6 +16,9 @@ from src.utils.logger import logger
 from src.utils import constants
 from src.utils.S3Utils import S3Utils
 
+from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
+from src.connectors.RedshiftConnector import RedshiftConnector
+
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
@@ -200,12 +203,6 @@ def preprocess_and_predict(
 
 if __name__ == "__main__":
     import argparse
-    from MLTrainer import ClassificationTrainer, RegressionTrainer
-
-    try:
-        from RedshiftConnector import RedshiftConnector
-    except ImportError:
-        raise Exception("Could not import RedshiftConnector")
 
     parser = argparse.ArgumentParser()
 

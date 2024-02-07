@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 from botocore.exceptions import NoCredentialsError
 from botocore.exceptions import WaiterError
@@ -298,6 +299,8 @@ if __name__ == "__main__":
     if args.mode == constants.K8S_MODE:
         wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
         wh_creds = json.loads(wh_creds_str)
+    elif args.mode == constants.CI_MODE:
+        sys.exit(0)
     else:
         wh_creds = args.wh_creds
 

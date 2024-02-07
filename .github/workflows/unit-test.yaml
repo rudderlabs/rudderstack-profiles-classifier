@@ -29,10 +29,10 @@ jobs:
       run: pip install -r tests/integration/requirements.txt
 
     - name: Compile core train
-      run: python -m src.ml_core.preprocess_and_train
-    
-    - name: Compile predict
-      run: python train.py
+      run: python -m src.ml_core.preprocess_and_train --mode ci
+
+    - name: Compile core predict
+      run: python -m src.ml_core.preprocess_and_predict --mode ci
 
     - name: Run tests
       run: python -m unittest tests/unit/*.py

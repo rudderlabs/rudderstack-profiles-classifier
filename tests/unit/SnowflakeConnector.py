@@ -139,8 +139,8 @@ class TestValidations(unittest.TestCase):
             [],
         )
 
-    @patch("constants.CLASSIFIER_MIN_LABEL_PROPORTION", new=0.05)
-    @patch("constants.CLASSIFIER_MAX_LABEL_PROPORTION", new=0.95)
+    @patch("src.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION", new=0.05)
+    @patch("src.utils.constants.CLASSIFIER_MAX_LABEL_PROPORTION", new=0.95)
     def test_passes_for_good_data_classification(self):
         df = pd.DataFrame.from_dict(
             {
@@ -154,7 +154,7 @@ class TestValidations(unittest.TestCase):
         self.assertTrue(self.connector.validate_columns_are_present(table, "COL1"))
         self.assertTrue(self.connector.validate_class_proportions(table, "COL1"))
 
-    @patch("constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES", new=3)
+    @patch("src.utils.constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES", new=3)
     def test_passes_for_good_data_regression(self):
         df = pd.DataFrame.from_dict(
             {

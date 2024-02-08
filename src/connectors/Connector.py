@@ -55,7 +55,7 @@ class Connector(ABC):
             site_config_path (str): path to the siteconfig.yaml file
         
         Returns:
-            List[str]: List of input models - relative paths in the profiles project for models that are required to generate the current model.
+            List[str]: List of input models - full paths in the profiles project for models that are required to generate the current model.
         """ 
         project_folder = utils.get_project_folder(project_folder, output_filename)
         pb = utils.get_pb_path()
@@ -146,15 +146,13 @@ class Connector(ABC):
             inputs,
         )
 
-        print(f"Old input models: {input_models}")
-
+        # Get the full paths of the input models
         input_models = self.get_input_models(
             input_models,
             output_filename,
             project_folder,
             site_config_path
         )
-        print(f"input models: {input_models}")
 
         if len(material_names) == 0:
             try:

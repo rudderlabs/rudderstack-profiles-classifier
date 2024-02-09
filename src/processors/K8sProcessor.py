@@ -192,7 +192,6 @@ class K8sProcessor(Processor):
             self._create_job(
                 job_name=job_name,
                 secret=secret,
-                namespace=namespace,
                 k8s_config=k8s_config,
                 batch_v1_api=batch_v1_api,
                 command=command,
@@ -292,7 +291,6 @@ class K8sProcessor(Processor):
             self._create_job(
                 job_name=job_name,
                 secret=secret,
-                namespace=namespace,
                 k8s_config=k8s_config,
                 batch_v1_api=batch_v1_api,
                 command=command,

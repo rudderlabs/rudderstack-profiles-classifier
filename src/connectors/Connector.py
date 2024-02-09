@@ -3,6 +3,7 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from typing import Any, List, Tuple, Union, Sequence, Optional, Dict
 
+import snowflake.snowpark
 import src.utils.utils as utils
 from src.utils import constants
 from src.utils.logger import logger
@@ -65,7 +66,7 @@ class Connector(ABC):
             List[Tuple[Dict[str, str], Dict[str, str]]]: EXAMPLE:
             materials = [({"name": feature_table_name, "end_dt": feature_table_dt}, {"name": label_table_name, "end_dt": label_table_dt})....]
         """
-        material_names, training_dates = self.get_material_names_(
+        material_names, training_dates, feature_label_snowpark_df = self.get_material_names_(
             session,
             material_table,
             start_date,
@@ -79,14 +80,18 @@ class Connector(ABC):
         if len(material_names) == 0:
             try:
                 _ = self.generate_training_materials(
+                    session,
+                    feature_label_snowpark_df,
                     start_date,
+                    features_profiles_model,
+                    model_hash,
                     prediction_horizon_days,
                     output_filename,
                     site_config_path,
                     project_folder,
                     input_models,
                 )
-                material_names, training_dates = self.get_material_names_(
+                material_names, training_dates, feature_label_snowpark_df = self.get_material_names_(
                     session,
                     material_table,
                     start_date,
@@ -118,7 +123,11 @@ class Connector(ABC):
 
     def generate_training_materials(
         self,
+        session,
+        feature_label_snowpark_df: Union[snowflake.snowpark.Table, pd.DataFrame],
         start_date: str,
+        features_profiles_model: str,
+        model_hash: str,
         prediction_horizon_days: int,
         output_filename: str,
         site_config_path: str,
@@ -128,8 +137,10 @@ class Connector(ABC):
         """
         Generates training dataset from start_date and end_date, and fetches the resultant table names from the material_table.
         Args:
+            feature_label_snowpark_df: Union[snowflake.snowpark.Table, pd.DataFrame]: joined feature-label df
             start_date (str): Start date for training data.
             features_profiles_model (str): The name of the model.
+            model_hash (str): The latest model hash.
             prediction_horizon_days (int): The period of days for prediction horizon.
             site_config_path (str): path to the siteconfig.yaml file
             project_folder (str): project folder path to pb_project.yaml file
@@ -139,22 +150,24 @@ class Connector(ABC):
             Tuple[str, str]: A tuple containing feature table date and label table date strings
         """
         feature_package_path = utils.get_feature_package_path(input_models)
-        feature_date = utils.date_add(start_date, prediction_horizon_days)
-        label_date = utils.date_add(feature_date, prediction_horizon_days)
-        materialise_feature_data = utils.materialise_past_data(
-            feature_date,
-            feature_package_path,
-            output_filename,
-            site_config_path,
-            project_folder,
-        )
-        materialise_label_data = utils.materialise_past_data(
-            label_date,
-            feature_package_path,
-            output_filename,
-            site_config_path,
-            project_folder,
-        )
+        feature_date, label_date = self.get_valid_feature_label_dates(session, feature_label_snowpark_df, start_date,
+                                                                      features_profiles_model, model_hash, prediction_horizon_days)
+        if feature_date is not None:
+            materialise_feature_data = utils.materialise_past_data(
+                feature_date,
+                feature_package_path,
+                output_filename,
+                site_config_path,
+                project_folder,
+            )
+        if label_date is not None:
+            materialise_label_data = utils.materialise_past_data(
+                label_date,
+                feature_package_path,
+                output_filename,
+                site_config_path,
+                project_folder,
+            )
         if materialise_feature_data and materialise_label_data:
             logger.info(
                 f"Materialised feature and label data successfully, for dates {feature_date} and {label_date}"
@@ -201,7 +214,7 @@ class Connector(ABC):
                     model_hash,
                     str(seq_no),
                 )
-                if utils.is_valid_table(session, table_name):
+                if self.is_valid_table(session, table_name):
                     if dt == feature_date:
                         feature_table_name = table_name
                     else:
@@ -345,6 +358,10 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def is_valid_table(self, session, table_name) -> bool:
+        pass
+
+    @abstractmethod
     def write_pandas(
         self,
         df: pd.DataFrame,
@@ -414,6 +431,12 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def get_valid_feature_label_dates(
+        self, session, feature_label_snowpark_df, start_date, features_profiles_model, model_hash, prediction_horizon_days
+    ):
+        pass
+
+    @abstractmethod
     def get_material_names_(
         self,
         session,
@@ -425,7 +448,7 @@ class Connector(ABC):
         material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
-    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]], Union[snowflake.snowpark.Table, pd.DataFrame]]:
         pass
 
     @abstractmethod

@@ -132,6 +132,23 @@ class RedshiftConnector(Connector):
             str: UDF name
         """
         return None
+    
+    def is_valid_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str) -> bool:
+        """
+        Checks whether a table exists in the data warehouse.
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): A redshift cursor for data warehouse access.
+            table_name (str): The name of the table to be checked.
+
+        Returns:
+            bool: True if the table exists, False otherwise.
+        """
+        try:
+            cursor.execute(f"select * from {table_name} limit 1").fetchall()
+            return True
+        except:
+            return False
 
     def get_table(
         self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs
@@ -418,7 +435,7 @@ class RedshiftConnector(Connector):
         material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
-    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
+    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]], pd.DataFrame]:
         """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
 
         Args:
@@ -432,7 +449,7 @@ class RedshiftConnector(Connector):
             prediction_horizon_days (int): period of days
 
         Returns:
-            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
+            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]], pd.DataFrame: Tuple of List of tuples of feature table names, label table names and their corresponding training dates and feature-label joined df
             ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
         """
         try:
@@ -480,42 +497,76 @@ class RedshiftConnector(Connector):
             )
 
             feature_label_df = pd.merge(
-                feature_df, label_df, on="label_end_ts", how="inner"
+                feature_df, label_df, on="label_end_ts", how="outer"
             )
 
             for _, row in feature_label_df.iterrows():
-                feat_seq_no = str(row["feature_seq_no"])
-                feature_material_name = utils.generate_material_name(
-                    material_table_prefix,
-                    model_name,
-                    model_hash,
-                    feat_seq_no,
-                )
+                if row["feature_seq_no"] and row["feature_end_ts"] and row["label_seq_no"] and row["label_end_ts"]:
+                    feat_seq_no = str(row["feature_seq_no"])
+                    feature_material_name = utils.generate_material_name(
+                        material_table_prefix,
+                        model_name,
+                        model_hash,
+                        feat_seq_no,
+                    )
 
-                label_seq_no = str(row["label_seq_no"])
-                label_meterial_name = utils.generate_material_name(
-                    material_table_prefix,
-                    model_name,
-                    model_hash,
-                    label_seq_no,
-                )
+                    label_seq_no = str(row["label_seq_no"])
+                    label_meterial_name = utils.generate_material_name(
+                        material_table_prefix,
+                        model_name,
+                        model_hash,
+                        label_seq_no,
+                    )
 
-                # Iterate over inputs and validate meterial names
-                for input_material_query in inputs:
-                    if self.validate_historical_materials_hash(
-                        cursor, input_material_query, feat_seq_no, label_seq_no
-                    ):
-                        material_names.append(
-                            (feature_material_name, label_meterial_name)
-                        )
-                        training_dates.append(
-                            (str(row["feature_end_ts"]), str(row["label_end_ts"]))
-                        )
-            return material_names, training_dates
+                    # Iterate over inputs and validate meterial names
+                    for input_material_query in inputs:
+                        if self.validate_historical_materials_hash(
+                            cursor, input_material_query, feat_seq_no, label_seq_no
+                        ):
+                            material_names.append(
+                                (feature_material_name, label_meterial_name)
+                            )
+                            training_dates.append(
+                                (str(row["feature_end_ts"]), str(row["label_end_ts"]))
+                            )
+                    if len(material_names)>=constants.TRAIN_MATERIALS_LIMIT:
+                        break   # we might be taking more than 10 materials for training but this would consider all types of inputs.
+            return material_names, training_dates, feature_label_df
         except Exception as e:
             raise Exception(
                 f"Following exception occured while retrieving material names with hash {model_hash} for {model_name} between dates {start_time} and {end_time}: {e}"
             )
+
+    def get_valid_feature_label_dates(
+        self, cursor, feature_label_snowpark_df, start_date, features_profiles_model, model_hash, prediction_horizon_days
+    ):
+        for _, row in feature_label_snowpark_df.iterrows():
+            if row["feature_end_ts"] is not None and row["label_end_ts"] is None:
+                feature_table_name_ = utils.generate_material_name(
+                    constants.MATERIAL_TABLE_PREFIX,
+                    features_profiles_model,
+                    model_hash,
+                    str(row["feature_seq_no"]),
+                )
+                if self.is_valid_table(cursor, feature_table_name_):
+                    feature_date = None
+                    label_date = utils.date_add(row["feature_end_ts"].strftime('%Y-%m-%d'), prediction_horizon_days)
+                    return feature_date, label_date
+            elif row["feature_end_ts"] is None and row["label_end_ts"] is not None:
+                label_table_name_ = utils.generate_material_name(
+                    constants.MATERIAL_TABLE_PREFIX,
+                    features_profiles_model,
+                    model_hash,
+                    str(row["label_seq_no"]),
+                )
+                if self.is_valid_table(cursor, label_table_name_):
+                    feature_date = utils.date_add(row["label_end_ts"].strftime('%Y-%m-%d'), prediction_horizon_days, subtract=True)
+                    label_date = None
+                    return feature_date, label_date
+                
+        feature_date = utils.date_add(start_date, prediction_horizon_days)
+        label_date = utils.date_add(feature_date, prediction_horizon_days)
+        return feature_date, label_date
 
     def get_creation_ts(
         self,

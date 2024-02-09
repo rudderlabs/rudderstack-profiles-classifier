@@ -469,9 +469,9 @@ def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple
     return str(start_date), str(end_date)
 
 
-def date_add(reference_date: str, add_days: int) -> str:
+def date_add(reference_date: str, add_days: int, **kwargs) -> str:
     """
-    Adds the horizon days to the reference date and returns the new date as a string.
+    Adds/subtract the horizon days to the reference date and returns the new date as a string.
 
     Args:
         reference_date (str): The Reference date in the format "YYYY-MM-DD".
@@ -480,9 +480,9 @@ def date_add(reference_date: str, add_days: int) -> str:
     Returns:
         str: The new date is returned as a string in the format "YYYY-MM-DD".
     """
-    new_timestamp = datetime.strptime(reference_date, "%Y-%m-%d") + timedelta(
-        days=add_days
-    )
+    subtract = kwargs.get("subtract", False)
+    flag = -1 if subtract else 1
+    new_timestamp = datetime.strptime(reference_date, "%Y-%m-%d") + (flag * timedelta(days=add_days))
     new_date = new_timestamp.strftime("%Y-%m-%d")
     return new_date
 
@@ -620,24 +620,6 @@ def materialise_past_data(
             )
     except Exception as e:
         logger.warning(e)
-        return False
-
-
-def is_valid_table(session: snowflake.snowpark.Session, table_name: str) -> bool:
-    """
-    Checks whether a table exists in the data warehouse.
-
-    Args:
-        session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-        table_name (str): The name of the table to be checked.
-
-    Returns:
-        bool: True if the table exists, False otherwise.
-    """
-    try:
-        session.sql(f"select * from {table_name} limit 1").collect()
-        return True
-    except:
         return False
 
 

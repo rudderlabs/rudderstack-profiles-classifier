@@ -43,6 +43,7 @@ class RedShiftConnector(ConnectorBase):
         table_name, schema = (
             table_name.split(".") if "." in table_name else (table_name, schema)
         )
+        logger.debug("Redshift write_to_table")
 
         try:
             if not self.s3_config:

@@ -115,8 +115,10 @@ class SnowflakeConnector(Connector):
             results = json.load(f)
         stage_name = results["model_info"]["file_location"]["stage"]
         return f"prediction_score_{stage_name.replace('@','')}"
-    
-    def is_valid_table(self, session: snowflake.snowpark.Session, table_name: str) -> bool:
+
+    def is_valid_table(
+        self, session: snowflake.snowpark.Session, table_name: str
+    ) -> bool:
         """
         Checks whether a table exists in the data warehouse.
 
@@ -563,7 +565,12 @@ class SnowflakeConnector(Connector):
                 label_snowpark_df.end_ts.alias("label_end_ts"),
             )
             for row in feature_label_snowpark_df.collect():
-                if row.FEATURE_SEQ_NO and row.FEATURE_END_TS and row.LABEL_SEQ_NO and row.LABEL_END_TS:
+                if (
+                    row.FEATURE_SEQ_NO
+                    and row.FEATURE_END_TS
+                    and row.LABEL_SEQ_NO
+                    and row.LABEL_END_TS
+                ):
                     feature_table_name_ = utils.generate_material_name(
                         material_table_prefix,
                         features_profiles_model,
@@ -590,21 +597,29 @@ class SnowflakeConnector(Connector):
                             row.FEATURE_SEQ_NO,
                             row.LABEL_SEQ_NO,
                         ):
-                            material_names.append((feature_table_name_, label_table_name_))
+                            material_names.append(
+                                (feature_table_name_, label_table_name_)
+                            )
                             training_dates.append(
                                 (str(row.FEATURE_END_TS), str(row.LABEL_END_TS))
                             )
-                    if len(material_names)>=constants.TRAIN_MATERIALS_LIMIT:
+                    if len(material_names) >= constants.TRAIN_MATERIALS_LIMIT:
                         break
             return material_names, training_dates, feature_label_snowpark_df
         except Exception as e:
             raise Exception(
                 f"Following exception occured while retrieving material names with hash {model_hash} for {features_profiles_model} between dates {start_time} and {end_time}: {e}"
             )
-        
+
     def get_valid_feature_label_dates(
-        self, session, feature_label_snowpark_df, start_date, features_profiles_model, model_hash, prediction_horizon_days
-    ):    
+        self,
+        session,
+        feature_label_snowpark_df,
+        start_date,
+        features_profiles_model,
+        model_hash,
+        prediction_horizon_days,
+    ):
         for row in feature_label_snowpark_df.collect():
             if row.FEATURE_END_TS is not None and row.LABEL_END_TS is None:
                 feature_table_name_ = utils.generate_material_name(
@@ -615,7 +630,9 @@ class SnowflakeConnector(Connector):
                 )
                 if self.is_valid_table(session, feature_table_name_):
                     feature_date = None
-                    label_date = utils.date_add(row.FEATURE_END_TS.strftime('%Y-%m-%d'), prediction_horizon_days)
+                    label_date = utils.date_add(
+                        row.FEATURE_END_TS.strftime("%Y-%m-%d"), prediction_horizon_days
+                    )
                     return feature_date, label_date
             elif row.FEATURE_END_TS is None and row.LABEL_END_TS is not None:
                 label_table_name_ = utils.generate_material_name(
@@ -625,10 +642,14 @@ class SnowflakeConnector(Connector):
                     str(row.LABEL_SEQ_NO),
                 )
                 if self.is_valid_table(session, label_table_name_):
-                    feature_date = utils.date_add(row.LABEL_END_TS.strftime('%Y-%m-%d'), prediction_horizon_days, subtract=True)
+                    feature_date = utils.date_add(
+                        row.LABEL_END_TS.strftime("%Y-%m-%d"),
+                        prediction_horizon_days,
+                        subtract=True,
+                    )
                     label_date = None
                     return feature_date, label_date
-            
+
         feature_date = utils.date_add(start_date, prediction_horizon_days)
         label_date = utils.date_add(feature_date, prediction_horizon_days)
         return feature_date, label_date

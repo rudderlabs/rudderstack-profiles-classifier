@@ -132,8 +132,10 @@ class RedshiftConnector(Connector):
             str: UDF name
         """
         return None
-    
-    def is_valid_table(self, cursor: redshift_connector.cursor.Cursor, table_name: str) -> bool:
+
+    def is_valid_table(
+        self, cursor: redshift_connector.cursor.Cursor, table_name: str
+    ) -> bool:
         """
         Checks whether a table exists in the data warehouse.
 
@@ -501,7 +503,12 @@ class RedshiftConnector(Connector):
             )
 
             for _, row in feature_label_df.iterrows():
-                if row["feature_seq_no"] and row["feature_end_ts"] and row["label_seq_no"] and row["label_end_ts"]:
+                if (
+                    row["feature_seq_no"]
+                    and row["feature_end_ts"]
+                    and row["label_seq_no"]
+                    and row["label_end_ts"]
+                ):
                     feat_seq_no = str(row["feature_seq_no"])
                     feature_material_name = utils.generate_material_name(
                         material_table_prefix,
@@ -529,8 +536,8 @@ class RedshiftConnector(Connector):
                             training_dates.append(
                                 (str(row["feature_end_ts"]), str(row["label_end_ts"]))
                             )
-                    if len(material_names)>=constants.TRAIN_MATERIALS_LIMIT:
-                        break   # we might be taking more than 10 materials for training but this would consider all types of inputs.
+                    if len(material_names) >= constants.TRAIN_MATERIALS_LIMIT:
+                        break  # we might be taking more than 10 materials for training but this would consider all types of inputs.
             return material_names, training_dates, feature_label_df
         except Exception as e:
             raise Exception(
@@ -538,7 +545,13 @@ class RedshiftConnector(Connector):
             )
 
     def get_valid_feature_label_dates(
-        self, cursor, feature_label_snowpark_df, start_date, features_profiles_model, model_hash, prediction_horizon_days
+        self,
+        cursor,
+        feature_label_snowpark_df,
+        start_date,
+        features_profiles_model,
+        model_hash,
+        prediction_horizon_days,
     ):
         for _, row in feature_label_snowpark_df.iterrows():
             if row["feature_end_ts"] is not None and row["label_end_ts"] is None:
@@ -550,7 +563,10 @@ class RedshiftConnector(Connector):
                 )
                 if self.is_valid_table(cursor, feature_table_name_):
                     feature_date = None
-                    label_date = utils.date_add(row["feature_end_ts"].strftime('%Y-%m-%d'), prediction_horizon_days)
+                    label_date = utils.date_add(
+                        row["feature_end_ts"].strftime("%Y-%m-%d"),
+                        prediction_horizon_days,
+                    )
                     return feature_date, label_date
             elif row["feature_end_ts"] is None and row["label_end_ts"] is not None:
                 label_table_name_ = utils.generate_material_name(
@@ -560,10 +576,14 @@ class RedshiftConnector(Connector):
                     str(row["label_seq_no"]),
                 )
                 if self.is_valid_table(cursor, label_table_name_):
-                    feature_date = utils.date_add(row["label_end_ts"].strftime('%Y-%m-%d'), prediction_horizon_days, subtract=True)
+                    feature_date = utils.date_add(
+                        row["label_end_ts"].strftime("%Y-%m-%d"),
+                        prediction_horizon_days,
+                        subtract=True,
+                    )
                     label_date = None
                     return feature_date, label_date
-                
+
         feature_date = utils.date_add(start_date, prediction_horizon_days)
         label_date = utils.date_add(feature_date, prediction_horizon_days)
         return feature_date, label_date

@@ -482,7 +482,9 @@ def date_add(reference_date: str, add_days: int, **kwargs) -> str:
     """
     subtract = kwargs.get("subtract", False)
     flag = -1 if subtract else 1
-    new_timestamp = datetime.strptime(reference_date, "%Y-%m-%d") + (flag * timedelta(days=add_days))
+    new_timestamp = datetime.strptime(reference_date, "%Y-%m-%d") + (
+        flag * timedelta(days=add_days)
+    )
     new_date = new_timestamp.strftime("%Y-%m-%d")
     return new_date
 

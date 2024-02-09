@@ -66,16 +66,18 @@ class Connector(ABC):
             List[Tuple[Dict[str, str], Dict[str, str]]]: EXAMPLE:
             materials = [({"name": feature_table_name, "end_dt": feature_table_dt}, {"name": label_table_name, "end_dt": label_table_dt})....]
         """
-        material_names, training_dates, feature_label_snowpark_df = self.get_material_names_(
-            session,
-            material_table,
-            start_date,
-            end_date,
-            features_profiles_model,
-            model_hash,
-            material_table_prefix,
-            prediction_horizon_days,
-            inputs,
+        material_names, training_dates, feature_label_snowpark_df = (
+            self.get_material_names_(
+                session,
+                material_table,
+                start_date,
+                end_date,
+                features_profiles_model,
+                model_hash,
+                material_table_prefix,
+                prediction_horizon_days,
+                inputs,
+            )
         )
         if len(material_names) == 0:
             try:
@@ -91,16 +93,18 @@ class Connector(ABC):
                     project_folder,
                     input_models,
                 )
-                material_names, training_dates, feature_label_snowpark_df = self.get_material_names_(
-                    session,
-                    material_table,
-                    start_date,
-                    end_date,
-                    features_profiles_model,
-                    model_hash,
-                    material_table_prefix,
-                    prediction_horizon_days,
-                    inputs,
+                material_names, training_dates, feature_label_snowpark_df = (
+                    self.get_material_names_(
+                        session,
+                        material_table,
+                        start_date,
+                        end_date,
+                        features_profiles_model,
+                        model_hash,
+                        material_table_prefix,
+                        prediction_horizon_days,
+                        inputs,
+                    )
                 )
             except Exception as e:
                 raise Exception(
@@ -150,8 +154,14 @@ class Connector(ABC):
             Tuple[str, str]: A tuple containing feature table date and label table date strings
         """
         feature_package_path = utils.get_feature_package_path(input_models)
-        feature_date, label_date = self.get_valid_feature_label_dates(session, feature_label_snowpark_df, start_date,
-                                                                      features_profiles_model, model_hash, prediction_horizon_days)
+        feature_date, label_date = self.get_valid_feature_label_dates(
+            session,
+            feature_label_snowpark_df,
+            start_date,
+            features_profiles_model,
+            model_hash,
+            prediction_horizon_days,
+        )
         if feature_date is not None:
             materialise_feature_data = utils.materialise_past_data(
                 feature_date,
@@ -432,7 +442,13 @@ class Connector(ABC):
 
     @abstractmethod
     def get_valid_feature_label_dates(
-        self, session, feature_label_snowpark_df, start_date, features_profiles_model, model_hash, prediction_horizon_days
+        self,
+        session,
+        feature_label_snowpark_df,
+        start_date,
+        features_profiles_model,
+        model_hash,
+        prediction_horizon_days,
     ):
         pass
 
@@ -448,7 +464,11 @@ class Connector(ABC):
         material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
-    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]], Union[snowflake.snowpark.Table, pd.DataFrame]]:
+    ) -> Tuple[
+        List[Tuple[str, str]],
+        List[Tuple[str, str]],
+        Union[snowflake.snowpark.Table, pd.DataFrame],
+    ]:
         pass
 
     @abstractmethod

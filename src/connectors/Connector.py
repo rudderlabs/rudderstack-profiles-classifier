@@ -66,18 +66,20 @@ class Connector(ABC):
             List[Tuple[Dict[str, str], Dict[str, str]]]: EXAMPLE:
             materials = [({"name": feature_table_name, "end_dt": feature_table_dt}, {"name": label_table_name, "end_dt": label_table_dt})....]
         """
-        material_names, training_dates, feature_label_snowpark_df = (
-            self.get_material_names_(
-                session,
-                material_table,
-                start_date,
-                end_date,
-                features_profiles_model,
-                model_hash,
-                material_table_prefix,
-                prediction_horizon_days,
-                inputs,
-            )
+        (
+            material_names,
+            training_dates,
+            feature_label_snowpark_df,
+        ) = self.get_material_names_(
+            session,
+            material_table,
+            start_date,
+            end_date,
+            features_profiles_model,
+            model_hash,
+            material_table_prefix,
+            prediction_horizon_days,
+            inputs,
         )
         if len(material_names) == 0:
             try:
@@ -93,18 +95,20 @@ class Connector(ABC):
                     project_folder,
                     input_models,
                 )
-                material_names, training_dates, feature_label_snowpark_df = (
-                    self.get_material_names_(
-                        session,
-                        material_table,
-                        start_date,
-                        end_date,
-                        features_profiles_model,
-                        model_hash,
-                        material_table_prefix,
-                        prediction_horizon_days,
-                        inputs,
-                    )
+                (
+                    material_names,
+                    training_dates,
+                    feature_label_snowpark_df,
+                ) = self.get_material_names_(
+                    session,
+                    material_table,
+                    start_date,
+                    end_date,
+                    features_profiles_model,
+                    model_hash,
+                    material_table_prefix,
+                    prediction_horizon_days,
+                    inputs,
                 )
             except Exception as e:
                 raise Exception(

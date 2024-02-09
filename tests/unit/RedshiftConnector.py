@@ -121,6 +121,7 @@ class TestGetMaterialNames(unittest.TestCase):
         # Set up the expected input and output
         input_materials = [("feature_table_name", "label_table_name")]
         input_training_dates = [("feature_table_dt", "label_table_dt")]
+        feature_label_joined_table = None
         expected_materials = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name",
@@ -132,7 +133,7 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Mock the internal method get_material_names_
         self.connector.get_material_names_ = Mock(
-            return_value=(input_materials, input_training_dates)
+            return_value=(input_materials, input_training_dates, feature_label_joined_table)
         )
         # Invoke the method under test
         materials = self.connector.get_material_names(
@@ -158,6 +159,7 @@ class TestGetMaterialNames(unittest.TestCase):
         # Set up the expected input and output
         input_materials = [("feature_table_name", "label_table_name")]
         input_training_dates = [("feature_table_dt", "label_table_dt")]
+        feature_label_joined_table = None
         expected_materials = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name",
@@ -168,7 +170,7 @@ class TestGetMaterialNames(unittest.TestCase):
         ]
         # Mock the internal methods get_material_names_ and generate_training_materials
         self.connector.get_material_names_ = Mock(
-            side_effect=[([], []), (input_materials, input_training_dates)]
+            side_effect=[([], [], None), (input_materials, input_training_dates, feature_label_joined_table)]
         )
         self.connector.generate_training_materials = self.session_mock()
 
@@ -192,7 +194,11 @@ class TestGetMaterialNames(unittest.TestCase):
         # Assert the result
         self.assertEqual(materials, expected_materials)
         self.connector.generate_training_materials.assert_called_once_with(
+            self.session_mock,
+            feature_label_joined_table,
             self.start_date,
+            self.features_profiles_model,
+            self.model_hash,
             self.prediction_horizon_days,
             self.output_filename,
             self.site_config_path,
@@ -202,7 +208,8 @@ class TestGetMaterialNames(unittest.TestCase):
 
     def test_materializes_data_once_even_if_it_cant_find_right_materials(self):
         # Mock the internal methods get_material_names_ and generate_training_materials
-        self.connector.get_material_names_ = Mock(return_value=([], []))
+        feature_label_joined_table = None
+        self.connector.get_material_names_ = Mock(return_value=([], [], feature_label_joined_table))
         self.connector.generate_training_materials = Mock()
 
         # Invoke the method under test and assert exception
@@ -230,7 +237,11 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Assert generate_training_materials called once
         self.connector.generate_training_materials.assert_called_once_with(
+            self.session_mock,
+            feature_label_joined_table,
             self.start_date,
+            self.features_profiles_model,
+            self.model_hash,
             self.prediction_horizon_days,
             self.output_filename,
             self.site_config_path,

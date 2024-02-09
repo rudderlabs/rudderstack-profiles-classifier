@@ -481,7 +481,15 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def do_data_validation(self, feature_table, label_column, task_type):
+    def validate_columns_are_present(self, feature_table, label_column):
+        pass
+
+    @abstractmethod
+    def validate_class_proportions(self, feature_table, label_column):
+        pass
+
+    @abstractmethod
+    def validate_label_distinct_values(self, feature_table, label_column):
         pass
 
     @abstractmethod

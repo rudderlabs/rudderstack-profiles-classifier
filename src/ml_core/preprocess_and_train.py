@@ -240,7 +240,7 @@ def preprocess_and_train(
     task_type = trainer.get_name()
     logger.info(f"Performing data validation for {task_type}")
 
-    connector.do_data_validation(feature_table, trainer.label_column, task_type)
+    trainer.validate_data(connector, feature_table)
     logger.info("Data validation is completed")
 
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"

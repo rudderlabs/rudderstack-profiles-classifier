@@ -166,6 +166,8 @@ class Connector(ABC):
             model_hash,
             prediction_horizon_days,
         )
+        materialise_feature_data = None
+        materialise_label_data = None
         if feature_date is not None:
             materialise_feature_data = utils.materialise_past_data(
                 feature_date,
@@ -173,6 +175,9 @@ class Connector(ABC):
                 output_filename,
                 site_config_path,
                 project_folder,
+            )
+            logger.info(
+                f"Materialised feature data successfully, for date {feature_date}"
             )
         if label_date is not None:
             materialise_label_data = utils.materialise_past_data(
@@ -182,11 +187,10 @@ class Connector(ABC):
                 site_config_path,
                 project_folder,
             )
-        if materialise_feature_data and materialise_label_data:
             logger.info(
-                f"Materialised feature and label data successfully, for dates {feature_date} and {label_date}"
+                f"Materialised label data successfully, for date {label_date}"
             )
-        else:
+        if (not materialise_feature_data) and (not materialise_label_data):
             logger.warning(
                 "Failed to materialise feature and label data. Will attempt to fetch materialised data from warehouse registry table"
             )

@@ -500,7 +500,7 @@ class RedshiftConnector(Connector):
             feature_label_df = pd.merge(
                 feature_df, label_df, on="label_end_ts", how="outer"
             )
-
+            feature_label_df = feature_label_df.replace({np.nan: None})
             for _, row in feature_label_df.iterrows():
                 if (
                     row["feature_seq_no"]
@@ -508,7 +508,7 @@ class RedshiftConnector(Connector):
                     and row["label_seq_no"]
                     and row["label_end_ts"]
                 ):
-                    feat_seq_no = str(row["feature_seq_no"])
+                    feat_seq_no = str(int(row["feature_seq_no"]))
                     feature_material_name = utils.generate_material_name(
                         material_table_prefix,
                         model_name,
@@ -516,7 +516,7 @@ class RedshiftConnector(Connector):
                         feat_seq_no,
                     )
 
-                    label_seq_no = str(row["label_seq_no"])
+                    label_seq_no = str(int(row["label_seq_no"]))
                     label_meterial_name = utils.generate_material_name(
                         material_table_prefix,
                         model_name,
@@ -554,11 +554,12 @@ class RedshiftConnector(Connector):
     ):
         for _, row in feature_label_snowpark_df.iterrows():
             if row["feature_end_ts"] is not None and row["label_end_ts"] is None:
+                feat_seq_no = str(int(row["feature_seq_no"]))
                 feature_table_name_ = utils.generate_material_name(
                     constants.MATERIAL_TABLE_PREFIX,
                     features_profiles_model,
                     model_hash,
-                    str(row["feature_seq_no"]),
+                    feat_seq_no,
                 )
                 if self.is_valid_table(cursor, feature_table_name_):
                     feature_date = None
@@ -568,11 +569,12 @@ class RedshiftConnector(Connector):
                     )
                     return feature_date, label_date
             elif row["feature_end_ts"] is None and row["label_end_ts"] is not None:
+                label_seq_no = str(int(row["label_seq_no"]))
                 label_table_name_ = utils.generate_material_name(
                     constants.MATERIAL_TABLE_PREFIX,
                     features_profiles_model,
                     model_hash,
-                    str(row["label_seq_no"]),
+                    label_seq_no,
                 )
                 if self.is_valid_table(cursor, label_table_name_):
                     feature_date = utils.date_add(

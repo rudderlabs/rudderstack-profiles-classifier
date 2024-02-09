@@ -571,17 +571,19 @@ class SnowflakeConnector(Connector):
                     and row.LABEL_SEQ_NO
                     and row.LABEL_END_TS
                 ):
+                    feature_seq_no = str(int(row.FEATURE_SEQ_NO))
                     feature_table_name_ = utils.generate_material_name(
                         material_table_prefix,
                         features_profiles_model,
                         model_hash,
-                        str(row.FEATURE_SEQ_NO),
+                        feature_seq_no,
                     )
+                    label_seq_no = str(int(row.LABEL_SEQ_NO))
                     label_table_name_ = utils.generate_material_name(
                         material_table_prefix,
                         features_profiles_model,
                         model_hash,
-                        str(row.LABEL_SEQ_NO),
+                        label_seq_no,
                     )
 
                     if not self.is_valid_table(
@@ -594,8 +596,8 @@ class SnowflakeConnector(Connector):
                         if self.validate_historical_materials_hash(
                             session,
                             input_material_query,
-                            row.FEATURE_SEQ_NO,
-                            row.LABEL_SEQ_NO,
+                            feature_seq_no,
+                            label_seq_no,
                         ):
                             material_names.append(
                                 (feature_table_name_, label_table_name_)
@@ -622,11 +624,12 @@ class SnowflakeConnector(Connector):
     ):
         for row in feature_label_snowpark_df.collect():
             if row.FEATURE_END_TS is not None and row.LABEL_END_TS is None:
+                feature_seq_no = str(int(row.FEATURE_SEQ_NO))
                 feature_table_name_ = utils.generate_material_name(
                     constants.MATERIAL_TABLE_PREFIX,
                     features_profiles_model,
                     model_hash,
-                    str(row.FEATURE_SEQ_NO),
+                    feature_seq_no,
                 )
                 if self.is_valid_table(session, feature_table_name_):
                     feature_date = None
@@ -635,11 +638,12 @@ class SnowflakeConnector(Connector):
                     )
                     return feature_date, label_date
             elif row.FEATURE_END_TS is None and row.LABEL_END_TS is not None:
+                label_seq_no = str(int(row.LABEL_SEQ_NO))
                 label_table_name_ = utils.generate_material_name(
                     constants.MATERIAL_TABLE_PREFIX,
                     features_profiles_model,
                     model_hash,
-                    str(row.LABEL_SEQ_NO),
+                    label_seq_no,
                 )
                 if self.is_valid_table(session, label_table_name_):
                     feature_date = utils.date_add(

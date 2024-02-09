@@ -1,9 +1,10 @@
 import os
+import sys
 import json
 from botocore.exceptions import NoCredentialsError
 from botocore.exceptions import WaiterError
 import pandas as pd
-from typing import List, Tuple, Union, Dict
+from typing import List
 
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -15,6 +16,9 @@ import src.utils.utils as utils
 from src.utils.logger import logger
 from src.utils import constants
 from src.utils.S3Utils import S3Utils
+
+from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
+from src.connectors.RedshiftConnector import RedshiftConnector
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
@@ -278,12 +282,6 @@ def preprocess_and_train(
 
 if __name__ == "__main__":
     import argparse
-    from MLTrainer import ClassificationTrainer, RegressionTrainer
-
-    try:
-        from RedshiftConnector import RedshiftConnector
-    except ImportError:
-        raise Exception("Could not import RedshiftConnector")
 
     parser = argparse.ArgumentParser()
 
@@ -301,6 +299,8 @@ if __name__ == "__main__":
     if args.mode == constants.K8S_MODE:
         wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
         wh_creds = json.loads(wh_creds_str)
+    elif args.mode == constants.CI_MODE:
+        sys.exit(0)
     else:
         wh_creds = args.wh_creds
 

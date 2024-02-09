@@ -2,8 +2,7 @@ import os
 import json
 import uuid
 import time
-from Processor import Processor
-from typing import List, Tuple, Dict
+from typing import List
 from kubernetes import client, config, watch
 import base64
 
@@ -37,11 +36,15 @@ class K8sProcessor(Processor):
         self,
         job_name: str,
         secret: dict,
-        namespace: str,
-        resources: dict,
+        k8s_config: dict,
         batch_v1_api,
         command: List[str],
     ):
+        resources = {
+            "cpu": k8s_config["resources"]["limits_cpu"],
+            "memory": k8s_config["resources"]["limits_memory"],
+        }
+        namespace = k8s_config["namespace"]
         payload = client.V1Job(
             metadata=client.V1ObjectMeta(
                 name=job_name,
@@ -54,6 +57,7 @@ class K8sProcessor(Processor):
                 backoff_limit=0,
                 template=client.V1PodTemplateSpec(
                     spec=client.V1PodSpec(
+                        service_account_name=k8s_config["service_account"],
                         containers=[
                             client.V1Container(
                                 name="container",
@@ -152,10 +156,6 @@ class K8sProcessor(Processor):
         k8s_config = credentials_presets["kubernetes"]
         s3_config = credentials_presets["s3"]
         namespace = k8s_config["namespace"]
-        resources = {
-            "cpu": k8s_config["resources"]["limits_cpu"],
-            "memory": k8s_config["resources"]["limits_memory"],
-        }
         job_name = "ml-training-" + str(uuid.uuid4())
         config.load_incluster_config()
         core_v1_api = client.CoreV1Api()
@@ -169,7 +169,8 @@ class K8sProcessor(Processor):
         command = [
             "python3",
             "-u",
-            "src/ml_core/preprocess_and_train.py",
+            "-m",
+            "src.ml_core.preprocess_and_train",
             "--s3_bucket",
             s3_config["bucket"],
             "--mode",
@@ -191,8 +192,7 @@ class K8sProcessor(Processor):
             self._create_job(
                 job_name=job_name,
                 secret=secret,
-                namespace=namespace,
-                resources=resources,
+                k8s_config=k8s_config,
                 batch_v1_api=batch_v1_api,
                 command=command,
             )
@@ -242,10 +242,6 @@ class K8sProcessor(Processor):
         k8s_config = credentials_presets["kubernetes"]
         s3_config = credentials_presets["s3"]
         namespace = k8s_config["namespace"]
-        resources = {
-            "cpu": k8s_config["resources"]["limits_cpu"],
-            "memory": k8s_config["resources"]["limits_memory"],
-        }
         job_name = "ml-prediction-" + str(uuid.uuid4())
         config.load_incluster_config()
         core_v1_api = client.CoreV1Api()
@@ -274,7 +270,8 @@ class K8sProcessor(Processor):
         command = [
             "python3",
             "-u",
-            "src/ml_core/preprocess_and_predict.py",
+            "-m",
+            "src.ml_core.preprocess_and_predict",
             "--s3_config",
             json.dumps(s3_config),
             "--mode",
@@ -294,8 +291,7 @@ class K8sProcessor(Processor):
             self._create_job(
                 job_name=job_name,
                 secret=secret,
-                namespace=namespace,
-                resources=resources,
+                k8s_config=k8s_config,
                 batch_v1_api=batch_v1_api,
                 command=command,
             )

@@ -187,9 +187,7 @@ class Connector(ABC):
                 site_config_path,
                 project_folder,
             )
-            logger.info(
-                f"Materialised label data successfully, for date {label_date}"
-            )
+            logger.info(f"Materialised label data successfully, for date {label_date}")
         if (not materialise_feature_data) and (not materialise_label_data):
             logger.warning(
                 "Failed to materialise feature and label data. Will attempt to fetch materialised data from warehouse registry table"

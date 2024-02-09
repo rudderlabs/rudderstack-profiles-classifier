@@ -151,11 +151,6 @@ class Connector(ABC):
             inputs,
         )
 
-        # Get the full paths of the input models
-        input_models = self.get_input_models(
-            input_models, output_filename, project_folder, site_config_path
-        )
-
         if len(material_names) == 0:
             try:
                 _ = self.generate_training_materials(

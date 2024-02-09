@@ -27,25 +27,28 @@ class Connector(ABC):
         }
         return new_creds
 
-    def extract_json_from_stdout(self,stdout):
+    def extract_json_from_stdout(self, stdout):
         lines = stdout.splitlines()
 
-        start_index = next((i for i, line in enumerate(lines) if line.strip().startswith('{')), None)
+        start_index = next(
+            (i for i, line in enumerate(lines) if line.strip().startswith("{")), None
+        )
         if start_index is None:
             return None
 
         # Parse JSON
-        json_string = ''.join(lines[start_index:])
+        json_string = "".join(lines[start_index:])
         json_data = json.loads(json_string)
 
         return json_data
-    
-    def get_input_models(self, 
-                         original_input_models: List[str],
-                         output_filename: str,
-                         project_folder: str,
-                         site_config_path: str
-                         ) -> List[str]:
+
+    def get_input_models(
+        self,
+        original_input_models: List[str],
+        output_filename: str,
+        project_folder: str,
+        site_config_path: str,
+    ) -> List[str]:
         """Find matches for input models in the JSON data. If no matches are found, an exception is raised.
 
         Args:
@@ -53,10 +56,10 @@ class Connector(ABC):
             output_filename (str): output filename
             project_folder (str): project folder path to pb_project.yaml file
             site_config_path (str): path to the siteconfig.yaml file
-        
+
         Returns:
             List[str]: List of input models - full paths in the profiles project for models that are required to generate the current model.
-        """ 
+        """
         project_folder = utils.get_project_folder(project_folder, output_filename)
         pb = utils.get_pb_path()
         args = [
@@ -88,7 +91,9 @@ class Connector(ABC):
             for key in json_data:
                 if key.endswith(target_chunk) and key.count(target_chunk) == 1:
                     if found_unique_match:
-                        raise ValueError(f"Multiple unique occurrences found for {target_chunk}")
+                        raise ValueError(
+                            f"Multiple unique occurrences found for {target_chunk}"
+                        )
                     mapping_value = key.split("/", 1)[-1]
                     new_input_models.append(mapping_value)
                     found_unique_match = True
@@ -148,10 +153,7 @@ class Connector(ABC):
 
         # Get the full paths of the input models
         input_models = self.get_input_models(
-            input_models,
-            output_filename,
-            project_folder,
-            site_config_path
+            input_models, output_filename, project_folder, site_config_path
         )
 
         if len(material_names) == 0:

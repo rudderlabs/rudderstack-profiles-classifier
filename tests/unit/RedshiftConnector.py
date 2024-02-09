@@ -133,7 +133,11 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Mock the internal method get_material_names_
         self.connector.get_material_names_ = Mock(
-            return_value=(input_materials, input_training_dates, feature_label_joined_table)
+            return_value=(
+                input_materials,
+                input_training_dates,
+                feature_label_joined_table,
+            )
         )
         # Invoke the method under test
         materials = self.connector.get_material_names(
@@ -170,7 +174,10 @@ class TestGetMaterialNames(unittest.TestCase):
         ]
         # Mock the internal methods get_material_names_ and generate_training_materials
         self.connector.get_material_names_ = Mock(
-            side_effect=[([], [], None), (input_materials, input_training_dates, feature_label_joined_table)]
+            side_effect=[
+                ([], [], None),
+                (input_materials, input_training_dates, feature_label_joined_table),
+            ]
         )
         self.connector.generate_training_materials = self.session_mock()
 
@@ -209,7 +216,9 @@ class TestGetMaterialNames(unittest.TestCase):
     def test_materializes_data_once_even_if_it_cant_find_right_materials(self):
         # Mock the internal methods get_material_names_ and generate_training_materials
         feature_label_joined_table = None
-        self.connector.get_material_names_ = Mock(return_value=([], [], feature_label_joined_table))
+        self.connector.get_material_names_ = Mock(
+            return_value=([], [], feature_label_joined_table)
+        )
         self.connector.generate_training_materials = Mock()
 
         # Invoke the method under test and assert exception

@@ -69,7 +69,6 @@ class Connector(ABC):
         (
             material_names,
             training_dates,
-            feature_label_snowpark_df,
         ) = self.get_material_names_(
             session,
             material_table,
@@ -81,11 +80,12 @@ class Connector(ABC):
             prediction_horizon_days,
             inputs,
         )
-        if len(material_names) == 0:
+        if self._count_fully_defined_lists(material_names) == 0:
             try:
                 _ = self.generate_training_materials(
                     session,
-                    feature_label_snowpark_df,
+                    material_names,
+                    training_dates,
                     start_date,
                     features_profiles_model,
                     model_hash,
@@ -98,7 +98,6 @@ class Connector(ABC):
                 (
                     material_names,
                     training_dates,
-                    feature_label_snowpark_df,
                 ) = self.get_material_names_(
                     session,
                     material_table,
@@ -114,25 +113,27 @@ class Connector(ABC):
                 raise Exception(
                     f"Following exception occured while generating past materials with hash {model_hash} for {features_profiles_model} between dates {start_date} and {end_date}: {e}"
                 )
-        if len(material_names) == 0:
+        if self._count_fully_defined_lists(material_names) == 0:
             raise Exception(
                 f"Tried to materialise past data but no materialized data found for {features_profiles_model} between dates {start_date} and {end_date}"
             )
         materials = []
         for material_pair, date_pair in zip(material_names, training_dates):
-            train_table_info = TrainTablesInfo(
-                feature_table_name=material_pair[0],
-                feature_table_date=date_pair[0],
-                label_table_name=material_pair[1],
-                label_table_date=date_pair[1],
-            )
-            materials.append(train_table_info)
+            if material_pair[0] and material_pair[1]:
+                train_table_info = TrainTablesInfo(
+                    feature_table_name=material_pair[0],
+                    feature_table_date=date_pair[0],
+                    label_table_name=material_pair[1],
+                    label_table_date=date_pair[1],
+                )
+                materials.append(train_table_info)
         return materials
 
     def generate_training_materials(
         self,
         session,
-        feature_label_snowpark_df: Union[snowflake.snowpark.Table, pd.DataFrame],
+        material_names: List[Tuple[str, str]],
+        training_dates: List[Tuple[str, str]],
         start_date: str,
         features_profiles_model: str,
         model_hash: str,
@@ -145,7 +146,9 @@ class Connector(ABC):
         """
         Generates training dataset from start_date and end_date, and fetches the resultant table names from the material_table.
         Args:
-            feature_label_snowpark_df: Union[snowflake.snowpark.Table, pd.DataFrame]: joined feature-label df
+            session : warehouse session
+            material_names (List[Tuple[str, str]]): Name of materials
+            training_dates (List[Tuple[str, str]]): training dates corresponding to material_names
             start_date (str): Start date for training data.
             features_profiles_model (str): The name of the model.
             model_hash (str): The latest model hash.
@@ -160,38 +163,67 @@ class Connector(ABC):
         feature_package_path = utils.get_feature_package_path(input_models)
         feature_date, label_date = self.get_valid_feature_label_dates(
             session,
-            feature_label_snowpark_df,
+            material_names,
+            training_dates,
             start_date,
             features_profiles_model,
             model_hash,
             prediction_horizon_days,
         )
-        materialise_feature_data = None
-        materialise_label_data = None
-        if feature_date is not None:
-            materialise_feature_data = utils.materialise_past_data(
-                feature_date,
-                feature_package_path,
-                output_filename,
-                site_config_path,
-                project_folder,
-            )
-            logger.info(
-                f"Materialised feature data successfully, for date {feature_date}"
-            )
-        if label_date is not None:
-            materialise_label_data = utils.materialise_past_data(
-                label_date,
-                feature_package_path,
-                output_filename,
-                site_config_path,
-                project_folder,
-            )
-            logger.info(f"Materialised label data successfully, for date {label_date}")
-        if (not materialise_feature_data) and (not materialise_label_data):
+
+        materialise_data = True
+        for date in [feature_date, label_date]:
+            if date is not None:
+                materialise_data = materialise_data and utils.materialise_past_data(
+                    date,
+                    feature_package_path,
+                    output_filename,
+                    site_config_path,
+                    project_folder,
+                )
+                logger.info(
+                    f"Materialised data successfully, for date {date}"
+                )
+
+        if not materialise_data:
             logger.warning(
                 "Failed to materialise feature and label data. Will attempt to fetch materialised data from warehouse registry table"
             )
+        return feature_date, label_date
+
+    def get_valid_feature_label_dates(
+        self,
+        session,
+        material_names,
+        training_dates,
+        start_date,
+        features_profiles_model,
+        model_hash,
+        prediction_horizon_days,
+    ):
+        for material_pair, date_pair in zip(material_names, training_dates):
+            if material_pair[0] is not None and material_pair[1] is None:
+                feature_table_name_ = material_pair[0]
+                if self.is_valid_table(session, feature_table_name_):
+                    feature_date = None
+                    label_date = utils.date_add(
+                        date_pair[0].split()[0], 
+                        prediction_horizon_days
+                    )
+                    return feature_date, label_date
+            elif material_pair[0] is None and material_pair[1] is not None:
+                label_table_name_ = material_pair[1]
+                if self.is_valid_table(session, label_table_name_):
+                    feature_date = utils.date_add(
+                        date_pair[1].split()[0],
+                        prediction_horizon_days,
+                        subtract=True,
+                    )
+                    label_date = None
+                    return feature_date, label_date
+                
+        feature_date = utils.date_add(start_date, prediction_horizon_days)
+        label_date = utils.date_add(feature_date, prediction_horizon_days)
         return feature_date, label_date
 
     def fetch_training_material_names(
@@ -291,16 +323,16 @@ class Connector(ABC):
         self,
         session,
         material_table_query: str,
-        feature_material_seq_no: str,
-        label_material_seq_no: str,
+        feature_material_seq_no: int,
+        label_material_seq_no: int,
     ) -> bool:
         """This function will validate the input material query with seq number from historical material tables
 
         Args:
             session: WH connector session/cursor for data warehouse access
             material_table_query (str): Query to fetch the material table names
-            feature_material_seq_no (str): feature material seq no
-            label_material_seq_no (str): label material seq no
+            feature_material_seq_no (int): feature material seq no
+            label_material_seq_no (int): label material seq no
         Returns:
             bool: True if the material table exists with given seq no else False
         """
@@ -308,30 +340,37 @@ class Connector(ABC):
             # Replace the last seq_no with the current seq_no
             # and prepare sql statement to check for the table existence
             # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
-            feature_table_query = (
-                utils.replace_seq_no_in_query(
-                    material_table_query, feature_material_seq_no
+            if feature_material_seq_no is not None:
+                feature_table_query = (
+                    utils.replace_seq_no_in_query(
+                        material_table_query, int(feature_material_seq_no)
+                    )
+                    + " limit 1"
                 )
-                + " limit 1"
-            )
-            result = self.run_query(session, feature_table_query, response=True)
-            assert len(result) != 0
+                result = self.run_query(session, feature_table_query, response=True)
+                assert len(result) != 0
 
-            label_table_query = (
-                utils.replace_seq_no_in_query(
-                    material_table_query, label_material_seq_no
+            if label_material_seq_no is not None:
+                label_table_query = (
+                    utils.replace_seq_no_in_query(
+                        material_table_query, int(label_material_seq_no)
+                    )
+                    + " limit 1"
                 )
-                + " limit 1"
-            )
-            result = self.run_query(session, label_table_query, response=True)
-            assert len(result) != 0
+                result = self.run_query(session, label_table_query, response=True)
+                assert len(result) != 0
+
             return True
         except:
             logger.info(
                 f"{material_table_query} is not materialized for one of the \
-                        seq nos {feature_material_seq_no}, {label_material_seq_no}"
+                        seq nos '{feature_material_seq_no}', '{label_material_seq_no}'"
             )
             return False
+        
+    def _count_fully_defined_lists(self, list_of_string_tuples) -> int:
+        filtered_data = [row for row in list_of_string_tuples if all(entry is not None for entry in row)]
+        return len(filtered_data)
 
     @abstractmethod
     def build_session(self, credentials: dict):
@@ -447,18 +486,6 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_valid_feature_label_dates(
-        self,
-        session,
-        feature_label_snowpark_df,
-        start_date,
-        features_profiles_model,
-        model_hash,
-        prediction_horizon_days,
-    ):
-        pass
-
-    @abstractmethod
     def get_material_names_(
         self,
         session,
@@ -473,7 +500,6 @@ class Connector(ABC):
     ) -> Tuple[
         List[Tuple[str, str]],
         List[Tuple[str, str]],
-        Union[snowflake.snowpark.Table, pd.DataFrame],
     ]:
         pass
 

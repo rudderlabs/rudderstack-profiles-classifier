@@ -24,7 +24,6 @@ POSITIVE_BOOLEAN_FLAGS = [
 LOCAL_STORAGE_DIR = "data"
 SF_LOCAL_STORAGE_DIR = "/tmp"
 rs_dtypes = '{"text": "character varying(65535)", "num": "float", "bool": "bool", "timestamp": "timestamp without time zone"}'
-PB = "/venv/bin/pb"  # Location of pb executable in rudder-sources
 CLASSIFIER_MIN_LABEL_PROPORTION = 0.05
 CLASSIFIER_MAX_LABEL_PROPORTION = 0.95
 REGRESSOR_MIN_LABEL_DISTINCT_VALUES = 3

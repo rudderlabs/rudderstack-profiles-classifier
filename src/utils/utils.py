@@ -507,19 +507,7 @@ def fetch_key_from_dict(dictionary, key, default_value=None):
 
 
 def get_pb_path() -> str:
-    """In Rudder-sources check if pb command works. Else, it returns the exact location where pb installable is present.
-
-    Returns:
-        str: _description_
-    """
-    try:
-        _ = subprocess.check_output(["which", "pb"])
-        return "pb"
-    except:
-        logger.info(
-            "pb command not found in the path. Using the default rudder-sources path /venv/bin/pb"
-        )
-        return constants.PB
+    return "pb"
 
 
 def get_project_folder(project_folder: str, output_path: str) -> str:

@@ -469,9 +469,9 @@ def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple
     return str(start_date), str(end_date)
 
 
-def date_add(reference_date: str, add_days: int, **kwargs) -> str:
+def date_add(reference_date: str, add_days: int) -> str:
     """
-    Adds/subtract the horizon days to the reference date and returns the new date as a string.
+    Adds the horizon days to the reference date and returns the new date as a string.
 
     Args:
         reference_date (str): The Reference date in the format "YYYY-MM-DD".
@@ -480,10 +480,8 @@ def date_add(reference_date: str, add_days: int, **kwargs) -> str:
     Returns:
         str: The new date is returned as a string in the format "YYYY-MM-DD".
     """
-    subtract = kwargs.get("subtract", False)
-    flag = -1 if subtract else 1
-    new_timestamp = datetime.strptime(reference_date, "%Y-%m-%d") + (
-        flag * timedelta(days=add_days)
+    new_timestamp = datetime.strptime(reference_date, "%Y-%m-%d") + timedelta(
+        days=add_days
     )
     new_date = new_timestamp.strftime("%Y-%m-%d")
     return new_date

@@ -213,8 +213,7 @@ class Connector(ABC):
                 if self.is_valid_table(session, label_table_name_):
                     feature_date = utils.date_add(
                         date_pair[1].split()[0],
-                        prediction_horizon_days,
-                        subtract=True,
+                        -prediction_horizon_days,
                     )
                     label_date = None
                     return feature_date, label_date

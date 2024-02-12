@@ -466,11 +466,12 @@ class RedshiftConnector(Connector):
                     (df["model_name"] == model_name)
                     & (df["model_type"] == constants.ENTITY_VAR_MODEL)
                     & (df["model_hash"] == model_hash)
-                    & (df["end_ts"] >= start_time)
-                    & (df["end_ts"] <= end_time),
+                    & (df["end_ts"].dt.date >= pd.to_datetime(start_time).date())
+                    & (df["end_ts"].dt.date <= pd.to_datetime(end_time).date()),
                     ["seq_no", "end_ts"],
                 ]
                 .drop_duplicates()
+                .assign(end_ts=lambda x: x["end_ts"].dt.date)  # convert to date
                 .rename(
                     columns={"seq_no": "feature_seq_no", "end_ts": "feature_end_ts"}
                 )
@@ -491,11 +492,12 @@ class RedshiftConnector(Connector):
                     (df["model_name"] == model_name)
                     & (df["model_type"] == constants.ENTITY_VAR_MODEL)
                     & (df["model_hash"] == model_hash)
-                    & (df["end_ts"] >= label_start_time)
-                    & (df["end_ts"] <= label_end_time),
+                    & (df["end_ts"].dt.date >= pd.to_datetime(label_start_time).date())
+                    & (df["end_ts"].dt.date <= pd.to_datetime(label_end_time).date()),
                     ["seq_no", "end_ts"],
                 ]
                 .drop_duplicates()
+                .assign(end_ts=lambda x: x["end_ts"].dt.date)  # convert to date
                 .rename(columns={"seq_no": "label_seq_no", "end_ts": "label_end_ts"})
             )
 

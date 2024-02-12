@@ -11,7 +11,7 @@ import snowflake.snowpark
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 from snowflake.snowpark.window import Window
-from snowflake.snowpark.functions import col
+from snowflake.snowpark.functions import col, to_date
 from snowflake.snowpark.session import Session
 
 import src.utils.utils as utils
@@ -542,17 +542,27 @@ class SnowflakeConnector(Connector):
                 snowpark_df.filter(col("model_name") == features_profiles_model)
                 .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
                 .filter(col("model_hash") == model_hash)
-                .filter(f"end_ts between '{start_time}' and '{end_time}'")
-                .select("seq_no", "end_ts")
+                .filter(
+                    (to_date(col("end_ts")) >= start_time)
+                    & (to_date(col("end_ts")) <= end_time)
+                )
+                .select("seq_no", to_date(col("end_ts")).alias("end_ts"))
             ).distinct()
             label_snowpark_df = (
                 snowpark_df.filter(col("model_name") == features_profiles_model)
                 .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
                 .filter(col("model_hash") == model_hash)
                 .filter(
-                    f"end_ts between dateadd(day, {prediction_horizon_days}, '{start_time}') and dateadd(day, {prediction_horizon_days}, '{end_time}')"
+                    (
+                        to_date(col("end_ts"))
+                        >= utils.date_add(start_time, prediction_horizon_days)
+                    )
+                    & (
+                        to_date(col("end_ts"))
+                        <= utils.date_add(end_time, prediction_horizon_days)
+                    )
                 )
-                .select("seq_no", "end_ts")
+                .select("seq_no", to_date(col("end_ts")).alias("end_ts"))
             ).distinct()
 
             feature_label_snowpark_df = feature_snowpark_df.join(

@@ -181,9 +181,7 @@ class Connector(ABC):
                     site_config_path,
                     project_folder,
                 )
-                logger.info(
-                    f"Materialised data successfully, for date {date}"
-                )
+                logger.info(f"Materialised data successfully, for date {date}")
 
         if not materialise_data:
             logger.warning(
@@ -207,8 +205,7 @@ class Connector(ABC):
                 if self.is_valid_table(session, feature_table_name_):
                     feature_date = None
                     label_date = utils.date_add(
-                        date_pair[0].split()[0], 
-                        prediction_horizon_days
+                        date_pair[0].split()[0], prediction_horizon_days
                     )
                     return feature_date, label_date
             elif material_pair[0] is None and material_pair[1] is not None:
@@ -221,7 +218,7 @@ class Connector(ABC):
                     )
                     label_date = None
                     return feature_date, label_date
-                
+
         feature_date = utils.date_add(start_date, prediction_horizon_days)
         label_date = utils.date_add(feature_date, prediction_horizon_days)
         return feature_date, label_date
@@ -367,9 +364,13 @@ class Connector(ABC):
                         seq nos '{feature_material_seq_no}', '{label_material_seq_no}'"
             )
             return False
-        
+
     def _count_fully_defined_lists(self, list_of_string_tuples) -> int:
-        filtered_data = [row for row in list_of_string_tuples if all(entry is not None for entry in row)]
+        filtered_data = [
+            row
+            for row in list_of_string_tuples
+            if all(entry is not None for entry in row)
+        ]
         return len(filtered_data)
 
     @abstractmethod
@@ -497,10 +498,7 @@ class Connector(ABC):
         material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
-    ) -> Tuple[
-        List[Tuple[str, str]],
-        List[Tuple[str, str]],
-    ]:
+    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]],]:
         pass
 
     @abstractmethod

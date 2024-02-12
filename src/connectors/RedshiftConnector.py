@@ -530,15 +530,19 @@ class RedshiftConnector(Connector):
                 # Iterate over inputs and validate meterial names
                 for input_material_query in inputs:
                     if self.validate_historical_materials_hash(
-                        cursor, input_material_query, row["feature_seq_no"], row["label_seq_no"]
+                        cursor,
+                        input_material_query,
+                        row["feature_seq_no"],
+                        row["label_seq_no"],
                     ):
-                        material_names.append(
-                            (feature_table_name_, label_table_name_)
-                        )
+                        material_names.append((feature_table_name_, label_table_name_))
                         training_dates.append(
                             (str(row["feature_end_ts"]), str(row["label_end_ts"]))
                         )
-                if self._count_fully_defined_lists(material_names) >= constants.TRAIN_MATERIALS_LIMIT:
+                if (
+                    self._count_fully_defined_lists(material_names)
+                    >= constants.TRAIN_MATERIALS_LIMIT
+                ):
                     break  # we might be taking more than 10 materials for training but this would consider all types of inputs.
             return material_names, training_dates
         except Exception as e:

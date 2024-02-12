@@ -596,14 +596,15 @@ class SnowflakeConnector(Connector):
                         row.FEATURE_SEQ_NO,
                         row.LABEL_SEQ_NO,
                     ):
-                        material_names.append(
-                            (feature_table_name_, label_table_name_)
-                        )
+                        material_names.append((feature_table_name_, label_table_name_))
                         training_dates.append(
                             (str(row.FEATURE_END_TS), str(row.LABEL_END_TS))
                         )
 
-                if self._count_fully_defined_lists(material_names) >= constants.TRAIN_MATERIALS_LIMIT:
+                if (
+                    self._count_fully_defined_lists(material_names)
+                    >= constants.TRAIN_MATERIALS_LIMIT
+                ):
                     break
             return material_names, training_dates
         except Exception as e:

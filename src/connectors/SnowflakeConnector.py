@@ -16,6 +16,7 @@ from snowflake.snowpark.session import Session
 
 import src.utils.utils as utils
 from src.utils import constants
+from src.utils.constants import TrainTablesInfo
 from src.utils.logger import logger
 from src.connectors.Connector import Connector
 
@@ -512,8 +513,8 @@ class SnowflakeConnector(Connector):
         material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
-    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-        """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
+    ) -> List[TrainTablesInfo]:
+        """Generates material names as list containing feature table name and label table name required to create the training model and their corresponding training dates.
 
         Args:
             session (snowflake.snowpark.Session): Snowpark session for data warehouse access
@@ -527,12 +528,10 @@ class SnowflakeConnector(Connector):
             inputs (List[str]): list of input features
 
         Returns:
-            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
-            ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
+            List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
         try:
-            material_names = list()
-            training_dates = list()
+            materials = list()
 
             snowpark_df = self.get_material_registry_table(session, material_table)
 
@@ -582,15 +581,14 @@ class SnowflakeConnector(Connector):
                     features_profiles_model,
                     model_hash,
                     inputs,
-                    material_names,
-                    training_dates,
+                    materials,
                 )
                 if (
-                    self._count_complete_sequences(material_names)
+                    len(self._get_complete_sequences(materials))
                     >= constants.TRAIN_MATERIALS_LIMIT
                 ):
                     break
-            return material_names, training_dates
+            return materials
         except Exception as e:
             raise Exception(
                 f"Following exception occured while retrieving material names with hash {model_hash} for {features_profiles_model} between dates {start_time} and {end_time}: {e}"

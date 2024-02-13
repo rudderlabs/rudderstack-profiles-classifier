@@ -63,12 +63,10 @@ class Connector(ABC):
             inputs (List[str]): List of input material queries
 
         Returns:
-            List[Tuple[Dict[str, str], Dict[str, str]]]: EXAMPLE:
-            materials = [({"name": feature_table_name, "end_dt": feature_table_dt}, {"name": label_table_name, "end_dt": label_table_dt})....]
+            List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
         (
-            material_names,
-            training_dates,
+            materials
         ) = self.get_material_names_(
             session,
             material_table,
@@ -80,12 +78,11 @@ class Connector(ABC):
             prediction_horizon_days,
             inputs,
         )
-        if self._count_complete_sequences(material_names) == 0:
+        if len(self._get_complete_sequences(materials)) == 0:
             try:
                 _ = self.generate_training_materials(
                     session,
-                    material_names,
-                    training_dates,
+                    materials,
                     start_date,
                     features_profiles_model,
                     model_hash,
@@ -96,8 +93,7 @@ class Connector(ABC):
                     input_models,
                 )
                 (
-                    material_names,
-                    training_dates,
+                    materials
                 ) = self.get_material_names_(
                     session,
                     material_table,
@@ -113,27 +109,18 @@ class Connector(ABC):
                 raise Exception(
                     f"Following exception occured while generating past materials with hash {model_hash} for {features_profiles_model} between dates {start_date} and {end_date}: {e}"
                 )
-        if self._count_complete_sequences(material_names) == 0:
+            
+        complete_sequences_materials = self._get_complete_sequences(materials)
+        if len(complete_sequences_materials) == 0:
             raise Exception(
                 f"Tried to materialise past data but no materialized data found for {features_profiles_model} between dates {start_date} and {end_date}"
             )
-        materials = []
-        for material_pair, date_pair in zip(material_names, training_dates):
-            if material_pair[0] and material_pair[1]:
-                train_table_info = TrainTablesInfo(
-                    feature_table_name=material_pair[0],
-                    feature_table_date=date_pair[0],
-                    label_table_name=material_pair[1],
-                    label_table_date=date_pair[1],
-                )
-                materials.append(train_table_info)
-        return materials
+        return complete_sequences_materials
 
     def generate_training_materials(
         self,
         session,
-        material_names: List[Tuple[str, str]],
-        training_dates: List[Tuple[str, str]],
+        materials: List[TrainTablesInfo],
         start_date: str,
         features_profiles_model: str,
         model_hash: str,
@@ -147,8 +134,7 @@ class Connector(ABC):
         Generates training dataset from start_date and end_date, and fetches the resultant table names from the material_table.
         Args:
             session : warehouse session
-            material_names (List[Tuple[str, str]]): Name of materials
-            training_dates (List[Tuple[str, str]]): training dates corresponding to material_names
+            materials (List[TrainTablesInfo]): materials info
             start_date (str): Start date for training data.
             features_profiles_model (str): The name of the model.
             model_hash (str): The latest model hash.
@@ -163,8 +149,7 @@ class Connector(ABC):
         feature_package_path = utils.get_feature_package_path(input_models)
         feature_date, label_date = self.get_valid_feature_label_dates(
             session,
-            material_names,
-            training_dates,
+            materials,
             start_date,
             features_profiles_model,
             model_hash,
@@ -192,37 +177,40 @@ class Connector(ABC):
     def get_valid_feature_label_dates(
         self,
         session,
-        material_names,
-        training_dates,
+        materials,
         start_date,
         features_profiles_model,
         model_hash,
         prediction_horizon_days,
     ):
         feature_date, label_date = None, None
-        for material_pair, date_pair in zip(material_names, training_dates):
-            if material_pair[0] is not None and material_pair[1] is None:
-                feature_table_name_ = material_pair[0]
+        for material_info in materials:
+            if material_info.feature_table_name is not None and material_info.label_table_name is None:
+                feature_table_name_ = material_info.feature_table_name
                 if self.is_valid_table(session, feature_table_name_):
                     label_date = utils.date_add(
-                        date_pair[0].split()[0], prediction_horizon_days
+                        material_info.feature_table_date.split()[0], prediction_horizon_days
                     )
-            elif material_pair[0] is None and material_pair[1] is not None:
-                label_table_name_ = material_pair[1]
+            elif material_info.feature_table_name is None and material_info.label_table_name is not None:
+                label_table_name_ = material_info.label_table_name
                 if self.is_valid_table(session, label_table_name_):
                     feature_date = utils.date_add(
-                        date_pair[1].split()[0],
+                        material_info.label_table_date.split()[0],
                         -prediction_horizon_days,
                     )
-            elif material_pair[0] is None and material_pair[1] is None:
+            elif material_info.feature_table_name is None and material_info.label_table_name is None:
                 feature_date = utils.date_add(start_date, prediction_horizon_days)
                 label_date = utils.date_add(feature_date, prediction_horizon_days)
             else:
                 logger.exception(
-                    f"Unexpected material names: {material_pair} and corresponding training dates: {date_pair} for features_profiles_model {features_profiles_model} and model_hash {model_hash}"
+                    f"Unexpected material names: {material_info.feature_table_name, material_info.label_table_name} \
+                        and corresponding training dates: {material_info.feature_table_date, material_info.label_table_date} \
+                            for features_profiles_model {features_profiles_model} and model_hash {model_hash}"
                 )
                 raise Exception(
-                    f"Unexpected material names: {material_pair} and corresponding training dates: {date_pair} for features_profiles_model {features_profiles_model} and model_hash {model_hash}"
+                    f"Unexpected material names: {material_info.feature_table_name, material_info.label_table_name} \
+                        and corresponding training dates: {material_info.feature_table_date, material_info.label_table_date} \
+                            for features_profiles_model {features_profiles_model} and model_hash {model_hash}"
                 )
         return feature_date, label_date
 
@@ -382,8 +370,7 @@ class Connector(ABC):
         features_profiles_model,
         model_hash,
         inputs,
-        material_names,
-        training_dates,
+        materials,
     ):
         feature_table_name_, label_table_name_ = None, None
         if row.FEATURE_SEQ_NO is not None:
@@ -418,10 +405,15 @@ class Connector(ABC):
                 row.FEATURE_SEQ_NO,
                 row.LABEL_SEQ_NO,
             ):
-                material_names.append((feature_table_name_, label_table_name_))
-                training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
+                train_table_info = TrainTablesInfo(
+                    feature_table_name=feature_table_name_,
+                    feature_table_date=str(row.FEATURE_END_TS),
+                    label_table_name=label_table_name_,
+                    label_table_date=str(row.LABEL_END_TS),
+                )
+                materials.append(train_table_info)
 
-    def _count_complete_sequences(self, sequences: List[Sequence]) -> int:
+    def _get_complete_sequences(self, sequences: List[Sequence]) -> int:
         """
         A sequence is said to be complete if it does not have any Nones.
         """
@@ -430,7 +422,7 @@ class Connector(ABC):
             for sequence in sequences
             if all(element is not None for element in sequence)
         ]
-        return len(complete_sequences)
+        return complete_sequences
 
     @abstractmethod
     def build_session(self, credentials: dict):

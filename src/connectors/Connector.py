@@ -374,6 +374,53 @@ class Connector(ABC):
             )
             return False
 
+    def _fetch_valid_historic_materials(
+        self,
+        session,
+        row,
+        material_table_prefix,
+        features_profiles_model,
+        model_hash,
+        inputs,
+        material_names,
+        training_dates,
+    ):
+        feature_table_name_, label_table_name_ = None, None
+        if row.FEATURE_SEQ_NO is not None:
+            feature_table_name_ = utils.generate_material_name(
+                material_table_prefix,
+                features_profiles_model,
+                model_hash,
+                row.FEATURE_SEQ_NO,
+            )
+        if row.LABEL_SEQ_NO is not None:
+            label_table_name_ = utils.generate_material_name(
+                material_table_prefix,
+                features_profiles_model,
+                model_hash,
+                row.LABEL_SEQ_NO,
+            )
+
+        if (
+            feature_table_name_ is not None
+            and not self.is_valid_table(session, feature_table_name_)
+        ) or (
+            label_table_name_ is not None
+            and not self.is_valid_table(session, label_table_name_)
+        ):
+            return
+
+        # Iterate over inputs and validate meterial names
+        for input_material_query in inputs:
+            if self.validate_historical_materials_hash(
+                session,
+                input_material_query,
+                row.FEATURE_SEQ_NO,
+                row.LABEL_SEQ_NO,
+            ):
+                material_names.append((feature_table_name_, label_table_name_))
+                training_dates.append((str(row.FEATURE_END_TS), str(row.LABEL_END_TS)))
+
     def _count_complete_sequences(self, sequences: List[Sequence]) -> int:
         """
         A sequence is said to be complete if it does not have any Nones.

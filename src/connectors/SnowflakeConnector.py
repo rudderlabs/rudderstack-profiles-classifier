@@ -130,8 +130,6 @@ class SnowflakeConnector(Connector):
             bool: True if the table exists, False otherwise.
         """
         try:
-            if table_name is None:
-                return True
             session.sql(f"select * from {table_name} limit 1").collect()
             return True
         except:
@@ -546,7 +544,7 @@ class SnowflakeConnector(Connector):
                     (to_date(col("end_ts")) >= start_time)
                     & (to_date(col("end_ts")) <= end_time)
                 )
-                .select("seq_no", to_date(col("end_ts")).alias("end_ts"))
+                .select("seq_no", "end_ts")
             ).distinct()
             label_snowpark_df = (
                 snowpark_df.filter(col("model_name") == features_profiles_model)
@@ -562,7 +560,7 @@ class SnowflakeConnector(Connector):
                         <= utils.date_add(end_time, prediction_horizon_days)
                     )
                 )
-                .select("seq_no", to_date(col("end_ts")).alias("end_ts"))
+                .select("seq_no", "end_ts")
             ).distinct()
 
             feature_label_snowpark_df = feature_snowpark_df.join(
@@ -577,40 +575,16 @@ class SnowflakeConnector(Connector):
                 label_snowpark_df.end_ts.alias("label_end_ts"),
             )
             for row in feature_label_snowpark_df.collect():
-                feature_table_name_, label_table_name_ = None, None
-                if row.FEATURE_SEQ_NO is not None:
-                    feature_table_name_ = utils.generate_material_name(
-                        material_table_prefix,
-                        features_profiles_model,
-                        model_hash,
-                        row.FEATURE_SEQ_NO,
-                    )
-                if row.LABEL_SEQ_NO is not None:
-                    label_table_name_ = utils.generate_material_name(
-                        material_table_prefix,
-                        features_profiles_model,
-                        model_hash,
-                        row.LABEL_SEQ_NO,
-                    )
-
-                if not self.is_valid_table(
-                    session, feature_table_name_
-                ) or not self.is_valid_table(session, label_table_name_):
-                    continue
-
-                # Iterate over inputs and validate meterial names
-                for input_material_query in inputs:
-                    if self.validate_historical_materials_hash(
-                        session,
-                        input_material_query,
-                        row.FEATURE_SEQ_NO,
-                        row.LABEL_SEQ_NO,
-                    ):
-                        material_names.append((feature_table_name_, label_table_name_))
-                        training_dates.append(
-                            (str(row.FEATURE_END_TS), str(row.LABEL_END_TS))
-                        )
-
+                self._fetch_valid_historic_materials(
+                    session,
+                    row,
+                    material_table_prefix,
+                    features_profiles_model,
+                    model_hash,
+                    inputs,
+                    material_names,
+                    training_dates,
+                )
                 if (
                     self._count_complete_sequences(material_names)
                     >= constants.TRAIN_MATERIALS_LIMIT

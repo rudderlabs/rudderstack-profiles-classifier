@@ -146,8 +146,6 @@ class RedshiftConnector(Connector):
             bool: True if the table exists, False otherwise.
         """
         try:
-            if table_name is None:
-                return True
             cursor.execute(f"select * from {table_name} limit 1").fetchall()
             return True
         except:
@@ -471,12 +469,11 @@ class RedshiftConnector(Connector):
                     ["seq_no", "end_ts"],
                 ]
                 .drop_duplicates()
-                .assign(end_ts=lambda x: x["end_ts"].dt.date)  # convert to date
                 .rename(
-                    columns={"seq_no": "feature_seq_no", "end_ts": "feature_end_ts"}
+                    columns={"seq_no": "FEATURE_SEQ_NO", "end_ts": "FEATURE_END_TS"}
                 )
             )
-            feature_df["label_end_ts"] = feature_df["feature_end_ts"] + timedelta(
+            feature_df["LABEL_END_TS"] = feature_df["FEATURE_END_TS"] + timedelta(
                 days=prediction_horizon_days
             )
 
@@ -497,49 +494,24 @@ class RedshiftConnector(Connector):
                     ["seq_no", "end_ts"],
                 ]
                 .drop_duplicates()
-                .assign(end_ts=lambda x: x["end_ts"].dt.date)  # convert to date
-                .rename(columns={"seq_no": "label_seq_no", "end_ts": "label_end_ts"})
+                .rename(columns={"seq_no": "LABEL_SEQ_NO", "end_ts": "LABEL_END_TS"})
             )
 
             feature_label_df = pd.merge(
-                feature_df, label_df, on="label_end_ts", how="outer"
+                feature_df, label_df, on="LABEL_END_TS", how="outer"
             ).replace({np.nan: None})
 
             for _, row in feature_label_df.iterrows():
-                feature_table_name_, label_table_name_ = None, None
-                if row["feature_seq_no"] is not None:
-                    feature_table_name_ = utils.generate_material_name(
-                        material_table_prefix,
-                        model_name,
-                        model_hash,
-                        row["feature_seq_no"],
-                    )
-
-                if row["label_seq_no"] is not None:
-                    label_table_name_ = utils.generate_material_name(
-                        material_table_prefix,
-                        model_name,
-                        model_hash,
-                        row["label_seq_no"],
-                    )
-
-                if not self.is_valid_table(
-                    cursor, feature_table_name_
-                ) or not self.is_valid_table(cursor, label_table_name_):
-                    continue
-
-                # Iterate over inputs and validate meterial names
-                for input_material_query in inputs:
-                    if self.validate_historical_materials_hash(
-                        cursor,
-                        input_material_query,
-                        row["feature_seq_no"],
-                        row["label_seq_no"],
-                    ):
-                        material_names.append((feature_table_name_, label_table_name_))
-                        training_dates.append(
-                            (str(row["feature_end_ts"]), str(row["label_end_ts"]))
-                        )
+                self._fetch_valid_historic_materials(
+                    cursor,
+                    row,
+                    material_table_prefix,
+                    model_name,
+                    model_hash,
+                    inputs,
+                    material_names,
+                    training_dates,
+                )
                 if (
                     self._count_complete_sequences(material_names)
                     >= constants.TRAIN_MATERIALS_LIMIT

@@ -214,6 +214,42 @@ class TestGetMaterialNames(unittest.TestCase):
         # Assert the result
         self.assertEqual(dates, expected_date)
 
+    def test_generate_training_materials_with_only_feature_material(self):
+        # Set up the expected input and output
+        input_materials = [["feature_table_name", None]]
+        input_training_dates = [["feature_table_dt", None]]
+        feature_package_path = utils.get_feature_package_path(self.input_models)
+        expected_date = (None, "label_table_dt")
+
+        # Mock the internal method get_valid_feature_label_dates
+        self.connector.get_valid_feature_label_dates = Mock(return_value=expected_date)
+        utils.materialise_past_data = Mock(return_value=True)
+
+        # Invoke the method under test
+        dates = self.connector.generate_training_materials(
+            self.session_mock,
+            input_materials,
+            input_training_dates,
+            self.start_date,
+            self.features_profiles_model,
+            self.model_hash,
+            self.prediction_horizon_days,
+            self.output_filename,
+            self.site_config_path,
+            self.project_folder,
+            self.input_models,
+        )
+
+        # Assert the result
+        self.assertEqual(dates, expected_date)
+        utils.materialise_past_data.assert_called_once_with(
+            dates[1],
+            feature_package_path,
+            self.output_filename,
+            self.site_config_path,
+            self.project_folder,
+        )
+
     # Retrieves material names and training dates when materialized data is available within the specified date range
     def test_retrieves_material_names_within_date_range(self):
         # Set up the expected input and output

@@ -503,8 +503,7 @@ class RedshiftConnector(Connector):
 
             feature_label_df = pd.merge(
                 feature_df, label_df, on="label_end_ts", how="outer"
-            )
-            feature_label_df = feature_label_df.replace({np.nan: None})
+            ).replace({np.nan: None})
 
             for _, row in feature_label_df.iterrows():
                 feature_table_name_, label_table_name_ = None, None
@@ -542,10 +541,10 @@ class RedshiftConnector(Connector):
                             (str(row["feature_end_ts"]), str(row["label_end_ts"]))
                         )
                 if (
-                    self._count_fully_defined_lists(material_names)
+                    self._count_complete_sequences(material_names)
                     >= constants.TRAIN_MATERIALS_LIMIT
                 ):
-                    break  # we might be taking more than 10 materials for training but this would consider all types of inputs.
+                    break
             return material_names, training_dates
         except Exception as e:
             raise Exception(

@@ -637,7 +637,7 @@ def generate_material_name(
     Returns:
         str: name of the material table in warehouse
     """
-    return f"{material_table_prefix}{model_name}_{model_hash}_{int(seq_no)}"
+    return f"{material_table_prefix}{model_name}_{model_hash}_{seq_no:.0f}"
 
 
 def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
@@ -1199,5 +1199,5 @@ def plot_user_feature_importance(
 
 def replace_seq_no_in_query(query: str, seq_no: int) -> str:
     query_split = query.split("_")
-    new_query = "_".join(query_split[:-1]) + "_" + f"{seq_no}"
+    new_query = "_".join(query_split[:-1]) + "_" + f"{seq_no:.0f}"
     return new_query

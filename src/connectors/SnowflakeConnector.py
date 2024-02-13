@@ -612,7 +612,7 @@ class SnowflakeConnector(Connector):
                         )
 
                 if (
-                    self._count_fully_defined_lists(material_names)
+                    self._count_complete_sequences(material_names)
                     >= constants.TRAIN_MATERIALS_LIMIT
                 ):
                     break

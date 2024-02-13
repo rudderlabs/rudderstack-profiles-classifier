@@ -40,10 +40,10 @@ if __name__ == "__main__":
 
     # Set the dataset ID and table ID where you want to upload the file
     dataset_id = "PROFILES_SIMULATED_DATA"
-    table_id = "TRACKS_DUPLICATE"
+    table_id = "YOUR_TABLE_NAME"
 
     # Set the path to the file you want to upload
-    file_path = "tracks.csv"
+    file_path = "YOUR_CSV_PATH"
 
     # Set the path to your service account key file
     credentials_path = "bqkey.json"

@@ -199,11 +199,11 @@ class Connector(ABC):
         model_hash,
         prediction_horizon_days,
     ):
+        feature_date, label_date = None, None
         for material_pair, date_pair in zip(material_names, training_dates):
             if material_pair[0] is not None and material_pair[1] is None:
                 feature_table_name_ = material_pair[0]
                 if self.is_valid_table(session, feature_table_name_):
-                    feature_date = None
                     label_date = utils.date_add(
                         date_pair[0].split()[0], prediction_horizon_days
                     )
@@ -214,7 +214,6 @@ class Connector(ABC):
                         date_pair[1].split()[0],
                         -prediction_horizon_days,
                     )
-                    label_date = None
             elif material_pair[0] is None and material_pair[1] is None:
                 feature_date = utils.date_add(start_date, prediction_horizon_days)
                 label_date = utils.date_add(feature_date, prediction_horizon_days)

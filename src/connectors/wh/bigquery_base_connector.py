@@ -9,11 +9,14 @@ from sqlalchemy import create_engine
 from src.utils.logger import logger
 from src.connectors.wh.connector_base import ConnectorBase, register_connector
 
+
 @register_connector
 class BigqueryConnector(ConnectorBase):
     def __init__(self, creds: dict, db_config: dict, **kwargs) -> None:
         super().__init__(creds, db_config, **kwargs)
-        self.engine = create_engine('bigquery://', credentials_info=creds['credentials'])
+        self.engine = create_engine(
+            "bigquery://", credentials_info=creds["credentials"]
+        )
         self.connection = self.engine.connect()
         self.creds = creds
         self.db_config = db_config
@@ -25,11 +28,17 @@ class BigqueryConnector(ConnectorBase):
         schema: str = None,
         if_exists: str = "append",
     ):
-        
+
         if "." in table_name:
             schema, table_name = table_name.split(".")
         try:
-            df.to_sql(name=table_name, con=self.engine, schema=schema, index=False, if_exists=if_exists)
+            df.to_sql(
+                name=table_name,
+                con=self.engine,
+                schema=schema,
+                index=False,
+                if_exists=if_exists,
+            )
 
         except Exception as e:
             logger.error(f"Error while writing to warehouse: {e}")

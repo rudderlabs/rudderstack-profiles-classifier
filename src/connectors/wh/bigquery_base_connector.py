@@ -3,9 +3,7 @@
 """Bigquery connector."""
 
 import pandas as pd
-
 from sqlalchemy import create_engine
-
 from src.utils.logger import logger
 from src.connectors.wh.connector_base import ConnectorBase, register_connector
 

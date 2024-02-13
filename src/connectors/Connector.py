@@ -219,7 +219,10 @@ class Connector(ABC):
                 label_date = utils.date_add(feature_date, prediction_horizon_days)
             else:
                 logger.exception(
-                    f"Unexpected material names: {material_pair} and corresponding training dates: {date_pair} for {features_profiles_model} and {model_hash}"
+                    f"Unexpected material names: {material_pair} and corresponding training dates: {date_pair} for features_profiles_model {features_profiles_model} and model_hash {model_hash}"
+                )
+                raise Exception(
+                    f"Unexpected material names: {material_pair} and corresponding training dates: {date_pair} for features_profiles_model {features_profiles_model} and model_hash {model_hash}"
                 )
         return feature_date, label_date
 

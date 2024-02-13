@@ -5,6 +5,7 @@ from src.connectors.RedshiftConnector import RedshiftConnector
 import pandas as pd
 from unittest.mock import Mock, patch
 from src.utils.constants import TrainTablesInfo
+import src.utils.utils as utils
 import unittest
 
 
@@ -115,6 +116,103 @@ class TestGetMaterialNames(unittest.TestCase):
         self.project_folder = "project_folder"
         self.input_models = ["model1.yaml", "model2.yaml"]
         self.inputs = ["""select * from material_user_var_736465_0"""]
+
+    def test_get_valid_feature_label_dates_with_both_materials(self):
+        # Set up the expected input and output
+        input_materials = [["feature_table_name", "label_table_name"]]
+        input_training_dates = [["feature_table_dt", "label_table_dt"]]
+
+        # Mock the internal method is_valid_table
+        self.connector.is_valid_table = Mock(return_value=True)
+
+        # Invoke the method under test
+        with self.assertRaises(Exception) as context:
+            _ = self.connector.get_valid_feature_label_dates(
+                self.session_mock,
+                input_materials,
+                input_training_dates,
+                self.start_date,
+                self.features_profiles_model,
+                self.model_hash,
+                self.prediction_horizon_days,
+            )
+        # Check the exception message
+        self.assertIn(
+            f"Unexpected material names: {input_materials[0]} and corresponding training dates: {input_training_dates[0]} for features_profiles_model {self.features_profiles_model} and model_hash {self.model_hash}",
+            str(context.exception),
+        )
+
+    def test_get_valid_feature_label_dates_with_feature_materials(self):
+        # Set up the expected input and output
+        input_materials = [["feature_table_name", None]]
+        input_training_dates = [["feature_table_dt", None]]
+
+        expected_date = (None, "label_table_dt")
+
+        # Mock the internal method is_valid_table
+        self.connector.is_valid_table = Mock(return_value=True)
+        utils.date_add = Mock(return_value="label_table_dt")
+
+        # Invoke the method under test
+        dates = self.connector.get_valid_feature_label_dates(
+            self.session_mock,
+            input_materials,
+            input_training_dates,
+            self.start_date,
+            self.features_profiles_model,
+            self.model_hash,
+            self.prediction_horizon_days,
+        )
+        # Assert the result
+        self.assertEqual(dates, expected_date)
+
+    def test_get_valid_feature_label_dates_with_label_materials(self):
+        # Set up the expected input and output
+        input_materials = [[None, "label_table_name"]]
+        input_training_dates = [[None, "label_table_dt"]]
+
+        expected_date = ("feature_table_dt", None)
+
+        # Mock the internal method is_valid_table
+        self.connector.is_valid_table = Mock(return_value=True)
+        utils.date_add = Mock(return_value="feature_table_dt")
+
+        # Invoke the method under test
+        dates = self.connector.get_valid_feature_label_dates(
+            self.session_mock,
+            input_materials,
+            input_training_dates,
+            self.start_date,
+            self.features_profiles_model,
+            self.model_hash,
+            self.prediction_horizon_days,
+        )
+        # Assert the result
+        self.assertEqual(dates, expected_date)
+
+    def test_get_valid_feature_label_dates_with_no_materials(self):
+        # Set up the expected input and output
+        input_materials = [[None, None]]
+        input_training_dates = [[None, None]]
+
+        expected_date = ("sample_table_dt", "sample_table_dt")
+
+        # Mock the internal method is_valid_table
+        self.connector.is_valid_table = Mock(return_value=True)
+        utils.date_add = Mock(return_value="sample_table_dt")
+
+        # Invoke the method under test
+        dates = self.connector.get_valid_feature_label_dates(
+            self.session_mock,
+            input_materials,
+            input_training_dates,
+            self.start_date,
+            self.features_profiles_model,
+            self.model_hash,
+            self.prediction_horizon_days,
+        )
+        # Assert the result
+        self.assertEqual(dates, expected_date)
 
     # Retrieves material names and training dates when materialized data is available within the specified date range
     def test_retrieves_material_names_within_date_range(self):

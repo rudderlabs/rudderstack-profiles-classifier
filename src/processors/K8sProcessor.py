@@ -2,8 +2,7 @@ import os
 import json
 import uuid
 import time
-from Processor import Processor
-from typing import List, Tuple, Dict
+from typing import List
 from kubernetes import client, config, watch
 import base64
 
@@ -37,11 +36,15 @@ class K8sProcessor(Processor):
         self,
         job_name: str,
         secret: dict,
-        namespace: str,
-        resources: dict,
+        k8s_config: dict,
         batch_v1_api,
         command: List[str],
     ):
+        resources = {
+            "cpu": k8s_config["resources"]["limits_cpu"],
+            "memory": k8s_config["resources"]["limits_memory"],
+        }
+        namespace = k8s_config["namespace"]
         payload = client.V1Job(
             metadata=client.V1ObjectMeta(
                 name=job_name,
@@ -54,6 +57,7 @@ class K8sProcessor(Processor):
                 backoff_limit=0,
                 template=client.V1PodTemplateSpec(
                     spec=client.V1PodSpec(
+                        service_account_name=k8s_config.get("service_account", ""),
                         containers=[
                             client.V1Container(
                                 name="container",
@@ -114,7 +118,37 @@ class K8sProcessor(Processor):
                 )
                 return pod.metadata.name
 
-    def _stream_logs(self, pod_name: str, namespace: str, core_v1_api):
+    def _stream_logs(self, job_name: str, namespace: str, core_v1_api, pod_name: str):
+        error_message = self._get_logs(
+            pod_name=pod_name, namespace=namespace, core_v1_api=core_v1_api
+        )
+        if error_message != "":
+            raise Exception(error_message)
+        job_pods = core_v1_api.list_namespaced_pod(
+            namespace=namespace, label_selector=f"job-name={job_name}"
+        )
+        pod = job_pods.items[0]
+        phase = pod.status.phase.lower()
+        if phase == "running":
+            logger.info("Pod currently in running state")
+            # Re streaming the logs to verify that the job actually completed and not because watch stream got disconnected
+            # A cleaner approach probably is to use resource_version in the watcher
+            time.sleep(2)
+            self._get_logs(
+                pod_name=pod_name, namespace=namespace, core_v1_api=core_v1_api
+            )
+            self._stream_logs(
+                job_name=job_name,
+                namespace=namespace,
+                core_v1_api=core_v1_api,
+                pod_name=pod_name,
+            )
+        elif phase == "succeeded":
+            return
+        else:
+            raise Exception(f"Internal server error: pod in {phase} state")
+
+    def _get_logs(self, pod_name: str, namespace: str, core_v1_api):
         w = watch.Watch()
         stream = w.stream(
             core_v1_api.read_namespaced_pod_log, name=pod_name, namespace=namespace
@@ -151,25 +185,11 @@ class K8sProcessor(Processor):
         credentials_presets = site_config["py_models"]["credentials_presets"]
         k8s_config = credentials_presets["kubernetes"]
         s3_config = credentials_presets["s3"]
-        namespace = k8s_config["namespace"]
-        resources = {
-            "cpu": k8s_config["resources"]["limits_cpu"],
-            "memory": k8s_config["resources"]["limits_memory"],
-        }
-        job_name = "ml-training-" + str(uuid.uuid4())
-        config.load_incluster_config()
-        core_v1_api = client.CoreV1Api()
-        batch_v1_api = client.BatchV1Api()
-        secret = self._create_wh_creds_secret(
-            job_name=job_name,
-            namespace=namespace,
-            wh_creds=wh_creds,
-            core_v1_api=core_v1_api,
-        )
         command = [
             "python3",
             "-u",
-            "src/ml_core/preprocess_and_train.py",
+            "-m",
+            "src.ml_core.preprocess_and_train",
             "--s3_bucket",
             s3_config["bucket"],
             "--mode",
@@ -187,28 +207,10 @@ class K8sProcessor(Processor):
             "--prediction_task",
             prediction_task,
         ]
-        try:
-            self._create_job(
-                job_name=job_name,
-                secret=secret,
-                namespace=namespace,
-                resources=resources,
-                batch_v1_api=batch_v1_api,
-                command=command,
-            )
-            pod_name = self._wait_for_pod(
-                job_name=job_name, namespace=namespace, core_v1_api=core_v1_api
-            )
-            error_message = self._stream_logs(
-                pod_name=pod_name, namespace=namespace, core_v1_api=core_v1_api
-            )
-        finally:
-            core_v1_api.delete_namespaced_secret(
-                name=secret["name"], namespace=namespace
-            )
-        if error_message != "":
-            raise Exception(error_message)
-        # TODO - Add job status check
+        job_name = "ml-training-" + str(uuid.uuid4())
+        self._execute(
+            job_name=job_name, wh_creds=wh_creds, k8s_config=k8s_config, command=command
+        )
         S3Utils.download_directory(
             s3_config["bucket"],
             s3_config["region"],
@@ -227,6 +229,39 @@ class K8sProcessor(Processor):
             train_results_json = json.load(file)
         return train_results_json
 
+    def _execute(self, job_name, wh_creds, k8s_config, command):
+        namespace = k8s_config["namespace"]
+        config.load_incluster_config()
+        core_v1_api = client.CoreV1Api()
+        batch_v1_api = client.BatchV1Api()
+        secret = self._create_wh_creds_secret(
+            job_name=job_name,
+            namespace=namespace,
+            wh_creds=wh_creds,
+            core_v1_api=core_v1_api,
+        )
+        try:
+            self._create_job(
+                job_name=job_name,
+                secret=secret,
+                k8s_config=k8s_config,
+                batch_v1_api=batch_v1_api,
+                command=command,
+            )
+            pod_name = self._wait_for_pod(
+                job_name=job_name, namespace=namespace, core_v1_api=core_v1_api
+            )
+            self._stream_logs(
+                job_name=job_name,
+                namespace=namespace,
+                core_v1_api=core_v1_api,
+                pod_name=pod_name,
+            )
+        finally:
+            core_v1_api.delete_namespaced_secret(
+                name=secret["name"], namespace=namespace
+            )
+
     def predict(
         self,
         wh_creds: dict,
@@ -241,21 +276,11 @@ class K8sProcessor(Processor):
         credentials_presets = site_config["py_models"]["credentials_presets"]
         k8s_config = credentials_presets["kubernetes"]
         s3_config = credentials_presets["s3"]
-        namespace = k8s_config["namespace"]
-        resources = {
-            "cpu": k8s_config["resources"]["limits_cpu"],
-            "memory": k8s_config["resources"]["limits_memory"],
-        }
-        job_name = "ml-prediction-" + str(uuid.uuid4())
-        config.load_incluster_config()
-        core_v1_api = client.CoreV1Api()
-        batch_v1_api = client.BatchV1Api()
         json_output_filename = model_path.split("/")[-1]
         predict_upload_whitelist = [
             f"{self.trainer.output_profiles_ml_model}_{constants.MODEL_FILE_NAME}",
             json_output_filename,
         ]
-
         logger.debug("Uploading files required for prediction to S3")
         local_folder = self.connector.get_local_dir()
         S3Utils.upload_directory(
@@ -265,16 +290,11 @@ class K8sProcessor(Processor):
             os.path.dirname(local_folder),
             predict_upload_whitelist,
         )
-        secret = self._create_wh_creds_secret(
-            job_name=job_name,
-            namespace=namespace,
-            wh_creds=wh_creds,
-            core_v1_api=core_v1_api,
-        )
         command = [
             "python3",
             "-u",
-            "src/ml_core/preprocess_and_predict.py",
+            "-m",
+            "src.ml_core.preprocess_and_predict",
             "--s3_config",
             json.dumps(s3_config),
             "--mode",
@@ -290,28 +310,10 @@ class K8sProcessor(Processor):
             "--prediction_task",
             prediction_task,
         ]
-        try:
-            self._create_job(
-                job_name=job_name,
-                secret=secret,
-                namespace=namespace,
-                resources=resources,
-                batch_v1_api=batch_v1_api,
-                command=command,
-            )
-            pod_name = self._wait_for_pod(
-                job_name=job_name, namespace=namespace, core_v1_api=core_v1_api
-            )
-            error_message = self._stream_logs(
-                pod_name=pod_name, namespace=namespace, core_v1_api=core_v1_api
-            )
-        finally:
-            core_v1_api.delete_namespaced_secret(
-                name=secret["name"], namespace=namespace
-            )
-        if error_message != "":
-            raise Exception(error_message)
-        # TODO - Add job status check
+        job_name = "ml-prediction-" + str(uuid.uuid4())
+        self._execute(
+            job_name=job_name, wh_creds=wh_creds, k8s_config=k8s_config, command=command
+        )
         S3Utils.delete_directory(
             s3_config["bucket"], s3_config["region"], s3_config["path"]
         )

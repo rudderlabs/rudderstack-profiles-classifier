@@ -4,10 +4,9 @@ import json
 import boto3
 
 from src.processors.Processor import Processor
-from typing import List, Tuple, Dict
+from typing import List
 
 
-import src.utils.utils as utils
 import src.utils.constants as constants
 from src.utils.logger import logger
 from src.utils.S3Utils import S3Utils
@@ -58,7 +57,7 @@ class AWSProcessor(Processor):
         commands = [
             f"cd {remote_dir}/rudderstack-profiles-classifier",
             f"pip install -r requirements.txt",
-            f"python3 src/ml_core/preprocess_and_train.py --s3_bucket {s3_bucket} --aws_region_name {aws_region_name} --s3_path {s3_path} --ec2_temp_output_json {ec2_temp_output_json} --material_names '{json.dumps(materials)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}'",
+            f"python3 -m src.ml_core.preprocess_and_train --s3_bucket {s3_bucket} --aws_region_name {aws_region_name} --s3_path {s3_path} --ec2_temp_output_json {ec2_temp_output_json} --material_names '{json.dumps(materials)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}'",
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 
@@ -117,7 +116,7 @@ class AWSProcessor(Processor):
         commands = [
             f"cd {remote_dir}/rudderstack-profiles-classifier",
             f"pip install -r requirements.txt",
-            f"python3 src/ml_core/preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' --s3_config '{json.dumps(s3_config)}' --json_output_filename {json_output_filename} --inputs '{json.dumps(inputs)}' --output_tablename {output_tablename} --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task}",
+            f"python3 -m src.ml_core.preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' --s3_config '{json.dumps(s3_config)}' --json_output_filename {json_output_filename} --inputs '{json.dumps(inputs)}' --output_tablename {output_tablename} --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task}",
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 

@@ -4,7 +4,6 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from typing import Any, List
 from src.utils.logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from src.utils.S3Utils import S3Utils
@@ -128,7 +127,7 @@ def predict(
             s3_config = {}
         else:
             s3_config = presets["s3"]
-    if mode == ProcessorMap.RUDDERSTACK_MODE:
+    if mode == constants.RUDDERSTACK_MODE:
         s3_creds = S3Utils.get_temporary_credentials(s3_config["role_arn"])
         s3_config["access_key_id"] = s3_creds["access_key_id"]
         s3_config["access_key_secret"] = s3_creds["access_key_secret"]

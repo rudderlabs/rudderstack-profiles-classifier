@@ -205,9 +205,7 @@ class TestGetMaterialNames(unittest.TestCase):
             )
         # Check the exception message
         self.assertIn(
-            f"Unexpected material names: {material_info.feature_table_name, material_info.label_table_name} \
-                        and corresponding training dates: {material_info.feature_table_date, material_info.label_table_date} \
-                            for features_profiles_model {self.features_profiles_model} and model_hash {self.model_hash}",
+            f"We don't need to fetch feature_date and label_date to materialise new datasets because Tables {material_info.feature_table_name} and {material_info.label_table_name} already exist. Please check generated materials for discrepancies.",
             str(context.exception),
         )
 

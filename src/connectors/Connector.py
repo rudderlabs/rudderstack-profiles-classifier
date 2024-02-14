@@ -186,21 +186,27 @@ class Connector(ABC):
                 and material_info.label_table_name is None
             ):
                 feature_table_name_ = material_info.feature_table_name
-                if self.is_valid_table(session, feature_table_name_):
-                    label_date = utils.date_add(
-                        material_info.feature_table_date.split()[0],
-                        prediction_horizon_days,
-                    )
+                assert (
+                    self.is_valid_table(session, feature_table_name_) == True
+                ), f"Failed to fetch \
+                    valid feature_date and label_date because table {feature_table_name_} does not exist in the warehouse"
+                label_date = utils.date_add(
+                    material_info.feature_table_date.split()[0],
+                    prediction_horizon_days,
+                )
             elif (
                 material_info.feature_table_name is None
                 and material_info.label_table_name is not None
             ):
                 label_table_name_ = material_info.label_table_name
-                if self.is_valid_table(session, label_table_name_):
-                    feature_date = utils.date_add(
-                        material_info.label_table_date.split()[0],
-                        -prediction_horizon_days,
-                    )
+                assert (
+                    self.is_valid_table(session, label_table_name_) == True
+                ), f"Failed to fetch \
+                    valid feature_date and label_date because table {label_table_name_} does not exist in the warehouse"
+                feature_date = utils.date_add(
+                    material_info.label_table_date.split()[0],
+                    -prediction_horizon_days,
+                )
             elif (
                 material_info.feature_table_name is None
                 and material_info.label_table_name is None
@@ -209,14 +215,10 @@ class Connector(ABC):
                 label_date = utils.date_add(feature_date, prediction_horizon_days)
             else:
                 logger.exception(
-                    f"Unexpected material names: {material_info.feature_table_name, material_info.label_table_name} \
-                        and corresponding training dates: {material_info.feature_table_date, material_info.label_table_date} \
-                            for features_profiles_model {features_profiles_model} and model_hash {model_hash}"
+                    f"We don't need to fetch feature_date and label_date to materialise new datasets because Tables {material_info.feature_table_name} and {material_info.label_table_name} already exist. Please check generated materials for discrepancies."
                 )
                 raise Exception(
-                    f"Unexpected material names: {material_info.feature_table_name, material_info.label_table_name} \
-                        and corresponding training dates: {material_info.feature_table_date, material_info.label_table_date} \
-                            for features_profiles_model {features_profiles_model} and model_hash {model_hash}"
+                    f"We don't need to fetch feature_date and label_date to materialise new datasets because Tables {material_info.feature_table_name} and {material_info.label_table_name} already exist. Please check generated materials for discrepancies."
                 )
         return feature_date, label_date
 

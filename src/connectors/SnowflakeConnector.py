@@ -502,6 +502,28 @@ class SnowflakeConnector(Connector):
             )
         return label_value[0]
 
+    def fetch_filtered_table(
+        self,
+        df,
+        features_profiles_model,
+        model_hash,
+        start_time,
+        end_time,
+        columns,
+    ):
+        """Fetches the filtered table based on the given parameters."""
+        filtered_snowpark_df = (
+            df.filter(col("model_name") == features_profiles_model)
+            .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
+            .filter(col("model_hash") == model_hash)
+            .filter(
+                (to_date(col("end_ts")) >= start_time)
+                & (to_date(col("end_ts")) <= end_time)
+            )
+            .select(columns)
+        ).distinct()
+        return filtered_snowpark_df
+
     def get_material_names_(
         self,
         session: snowflake.snowpark.Session,
@@ -535,32 +557,22 @@ class SnowflakeConnector(Connector):
 
             snowpark_df = self.get_material_registry_table(session, material_table)
 
-            feature_snowpark_df = (
-                snowpark_df.filter(col("model_name") == features_profiles_model)
-                .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-                .filter(col("model_hash") == model_hash)
-                .filter(
-                    (to_date(col("end_ts")) >= start_time)
-                    & (to_date(col("end_ts")) <= end_time)
-                )
-                .select("seq_no", "end_ts")
-            ).distinct()
-            label_snowpark_df = (
-                snowpark_df.filter(col("model_name") == features_profiles_model)
-                .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-                .filter(col("model_hash") == model_hash)
-                .filter(
-                    (
-                        to_date(col("end_ts"))
-                        >= utils.date_add(start_time, prediction_horizon_days)
-                    )
-                    & (
-                        to_date(col("end_ts"))
-                        <= utils.date_add(end_time, prediction_horizon_days)
-                    )
-                )
-                .select("seq_no", "end_ts")
-            ).distinct()
+            feature_snowpark_df = self.fetch_filtered_table(
+                snowpark_df,
+                features_profiles_model,
+                model_hash,
+                start_time,
+                end_time,
+                columns=["seq_no", "end_ts"],
+            )
+            label_snowpark_df = self.fetch_filtered_table(
+                snowpark_df,
+                features_profiles_model,
+                model_hash,
+                utils.date_add(start_time, prediction_horizon_days),
+                utils.date_add(end_time, prediction_horizon_days),
+                columns=["seq_no", "end_ts"],
+            )
 
             feature_label_snowpark_df = feature_snowpark_df.join(
                 label_snowpark_df,

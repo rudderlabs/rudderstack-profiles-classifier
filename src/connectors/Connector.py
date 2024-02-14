@@ -65,9 +65,7 @@ class Connector(ABC):
         Returns:
             List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
-        (
-            materials
-        ) = self.get_material_names_(
+        (materials) = self.get_material_names_(
             session,
             material_table,
             start_date,
@@ -92,9 +90,7 @@ class Connector(ABC):
                     project_folder,
                     input_models,
                 )
-                (
-                    materials
-                ) = self.get_material_names_(
+                (materials) = self.get_material_names_(
                     session,
                     material_table,
                     start_date,
@@ -109,7 +105,7 @@ class Connector(ABC):
                 raise Exception(
                     f"Following exception occured while generating past materials with hash {model_hash} for {features_profiles_model} between dates {start_date} and {end_date}: {e}"
                 )
-            
+
         complete_sequences_materials = self._get_complete_sequences(materials)
         if len(complete_sequences_materials) == 0:
             raise Exception(
@@ -185,20 +181,30 @@ class Connector(ABC):
     ):
         feature_date, label_date = None, None
         for material_info in materials:
-            if material_info.feature_table_name is not None and material_info.label_table_name is None:
+            if (
+                material_info.feature_table_name is not None
+                and material_info.label_table_name is None
+            ):
                 feature_table_name_ = material_info.feature_table_name
                 if self.is_valid_table(session, feature_table_name_):
                     label_date = utils.date_add(
-                        material_info.feature_table_date.split()[0], prediction_horizon_days
+                        material_info.feature_table_date.split()[0],
+                        prediction_horizon_days,
                     )
-            elif material_info.feature_table_name is None and material_info.label_table_name is not None:
+            elif (
+                material_info.feature_table_name is None
+                and material_info.label_table_name is not None
+            ):
                 label_table_name_ = material_info.label_table_name
                 if self.is_valid_table(session, label_table_name_):
                     feature_date = utils.date_add(
                         material_info.label_table_date.split()[0],
                         -prediction_horizon_days,
                     )
-            elif material_info.feature_table_name is None and material_info.label_table_name is None:
+            elif (
+                material_info.feature_table_name is None
+                and material_info.label_table_name is None
+            ):
                 feature_date = utils.date_add(start_date, prediction_horizon_days)
                 label_date = utils.date_add(feature_date, prediction_horizon_days)
             else:
@@ -398,20 +404,25 @@ class Connector(ABC):
             return
 
         # Iterate over inputs and validate meterial names
+        validation_flag = True
         for input_material_query in inputs:
-            if self.validate_historical_materials_hash(
+            if not self.validate_historical_materials_hash(
                 session,
                 input_material_query,
                 row.FEATURE_SEQ_NO,
                 row.LABEL_SEQ_NO,
             ):
-                train_table_info = TrainTablesInfo(
-                    feature_table_name=feature_table_name_,
-                    feature_table_date=str(row.FEATURE_END_TS),
-                    label_table_name=label_table_name_,
-                    label_table_date=str(row.LABEL_END_TS),
-                )
-                materials.append(train_table_info)
+                validation_flag = False
+                break
+
+        if validation_flag:
+            train_table_info = TrainTablesInfo(
+                feature_table_name=feature_table_name_,
+                feature_table_date=str(row.FEATURE_END_TS),
+                label_table_name=label_table_name_,
+                label_table_date=str(row.LABEL_END_TS),
+            )
+            materials.append(train_table_info)
 
     def _get_complete_sequences(self, sequences: List[Sequence]) -> int:
         """
@@ -423,6 +434,18 @@ class Connector(ABC):
             if all(element is not None for element in sequence)
         ]
         return complete_sequences
+
+    @abstractmethod
+    def fetch_filtered_table(
+        self,
+        df,
+        features_profiles_model,
+        model_hash,
+        start_time,
+        end_time,
+        columns,
+    ):
+        pass
 
     @abstractmethod
     def build_session(self, credentials: dict):

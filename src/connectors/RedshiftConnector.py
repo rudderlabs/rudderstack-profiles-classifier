@@ -426,6 +426,29 @@ class RedshiftConnector(Connector):
             )
         return label_value[0]
 
+    def fetch_filtered_table(
+        self,
+        df,
+        features_profiles_model,
+        model_hash,
+        start_time,
+        end_time,
+        columns,
+    ):
+        filtered_df = (
+            df.loc[
+                (df["model_name"] == features_profiles_model)
+                & (df["model_type"] == constants.ENTITY_VAR_MODEL)
+                & (df["model_hash"] == model_hash)
+                & (df["end_ts"].dt.date >= pd.to_datetime(start_time).date())
+                & (df["end_ts"].dt.date <= pd.to_datetime(end_time).date()),
+                columns.keys(),
+            ]
+            .drop_duplicates()
+            .rename(columns=columns)
+        )
+        return filtered_df
+
     def get_material_names_(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -458,19 +481,13 @@ class RedshiftConnector(Connector):
 
             df = self.get_material_registry_table(cursor, material_table)
 
-            feature_df = (
-                df.loc[
-                    (df["model_name"] == model_name)
-                    & (df["model_type"] == constants.ENTITY_VAR_MODEL)
-                    & (df["model_hash"] == model_hash)
-                    & (df["end_ts"].dt.date >= pd.to_datetime(start_time).date())
-                    & (df["end_ts"].dt.date <= pd.to_datetime(end_time).date()),
-                    ["seq_no", "end_ts"],
-                ]
-                .drop_duplicates()
-                .rename(
-                    columns={"seq_no": "FEATURE_SEQ_NO", "end_ts": "FEATURE_END_TS"}
-                )
+            feature_df = self.fetch_filtered_table(
+                df,
+                model_name,
+                model_hash,
+                start_time,
+                end_time,
+                columns={"seq_no": "FEATURE_SEQ_NO", "end_ts": "FEATURE_END_TS"},
             )
             feature_df["LABEL_END_TS"] = feature_df["FEATURE_END_TS"] + timedelta(
                 days=prediction_horizon_days
@@ -483,19 +500,14 @@ class RedshiftConnector(Connector):
             label_end_time = datetime.strptime(end_time, time_format) + timedelta(
                 days=prediction_horizon_days
             )
-            label_df = (
-                df.loc[
-                    (df["model_name"] == model_name)
-                    & (df["model_type"] == constants.ENTITY_VAR_MODEL)
-                    & (df["model_hash"] == model_hash)
-                    & (df["end_ts"].dt.date >= pd.to_datetime(label_start_time).date())
-                    & (df["end_ts"].dt.date <= pd.to_datetime(label_end_time).date()),
-                    ["seq_no", "end_ts"],
-                ]
-                .drop_duplicates()
-                .rename(columns={"seq_no": "LABEL_SEQ_NO", "end_ts": "LABEL_END_TS"})
+            label_df = self.fetch_filtered_table(
+                df,
+                model_name,
+                model_hash,
+                label_start_time,
+                label_end_time,
+                columns={"seq_no": "LABEL_SEQ_NO", "end_ts": "LABEL_END_TS"},
             )
-
             feature_label_df = pd.merge(
                 feature_df, label_df, on="LABEL_END_TS", how="outer"
             ).replace({np.nan: None})

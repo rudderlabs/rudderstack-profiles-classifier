@@ -23,3 +23,5 @@ tmp/
 **/output/*
 .vscode/
 .idea/
+*.json
+*.csv

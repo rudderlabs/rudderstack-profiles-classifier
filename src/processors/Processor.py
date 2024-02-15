@@ -1,6 +1,7 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any, List, Tuple, Union, Dict
 
+import src.utils.constants as constants
 from src.trainers.MLTrainer import MLTrainer
 from src.connectors.Connector import Connector
 from src.ml_core.preprocess_and_predict import preprocess_and_predict
@@ -20,6 +21,18 @@ class Processor(ABC):
         self.trainer = trainer
         self.connector = connector
         self.session = session
+
+    @abstractmethod
+    def train(
+        self,
+        train_procedure,
+        materials: List[constants.TrainTablesInfo],
+        model_config: dict,
+        prediction_task: str,
+        wh_creds: dict,
+        site_config: dict,
+    ):
+        pass
 
     def predict(
         self,

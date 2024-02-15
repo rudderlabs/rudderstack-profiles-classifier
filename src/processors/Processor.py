@@ -1,10 +1,8 @@
 from abc import ABC
 from typing import Any, List, Tuple, Union, Dict
 
-from src.utils.constants import TrainTablesInfo
 from src.trainers.MLTrainer import MLTrainer
 from src.connectors.Connector import Connector
-from src.ml_core.preprocess_and_train import preprocess_and_train
 from src.ml_core.preprocess_and_predict import preprocess_and_predict
 
 import snowflake.snowpark
@@ -22,24 +20,6 @@ class Processor(ABC):
         self.trainer = trainer
         self.connector = connector
         self.session = session
-
-    def train(
-        self,
-        train_procedure,
-        materials: List[TrainTablesInfo],
-        model_config: dict,
-        prediction_task: str,
-        wh_creds: dict,
-        site_config: dict,
-    ):
-        return preprocess_and_train(
-            train_procedure,
-            materials,
-            model_config,
-            session=self.session,
-            connector=self.connector,
-            trainer=self.trainer,
-        )
 
     def predict(
         self,

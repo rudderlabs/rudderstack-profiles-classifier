@@ -293,6 +293,7 @@ if __name__ == "__main__":
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--prediction_task", type=str)
     parser.add_argument("--wh_creds", type=json.loads)
+    parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
 
@@ -310,7 +311,11 @@ if __name__ == "__main__":
         trainer = RegressionTrainer(**args.merged_config)
 
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    current_dir = (
+        os.path.dirname(os.path.abspath(__file__))
+        if args.mode == constants.RUDDERSTACK_MODE
+        else args.output_path
+    )
     train_procedure = train_and_store_model_results_rs
     connector = RedshiftConnector(current_dir)
     session = connector.build_session(wh_creds)
@@ -334,8 +339,6 @@ if __name__ == "__main__":
     with open(os.path.join(local_folder, args.ec2_temp_output_json), "w") as file:
         json.dump(train_results_json, file)
 
-    logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
-    model_id = train_results_json["model_id"]
     train_upload_whitelist = [
         trainer.figure_names["feature-importance-chart"],
         trainer.figure_names["lift-chart"],
@@ -345,6 +348,7 @@ if __name__ == "__main__":
         args.ec2_temp_output_json,
     ]
     if args.mode == constants.K8S_MODE:
+        logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
         S3Utils.upload_directory(
             args.s3_bucket,
             args.aws_region_name,
@@ -352,7 +356,10 @@ if __name__ == "__main__":
             local_folder,
             train_upload_whitelist,
         )
-    else:
+        logger.debug(f"Deleting additional local directory from infra mode")
+        connector.cleanup(delete_local_data=True)
+    elif args.mode == constants.RUDDERSTACK_MODE:
+        logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
         S3Utils.upload_directory_using_keys(
             args.s3_bucket,
             args.aws_region_name,
@@ -360,5 +367,5 @@ if __name__ == "__main__":
             local_folder,
             train_upload_whitelist,
         )
-    logger.debug(f"Deleting additional local directory from infra mode")
-    connector.cleanup(delete_local_data=True)
+        logger.debug(f"Deleting additional local directory from infra mode")
+        connector.cleanup(delete_local_data=True)

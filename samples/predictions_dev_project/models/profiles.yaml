@@ -1,0 +1,57 @@
+models:
+  - name: rudder_user_id_stitcher
+    model_type: id_stitcher
+    model_spec:
+      validity_time: 24h # 1 day
+      entity_key: user
+      edge_sources:
+        - from: inputs/rsIdentifies
+        - from: inputs/rsTracks
+        - from: inputs/rsPages
+        - from: inputs/rsOrderCompleted
+          # Remove the section below, if you don't want to generate a feature table
+
+  - name: predictions_dev_features
+    model_type: feature_table_model
+    model_spec:
+      validity_time: 24h # 1 day
+      entity_key: user
+      vars:
+        - entity_var:
+            name: max_timestamp_bw_tracks_pages
+            select: max(timestamp)
+            from: models/rsTracksUnionPages
+        #days since last seen
+        - entity_var:
+            name: days_since_last_seen
+            select: "{{macro_datediff('{{user.Var(\"max_timestamp_bw_tracks_pages\")}}')}}"
+            dependencies:
+              - max_timestamp_bw_tracks_pages
+
+        # LTV features
+        - entity_var:
+            name: n_orders_completed
+            default: 0
+            select: count(*)
+            from: inputs/rsOrderCompleted
+            description: Total number of orders completed till date.
+        - entity_var:
+            name: gross_amt_spent_in_past_90_days
+            default: 0
+            select: sum(REVENUE::real)
+            from: inputs/rsOrderCompleted
+            where: "{{macro_datediff_n('timestamp','90')}}"
+            description: Total amount spent in past 90 days.
+        - entity_var:
+            name: total_sessions_till_date
+            from: models/rsTracksUnionPages
+            select: count(distinct context_session_id)
+            where: context_session_id is not null
+            description: Total individual sessions created till date.
+
+      features:
+        - days_since_last_seen
+        - total_sessions_till_date
+        - n_orders_completed
+        - gross_amt_spent_in_past_90_days
+

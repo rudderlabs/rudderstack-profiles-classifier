@@ -111,12 +111,12 @@ class AWSProcessor(Processor):
             predict_upload_whitelist,
         )
 
-        logger.debug("Starting prediction on ec2")
+        logger.debug("Starting prediction on Rudderstack processing mode")
         ssm_client = boto3.client(service_name="ssm", region_name=s3_config["region"])
         commands = [
             f"cd {remote_dir}/rudderstack-profiles-classifier",
             f"pip install -r requirements.txt",
-            f"python3 -m src.ml_core.preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' --s3_config '{json.dumps(s3_config)}' --json_output_filename {json_output_filename} --inputs '{json.dumps(inputs)}' --output_tablename {output_tablename} --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task}",
+            f"python3 -m src.ml_core.preprocess_and_predict.py --wh_creds '{json.dumps(creds)}' --s3_config '{json.dumps(s3_config)}' --json_output_filename {json_output_filename} --inputs '{json.dumps(inputs)}' --output_tablename {output_tablename} --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --mode {constants.RUDDERSTACK_MODE}",
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 

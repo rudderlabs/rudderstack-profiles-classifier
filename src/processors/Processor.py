@@ -1,9 +1,9 @@
-from abc import ABC
+from abc import ABC, abstractmethod
 from typing import Any, List, Tuple, Union, Dict
 
+import src.utils.constants as constants
 from src.trainers.MLTrainer import MLTrainer
 from src.connectors.Connector import Connector
-from src.ml_core.preprocess_and_predict import preprocess_and_predict
 
 import snowflake.snowpark
 import redshift_connector
@@ -21,6 +21,19 @@ class Processor(ABC):
         self.connector = connector
         self.session = session
 
+    @abstractmethod
+    def train(
+        self,
+        train_procedure,
+        materials: List[constants.TrainTablesInfo],
+        model_config: dict,
+        prediction_task: str,
+        wh_creds: dict,
+        site_config: dict,
+    ):
+        pass
+
+    @abstractmethod
     def predict(
         self,
         creds,
@@ -32,14 +45,4 @@ class Processor(ABC):
         prediction_task,
         site_config: dict,
     ):
-        return preprocess_and_predict(
-            creds,
-            s3_config,
-            model_path,
-            inputs,
-            output_tablename,
-            prediction_task,
-            session=self.session,
-            connector=self.connector,
-            trainer=self.trainer,
-        )
+        pass

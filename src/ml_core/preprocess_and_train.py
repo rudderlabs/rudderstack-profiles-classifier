@@ -312,9 +312,9 @@ if __name__ == "__main__":
 
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
     current_dir = (
-        os.path.dirname(os.path.abspath(__file__))
-        if args.mode == constants.RUDDERSTACK_MODE
-        else args.output_path
+        args.output_path
+        if args.mode == constants.LOCAL_MODE
+        else os.path.dirname(os.path.abspath(__file__))
     )
     train_procedure = train_and_store_model_results_rs
     connector = RedshiftConnector(current_dir)

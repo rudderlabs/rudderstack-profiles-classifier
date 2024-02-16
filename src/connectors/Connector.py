@@ -7,6 +7,7 @@ import src.utils.utils as utils
 from src.utils import constants
 from src.utils.logger import logger
 from src.utils.constants import TrainTablesInfo
+from src.wht.pb import getPB
 
 
 class Connector(ABC):
@@ -273,22 +274,12 @@ class Connector(ABC):
         site_config_path: str = None,
         project_folder: str = None,
     ) -> Tuple[str, str]:
-        project_folder = utils.get_project_folder(project_folder, output_filename)
-        pb = utils.get_pb_path()
-        args = [
-            pb,
-            "compile",
-            "-p",
-            project_folder,
-            "--migrate_on_load=True",
-        ]
-        if site_config_path is not None:
-            args.extend(["-c", site_config_path])
-        logger.info(f"Fetching latest model hash by running command: {' '.join(args)}")
-        pb_compile_output_response = utils.subprocess_run(args)
-        pb_compile_output = (pb_compile_output_response.stdout).lower()
-        logger.info(f"pb compile output: {pb_compile_output}")
-
+        args = {
+            "project_folder": project_folder,
+            "output_filename": output_filename,
+            "site_config_path": site_config_path,
+        }
+        pb_compile_output = getPB().compile(args)
         features_profiles_model = None
         for var_table in var_table_suffix:
             if entity_key + var_table in pb_compile_output:
@@ -585,7 +576,6 @@ class Connector(ABC):
         self,
         session,
         material_table: str,
-        model_name: str,
         model_hash: str,
         entity_key: str,
     ):

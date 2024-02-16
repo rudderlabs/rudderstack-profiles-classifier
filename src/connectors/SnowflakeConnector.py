@@ -640,7 +640,6 @@ class SnowflakeConnector(Connector):
         self,
         session: snowflake.snowpark.Session,
         material_table: str,
-        model_name: str,
         model_hash: str,
         entity_key: str,
     ):
@@ -671,7 +670,7 @@ class SnowflakeConnector(Connector):
 
         except:
             raise Exception(
-                f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
+                f"Project is never materialzied with model hash {model_hash}."
             )
         return creation_ts
 

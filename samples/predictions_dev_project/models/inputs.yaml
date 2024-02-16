@@ -14,7 +14,7 @@ inputs:
         - name: anonymous_id
         - name: email
     app_defaults:
-      table: RUDDERSTACK_TEST_DB.PROFILES_SIMULATED_DATA.IDENTIFIES
+      table: predictions_dev_project.identifies
       occurred_at_col: timestamp
       ids:
         - select: "user_id"
@@ -43,7 +43,7 @@ inputs:
         - name: user_id
         - name: anonymous_id
     app_defaults:
-      table: RUDDERSTACK_TEST_DB.PROFILES_SIMULATED_DATA.TRACKS
+      table: predictions_dev_project.tracks
       occurred_at_col: timestamp
       ids:
         - select: "user_id"
@@ -68,7 +68,7 @@ inputs:
         - name: user_id
         - name: anonymous_id
     app_defaults:
-      table: RUDDERSTACK_TEST_DB.PROFILES_SIMULATED_DATA.PAGES
+      table: predictions_dev_project.pages
       occurred_at_col: timestamp
       ids:
         - select: "user_id"
@@ -89,7 +89,7 @@ inputs:
         - name: timestamp
         - name: user_id
     app_defaults:
-      table: RUDDERSTACK_TEST_DB.PROFILES_SIMULATED_DATA.ORDER_COMPLETED
+      table: predictions_dev_project.order_completed
       occurred_at_col: timestamp
       ids:
         - select: "user_id"

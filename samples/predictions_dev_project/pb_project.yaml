@@ -3,7 +3,7 @@ name: base_features
 # Project's yaml schema version
 schema_version: 44
 # WH Connection Profile to use.
-connection: dev_wh2
+connection: shopify_wh_rs
 # Whether to allow inputs having no timestamps,
 # if true, data without timestamps are included when running models
 include_untimed: true

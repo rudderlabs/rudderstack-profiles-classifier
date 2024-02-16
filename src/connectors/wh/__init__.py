@@ -13,7 +13,7 @@ from src.connectors.wh.connector_base import connector_classes
 # SnowflakeConnector not used currently in profiles_rudderstack
 def ProfilesConnector(
     config: dict, **kwargs
-) -> Union[RedShiftConnector, SnowflakeConnector,BigqueryConnector]:
+) -> Union[RedShiftConnector, SnowflakeConnector, BigqueryConnector]:
     """Creates a connector object based on the config provided
 
     Args:

@@ -26,7 +26,6 @@ class BigqueryConnector(ConnectorBase):
         schema: str = None,
         if_exists: str = "append",
     ):
-
         if "." in table_name:
             schema, table_name = table_name.split(".")
         try:

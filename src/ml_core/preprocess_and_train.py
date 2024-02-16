@@ -294,6 +294,7 @@ if __name__ == "__main__":
     parser.add_argument("--prediction_task", type=str)
     parser.add_argument("--wh_creds", type=json.loads)
     parser.add_argument("--output_path", type=str)
+    parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
 

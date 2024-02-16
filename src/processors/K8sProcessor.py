@@ -211,13 +211,14 @@ class K8sProcessor(Processor):
         self._execute(
             job_name=job_name, wh_creds=wh_creds, k8s_config=k8s_config, command=command
         )
-        S3Utils.download_directory(
+        S3Utils.download_directory_from_S3(
             s3_config["bucket"],
             s3_config["region"],
             s3_config["path"],
             self.connector.get_local_dir(),
+            constants.K8S_MODE,
         )
-        S3Utils.delete_directory(
+        S3Utils.delete_directory_in_S3(
             s3_config["bucket"], s3_config["region"], s3_config["path"]
         )
         with open(
@@ -283,12 +284,13 @@ class K8sProcessor(Processor):
         ]
         logger.debug("Uploading files required for prediction to S3")
         local_folder = self.connector.get_local_dir()
-        S3Utils.upload_directory(
+        S3Utils.upload_directory_to_S3(
             s3_config["bucket"],
             s3_config["region"],
             s3_config["path"],
             os.path.dirname(local_folder),
             predict_upload_whitelist,
+            constants.K8S_MODE,
         )
         command = [
             "python3",
@@ -314,6 +316,6 @@ class K8sProcessor(Processor):
         self._execute(
             job_name=job_name, wh_creds=wh_creds, k8s_config=k8s_config, command=command
         )
-        S3Utils.delete_directory(
+        S3Utils.delete_directory_in_S3(
             s3_config["bucket"], s3_config["region"], s3_config["path"]
         )

@@ -1,3 +1,4 @@
+import sys
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -347,6 +348,17 @@ def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
         if key not in profiles_config:
             merged_config[key] = default_config[key]
     return merged_config
+
+
+def parse_warehouse_creds(creds: dict, mode: str) -> dict:
+    if mode == constants.K8S_MODE:
+        wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
+        wh_creds = json.loads(wh_creds_str)
+    elif mode == constants.CI_MODE:
+        sys.exit(0)
+    else:
+        wh_creds = creds
+    return wh_creds
 
 
 def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> List[str]:

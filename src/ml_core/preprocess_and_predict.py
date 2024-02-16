@@ -217,6 +217,7 @@ if __name__ == "__main__":
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
 
+    wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = (
         args.output_path
@@ -224,20 +225,9 @@ if __name__ == "__main__":
         else os.path.join(current_dir, "output")
     )
 
-    wh_creds = args.wh_creds
-    if args.mode == constants.K8S_MODE:
-        wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
-        wh_creds = json.loads(wh_creds_str)
-        S3Utils.download_directory(
-            args.s3_config["bucket"],
-            args.s3_config["region"],
-            args.s3_config["path"],
-            output_dir,
-        )
-    elif args.mode == constants.CI_MODE:
-        sys.exit(0)
-    elif args.mode == constants.RUDDERSTACK_MODE:
-        S3Utils.download_directory_using_keys(args.s3_config, output_dir)
+    if args.mode != constants.LOCAL_MODE:
+        logger.debug(f"Downloading files from S3 in {args.mode} mode.")
+        S3Utils.download_directory_from_S3(args.s3_config, output_dir, args.mode)
 
     if args.prediction_task == "classification":
         trainer = ClassificationTrainer(**args.merged_config)
@@ -261,6 +251,7 @@ if __name__ == "__main__":
         connector=connector,
         trainer=trainer,
     )
-    logger.debug(f"Deleting additional local directory from infra mode")
+
     if args.mode != constants.LOCAL_MODE:
+        logger.debug(f"Deleting additional local directory from {args.mode} mode.")
         utils.delete_folder(output_dir)

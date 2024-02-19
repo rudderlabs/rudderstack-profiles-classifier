@@ -3,6 +3,10 @@ import os
 import yaml
 import pathlib
 import json
+from logger import logger
+from dotenv import load_dotenv  # pip3 install python-dotenv
+
+load_dotenv()
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -11,7 +15,7 @@ import predict as P
 
 if __name__ == "__main__":
     train_file_extension = ".json"
-    schema = "dev_wh"
+    connection_name = os.getenv("SITE_CONN_NAME")
     project_folder = "samples/application_project"
     feature_table_name = "rudder_user_base_features"
     eligible_users = "1=1"
@@ -22,8 +26,6 @@ if __name__ == "__main__":
     p_output_tablename = "test_run_can_delete_2"
     t_output_filename = "output/dev/seq_no/1/train_output" + train_file_extension
     should_train = True
-    material_seq = 295  # seq no of most recent material from pb run
-    model_hash = "8a719ff2"  # hash of the feature_table_name from current pb run
     entity_key = "user"
     output_model_name = "shopify_churn"
     inputs = [f"packages/{package_name}/models/{feature_table_name}"]
@@ -31,11 +33,10 @@ if __name__ == "__main__":
     homedir = os.path.expanduser("~")
 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        creds = yaml.safe_load(f)["connections"][schema]["outputs"]["dev"]
+        env_name = os.getenv("SITE_ENV_NAME")
+        creds = yaml.safe_load(f)["connections"][connection_name]["outputs"][env_name]
 
     # End of user inputs.
-
-    from logger import logger
 
     logger.setLevel("DEBUG")
 

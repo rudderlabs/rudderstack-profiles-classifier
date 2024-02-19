@@ -537,7 +537,6 @@ class RedshiftConnector(Connector):
         self,
         cursor: redshift_connector.cursor.Cursor,
         material_table: str,
-        model_name: str,
         model_hash: str,
         entity_key: str,
     ):
@@ -546,7 +545,6 @@ class RedshiftConnector(Connector):
         Args:
             cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
             material_table (str): name of material registry table
-            model_name (str): model_name from model_configs file
             model_hash (str): latest model hash
             entity_key (str): entity key
 
@@ -567,7 +565,7 @@ class RedshiftConnector(Connector):
             creation_ts = temp_hash_vector["creation_ts"]
         except:
             raise Exception(
-                f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
+                f"Project is never materialzied with model hash {model_hash}."
             )
         return creation_ts
 

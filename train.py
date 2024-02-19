@@ -298,7 +298,6 @@ def train(
     creation_ts = connector.get_creation_ts(
         session,
         material_table,
-        features_profiles_model,
         model_hash,
         trainer.entity_key,
     )

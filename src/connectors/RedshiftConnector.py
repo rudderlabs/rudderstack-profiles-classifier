@@ -13,6 +13,7 @@ from typing import List, Tuple, Any, Union, Optional, Sequence, Dict
 
 import src.utils.utils as utils
 from src.utils import constants
+from src.utils.constants import TrainTablesInfo
 from src.utils.logger import logger
 from src.connectors.Connector import Connector
 from src.connectors.wh import ProfilesConnector
@@ -131,6 +132,25 @@ class RedshiftConnector(Connector):
             str: UDF name
         """
         return None
+
+    def is_valid_table(
+        self, cursor: redshift_connector.cursor.Cursor, table_name: str
+    ) -> bool:
+        """
+        Checks whether a table exists in the data warehouse.
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): A redshift cursor for data warehouse access.
+            table_name (str): The name of the table to be checked.
+
+        Returns:
+            bool: True if the table exists, False otherwise.
+        """
+        try:
+            cursor.execute(f"select * from {table_name} limit 1").fetchall()
+            return True
+        except:
+            return False
 
     def get_table(
         self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs
@@ -406,6 +426,29 @@ class RedshiftConnector(Connector):
             )
         return label_value[0]
 
+    def fetch_filtered_table(
+        self,
+        df,
+        features_profiles_model,
+        model_hash,
+        start_time,
+        end_time,
+        columns,
+    ):
+        filtered_df = (
+            df.loc[
+                (df["model_name"] == features_profiles_model)
+                & (df["model_type"] == constants.ENTITY_VAR_MODEL)
+                & (df["model_hash"] == model_hash)
+                & (df["end_ts"].dt.date >= pd.to_datetime(start_time).date())
+                & (df["end_ts"].dt.date <= pd.to_datetime(end_time).date()),
+                columns.keys(),
+            ]
+            .drop_duplicates()
+            .rename(columns=columns)
+        )
+        return filtered_df
+
     def get_material_names_(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -417,8 +460,8 @@ class RedshiftConnector(Connector):
         material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
-    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-        """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
+    ) -> List[TrainTablesInfo]:
+        """Generates material names as list containing feature table name and label table name required to create the training model and their corresponding training dates.
 
         Args:
             cursor (redshift_connector.cursor.Cursor): Redshift connector cursor for data warehouse access
@@ -431,30 +474,22 @@ class RedshiftConnector(Connector):
             prediction_horizon_days (int): period of days
 
         Returns:
-            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
-            ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
+            List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
         try:
-            material_names = list()
-            training_dates = list()
+            materials = list()
 
             df = self.get_material_registry_table(cursor, material_table)
 
-            feature_df = (
-                df.loc[
-                    (df["model_name"] == model_name)
-                    & (df["model_type"] == constants.ENTITY_VAR_MODEL)
-                    & (df["model_hash"] == model_hash)
-                    & (df["end_ts"] >= start_time)
-                    & (df["end_ts"] <= end_time),
-                    ["seq_no", "end_ts"],
-                ]
-                .drop_duplicates()
-                .rename(
-                    columns={"seq_no": "feature_seq_no", "end_ts": "feature_end_ts"}
-                )
+            feature_df = self.fetch_filtered_table(
+                df,
+                model_name,
+                model_hash,
+                start_time,
+                end_time,
+                columns={"seq_no": "FEATURE_SEQ_NO", "end_ts": "FEATURE_END_TS"},
             )
-            feature_df["label_end_ts"] = feature_df["feature_end_ts"] + timedelta(
+            feature_df["LABEL_END_TS"] = feature_df["FEATURE_END_TS"] + timedelta(
                 days=prediction_horizon_days
             )
 
@@ -465,52 +500,34 @@ class RedshiftConnector(Connector):
             label_end_time = datetime.strptime(end_time, time_format) + timedelta(
                 days=prediction_horizon_days
             )
-            label_df = (
-                df.loc[
-                    (df["model_name"] == model_name)
-                    & (df["model_type"] == constants.ENTITY_VAR_MODEL)
-                    & (df["model_hash"] == model_hash)
-                    & (df["end_ts"] >= label_start_time)
-                    & (df["end_ts"] <= label_end_time),
-                    ["seq_no", "end_ts"],
-                ]
-                .drop_duplicates()
-                .rename(columns={"seq_no": "label_seq_no", "end_ts": "label_end_ts"})
+            label_df = self.fetch_filtered_table(
+                df,
+                model_name,
+                model_hash,
+                label_start_time,
+                label_end_time,
+                columns={"seq_no": "LABEL_SEQ_NO", "end_ts": "LABEL_END_TS"},
             )
-
             feature_label_df = pd.merge(
-                feature_df, label_df, on="label_end_ts", how="inner"
-            )
+                feature_df, label_df, on="LABEL_END_TS", how="outer"
+            ).replace({np.nan: None})
 
             for _, row in feature_label_df.iterrows():
-                feat_seq_no = str(row["feature_seq_no"])
-                feature_material_name = utils.generate_material_name(
+                self._fetch_valid_historic_materials(
+                    cursor,
+                    row,
                     material_table_prefix,
                     model_name,
                     model_hash,
-                    feat_seq_no,
+                    inputs,
+                    materials,
                 )
-
-                label_seq_no = str(row["label_seq_no"])
-                label_meterial_name = utils.generate_material_name(
-                    material_table_prefix,
-                    model_name,
-                    model_hash,
-                    label_seq_no,
-                )
-
-                # Iterate over inputs and validate meterial names
-                for input_material_query in inputs:
-                    if self.validate_historical_materials_hash(
-                        cursor, input_material_query, feat_seq_no, label_seq_no
-                    ):
-                        material_names.append(
-                            (feature_material_name, label_meterial_name)
-                        )
-                        training_dates.append(
-                            (str(row["feature_end_ts"]), str(row["label_end_ts"]))
-                        )
-            return material_names, training_dates
+                if (
+                    len(self._get_complete_sequences(materials))
+                    >= constants.TRAIN_MATERIALS_LIMIT
+                ):
+                    break
+            return materials
         except Exception as e:
             raise Exception(
                 f"Following exception occured while retrieving material names with hash {model_hash} for {model_name} between dates {start_time} and {end_time}: {e}"
@@ -520,7 +537,6 @@ class RedshiftConnector(Connector):
         self,
         cursor: redshift_connector.cursor.Cursor,
         material_table: str,
-        model_name: str,
         model_hash: str,
         entity_key: str,
     ):
@@ -529,7 +545,6 @@ class RedshiftConnector(Connector):
         Args:
             cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
             material_table (str): name of material registry table
-            model_name (str): model_name from model_configs file
             model_hash (str): latest model hash
             entity_key (str): entity key
 
@@ -550,7 +565,7 @@ class RedshiftConnector(Connector):
             creation_ts = temp_hash_vector["creation_ts"]
         except:
             raise Exception(
-                f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
+                f"Project is never materialzied with model hash {model_hash}."
             )
         return creation_ts
 

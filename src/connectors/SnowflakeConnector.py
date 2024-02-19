@@ -11,11 +11,12 @@ import snowflake.snowpark
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 from snowflake.snowpark.window import Window
-from snowflake.snowpark.functions import col
+from snowflake.snowpark.functions import col, to_date
 from snowflake.snowpark.session import Session
 
 import src.utils.utils as utils
 from src.utils import constants
+from src.utils.constants import TrainTablesInfo
 from src.utils.logger import logger
 from src.connectors.Connector import Connector
 
@@ -116,6 +117,25 @@ class SnowflakeConnector(Connector):
         stage_name = results["model_info"]["file_location"]["stage"]
         return f"prediction_score_{stage_name.replace('@','')}"
 
+    def is_valid_table(
+        self, session: snowflake.snowpark.Session, table_name: str
+    ) -> bool:
+        """
+        Checks whether a table exists in the data warehouse.
+
+        Args:
+            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
+            table_name (str): The name of the table to be checked.
+
+        Returns:
+            bool: True if the table exists, False otherwise.
+        """
+        try:
+            session.sql(f"select * from {table_name} limit 1").collect()
+            return True
+        except:
+            return False
+
     def get_table(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs
     ) -> snowflake.snowpark.Table:
@@ -129,7 +149,7 @@ class SnowflakeConnector(Connector):
             table (snowflake.snowpark.Table): The table as a snowpark table object
         """
         filter_condition = kwargs.get("filter_condition", None)
-        if not utils.is_valid_table(session, table_name):
+        if not self.is_valid_table(session, table_name):
             raise Exception(f"Table {table_name} does not exist or not authorized")
         table = session.table(table_name)
         if filter_condition:
@@ -482,6 +502,28 @@ class SnowflakeConnector(Connector):
             )
         return label_value[0]
 
+    def fetch_filtered_table(
+        self,
+        df,
+        features_profiles_model,
+        model_hash,
+        start_time,
+        end_time,
+        columns,
+    ):
+        """Fetches the filtered table based on the given parameters."""
+        filtered_snowpark_df = (
+            df.filter(col("model_name") == features_profiles_model)
+            .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
+            .filter(col("model_hash") == model_hash)
+            .filter(
+                (to_date(col("end_ts")) >= start_time)
+                & (to_date(col("end_ts")) <= end_time)
+            )
+            .select(columns)
+        ).distinct()
+        return filtered_snowpark_df
+
     def get_material_names_(
         self,
         session: snowflake.snowpark.Session,
@@ -493,8 +535,8 @@ class SnowflakeConnector(Connector):
         material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
-    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-        """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
+    ) -> List[TrainTablesInfo]:
+        """Generates material names as list containing feature table name and label table name required to create the training model and their corresponding training dates.
 
         Args:
             session (snowflake.snowpark.Session): Snowpark session for data warehouse access
@@ -508,36 +550,35 @@ class SnowflakeConnector(Connector):
             inputs (List[str]): list of input features
 
         Returns:
-            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
-            ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
+            List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
         try:
-            material_names = list()
-            training_dates = list()
+            materials = list()
 
             snowpark_df = self.get_material_registry_table(session, material_table)
 
-            feature_snowpark_df = (
-                snowpark_df.filter(col("model_name") == features_profiles_model)
-                .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-                .filter(col("model_hash") == model_hash)
-                .filter(f"end_ts between '{start_time}' and '{end_time}'")
-                .select("seq_no", "end_ts")
-            ).distinct()
-            label_snowpark_df = (
-                snowpark_df.filter(col("model_name") == features_profiles_model)
-                .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-                .filter(col("model_hash") == model_hash)
-                .filter(
-                    f"end_ts between dateadd(day, {prediction_horizon_days}, '{start_time}') and dateadd(day, {prediction_horizon_days}, '{end_time}')"
-                )
-                .select("seq_no", "end_ts")
-            ).distinct()
+            feature_snowpark_df = self.fetch_filtered_table(
+                snowpark_df,
+                features_profiles_model,
+                model_hash,
+                start_time,
+                end_time,
+                columns=["seq_no", "end_ts"],
+            )
+            label_snowpark_df = self.fetch_filtered_table(
+                snowpark_df,
+                features_profiles_model,
+                model_hash,
+                utils.date_add(start_time, prediction_horizon_days),
+                utils.date_add(end_time, prediction_horizon_days),
+                columns=["seq_no", "end_ts"],
+            )
 
             feature_label_snowpark_df = feature_snowpark_df.join(
                 label_snowpark_df,
                 F.datediff("day", feature_snowpark_df.end_ts, label_snowpark_df.end_ts)
                 == prediction_horizon_days,
+                join_type="full",
             ).select(
                 feature_snowpark_df.seq_no.alias("feature_seq_no"),
                 feature_snowpark_df.end_ts.alias("feature_end_ts"),
@@ -545,37 +586,21 @@ class SnowflakeConnector(Connector):
                 label_snowpark_df.end_ts.alias("label_end_ts"),
             )
             for row in feature_label_snowpark_df.collect():
-                feature_table_name_ = utils.generate_material_name(
+                self._fetch_valid_historic_materials(
+                    session,
+                    row,
                     material_table_prefix,
                     features_profiles_model,
                     model_hash,
-                    str(row.FEATURE_SEQ_NO),
+                    inputs,
+                    materials,
                 )
-                label_table_name_ = utils.generate_material_name(
-                    material_table_prefix,
-                    features_profiles_model,
-                    model_hash,
-                    str(row.LABEL_SEQ_NO),
-                )
-
-                if not utils.is_valid_table(
-                    session, feature_table_name_
-                ) or not utils.is_valid_table(session, label_table_name_):
-                    continue
-
-                # Iterate over inputs and validate meterial names
-                for input_material_query in inputs:
-                    if self.validate_historical_materials_hash(
-                        session,
-                        input_material_query,
-                        row.FEATURE_SEQ_NO,
-                        row.LABEL_SEQ_NO,
-                    ):
-                        material_names.append((feature_table_name_, label_table_name_))
-                        training_dates.append(
-                            (str(row.FEATURE_END_TS), str(row.LABEL_END_TS))
-                        )
-            return material_names, training_dates
+                if (
+                    len(self._get_complete_sequences(materials))
+                    >= constants.TRAIN_MATERIALS_LIMIT
+                ):
+                    break
+            return materials
         except Exception as e:
             raise Exception(
                 f"Following exception occured while retrieving material names with hash {model_hash} for {features_profiles_model} between dates {start_time} and {end_time}: {e}"
@@ -615,7 +640,6 @@ class SnowflakeConnector(Connector):
         self,
         session: snowflake.snowpark.Session,
         material_table: str,
-        model_name: str,
         model_hash: str,
         entity_key: str,
     ):
@@ -646,7 +670,7 @@ class SnowflakeConnector(Connector):
 
         except:
             raise Exception(
-                f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
+                f"Project is never materialzied with model hash {model_hash}."
             )
         return creation_ts
 

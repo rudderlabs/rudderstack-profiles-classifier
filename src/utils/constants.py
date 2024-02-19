@@ -5,6 +5,7 @@ ENTITY_VAR_MODEL = "entity_var_model"
 MODEL_FILE_NAME = "classifier.joblib"
 CARDINAL_FEATURE_THRESOLD = 0.01
 MIN_SAMPLES_FOR_TRAINING = 10
+TRAIN_MATERIALS_LIMIT = 1
 METRICS_TABLE = "TRAINING_METRICS_v4"
 POSITIVE_BOOLEAN_FLAGS = [
     "1",
@@ -24,7 +25,6 @@ POSITIVE_BOOLEAN_FLAGS = [
 LOCAL_STORAGE_DIR = "data"
 SF_LOCAL_STORAGE_DIR = "/tmp"
 rs_dtypes = '{"text": "character varying(65535)", "num": "float", "bool": "bool", "timestamp": "timestamp without time zone"}'
-PB = "/venv/bin/pb"  # Location of pb executable in rudder-sources
 CLASSIFIER_MIN_LABEL_PROPORTION = 0.05
 CLASSIFIER_MAX_LABEL_PROPORTION = 0.95
 REGRESSOR_MIN_LABEL_DISTINCT_VALUES = 3

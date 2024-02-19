@@ -217,6 +217,8 @@ if __name__ == "__main__":
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
 
+    if args.mode == constants.CI_MODE:
+        sys.exit(0)
     wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = (
@@ -225,7 +227,7 @@ if __name__ == "__main__":
         else os.path.join(current_dir, "output")
     )
 
-    if args.mode != constants.LOCAL_MODE:
+    if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
         logger.debug(f"Downloading files from S3 in {args.mode} mode.")
         S3Utils.download_directory_from_S3(args.s3_config, output_dir, args.mode)
 
@@ -252,6 +254,6 @@ if __name__ == "__main__":
         trainer=trainer,
     )
 
-    if args.mode != constants.LOCAL_MODE:
+    if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
         logger.debug(f"Deleting additional local directory from {args.mode} mode.")
         utils.delete_folder(output_dir)

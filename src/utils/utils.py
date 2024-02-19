@@ -349,6 +349,15 @@ def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
     return merged_config
 
 
+def parse_warehouse_creds(creds: dict, mode: str) -> dict:
+    if mode == constants.K8S_MODE:
+        wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
+        wh_creds = json.loads(wh_creds_str)
+    else:
+        wh_creds = creds
+    return wh_creds
+
+
 def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> List[str]:
     """Assigning new column names for the one-hot encoded columns.
 

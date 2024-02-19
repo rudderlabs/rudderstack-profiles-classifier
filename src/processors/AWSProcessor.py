@@ -61,10 +61,14 @@ class AWSProcessor(Processor):
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 
-        S3Utils.download_directory(
-            s3_bucket, aws_region_name, s3_path, self.connector.get_local_dir()
+        S3Utils.download_directory_from_S3(
+            s3_bucket,
+            aws_region_name,
+            s3_path,
+            self.connector.get_local_dir(),
+            constants.RUDDERSTACK_MODE,
         )
-        S3Utils.delete_directory(s3_bucket, aws_region_name, s3_path)
+        S3Utils.delete_directory_in_S3(s3_bucket, aws_region_name, s3_path)
 
         try:
             train_results_json = self.connector.load_and_delete_json(
@@ -103,12 +107,13 @@ class AWSProcessor(Processor):
         ]
 
         logger.debug("Uploading files required for prediction to S3")
-        S3Utils.upload_directory(
+        S3Utils.upload_directory_to_S3(
             s3_config["bucket"],
             s3_config["region"],
             s3_config["path"],
             os.path.dirname(local_folder),
             predict_upload_whitelist,
+            constants.RUDDERSTACK_MODE,
         )
 
         logger.debug("Starting prediction on Rudderstack processing mode")
@@ -121,7 +126,7 @@ class AWSProcessor(Processor):
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 
         logger.debug("Deleting additional files from S3")
-        S3Utils.delete_directory(
+        S3Utils.delete_directory_in_S3(
             s3_config["bucket"], s3_config["region"], s3_config["path"]
         )
         logger.debug("Done predicting")

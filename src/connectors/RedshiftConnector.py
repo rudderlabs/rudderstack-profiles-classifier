@@ -872,7 +872,7 @@ class RedshiftConnector(Connector):
 
     def generate_type_hint(self, df: pd.DataFrame, column_types: Dict[str, List[str]]):
         types = []
-        
+
         cat_columns = [col.lower() for col in column_types["categorical_columns"]]
         numeric_columns = [col.lower() for col in column_types["numeric_columns"]]
         timestamp_columns = [col.lower() for col in column_types["timestamp_columns"]]

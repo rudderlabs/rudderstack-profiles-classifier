@@ -66,6 +66,7 @@ def train(
     Returns:
         None: saves the model but returns nothing
     """
+
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
     material_table_prefix = constants.MATERIAL_TABLE_PREFIX
     positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS

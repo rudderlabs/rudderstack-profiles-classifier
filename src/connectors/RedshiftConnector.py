@@ -855,7 +855,7 @@ class RedshiftConnector(Connector):
         Returns:
             pd.DataFrame: The filtered material registry table containing only the successfully materialized data.
         """
-        material_registry_table = self.get_table_as_dataframe(
+        material_registry_table = self.get_table(
             cursor, material_registry_table_name
         )
 

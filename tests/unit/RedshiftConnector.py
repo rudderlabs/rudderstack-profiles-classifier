@@ -133,12 +133,6 @@ class TestGetMaterialNames(unittest.TestCase):
                     self.features_profiles_model,
                     f"NOT_{self.features_profiles_model}",
                 ],
-                "model_type": [
-                    constants.ENTITY_VAR_MODEL,
-                    constants.ENTITY_VAR_MODEL,
-                    constants.ENTITY_VAR_MODEL,
-                    f"NOT_{constants.ENTITY_VAR_MODEL}",
-                ],
                 "model_hash": [
                     self.model_hash,
                     self.model_hash,

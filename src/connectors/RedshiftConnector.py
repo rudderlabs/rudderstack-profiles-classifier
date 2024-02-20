@@ -855,9 +855,7 @@ class RedshiftConnector(Connector):
         Returns:
             pd.DataFrame: The filtered material registry table containing only the successfully materialized data.
         """
-        material_registry_table = self.get_table(
-            cursor, material_registry_table_name
-        )
+        material_registry_table = self.get_table(cursor, material_registry_table_name)
 
         def safe_parse_json(x):
             try:

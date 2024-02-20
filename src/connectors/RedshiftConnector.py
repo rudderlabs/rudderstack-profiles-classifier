@@ -7,8 +7,13 @@ import pandas as pd
 import redshift_connector
 import redshift_connector.cursor
 
+import google.cloud
+from google.cloud import bigquery
+from google.oauth2 import service_account
+
 from pathlib import Path
 from datetime import datetime, timedelta
+from abc import abstractmethod, ABC
 from typing import List, Tuple, Any, Union, Optional, Sequence, Dict
 
 import src.utils.utils as utils
@@ -20,8 +25,10 @@ from src.connectors.wh import ProfilesConnector
 
 local_folder = constants.LOCAL_STORAGE_DIR
 
+# TODO: Change TypeHints for cursor objects and look for others.
 
-class RedshiftConnector(Connector):
+
+class CrossPlatformConnector(Connector):
     def __init__(self, folder_path: str) -> None:
         self.local_dir = os.path.join(folder_path, local_folder)
         path = Path(self.local_dir)
@@ -31,29 +38,6 @@ class RedshiftConnector(Connector):
 
     def get_local_dir(self) -> str:
         return self.local_dir
-
-    def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
-        """Builds the redshift connection cursor with given credentials (creds)
-
-        Args:
-            creds (dict): Data warehouse credentials from profiles siteconfig
-
-        Returns:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor
-        """
-        self.schema = credentials.pop("schema")
-        self.creds = credentials
-        self.connection_parameters = self.remap_credentials(credentials)
-        valid_params = inspect.signature(redshift_connector.connect).parameters
-        conn_params = {
-            k: v for k, v in self.connection_parameters.items() if k in valid_params
-        }
-        conn = redshift_connector.connect(**conn_params)
-        self.creds["schema"] = self.schema
-        conn.autocommit = True
-        cursor = conn.cursor()
-        cursor.execute(f"SET search_path TO {self.schema};")
-        return cursor
 
     def join_file_path(self, file_name: str) -> str:
         """
@@ -66,24 +50,6 @@ class RedshiftConnector(Connector):
             The joined file path as a string.
         """
         return os.path.join(self.local_dir, file_name)
-
-    def run_query(
-        self, cursor: redshift_connector.cursor.Cursor, query: str, response=True
-    ) -> Optional[Tuple]:
-        """Runs the given query on the redshift connection
-
-        Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
-            query (str): Query to be executed on the Redshift connection
-            response (bool): Whether to fetch the results of the query or not | Defaults to True
-
-        Returns:
-            Results of the query run on the Redshift connection
-        """
-        if response:
-            return cursor.execute(query).fetchall()
-        else:
-            return cursor.execute(query)
 
     def call_procedure(self, *args, **kwargs):
         """Calls the given function for training
@@ -133,9 +99,7 @@ class RedshiftConnector(Connector):
         """
         return None
 
-    def is_valid_table(
-        self, cursor: redshift_connector.cursor.Cursor, table_name: str
-    ) -> bool:
+    def is_valid_table(self, session, table_name: str) -> bool:
         """
         Checks whether a table exists in the data warehouse.
 
@@ -147,11 +111,12 @@ class RedshiftConnector(Connector):
             bool: True if the table exists, False otherwise.
         """
         try:
-            cursor.execute(f"select * from {table_name} limit 1").fetchall()
+            self.run_query(session, f"select * from {table_name} limit 1")
             return True
         except:
             return False
 
+    # TODO: Resume from here
     def get_table(
         self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs
     ) -> pd.DataFrame:
@@ -992,3 +957,99 @@ class RedshiftConnector(Connector):
         delete_local_data = kwargs.get("delete_local_data", None)
         if delete_local_data:
             self._delete_local_data_folder()
+
+    @abstractmethod
+    def build_session(self, credentials: dict):
+        pass
+
+    @abstractmethod
+    def run_query(self, session, query: str, response: bool) -> Optional[Sequence]:
+        pass
+
+
+class RedshiftConnector(CrossPlatformConnector):
+    def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
+        """Builds the redshift connection cursor with given credentials (creds)
+
+        Args:
+            creds (dict): Data warehouse credentials from profiles siteconfig
+
+        Returns:
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor
+        """
+        self.schema = credentials.pop("schema")
+        self.creds = credentials
+        self.connection_parameters = self.remap_credentials(credentials)
+        valid_params = inspect.signature(redshift_connector.connect).parameters
+        conn_params = {
+            k: v for k, v in self.connection_parameters.items() if k in valid_params
+        }
+        conn = redshift_connector.connect(**conn_params)
+        self.creds["schema"] = self.schema
+        conn.autocommit = True
+        cursor = conn.cursor()
+        cursor.execute(f"SET search_path TO {self.schema};")
+        return cursor
+
+    def run_query(
+        self, cursor: redshift_connector.cursor.Cursor, query: str, response=True
+    ) -> Optional[Tuple]:
+        """Runs the given query on the redshift connection
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
+            query (str): Query to be executed on the Redshift connection
+            response (bool): Whether to fetch the results of the query or not | Defaults to True
+
+        Returns:
+            Results of the query run on the Redshift connection
+        """
+        if response:
+            return cursor.execute(query).fetchall()
+        else:
+            return cursor.execute(query)
+
+
+class BigQueryConnector(CrossPlatformConnector):
+    def build_session(self, credentials: dict) -> google.cloud.bigquery.client.Client:
+        """Builds the BigQuery connection client with given credentials (creds)
+
+        Args:
+            creds (dict): Data warehouse credentials from profiles siteconfig
+
+        Returns:
+            client (google.cloud.bigquery.client.Client): BigQuery connection client
+        """
+        self.schema = credentials.get("schema", None)
+        self.creds = credentials
+        bq_credentials = service_account.Credentials.from_service_account_info(
+            credentials["credentials"]
+        )
+        client = bigquery.Client(
+            project=credentials["project_id"],
+            credentials=bq_credentials,
+            default_query_job_config=bigquery.QueryJobConfig(
+                default_dataset=f"{credentials['project_id']}.{credentials['schema']}"
+            ),
+        )
+        return client
+
+    def run_query(
+        self, client: google.cloud.bigquery.client.Client, query: str, response=True
+    ) -> Optional[List]:
+        """Runs the given query on the bigquery connection
+
+        Args:
+            client (google.cloud.bigquery.client.Client): BigQuery connection client for warehouse access
+            query (str): Query to be executed on the BigQuery connection
+            response (bool): Whether to fetch the results of the query or not | Defaults to True
+
+        Returns:
+            Results of the query run on the BigQuery connection
+        """
+        if response:
+            return list(
+                client.query_and_wait(query).to_dataframe().itertuples(index=False)
+            )
+        else:
+            return client.query_and_wait(query)

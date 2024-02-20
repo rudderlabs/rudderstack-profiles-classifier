@@ -179,6 +179,11 @@ class Connector(ABC):
         model_hash,
         prediction_horizon_days,
     ):
+        if len(materials) == 0:
+            feature_date = utils.date_add(start_date, prediction_horizon_days)
+            label_date = utils.date_add(feature_date, prediction_horizon_days)
+            return feature_date, label_date
+
         feature_date, label_date = None, None
         for material_info in materials:
             if (

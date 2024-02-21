@@ -127,7 +127,7 @@ class CrossPlatformConnector(Connector):
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
         return self.get_table_as_dataframe(cursor, table_name, **kwargs)
-    
+
     def _create_get_table_query(self, table_name, **kwargs):
         filter_condition = kwargs.get("filter_condition", "")
         query = f"SELECT * FROM {table_name}"

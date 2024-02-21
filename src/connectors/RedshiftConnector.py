@@ -438,7 +438,6 @@ class RedshiftConnector(Connector):
         filtered_df = (
             df.loc[
                 (df["model_name"] == features_profiles_model)
-                & (df["model_type"] == constants.ENTITY_VAR_MODEL)
                 & (df["model_hash"] == model_hash)
                 & (df["end_ts"].dt.date >= pd.to_datetime(start_time).date())
                 & (df["end_ts"].dt.date <= pd.to_datetime(end_time).date()),
@@ -554,8 +553,7 @@ class RedshiftConnector(Connector):
         redshift_df = self.get_material_registry_table(cursor, material_table)
         try:
             temp_hash_vector = (
-                redshift_df.query(f'model_type == "{constants.ENTITY_VAR_MODEL}"')
-                .query(f'model_hash == "{model_hash}"')
+                redshift_df.query(f'model_hash == "{model_hash}"')
                 .query(f'entity_key == "{entity_key}"')
                 .sort_values(by="creation_ts", ascending=False)
                 .reset_index(drop=True)[["creation_ts"]]
@@ -588,8 +586,7 @@ class RedshiftConnector(Connector):
 
         try:
             feature_table_info_df = (
-                df.query(f'model_type == "{constants.ENTITY_VAR_MODEL}"')
-                .query(f'model_name == "{model_name}"')
+                df.query(f'model_name == "{model_name}"')
                 .query(f'model_hash == "{model_hash}"')
                 .query(f"seq_no == {seq_no}")
                 .reset_index(drop=True)[["end_ts"]]

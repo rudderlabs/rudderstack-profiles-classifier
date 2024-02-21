@@ -875,14 +875,11 @@ class RedshiftConnector(Connector):
 
         cat_columns = [col.lower() for col in column_types["categorical_columns"]]
         numeric_columns = [col.lower() for col in column_types["numeric_columns"]]
-        timestamp_columns = [col.lower() for col in column_types["timestamp_columns"]]
 
         for col in df.columns:
             if col.lower() in cat_columns:
                 types.append(str)
             elif col.lower() in numeric_columns:
-                types.append(float)
-            elif col.lower() in timestamp_columns:
                 types.append(float)
             else:
                 raise Exception(

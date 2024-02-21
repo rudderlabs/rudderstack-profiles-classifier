@@ -116,10 +116,7 @@ class CrossPlatformConnector(Connector):
         except:
             return False
 
-    # TODO: Resume from here
-    def get_table(
-        self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs
-    ) -> pd.DataFrame:
+    def get_table(self, cursor, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
 
         Args:
@@ -130,25 +127,14 @@ class CrossPlatformConnector(Connector):
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
         return self.get_table_as_dataframe(cursor, table_name, **kwargs)
-
-    def get_table_as_dataframe(
-        self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs
-    ) -> pd.DataFrame:
-        """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
-
-        Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
-            table_name (str): Name of the table to be fetched from the Redshift schema
-
-        Returns:
-            table (pd.DataFrame): The table as a pandas Dataframe object
-        """
+    
+    def _create_get_table_query(self, table_name, **kwargs):
         filter_condition = kwargs.get("filter_condition", "")
-        query = f"SELECT * FROM {table_name.lower()}"
+        query = f"SELECT * FROM {table_name}"
         if filter_condition:
             query += f" WHERE {filter_condition}"
         query += ";"
-        return cursor.execute(query).fetch_dataframe()
+        return query
 
     def load_and_delete_json(self, json_file_name: str) -> dict:
         file_path = os.path.join(self.local_dir, json_file_name)
@@ -220,6 +206,7 @@ class CrossPlatformConnector(Connector):
         """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
         pass
 
+    # TODO: Resume from here.
     def get_non_stringtype_features(
         self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
     ) -> List[str]:
@@ -368,6 +355,9 @@ class CrossPlatformConnector(Connector):
         timestamp_columns = self.array_time_features["timestamp_columns"]
         return timestamp_columns
 
+    # TODO: Till this point from last check.
+
+    # TODO: checked this fn.
     def get_default_label_value(
         self, cursor, table_name: str, label_column: str, positive_boolean_flags: list
     ):
@@ -391,6 +381,7 @@ class CrossPlatformConnector(Connector):
             )
         return label_value[0]
 
+    # TODO: checked this fn.
     def fetch_filtered_table(
         self,
         df,
@@ -414,6 +405,7 @@ class CrossPlatformConnector(Connector):
         )
         return filtered_df
 
+    # TODO: checked this fn.
     def get_material_names_(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -805,6 +797,7 @@ class CrossPlatformConnector(Connector):
 
         return sorted_material_registry_tables[0]
 
+    # TODO: checked this fn.
     def get_material_registry_table(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -822,9 +815,18 @@ class CrossPlatformConnector(Connector):
         """
         material_registry_table = self.get_table(cursor, material_registry_table_name)
 
-        def safe_parse_json(x):
+        def safe_parse_json(entry):
             try:
-                return eval(x).get("complete", {}).get("status")
+                if isinstance(
+                    entry, str
+                ):  # If the entry is a string(for redshift), parse it as JSON
+                    entry_dict = eval(entry)
+                elif isinstance(
+                    entry, dict
+                ):  # If the entry is already a dictionary(for bigquery), use it directly
+                    entry_dict = entry
+
+                return entry_dict.get("complete", {}).get("status")
             except:
                 return None
 
@@ -966,6 +968,12 @@ class CrossPlatformConnector(Connector):
     def run_query(self, session, query: str, response: bool) -> Optional[Sequence]:
         pass
 
+    @abstractmethod
+    def get_table_as_dataframe(
+        self, session, table_name: str, **kwargs
+    ) -> pd.DataFrame:
+        pass
+
 
 class RedshiftConnector(CrossPlatformConnector):
     def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
@@ -1008,6 +1016,21 @@ class RedshiftConnector(CrossPlatformConnector):
             return cursor.execute(query).fetchall()
         else:
             return cursor.execute(query)
+
+    def get_table_as_dataframe(
+        self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs
+    ) -> pd.DataFrame:
+        """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
+            table_name (str): Name of the table to be fetched from the Redshift schema
+
+        Returns:
+            table (pd.DataFrame): The table as a pandas Dataframe object
+        """
+        query = self._create_get_table_query(table_name, **kwargs)
+        return cursor.execute(query).fetch_dataframe()
 
 
 class BigQueryConnector(CrossPlatformConnector):
@@ -1053,3 +1076,18 @@ class BigQueryConnector(CrossPlatformConnector):
             )
         else:
             return client.query_and_wait(query)
+
+    def get_table_as_dataframe(
+        self, client: google.cloud.bigquery.client.Client, table_name: str, **kwargs
+    ) -> pd.DataFrame:
+        """Fetches the table with the given name from the BigQuery schema as a pandas Dataframe object
+
+        Args:
+            client (google.cloud.bigquery.client.Client): BigQuery connection cursor for warehouse access
+            table_name (str): Name of the table to be fetched from the BigQuery schema
+
+        Returns:
+            table (pd.DataFrame): The table as a pandas Dataframe object
+        """
+        query = self._create_get_table_query(table_name, **kwargs)
+        return client.query_and_wait(query).to_dataframe()

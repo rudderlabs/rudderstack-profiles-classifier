@@ -489,6 +489,7 @@ class CrossPlatformConnector(Connector):
                 f"Following exception occured while retrieving material names with hash {model_hash} for {model_name} between dates {start_time} and {end_time}: {e}"
             )
 
+    # TODO: checked this fn.
     def get_creation_ts(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -524,6 +525,7 @@ class CrossPlatformConnector(Connector):
             )
         return creation_ts
 
+    # TODO: checked this fn.
     def get_end_ts(
         self, cursor, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
@@ -543,9 +545,11 @@ class CrossPlatformConnector(Connector):
 
         try:
             feature_table_info_df = (
-                df.query(f'model_name == "{model_name}"')
-                .query(f'model_hash == "{model_hash}"')
-                .query(f"seq_no == {seq_no}")
+                df[
+                    (df["model_name"] == model_name)
+                    & (df["model_hash"] == model_hash)
+                    & (df["seq_no"] == seq_no)
+                ]
                 .reset_index(drop=True)[["end_ts"]]
                 .iloc[0]
             )

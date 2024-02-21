@@ -514,7 +514,6 @@ class SnowflakeConnector(Connector):
         """Fetches the filtered table based on the given parameters."""
         filtered_snowpark_df = (
             df.filter(col("model_name") == features_profiles_model)
-            .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
             .filter(col("model_hash") == model_hash)
             .filter(
                 (to_date(col("end_ts")) >= start_time)
@@ -658,8 +657,7 @@ class SnowflakeConnector(Connector):
         snowpark_df = self.get_material_registry_table(session, material_table)
         try:
             temp_hash_vector = (
-                snowpark_df.filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-                .filter(col("model_hash") == model_hash)
+                snowpark_df.filter(col("model_hash") == model_hash)
                 .filter(col("entity_key") == entity_key)
                 .sort(col("creation_ts"), ascending=False)
                 .select(col("creation_ts"))
@@ -693,8 +691,7 @@ class SnowflakeConnector(Connector):
 
         try:
             feature_table_info = (
-                snowpark_df.filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-                .filter(col("model_name") == model_name)
+                snowpark_df.filter(col("model_name") == model_name)
                 .filter(col("model_hash") == model_hash)
                 .filter(col("seq_no") == seq_no)
                 .select("end_ts")

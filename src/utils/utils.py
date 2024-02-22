@@ -556,9 +556,9 @@ def subprocess_run(args):
         args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
     )
     if response.returncode != 0:
-        logger.warning(f"Error occurred. Exit code:{response.returncode}")
-        logger.warning(f"Subprocess Output: {response.stdout}")
-        logger.warning(f"Subprocess Error: {response.stderr}")
+        logger.error(f"Error occurred. Exit code:{response.returncode}")
+        logger.error(f"Subprocess Output: {response.stdout}")
+        raise Exception(f"Subprocess Error: {response.stderr}")
     return response
 
 
@@ -608,16 +608,12 @@ def materialise_past_data(
         logger.info(
             f"Materialising historic data for {features_valid_time} using pb: {' '.join(args)} "
         )
-        response_for_past_pb_data = subprocess_run(args)
-        if response_for_past_pb_data.returncode == 0:
-            return True
-        else:
-            raise Exception(
-                f"Error occurred while materialising data for date {features_valid_time} "
-            )
+        subprocess_run(args)
+        return True
     except Exception as e:
-        logger.warning(e)
-        return False
+        raise Exception(
+            f"Error occurred while materialising data for date {features_valid_time} : {e}"
+        )
 
 
 def generate_material_name(

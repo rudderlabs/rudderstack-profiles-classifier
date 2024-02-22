@@ -140,7 +140,7 @@ class SnowflakeConnector(Connector):
         self, session: snowflake.snowpark.Session, material_table_name: str
     ) -> bool:
         """
-        Checks wether an entry is there in the material registry for the given 
+        Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well
 
         Args:
@@ -161,8 +161,9 @@ class SnowflakeConnector(Connector):
 
         material_registry_table = self.get_table(session, material_registry_table_name)
         num_rows = (
-            material_registry_table
-            .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
+            material_registry_table.withColumn(
+                "status", F.get_path("metadata", F.lit("complete.status"))
+            )
             .filter(F.col("status") == 2)
             .filter(col("model_name") == model_name)
             .filter(col("model_hash") == model_hash)

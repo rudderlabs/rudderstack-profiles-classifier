@@ -34,7 +34,6 @@ class TestReplaceSeqNoInQuery(unittest.TestCase):
 
 
 class TestSplitMaterialTable(unittest.TestCase):
-
     def test_valid_table_name(self):
         table_name = "Material_user_var_table_54ddc22a_383"
         expected_result = ("user_var_table", "54ddc22a", 383)

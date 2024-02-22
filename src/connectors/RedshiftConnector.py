@@ -156,7 +156,7 @@ class RedshiftConnector(Connector):
         self, cursor: redshift_connector.cursor.Cursor, material_table_name: str
     ) -> bool:
         """
-        Checks wether an entry is there in the material registry for the given 
+        Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well
 
         Args:

@@ -338,21 +338,20 @@ class Connector(ABC):
             # and prepare sql statement to check for the table existence
             # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
             if feature_material_seq_no is not None:
-
-                feature_table_query = (
-                    utils.replace_seq_no_in_query(
-                        material_table_query, int(feature_material_seq_no)
-                    ).lower()
+                feature_table_query = utils.replace_seq_no_in_query(
+                    material_table_query, int(feature_material_seq_no)
+                ).lower()
+                assert self.check_table_entry_in_material_registry(
+                    session, feature_table_query
                 )
-                assert self.check_table_entry_in_material_registry(session, feature_table_query)
 
             if label_material_seq_no is not None:
-                label_table_query = (
-                    utils.replace_seq_no_in_query(
-                        material_table_query, int(label_material_seq_no)
-                    ).lower()
+                label_table_query = utils.replace_seq_no_in_query(
+                    material_table_query, int(label_material_seq_no)
+                ).lower()
+                assert self.check_table_entry_in_material_registry(
+                    session, label_table_query
                 )
-                assert self.check_table_entry_in_material_registry(session, label_table_query)
 
             return True
         except:

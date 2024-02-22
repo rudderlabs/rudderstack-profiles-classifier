@@ -186,6 +186,8 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Mock the internal method is_valid_table
         self.connector.is_valid_table = Mock(return_value=True)
+        # Mock the internal method check_table_entry_in_material_registry
+        self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
 
         # Invoke the method under test
         with self.assertRaises(Exception) as context:
@@ -217,6 +219,8 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Mock the internal method is_valid_table
         self.connector.is_valid_table = Mock(return_value=True)
+        # Mock the internal method check_table_entry_in_material_registry
+        self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
         utils.date_add = Mock(return_value="label_table_dt")
 
         # Invoke the method under test
@@ -245,6 +249,8 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Mock the internal method is_valid_table
         self.connector.is_valid_table = Mock(return_value=True)
+        # Mock the internal method check_table_entry_in_material_registry
+        self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
         utils.date_add = Mock(return_value="feature_table_dt")
 
         # Invoke the method under test
@@ -273,6 +279,8 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Mock the internal method is_valid_table
         self.connector.is_valid_table = Mock(return_value=True)
+        # Mock the internal method check_table_entry_in_material_registry
+        self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
         utils.date_add = Mock(return_value="sample_table_dt")
 
         # Invoke the method under test

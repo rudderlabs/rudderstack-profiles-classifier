@@ -195,7 +195,7 @@ def prepare_feature_table(
             feature_table, label_table, trainer.entity_column, "inner"
         )
         feature_table = connector.drop_cols(feature_table, ignore_features_)
-        return feature_table, arraytype_columns, timestamp_columns
+        return feature_table, arraytype_columns, timestamp_columns , ignore_features_
     except Exception as e:
         print(
             "Exception occured while preparing feature table. Please check the logs for more details"
@@ -224,6 +224,7 @@ def preprocess_and_train(
             feature_table_instance,
             arraytype_columns,
             timestamp_columns,
+            ignore_features
         ) = prepare_feature_table(
             train_table_pair,
             cardinal_feature_threshold,
@@ -276,6 +277,7 @@ def preprocess_and_train(
 
     train_results_json["column_names"]["arraytype_columns"] = arraytype_columns
     train_results_json["column_names"]["timestamp_columns"] = timestamp_columns
+    train_results_json["column_names"]["ignore_features"] = ignore_features
 
     return train_results_json
 

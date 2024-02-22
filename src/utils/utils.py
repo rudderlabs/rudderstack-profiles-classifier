@@ -1198,3 +1198,30 @@ def replace_seq_no_in_query(query: str, seq_no: int) -> str:
     query_split = query.split("_")
     new_query = "_".join(query_split[:-1]) + "_" + f"{seq_no:.0f}"
     return new_query
+
+
+def split_material_table(material_table_name: str) -> Tuple:
+    """
+    Splits given material table into model_name, model_hash and seq_no
+    Ex. Splits "Material_user_var_table_54ddc22a_383" into (user_var_table, 54ddc22a, 383)
+
+    Args:
+        material_table_name: material table name
+    Returns:
+        Tuple: returns ("model_name", "model_hash", seq_no)
+    """
+    mlower = material_table_name.lower()
+    if constants.MATERIAL_TABLE_PREFIX not in mlower:
+        logger.warning("Error while spliting material table")
+        return (None, None, None)
+
+    try:
+        table_suffix = mlower.split(constants.MATERIAL_TABLE_PREFIX)[-1]
+        split_parts = table_suffix.split("_")
+        seq_no = int(split_parts[-1])
+        model_hash = split_parts[-2]
+        model_name = "_".join(split_parts[0:-2])
+        return (model_name, model_hash, seq_no)
+    except (IndexError, ValueError):
+        logger.warning("Error while spliting material table")
+        return (None, None, None)

@@ -152,6 +152,47 @@ class RedshiftConnector(Connector):
         except:
             return False
 
+    def check_table_entry_in_material_registry(
+        self, cursor: redshift_connector.cursor.Cursor, material_table_name: str
+    ) -> bool:
+        """
+        Checks wether an entry is there in the material registry for the given 
+        material table name and wether its sucessfully materialised or not as well
+
+        Args:
+            cursor: warehouse db session
+            material_table_name: Material table name
+
+        Returns:
+            bool: Wether the entry for given material table is exists or not in the material registry
+        """
+
+        model_name, model_hash, seq_no = utils.split_material_table(material_table_name)
+        if model_name is None or model_hash is None or seq_no is None:
+            return False
+
+        material_registry_table_name = self.get_material_registry_name(
+            cursor, constants.MATERIAL_REGISTRY_TABLE_PREFIX
+        )
+
+        query_str = f"""SELECT * FROM {material_registry_table_name}
+            WHERE model_name = '{model_name}' AND
+            model_hash = '{model_hash}' AND
+            seq_no = {seq_no}"""
+
+        result = cursor.execute(query_str).fetch_dataframe()
+
+        def safe_parse_json(x):
+            try:
+                return eval(x).get("complete", {}).get("status")
+            except:
+                return None
+
+        result["status"] = result["metadata"].apply(safe_parse_json)
+        result = result[result["status"] == 2]
+        row_count = result.shape[0]
+        return row_count != 0
+
     def get_table(
         self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs
     ) -> pd.DataFrame:

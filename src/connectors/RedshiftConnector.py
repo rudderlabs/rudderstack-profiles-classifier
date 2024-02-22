@@ -726,7 +726,7 @@ class CrossPlatformConnector(Connector):
         """
         table["temp_1"] = pd.to_datetime(table[time_col])
         table["temp_2"] = pd.to_datetime(end_ts)
-        table[new_col] = int((table["temp_2"] - table["temp_1"]).dt.days)
+        table[new_col] = (table["temp_2"] - table["temp_1"]).dt.days
         return table.drop(columns=["temp_1", "temp_2"])
 
     # TODO: checked this fn.

@@ -1212,7 +1212,9 @@ def split_material_table(material_table_name: str) -> Tuple:
     """
     mlower = material_table_name.lower()
     if constants.MATERIAL_TABLE_PREFIX not in mlower:
-        logger.warning("Error while spliting material table")
+        logger.warning(
+            f"Couldn't split {material_table_name}, it does not contain table prefix '{constants.MATERIAL_TABLE_PREFIX}'"
+        )
         return (None, None, None)
 
     try:
@@ -1223,5 +1225,7 @@ def split_material_table(material_table_name: str) -> Tuple:
         model_name = "_".join(split_parts[0:-2])
         return (model_name, model_hash, seq_no)
     except (IndexError, ValueError):
-        logger.warning("Error while spliting material table")
+        logger.warning(
+            f"Couldn't split the material table {material_table_name} into model name, hash, and seq_no"
+        )
         return (None, None, None)

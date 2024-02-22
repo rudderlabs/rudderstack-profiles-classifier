@@ -173,7 +173,7 @@ def test_regressor():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash = getPB().get_latest_material_hash(
+    latest_model_hash, _ = getPB().get_latest_material_hash(
         entity_key,
         var_table_suffix,
         output_filename,

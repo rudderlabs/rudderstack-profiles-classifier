@@ -136,6 +136,43 @@ class SnowflakeConnector(Connector):
         except:
             return False
 
+    def check_table_entry_in_material_registry(
+        self, session: snowflake.snowpark.Session, material_table_name: str
+    ) -> bool:
+        """
+        Checks wether an entry is there in the material registry for the given
+        material table name and wether its sucessfully materialised or not as well
+
+        Args:
+            session: warehouse db session
+            material_table_name: Material table name
+
+        Returns:
+            bool: Wether the entry for given material table is exists or not in the material registry
+        """
+
+        model_name, model_hash, seq_no = utils.split_material_table(material_table_name)
+        if model_name is None or model_hash is None or seq_no is None:
+            return False
+
+        material_registry_table_name = self.get_material_registry_name(
+            session, constants.MATERIAL_REGISTRY_TABLE_PREFIX
+        )
+
+        material_registry_table = self.get_table(session, material_registry_table_name)
+        num_rows = (
+            material_registry_table.withColumn(
+                "status", F.get_path("metadata", F.lit("complete.status"))
+            )
+            .filter(F.col("status") == 2)
+            .filter(col("model_name") == model_name)
+            .filter(col("model_hash") == model_hash)
+            .filter(col("seq_no") == seq_no)
+            .count()
+        )
+
+        return num_rows != 0
+
     def get_table(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs
     ) -> snowflake.snowpark.Table:

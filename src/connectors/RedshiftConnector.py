@@ -646,9 +646,7 @@ class CrossPlatformConnector(Connector):
         feature_table = feature_table.sort_values(
             by=[entity_column], ascending=[True]
         ).drop(columns=["row_num"])
-        feature_table_filtered = feature_table.head(
-            max_row_count
-        )
+        feature_table_filtered = feature_table.head(max_row_count)
         if len(feature_table_filtered) < min_sample_for_training:
             raise Exception(
                 f"Insufficient data for training. Only {len(feature_table_filtered)} user records found. Required minimum {min_sample_for_training} user records."

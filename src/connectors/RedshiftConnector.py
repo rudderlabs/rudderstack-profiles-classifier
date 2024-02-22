@@ -766,6 +766,7 @@ class CrossPlatformConnector(Connector):
         """
         return table[column_name].unique()
 
+    # TODO: checked this fn.
     def get_material_registry_name(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -788,13 +789,11 @@ class CrossPlatformConnector(Connector):
                 return int(parts[-1])
             return 0
 
-        cursor.execute(
-            f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';"
-        )
-        registry_df = cursor.fetch_dataframe()
-
+        registry_df = self.get_tablenames_from_schema(cursor)
         registry_df = registry_df[
-            registry_df["tablename"].str.startswith(f"{table_prefix.lower()}")
+            registry_df["tablename"]
+            .str.lower()
+            .str.startswith(f"{table_prefix.lower()}")
         ]
 
         for _, row in registry_df.iterrows():
@@ -983,6 +982,10 @@ class CrossPlatformConnector(Connector):
     ) -> pd.DataFrame:
         pass
 
+    @abstractmethod
+    def get_tablenames_from_schema(self, cursor) -> pd.DataFrame:
+        pass
+
 
 class RedshiftConnector(CrossPlatformConnector):
     def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
@@ -1041,6 +1044,12 @@ class RedshiftConnector(CrossPlatformConnector):
         query = self._create_get_table_query(table_name, **kwargs)
         return cursor.execute(query).fetch_dataframe()
 
+    def get_tablenames_from_schema(
+        self, cursor: redshift_connector.cursor.Cursor
+    ) -> pd.DataFrame:
+        query = f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';"
+        return cursor.execute(query).fetch_dataframe()
+
 
 class BigQueryConnector(CrossPlatformConnector):
     def build_session(self, credentials: dict) -> google.cloud.bigquery.client.Client:
@@ -1053,6 +1062,7 @@ class BigQueryConnector(CrossPlatformConnector):
             client (google.cloud.bigquery.client.Client): BigQuery connection client
         """
         self.schema = credentials.get("schema", None)
+        self.project_id = credentials.get("project_id", None)
         self.creds = credentials
         bq_credentials = service_account.Credentials.from_service_account_info(
             credentials["credentials"]
@@ -1099,4 +1109,10 @@ class BigQueryConnector(CrossPlatformConnector):
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
         query = self._create_get_table_query(table_name, **kwargs)
+        return client.query_and_wait(query).to_dataframe()
+
+    def get_tablenames_from_schema(
+        self, client: google.cloud.bigquery.client.Client
+    ) -> pd.DataFrame:
+        query = f"SELECT DISTINCT table_name as tablename FROM `{self.project_id}.{self.schema}.INFORMATION_SCHEMA.TABLES`;"
         return client.query_and_wait(query).to_dataframe()

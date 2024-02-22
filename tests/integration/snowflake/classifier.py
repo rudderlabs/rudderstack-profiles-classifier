@@ -2,10 +2,7 @@ from train import *
 import shutil
 import time
 from predict import *
-
-# homedir = os.path.expanduser("~")
-# with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-#     creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+from src.wht.pb import getPB
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
 creds["schema"] = "PROFILES_INTEGRATION_TEST"
@@ -190,8 +187,7 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    connector = SnowflakeConnector()
-    latest_model_hash, user_var_table_name = connector.get_latest_material_hash(
+    latest_model_hash = getPB().get_latest_material_hash(
         entity_key,
         var_table_suffix,
         output_filename,

@@ -3,10 +3,7 @@ import shutil
 from predict import *
 import time
 from src.connectors.RedshiftConnector import RedshiftConnector
-
-# homedir = os.path.expanduser("~")
-# with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-#     creds = yaml.safe_load(f)["connections"]["shopify_wh_rs"]["outputs"]["dev"]
+from src.wht.pb import getPB
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
 creds["schema"] = "rs_profiles_3"
@@ -195,8 +192,7 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    connector = RedshiftConnector(folder_path_output_file)
-    latest_model_hash, user_var_table_name = connector.get_latest_material_hash(
+    latest_model_hash = getPB().get_latest_material_hash(
         entity_key,
         var_table_suffix,
         output_filename,

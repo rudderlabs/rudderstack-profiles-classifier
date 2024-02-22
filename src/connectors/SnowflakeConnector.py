@@ -568,7 +568,6 @@ class SnowflakeConnector(Connector):
         end_time: str,
         features_profiles_model: str,
         model_hash: str,
-        material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
     ) -> List[TrainTablesInfo]:
@@ -581,7 +580,6 @@ class SnowflakeConnector(Connector):
             end_time (str): train_end_dt
             features_profiles_model (str): Present in model_configs file
             model_hash (str) : latest model hash
-            material_table_prefix (str): constant
             prediction_horizon_days (int): period of days
             inputs (List[str]): list of input features
 
@@ -625,7 +623,6 @@ class SnowflakeConnector(Connector):
                 self._fetch_valid_historic_materials(
                     session,
                     row,
-                    material_table_prefix,
                     features_profiles_model,
                     model_hash,
                     inputs,

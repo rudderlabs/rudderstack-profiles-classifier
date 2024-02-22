@@ -497,7 +497,6 @@ class RedshiftConnector(Connector):
         end_time: str,
         model_name: str,
         model_hash: str,
-        material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
     ) -> List[TrainTablesInfo]:
@@ -510,7 +509,6 @@ class RedshiftConnector(Connector):
             end_time (str): train_end_dt
             model_name (str): Present in model_configs file
             model_hash (str) : latest model hash
-            material_table_prefix (str): constant
             prediction_horizon_days (int): period of days
 
         Returns:
@@ -556,7 +554,6 @@ class RedshiftConnector(Connector):
                 self._fetch_valid_historic_materials(
                     cursor,
                     row,
-                    material_table_prefix,
                     model_name,
                     model_hash,
                     inputs,

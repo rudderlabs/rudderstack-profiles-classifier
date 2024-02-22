@@ -523,7 +523,7 @@ class CrossPlatformConnector(Connector):
             raise Exception(
                 f"Project is never materialzied with model hash {model_hash}."
             )
-        return creation_ts
+        return creation_ts.tz_localize(None)
 
     # TODO: checked this fn.
     def get_end_ts(
@@ -560,8 +560,9 @@ class CrossPlatformConnector(Connector):
                 f"Project is never materialzied with model hash {model_hash}. Error message: {e}"
             )
 
-        return end_ts
+        return end_ts.tz_localize(None)
 
+    # TODO: checked this fn.
     def add_index_timestamp_colum_for_predict_data(
         self, predict_data, index_timestamp: str, end_ts: str
     ) -> pd.DataFrame:
@@ -578,6 +579,7 @@ class CrossPlatformConnector(Connector):
         predict_data[index_timestamp] = pd.to_datetime(end_ts)
         return predict_data
 
+    # TODO: checked this fn.
     def fetch_staged_file(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -600,6 +602,7 @@ class CrossPlatformConnector(Connector):
         target_path = os.path.join(target_folder, file_name)
         shutil.move(source_path, target_path)
 
+    # TODO: checked this fn.
     def drop_cols(self, table: pd.DataFrame, col_list: list) -> pd.DataFrame:
         """
         Drops the columns in the given list from the given table.
@@ -620,6 +623,7 @@ class CrossPlatformConnector(Connector):
         ]
         return table.drop(columns=ignore_features_)
 
+    # TODO: checked this fn.
     def filter_feature_table(
         self,
         feature_table: pd.DataFrame,
@@ -642,7 +646,7 @@ class CrossPlatformConnector(Connector):
         feature_table = feature_table.sort_values(
             by=[entity_column], ascending=[True]
         ).drop(columns=["row_num"])
-        feature_table_filtered = feature_table.groupby(entity_column).head(
+        feature_table_filtered = feature_table.head(
             max_row_count
         )
         if len(feature_table_filtered) < min_sample_for_training:
@@ -651,6 +655,7 @@ class CrossPlatformConnector(Connector):
             )
         return feature_table_filtered
 
+    # TODO: checked this fn.
     def validate_columns_are_present(
         self,
         feature_table: pd.DataFrame,
@@ -668,6 +673,7 @@ class CrossPlatformConnector(Connector):
             )
         return True
 
+    # TODO: checked this fn.
     def validate_class_proportions(
         self,
         feature_table: pd.DataFrame,
@@ -687,6 +693,7 @@ class CrossPlatformConnector(Connector):
             )
         return True
 
+    # TODO: checked this fn.
     def validate_label_distinct_values(
         self,
         feature_table: pd.DataFrame,
@@ -703,6 +710,7 @@ class CrossPlatformConnector(Connector):
             )
         return True
 
+    # TODO: checked this fn.
     def add_days_diff(
         self, table: pd.DataFrame, new_col: str, time_col: str, end_ts: str
     ) -> pd.DataFrame:
@@ -720,9 +728,10 @@ class CrossPlatformConnector(Connector):
         """
         table["temp_1"] = pd.to_datetime(table[time_col])
         table["temp_2"] = pd.to_datetime(end_ts)
-        table[new_col] = (table["temp_2"] - table["temp_1"]).dt.days
+        table[new_col] = int((table["temp_2"] - table["temp_1"]).dt.days)
         return table.drop(columns=["temp_1", "temp_2"])
 
+    # TODO: checked this fn.
     def join_feature_table_label_table(
         self,
         feature_table: pd.DataFrame,
@@ -744,6 +753,7 @@ class CrossPlatformConnector(Connector):
         """
         return feature_table.merge(label_table, on=[entity_column], how=join_type)
 
+    # TODO: checked this fn.
     def get_distinct_values_in_column(
         self, table: pd.DataFrame, column_name: str
     ) -> List:

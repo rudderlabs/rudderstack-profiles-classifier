@@ -26,3 +26,4 @@ tmp/
 *.json
 *.csv
 .env
+scripts/local_simulator.py

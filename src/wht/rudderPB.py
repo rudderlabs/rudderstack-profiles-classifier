@@ -107,7 +107,7 @@ class RudderPB:
             )
         return model_hash, features_profiles_model
 
-    def split_material_table(material_table_name: str) -> Tuple:
+    def split_material_table(self, material_table_name: str) -> Tuple:
         """
         Splits given material table into model_name, model_hash and seq_no
         Ex. Splits "Material_user_var_table_54ddc22a_383" into (user_var_table, 54ddc22a, 383)

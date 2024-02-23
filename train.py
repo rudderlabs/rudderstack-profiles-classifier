@@ -174,7 +174,7 @@ def train(
                 dict: returns the model_id which is basically the time converted to key at which results were
                     generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
             """
-            feature_df = connector.get_table(session, feature_table_name).toPandas()
+            feature_df = connector.get_table_as_dataframe(session, feature_table_name)
 
             model_file = connector.join_file_path(
                 f"{trainer.output_profiles_ml_model}_{model_file_name}"

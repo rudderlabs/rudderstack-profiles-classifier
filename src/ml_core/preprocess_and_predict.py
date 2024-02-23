@@ -70,9 +70,7 @@ def preprocess_and_predict(
 
     feature_table_name = getPB().get_material_name(input_model_name, model_hash, seq_no)
 
-    material_table = connector.get_material_registry_name(
-        session, constants.MATERIAL_REGISTRY_TABLE_PREFIX
-    )
+    material_table = getPB().get_material_registry_name(connector, session)
 
     end_ts = connector.get_end_ts(
         session, material_table, input_model_name, model_hash, seq_no

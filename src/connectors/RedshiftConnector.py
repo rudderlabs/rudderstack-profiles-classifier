@@ -174,9 +174,7 @@ class RedshiftConnector(Connector):
         if model_name is None or model_hash is None or seq_no is None:
             return False
 
-        material_registry_table_name = self.get_material_registry_name(
-            cursor, constants.MATERIAL_REGISTRY_TABLE_PREFIX
-        )
+        material_registry_table_name = getPB().get_material_registry_name(self, cursor)
 
         query_str = f"""SELECT * FROM {material_registry_table_name}
             WHERE model_name = '{model_name}' AND
@@ -838,45 +836,22 @@ class RedshiftConnector(Connector):
         """
         return table[column_name].unique()
 
-    def get_material_registry_name(
-        self,
-        cursor: redshift_connector.cursor.Cursor,
-        table_prefix: str = "material_registry",
-    ) -> str:
-        """This function will return the latest material registry table name
-
-        Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connector cursor for data warehouse access
-            table_name (str): Prefix of the name of the table | Defaults to "material_registry"
-
-        Returns:
-            str: latest material registry table name
-        """
-        material_registry_tables = list()
-
-        def split_key(item):
-            parts = item.split("_")
-            if len(parts) > 1 and parts[-1].isdigit():
-                return int(parts[-1])
-            return 0
-
+    def get_tables_by_prefix(
+        self, cursor: redshift_connector.cursor.Cursor, prefix: str
+    ):
+        tables = list()
         cursor.execute(
             f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';"
         )
         registry_df = cursor.fetch_dataframe()
 
         registry_df = registry_df[
-            registry_df["tablename"].str.startswith(f"{table_prefix.lower()}")
+            registry_df["tablename"].str.startswith(f"{prefix.lower()}")
         ]
 
         for _, row in registry_df.iterrows():
-            material_registry_tables.append(row["tablename"])
-        material_registry_tables.sort(reverse=True)
-        sorted_material_registry_tables = sorted(
-            material_registry_tables, key=split_key, reverse=True
-        )
-
-        return sorted_material_registry_tables[0]
+            tables.append(row["tablename"])
+        return tables
 
     def get_material_registry_table(
         self,

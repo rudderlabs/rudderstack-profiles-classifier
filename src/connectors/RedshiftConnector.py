@@ -17,6 +17,7 @@ from src.utils.constants import TrainTablesInfo
 from src.utils.logger import logger
 from src.connectors.Connector import Connector
 from src.connectors.wh import ProfilesConnector
+from src.wht.pb import getPB
 
 local_folder = constants.LOCAL_STORAGE_DIR
 
@@ -167,7 +168,9 @@ class RedshiftConnector(Connector):
             bool: Wether the entry for given material table is exists or not in the material registry
         """
 
-        model_name, model_hash, seq_no = utils.split_material_table(material_table_name)
+        model_name, model_hash, seq_no = getPB().split_material_table(
+            material_table_name
+        )
         if model_name is None or model_hash is None or seq_no is None:
             return False
 

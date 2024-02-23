@@ -29,7 +29,6 @@ pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
 s3_config = {}
 p_output_tablename = "test_run_can_delete_2"
 entity_key = "user"
-var_table_suffix = ["_var_table", "_all_var_table"]
 
 
 data = {
@@ -182,7 +181,6 @@ def test_regressor():
 
     latest_model_hash, _ = getPB().get_latest_material_hash(
         entity_key,
-        var_table_suffix,
         output_filename,
         siteconfig_path,
         project_path,

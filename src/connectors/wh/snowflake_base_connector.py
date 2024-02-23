@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from snowflake.connector.pandas_tools import write_pandas
 from snowflake.connector import connect
 
-from wh.connector_base import ConnectorBase, register_connector
+from src.connectors.wh.connector_base import ConnectorBase, register_connector
 from logging import Logger
 
 

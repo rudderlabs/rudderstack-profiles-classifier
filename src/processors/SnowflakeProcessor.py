@@ -1,28 +1,12 @@
-from logger import logger
-from abc import ABC
-from typing import Any, List, Tuple, Union, Dict
-from constants import TrainTablesInfo
-from MLTrainer import MLTrainer
-from Connector import Connector
-from preprocess_and_train import preprocess_and_train
-from preprocess_and_predict import preprocess_and_predict
+from typing import List
 
-import snowflake.snowpark
-import redshift_connector
-import redshift_connector.cursor
+from src.processors.Processor import Processor
+from src.utils.constants import TrainTablesInfo
+from src.ml_core.preprocess_and_train import preprocess_and_train
+from src.ml_core.preprocess_and_predict import preprocess_and_predict
 
 
-class Processor(ABC):
-    def __init__(
-        self,
-        trainer: MLTrainer,
-        connector: Connector,
-        session: Union[snowflake.snowpark.Session, redshift_connector.cursor.Cursor],
-    ):
-        self.trainer = trainer
-        self.connector = connector
-        self.session = session
-
+class SnowflakeProcessor(Processor):
     def train(
         self,
         train_procedure,
@@ -50,6 +34,7 @@ class Processor(ABC):
         output_tablename,
         merged_config,
         prediction_task,
+        site_config: dict,
     ):
         return preprocess_and_predict(
             creds,

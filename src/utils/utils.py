@@ -14,8 +14,6 @@ from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
     average_precision_score,
-    PrecisionRecallDisplay,
-    RocCurveDisplay,
     auc,
     roc_curve,
     precision_recall_curve,
@@ -50,13 +48,13 @@ import seaborn as sns
 
 from sklearn.preprocessing import OneHotEncoder
 import shap
-import constants as constants
+from src.utils import constants
 import joblib
 import json
 import subprocess
 
 from dataclasses import dataclass
-from logger import logger
+from src.utils.logger import logger
 
 
 @dataclass
@@ -349,6 +347,15 @@ def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
     return merged_config
 
 
+def parse_warehouse_creds(creds: dict, mode: str) -> dict:
+    if mode == constants.K8S_MODE:
+        wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
+        wh_creds = json.loads(wh_creds_str)
+    else:
+        wh_creds = creds
+    return wh_creds
+
+
 def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> List[str]:
     """Assigning new column names for the one-hot encoded columns.
 
@@ -500,26 +507,10 @@ def merge_lists_to_unique(l1: list, l2: list) -> list:
     return list(set(l1 + l2))
 
 
-def fetch_key_from_dict(runtime_info, key, default_value=None):
-    if not runtime_info:
-        runtime_info = dict()
-    return runtime_info.get(key, default_value)
-
-
-def get_pb_path() -> str:
-    """In Rudder-sources check if pb command works. Else, it returns the exact location where pb installable is present.
-
-    Returns:
-        str: _description_
-    """
-    try:
-        _ = subprocess.check_output(["which", "pb"])
-        return "pb"
-    except:
-        logger.info(
-            "pb command not found in the path. Using the default rudder-sources path /venv/bin/pb"
-        )
-        return constants.PB
+def fetch_key_from_dict(dictionary, key, default_value=None):
+    if not dictionary:
+        dictionary = dict()
+    return dictionary.get(key, default_value)
 
 
 def get_project_folder(project_folder: str, output_path: str) -> str:
@@ -563,99 +554,6 @@ def subprocess_run(args):
         logger.warning(f"Subprocess Output: {response.stdout}")
         logger.warning(f"Subprocess Error: {response.stderr}")
     return response
-
-
-def materialise_past_data(
-    features_valid_time: str,
-    feature_package_path: str,
-    output_path: str,
-    site_config_path: str,
-    project_folder: str,
-) -> bool:
-    """
-    Materializes past data for a given date using the 'pb' command-line tool.
-
-    Args:
-        features_valid_time (str): The date for which the past data needs to be materialized.
-        feature_package_path (str): The path to the feature package.
-        site_config_path (str): path to the siteconfig.yaml file
-        project_folder (str): project folder path to pb_project.yaml file
-
-    Returns:
-        None.
-
-    Example Usage:
-        materialise_past_data("2022-01-01", "packages/feature_table/models/shopify_user_features", "output/path")
-    """
-    try:
-        features_valid_time_unix = int(
-            datetime.strptime(features_valid_time, "%Y-%m-%d")
-            .replace(tzinfo=timezone.utc)
-            .timestamp()
-        )
-        project_folder = get_project_folder(project_folder, output_path)
-        pb = get_pb_path()
-        args = [
-            pb,
-            "run",
-            "-p",
-            project_folder,
-            "-m",
-            feature_package_path,
-            "--migrate_on_load=True",
-            "--end_time",
-            str(features_valid_time_unix),
-        ]
-        if site_config_path is not None:
-            args.extend(["-c", site_config_path])
-        logger.info(
-            f"Materialising historic data for {features_valid_time} using pb: {' '.join(args)} "
-        )
-        response_for_past_pb_data = subprocess_run(args)
-        if response_for_past_pb_data.returncode == 0:
-            return True
-        else:
-            raise Exception(
-                f"Error occurred while materialising data for date {features_valid_time} "
-            )
-    except Exception as e:
-        logger.warning(e)
-        return False
-
-
-def is_valid_table(session: snowflake.snowpark.Session, table_name: str) -> bool:
-    """
-    Checks whether a table exists in the data warehouse.
-
-    Args:
-        session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-        table_name (str): The name of the table to be checked.
-
-    Returns:
-        bool: True if the table exists, False otherwise.
-    """
-    try:
-        session.sql(f"select * from {table_name} limit 1").collect()
-        return True
-    except:
-        return False
-
-
-def generate_material_name(
-    material_table_prefix: str, model_name: str, model_hash: str, seq_no: str
-) -> str:
-    """Generates a valid table name from the model hash, model name, and seq no.
-
-    Args:
-        material_table_prefix (str): a standard prefix defined in constants.py, common for all the material tables
-        model_name (str): name of the profiles model, defined in profiles project
-        model_hash (str): hash of the model, generated by profiles
-        seq_no (str): sequence number of the material table - determines the timestamp of the material table
-
-    Returns:
-        str: name of the material table in warehouse
-    """
-    return f"{material_table_prefix}{model_name}_{model_hash}_{seq_no}"
 
 
 def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
@@ -1215,7 +1113,7 @@ def plot_user_feature_importance(
     return figure, user_feat_imp_dict
 
 
-def replace_seq_no_in_query(query: str, seq_no: str) -> str:
+def replace_seq_no_in_query(query: str, seq_no: int) -> str:
     query_split = query.split("_")
-    new_query = "_".join(query_split[:-1]) + "_" + f"{seq_no}"
+    new_query = "_".join(query_split[:-1]) + "_" + f"{seq_no:.0f}"
     return new_query

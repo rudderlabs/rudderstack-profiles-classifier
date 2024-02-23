@@ -7,7 +7,7 @@ import pandas as pd
 import sys
 import hashlib
 
-from logger import logger
+from src.utils.logger import logger
 from datetime import datetime
 from dataclasses import asdict
 
@@ -21,21 +21,21 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import utils
-import constants
-import ProcessorMap
-from AWSProcessor import AWSProcessor
-from LocalProcessor import LocalProcessor
-from SnowflakeProcessor import SnowflakeProcessor
-from SnowflakeConnector import SnowflakeConnector
-from MLTrainer import ClassificationTrainer, RegressionTrainer
-from preprocess_and_train import train_and_store_model_results_rs
+import src.utils.utils as utils
+from src.utils import constants
+from src.wht.pb import getPB
+
+import src.processors.ProcessorMap as ProcessorMap
+from src.connectors.SnowflakeConnector import SnowflakeConnector
+from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
+from src.ml_core.preprocess_and_train import train_and_store_model_results_rs
+
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
 try:
-    from RedshiftConnector import RedshiftConnector
+    from src.connectors.RedshiftConnector import RedshiftConnector
 except Exception as e:
     logger.warning(f"Could not import RedshiftConnector")
 
@@ -68,7 +68,6 @@ def train(
         None: saves the model but returns nothing
     """
     material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
-    material_table_prefix = constants.MATERIAL_TABLE_PREFIX
     positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS
     is_rudder_backend = utils.fetch_key_from_dict(
         runtime_info, "is_rudder_backend", False
@@ -76,21 +75,9 @@ def train(
     stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    import_files = (
-        "utils.py",
-        "constants.py",
-        "logger.py",
-        "Connector.py",
-        "SnowflakeConnector.py",
-        "MLTrainer.py",
-        "Processor.py",
-        "LocalProcessor.py",
-        "SnowflakeProcessor.py",
-    )
-    import_paths = []
-    for file in import_files:
-        import_paths.append(os.path.join(current_dir, file))
-    config_path = os.path.join(current_dir, "config", "model_configs.yaml")
+    src_dir = os.path.join(current_dir, "src")
+    import_paths = [src_dir]
+    config_path = os.path.join(src_dir, "config", "model_configs.yaml")
     folder_path = os.path.dirname(output_filename)
     target_path = utils.get_output_directory(folder_path)
 
@@ -300,7 +287,7 @@ def train(
         session, material_registry_table_prefix
     )
 
-    model_hash, features_profiles_model = connector.get_latest_material_hash(
+    model_hash, features_profiles_model = getPB().get_latest_material_hash(
         trainer.entity_key,
         constants.VAR_TABLE_SUFFIX,
         output_filename,
@@ -311,7 +298,6 @@ def train(
     creation_ts = connector.get_creation_ts(
         session,
         material_table,
-        features_profiles_model,
         model_hash,
         trainer.entity_key,
     )
@@ -333,7 +319,6 @@ def train(
             end_date,
             features_profiles_model,
             model_hash,
-            material_table_prefix,
             trainer.prediction_horizon_days,
             output_filename,
             site_config_path,

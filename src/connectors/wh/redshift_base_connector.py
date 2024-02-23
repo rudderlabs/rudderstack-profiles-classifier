@@ -11,8 +11,8 @@ from sqlalchemy import create_engine
 from sqlalchemy import orm as sa_orm
 from sqlalchemy import text
 
-from logger import logger
-from wh.connector_base import ConnectorBase, register_connector
+from src.utils.logger import logger
+from src.connectors.wh.connector_base import ConnectorBase, register_connector
 
 
 @register_connector
@@ -43,6 +43,7 @@ class RedShiftConnector(ConnectorBase):
         table_name, schema = (
             table_name.split(".") if "." in table_name else (table_name, schema)
         )
+        logger.debug("Redshift write_to_table")
 
         try:
             if not self.s3_config:

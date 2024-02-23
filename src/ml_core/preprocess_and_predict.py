@@ -6,15 +6,19 @@ import warnings
 import cachetools
 import numpy as np
 import pandas as pd
-from typing import Any, List
+from typing import Any
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 
-import utils
-import constants
-from S3Utils import S3Utils
-from logger import logger
+import src.utils.utils as utils
+from src.utils.logger import logger
+from src.utils import constants
+from src.utils.S3Utils import S3Utils
+from src.wht.pb import getPB
+
+from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
+from src.connectors.RedshiftConnector import RedshiftConnector
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -54,6 +58,7 @@ def preprocess_and_predict(
     categorical_columns = results["column_names"]["categorical_columns"]
     arraytype_columns = results["column_names"]["arraytype_columns"]
     timestamp_columns = results["column_names"]["timestamp_columns"]
+    ignore_features = results["column_names"]["ignore_features"]
 
     model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
     seq_no = None
@@ -63,9 +68,7 @@ def preprocess_and_predict(
     except Exception as e:
         raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 
-    feature_table_name = (
-        f"{constants.MATERIAL_TABLE_PREFIX}{input_model_name}_{model_hash}_{seq_no}"
-    )
+    feature_table_name = getPB().get_material_name(input_model_name, model_hash, seq_no)
 
     material_table = connector.get_material_registry_name(
         session, constants.MATERIAL_REGISTRY_TABLE_PREFIX
@@ -75,17 +78,14 @@ def preprocess_and_predict(
         session, material_table, input_model_name, model_hash, seq_no
     )
     logger.debug(f"Pulling data from Feature table - {feature_table_name}")
+
     raw_data = connector.get_table(
         session, feature_table_name, filter_condition=trainer.eligible_users
     )
-
-    ignore_features = utils.merge_lists_to_unique(
-        trainer.prep.ignore_features, arraytype_columns
-    )
-    predict_data = connector.drop_cols(raw_data, ignore_features)
-
     for col in timestamp_columns:
-        predict_data = connector.add_days_diff(predict_data, col, col, end_ts)
+        raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
+
+    predict_data = connector.drop_cols(raw_data, ignore_features)
 
     required_features_upper_case = set(
         [
@@ -191,6 +191,7 @@ def preprocess_and_predict(
         write_mode="overwrite",
         local=False,
         if_exists="replace",
+        s3_config=s3_config,
     )
     logger.debug("Closing the session")
     connector.cleanup(session, udf_name=udf_name, close_session=True)
@@ -199,12 +200,6 @@ def preprocess_and_predict(
 
 if __name__ == "__main__":
     import argparse
-    from MLTrainer import ClassificationTrainer, RegressionTrainer
-
-    try:
-        from RedshiftConnector import RedshiftConnector
-    except ImportError:
-        raise Exception("Could not import RedshiftConnector")
 
     parser = argparse.ArgumentParser()
 
@@ -215,24 +210,23 @@ if __name__ == "__main__":
     parser.add_argument("--output_tablename", type=str)
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--prediction_task", type=str)
+    parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
 
+    if args.mode == constants.CI_MODE:
+        sys.exit(0)
+    wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    output_dir = os.path.join(current_dir, "output")
+    output_dir = (
+        args.output_path
+        if args.mode == constants.LOCAL_MODE
+        else os.path.join(current_dir, "output")
+    )
 
-    if args.mode == constants.K8S_MODE:
-        wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
-        wh_creds = json.loads(wh_creds_str)
-        S3Utils.download_directory(
-            args.s3_config["bucket"],
-            args.s3_config["region"],
-            args.s3_config["path"],
-            output_dir,
-        )
-    else:
-        wh_creds = args.wh_creds
-        S3Utils.download_directory_using_keys(args.s3_config, output_dir)
+    if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
+        logger.debug(f"Downloading files from S3 in {args.mode} mode.")
+        S3Utils.download_directory_from_S3(args.s3_config, output_dir, args.mode)
 
     if args.prediction_task == "classification":
         trainer = ClassificationTrainer(**args.merged_config)
@@ -256,5 +250,7 @@ if __name__ == "__main__":
         connector=connector,
         trainer=trainer,
     )
-    logger.debug(f"Deleting additional local directory from infra mode")
-    utils.delete_folder(output_dir)
+
+    if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
+        logger.debug(f"Deleting additional local directory from {args.mode} mode.")
+        utils.delete_folder(output_dir)

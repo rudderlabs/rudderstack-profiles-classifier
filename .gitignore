@@ -23,3 +23,7 @@ tmp/
 **/output/*
 .vscode/
 .idea/
+*.json
+*.csv
+.env
+scripts/local_simulator.py

@@ -11,11 +11,13 @@ from pathlib import Path
 from datetime import datetime, timedelta
 from typing import List, Tuple, Any, Union, Optional, Sequence, Dict
 
-import utils
-import constants
-from logger import logger
-from Connector import Connector
-from wh import ProfilesConnector
+import src.utils.utils as utils
+from src.utils import constants
+from src.utils.constants import TrainTablesInfo
+from src.utils.logger import logger
+from src.connectors.Connector import Connector
+from src.connectors.wh import ProfilesConnector
+from src.wht.pb import getPB
 
 local_folder = constants.LOCAL_STORAGE_DIR
 
@@ -115,7 +117,9 @@ class RedshiftConnector(Connector):
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:
         mode = (
-            "rudderstack-infra" if is_rudder_backend else user_preference_order_infra[0]
+            constants.RUDDERSTACK_MODE
+            if is_rudder_backend
+            else user_preference_order_infra[0]
         )
         return mode
 
@@ -129,6 +133,68 @@ class RedshiftConnector(Connector):
             str: UDF name
         """
         return None
+
+    def is_valid_table(
+        self, cursor: redshift_connector.cursor.Cursor, table_name: str
+    ) -> bool:
+        """
+        Checks whether a table exists in the data warehouse.
+
+        Args:
+            cursor (redshift_connector.cursor.Cursor): A redshift cursor for data warehouse access.
+            table_name (str): The name of the table to be checked.
+
+        Returns:
+            bool: True if the table exists, False otherwise.
+        """
+        try:
+            cursor.execute(f"select * from {table_name} limit 1").fetchall()
+            return True
+        except:
+            return False
+
+    def check_table_entry_in_material_registry(
+        self, cursor: redshift_connector.cursor.Cursor, material_table_name: str
+    ) -> bool:
+        """
+        Checks wether an entry is there in the material registry for the given
+        material table name and wether its sucessfully materialised or not as well
+
+        Args:
+            cursor: warehouse db session
+            material_table_name: Material table name
+
+        Returns:
+            bool: Wether the entry for given material table is exists or not in the material registry
+        """
+
+        model_name, model_hash, seq_no = getPB().split_material_table(
+            material_table_name
+        )
+        if model_name is None or model_hash is None or seq_no is None:
+            return False
+
+        material_registry_table_name = self.get_material_registry_name(
+            cursor, constants.MATERIAL_REGISTRY_TABLE_PREFIX
+        )
+
+        query_str = f"""SELECT * FROM {material_registry_table_name}
+            WHERE model_name = '{model_name}' AND
+            model_hash = '{model_hash}' AND
+            seq_no = {seq_no}"""
+
+        result = cursor.execute(query_str).fetch_dataframe()
+
+        def safe_parse_json(x):
+            try:
+                return eval(x).get("complete", {}).get("status")
+            except:
+                return None
+
+        result["status"] = result["metadata"].apply(safe_parse_json)
+        result = result[result["status"] == 2]
+        row_count = result.shape[0]
+        return row_count != 0
 
     def get_table(
         self, cursor: redshift_connector.cursor.Cursor, table_name: str, **kwargs
@@ -404,6 +470,28 @@ class RedshiftConnector(Connector):
             )
         return label_value[0]
 
+    def fetch_filtered_table(
+        self,
+        df,
+        features_profiles_model,
+        model_hash,
+        start_time,
+        end_time,
+        columns,
+    ):
+        filtered_df = (
+            df.loc[
+                (df["model_name"] == features_profiles_model)
+                & (df["model_hash"] == model_hash)
+                & (df["end_ts"].dt.date >= pd.to_datetime(start_time).date())
+                & (df["end_ts"].dt.date <= pd.to_datetime(end_time).date()),
+                columns.keys(),
+            ]
+            .drop_duplicates()
+            .rename(columns=columns)
+        )
+        return filtered_df
+
     def get_material_names_(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -412,11 +500,10 @@ class RedshiftConnector(Connector):
         end_time: str,
         model_name: str,
         model_hash: str,
-        material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
-    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-        """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
+    ) -> List[TrainTablesInfo]:
+        """Generates material names as list containing feature table name and label table name required to create the training model and their corresponding training dates.
 
         Args:
             cursor (redshift_connector.cursor.Cursor): Redshift connector cursor for data warehouse access
@@ -425,34 +512,25 @@ class RedshiftConnector(Connector):
             end_time (str): train_end_dt
             model_name (str): Present in model_configs file
             model_hash (str) : latest model hash
-            material_table_prefix (str): constant
             prediction_horizon_days (int): period of days
 
         Returns:
-            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
-            ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
+            List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
         try:
-            material_names = list()
-            training_dates = list()
+            materials = list()
 
             df = self.get_material_registry_table(cursor, material_table)
 
-            feature_df = (
-                df.loc[
-                    (df["model_name"] == model_name)
-                    & (df["model_type"] == constants.ENTITY_VAR_MODEL)
-                    & (df["model_hash"] == model_hash)
-                    & (df["end_ts"] >= start_time)
-                    & (df["end_ts"] <= end_time),
-                    ["seq_no", "end_ts"],
-                ]
-                .drop_duplicates()
-                .rename(
-                    columns={"seq_no": "feature_seq_no", "end_ts": "feature_end_ts"}
-                )
+            feature_df = self.fetch_filtered_table(
+                df,
+                model_name,
+                model_hash,
+                start_time,
+                end_time,
+                columns={"seq_no": "FEATURE_SEQ_NO", "end_ts": "FEATURE_END_TS"},
             )
-            feature_df["label_end_ts"] = feature_df["feature_end_ts"] + timedelta(
+            feature_df["LABEL_END_TS"] = feature_df["FEATURE_END_TS"] + timedelta(
                 days=prediction_horizon_days
             )
 
@@ -463,52 +541,33 @@ class RedshiftConnector(Connector):
             label_end_time = datetime.strptime(end_time, time_format) + timedelta(
                 days=prediction_horizon_days
             )
-            label_df = (
-                df.loc[
-                    (df["model_name"] == model_name)
-                    & (df["model_type"] == constants.ENTITY_VAR_MODEL)
-                    & (df["model_hash"] == model_hash)
-                    & (df["end_ts"] >= label_start_time)
-                    & (df["end_ts"] <= label_end_time),
-                    ["seq_no", "end_ts"],
-                ]
-                .drop_duplicates()
-                .rename(columns={"seq_no": "label_seq_no", "end_ts": "label_end_ts"})
+            label_df = self.fetch_filtered_table(
+                df,
+                model_name,
+                model_hash,
+                label_start_time,
+                label_end_time,
+                columns={"seq_no": "LABEL_SEQ_NO", "end_ts": "LABEL_END_TS"},
             )
-
             feature_label_df = pd.merge(
-                feature_df, label_df, on="label_end_ts", how="inner"
-            )
+                feature_df, label_df, on="LABEL_END_TS", how="outer"
+            ).replace({np.nan: None})
 
             for _, row in feature_label_df.iterrows():
-                feat_seq_no = str(row["feature_seq_no"])
-                feature_material_name = utils.generate_material_name(
-                    material_table_prefix,
+                self._fetch_valid_historic_materials(
+                    cursor,
+                    row,
                     model_name,
                     model_hash,
-                    feat_seq_no,
+                    inputs,
+                    materials,
                 )
-
-                label_seq_no = str(row["label_seq_no"])
-                label_meterial_name = utils.generate_material_name(
-                    material_table_prefix,
-                    model_name,
-                    model_hash,
-                    label_seq_no,
-                )
-
-                # Iterate over inputs and validate meterial names
-                for input_material_query in inputs:
-                    if self.validate_historical_materials_hash(
-                        cursor, input_material_query, feat_seq_no, label_seq_no
-                    ):
-                        material_names.append(
-                            (feature_material_name, label_meterial_name)
-                        )
-                        training_dates.append(
-                            (str(row["feature_end_ts"]), str(row["label_end_ts"]))
-                        )
-            return material_names, training_dates
+                if (
+                    len(self._get_complete_sequences(materials))
+                    >= constants.TRAIN_MATERIALS_LIMIT
+                ):
+                    break
+            return materials
         except Exception as e:
             raise Exception(
                 f"Following exception occured while retrieving material names with hash {model_hash} for {model_name} between dates {start_time} and {end_time}: {e}"
@@ -518,7 +577,6 @@ class RedshiftConnector(Connector):
         self,
         cursor: redshift_connector.cursor.Cursor,
         material_table: str,
-        model_name: str,
         model_hash: str,
         entity_key: str,
     ):
@@ -527,7 +585,6 @@ class RedshiftConnector(Connector):
         Args:
             cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
             material_table (str): name of material registry table
-            model_name (str): model_name from model_configs file
             model_hash (str): latest model hash
             entity_key (str): entity key
 
@@ -537,8 +594,7 @@ class RedshiftConnector(Connector):
         redshift_df = self.get_material_registry_table(cursor, material_table)
         try:
             temp_hash_vector = (
-                redshift_df.query(f'model_type == "{constants.ENTITY_VAR_MODEL}"')
-                .query(f'model_hash == "{model_hash}"')
+                redshift_df.query(f'model_hash == "{model_hash}"')
                 .query(f'entity_key == "{entity_key}"')
                 .sort_values(by="creation_ts", ascending=False)
                 .reset_index(drop=True)[["creation_ts"]]
@@ -548,7 +604,7 @@ class RedshiftConnector(Connector):
             creation_ts = temp_hash_vector["creation_ts"]
         except:
             raise Exception(
-                f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
+                f"Project is never materialzied with model hash {model_hash}."
             )
         return creation_ts
 
@@ -571,8 +627,7 @@ class RedshiftConnector(Connector):
 
         try:
             feature_table_info_df = (
-                df.query(f'model_type == "{constants.ENTITY_VAR_MODEL}"')
-                .query(f'model_name == "{model_name}"')
+                df.query(f'model_name == "{model_name}"')
                 .query(f'model_hash == "{model_hash}"')
                 .query(f"seq_no == {seq_no}")
                 .reset_index(drop=True)[["end_ts"]]
@@ -676,62 +731,57 @@ class RedshiftConnector(Connector):
             )
         return feature_table_filtered
 
-    def do_data_validation(
+    def validate_columns_are_present(
         self,
         feature_table: pd.DataFrame,
         label_column: str,
-        task_type: str,
-    ):
-        try:
-            # Check if label_column is present in feature_table
-            if label_column not in feature_table.columns:
-                raise Exception(
-                    f"Label column {label_column} is not present in the feature table."
-                )
-
-            # Check if feature_table has at least one column apart from label_column and entity_column
-            if feature_table.shape[1] < 3:
-                raise Exception(
-                    f"Feature table must have at least one column apart from the label column {label_column}."
-                )
-
-            if task_type == "classification":
-                min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
-                max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
-
-                # Check for the class imbalance
-                label_proportion = feature_table[label_column].value_counts(
-                    normalize=True
-                )
-
-                found_invalid_rows = (
-                    (label_proportion < min_label_proportion)
-                    | (label_proportion > max_label_proportion)
-                ).any()
-
-                if found_invalid_rows:
-                    raise Exception(
-                        f"Label column {label_column} has invalid proportions. \
-                            Please check if the label column has valid labels."
-                    )
-            elif task_type == "regression":
-                # Check for the label values
-                distinct_values_count_list = feature_table[label_column].value_counts()
-
-                if (
-                    len(distinct_values_count_list)
-                    < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
-                ):
-                    raise Exception(
-                        f"Label column {label_column} has invalid number of distinct values. \
-                            Please check if the label column has valid labels."
-                    )
-        except AttributeError:
-            logger.warning(
-                "Could not perform data validation. Please check if the required \
-                    configuations are present in the constants.py file."
+    ) -> bool:
+        # Check if label_column is present in feature_table
+        if label_column not in feature_table.columns:
+            raise Exception(
+                f"Label column {label_column} is not present in the feature table."
             )
-            pass
+
+        if feature_table.shape[1] < 3:
+            raise Exception(
+                f"Feature table must have at least one column apart from the label column {label_column} and entity_column"
+            )
+        return True
+
+    def validate_class_proportions(
+        self,
+        feature_table: pd.DataFrame,
+        label_column: str,
+    ) -> bool:
+        min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+        max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
+        label_proportion = feature_table[label_column].value_counts(normalize=True)
+        found_invalid_rows = (
+            (label_proportion < min_label_proportion)
+            | (label_proportion > max_label_proportion)
+        ).any()
+        if found_invalid_rows:
+            raise Exception(
+                f"Label column {label_column} has invalid proportions. \
+                        Please check if the label column has valid labels."
+            )
+        return True
+
+    def validate_label_distinct_values(
+        self,
+        feature_table: pd.DataFrame,
+        label_column: str,
+    ) -> bool:
+        distinct_values_count_list = feature_table[label_column].value_counts()
+        if (
+            len(distinct_values_count_list)
+            < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
+        ):
+            raise Exception(
+                f"Label column {label_column} has invalid number of distinct values. \
+                    Please check if the label column has valid labels."
+            )
+        return True
 
     def add_days_diff(
         self, table: pd.DataFrame, new_col: str, time_col: str, end_ts: str

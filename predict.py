@@ -1,16 +1,12 @@
 import os
 import sys
-import json
-import joblib
 import warnings
-import cachetools
 import numpy as np
 import pandas as pd
 
-from typing import Any, List
-from logger import logger
+from src.utils.logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-from S3Utils import S3Utils
+from src.utils.S3Utils import S3Utils
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
@@ -18,24 +14,24 @@ import snowflake.snowpark.functions as F
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import utils
-import constants
-import ProcessorMap
-from SnowflakeConnector import SnowflakeConnector
-from MLTrainer import ClassificationTrainer, RegressionTrainer
+import src.utils.utils as utils
+from src.utils import constants
+from src.connectors.SnowflakeConnector import SnowflakeConnector
+import src.processors.ProcessorMap as ProcessorMap
+from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
 try:
-    from RedshiftConnector import RedshiftConnector
+    from src.connectors.RedshiftConnector import RedshiftConnector
 except Exception as e:
     logger.warning(f"Could not import RedshiftConnector")
 
 
 def predict(
     creds: dict,
-    s3_config: dict,
+    _: dict,  # s3_config is not being populated for some reason. Using site_config to get its value
     model_path: str,
     inputs: str,
     output_tablename: str,
@@ -57,25 +53,17 @@ def predict(
     """
     logger.debug("Starting Predict job")
 
-    # TODO - Get role, bucket, path from site config
-    # TODO - replace the aws check with infra mode check
-    if bool(s3_config) and ("access_key_id" not in s3_config):
-        s3_creds = S3Utils.get_temporary_credentials(constants.ARN_AWS_ROLE)
-        s3_config["bucket"] = constants.S3_BUCKET
-        s3_config["path"] = constants.S3_PATH
-        s3_config["access_key_id"] = s3_creds["access_key_id"]
-        s3_config["access_key_secret"] = s3_creds["access_key_secret"]
-        s3_config["aws_session_token"] = s3_creds["aws_session_token"]
-
     is_rudder_backend = utils.fetch_key_from_dict(
         runtime_info, "is_rudder_backend", False
     )
+    site_config_path = utils.fetch_key_from_dict(runtime_info, "site_config_path", "")
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
+    src_dir = os.path.join(current_dir, "src")
     folder_path = os.path.dirname(model_path)
 
     default_config = utils.load_yaml(
-        os.path.join(current_dir, "config", "model_configs.yaml")
+        os.path.join(src_dir, "config", "model_configs.yaml")
     )
     _ = config["data"].pop(
         "package_name", None
@@ -113,6 +101,37 @@ def predict(
     )
     processor = ProcessorMap.processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for predictions")
+    if site_config_path == "":
+        # TODO - Remove it post pb release
+        s3_config = {
+            "bucket": "ml-usecases-poc-srinivas",
+            "region": "us-east-1",
+            "path": "2b0AM2EcotEiuoa0GwkpCtzuQaa/cmu7ff9gtmi99j1fb330/cmu7ff9gtmi99j1fb33g",
+            "role_arn": "arn:aws:iam::454531037350:role/profiles-ml-s3",
+        }
+        site_config = {
+            "py_models": {
+                "credentials_presets": {
+                    "s3": s3_config,
+                    "kubernetes": {
+                        "namespace": "profiles-qa",
+                        "resources": {"limits_cpu": "2000m", "limits_memory": "2Gi"},
+                    },
+                }
+            }
+        }
+    else:
+        site_config = utils.load_yaml(site_config_path)
+        presets = site_config["py_models"].get("credentials_presets")
+        if presets is None or presets.get("s3") is None:
+            s3_config = {}
+        else:
+            s3_config = presets["s3"]
+    if mode == constants.RUDDERSTACK_MODE:
+        s3_creds = S3Utils.get_temporary_credentials(s3_config["role_arn"])
+        s3_config["access_key_id"] = s3_creds["access_key_id"]
+        s3_config["access_key_secret"] = s3_creds["access_key_secret"]
+        s3_config["aws_session_token"] = s3_creds["aws_session_token"]
     _ = processor.predict(
         creds,
         s3_config,
@@ -121,4 +140,5 @@ def predict(
         output_tablename,
         merged_config,
         prediction_task,
+        site_config,
     )

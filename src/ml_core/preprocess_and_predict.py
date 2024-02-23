@@ -6,7 +6,7 @@ import warnings
 import cachetools
 import numpy as np
 import pandas as pd
-from typing import Any, List
+from typing import Any
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
@@ -15,6 +15,7 @@ import src.utils.utils as utils
 from src.utils.logger import logger
 from src.utils import constants
 from src.utils.S3Utils import S3Utils
+from src.wht.pb import getPB
 
 from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from src.connectors.RedshiftConnector import RedshiftConnector
@@ -57,6 +58,7 @@ def preprocess_and_predict(
     categorical_columns = results["column_names"]["categorical_columns"]
     arraytype_columns = results["column_names"]["arraytype_columns"]
     timestamp_columns = results["column_names"]["timestamp_columns"]
+    ignore_features = results["column_names"]["ignore_features"]
 
     model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
     seq_no = None
@@ -66,9 +68,7 @@ def preprocess_and_predict(
     except Exception as e:
         raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 
-    feature_table_name = (
-        f"{constants.MATERIAL_TABLE_PREFIX}{input_model_name}_{model_hash}_{seq_no}"
-    )
+    feature_table_name = getPB().get_material_name(input_model_name, model_hash, seq_no)
 
     material_table = connector.get_material_registry_name(
         session, constants.MATERIAL_REGISTRY_TABLE_PREFIX
@@ -78,17 +78,14 @@ def preprocess_and_predict(
         session, material_table, input_model_name, model_hash, seq_no
     )
     logger.debug(f"Pulling data from Feature table - {feature_table_name}")
+
     raw_data = connector.get_table(
         session, feature_table_name, filter_condition=trainer.eligible_users
     )
-
-    ignore_features = utils.merge_lists_to_unique(
-        trainer.prep.ignore_features, arraytype_columns
-    )
-    predict_data = connector.drop_cols(raw_data, ignore_features)
-
     for col in timestamp_columns:
-        predict_data = connector.add_days_diff(predict_data, col, col, end_ts)
+        raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
+
+    predict_data = connector.drop_cols(raw_data, ignore_features)
 
     required_features_upper_case = set(
         [

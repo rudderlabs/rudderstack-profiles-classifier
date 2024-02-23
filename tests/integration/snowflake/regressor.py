@@ -1,11 +1,7 @@
 from train import *
 import shutil
 from predict import *
-
-
-# homedir = os.path.expanduser("~")
-# with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-#     creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+from src.wht.pb import getPB
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
 creds["schema"] = "PROFILES_INTEGRATION_TEST"
@@ -40,6 +36,8 @@ data = {
     "label_column": label_column,
     "task": "regression",
     "output_profiles_ml_model": output_model_name,
+    "train_start_dt": "2024-02-08",
+    "train_end_dt": "2024-02-09",
 }
 
 train_config = {"data": data}
@@ -175,8 +173,7 @@ def test_regressor():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    connector = SnowflakeConnector()
-    latest_model_hash, user_var_table_name = connector.get_latest_material_hash(
+    latest_model_hash, _ = getPB().get_latest_material_hash(
         entity_key,
         var_table_suffix,
         output_filename,

@@ -550,9 +550,9 @@ def subprocess_run(args):
         args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
     )
     if response.returncode != 0:
-        logger.warning(f"Error occurred. Exit code:{response.returncode}")
-        logger.warning(f"Subprocess Output: {response.stdout}")
-        logger.warning(f"Subprocess Error: {response.stderr}")
+        logger.error(f"Error occurred. Exit code:{response.returncode}")
+        logger.error(f"Subprocess Output: {response.stdout}")
+        raise Exception(f"Subprocess Error: {response.stderr}")
     return response
 
 

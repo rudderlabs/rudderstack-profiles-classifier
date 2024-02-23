@@ -485,7 +485,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_material_registry_name(self, session, table_prefix: str) -> str:
+    def get_tables_by_prefix(self, session, prefix: str) -> str:
         pass
 
     @abstractmethod

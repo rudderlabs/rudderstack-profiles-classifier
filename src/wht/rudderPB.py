@@ -74,7 +74,6 @@ class RudderPB:
     def get_latest_material_hash(
         self,
         entity_key: str,
-        var_table_suffix: List[str],
         output_filename: str,
         site_config_path: str = None,
         project_folder: str = None,
@@ -86,7 +85,7 @@ class RudderPB:
         }
         pb_compile_output = self._compile(args)
         features_profiles_model = None
-        for var_table in var_table_suffix:
+        for var_table in ["_var_table", "_all_var_table"]:
             if entity_key + var_table in pb_compile_output:
                 features_profiles_model = entity_key + var_table
                 break
@@ -136,3 +135,19 @@ class RudderPB:
                 f"Couldn't split the material table {material_table_name} into model name, hash, and seq_no"
             )
             return (None, None, None)
+
+    def get_material_registry_name(self, connector, session) -> str:
+        material_registry_tables = connector.get_tables_by_prefix(
+            session, "MATERIAL_REGISTRY"
+        )
+
+        def split_key(item):
+            parts = item.split("_")
+            if len(parts) > 1 and parts[-1].isdigit():
+                return int(parts[-1])
+            return 0
+
+        sorted_material_registry_tables = sorted(
+            material_registry_tables, key=split_key, reverse=True
+        )
+        return sorted_material_registry_tables[0]

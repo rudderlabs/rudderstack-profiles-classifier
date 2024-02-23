@@ -158,9 +158,7 @@ class SnowflakeConnector(Connector):
         if model_name is None or model_hash is None or seq_no is None:
             return False
 
-        material_registry_table_name = self.get_material_registry_name(
-            session, constants.MATERIAL_REGISTRY_TABLE_PREFIX
-        )
+        material_registry_table_name = getPB().get_material_registry_name(self, session)
 
         material_registry_table = self.get_table(session, material_registry_table_name)
         num_rows = (
@@ -642,35 +640,12 @@ class SnowflakeConnector(Connector):
                 f"Following exception occured while retrieving material names with hash {model_hash} for {features_profiles_model} between dates {start_time} and {end_time}: {e}"
             )
 
-    def get_material_registry_name(
-        self,
-        session: snowflake.snowpark.Session,
-        table_prefix: str = "MATERIAL_REGISTRY",
-    ) -> str:
-        """This function will return the latest material registry table name
-        Args:
-            session (snowflake.snowpark.Session): snowpark session
-            table_name (str): name of the material registry table prefix | Defaults to "MATERIAL_REGISTRY"
-        Returns:
-            str: latest material registry table name
-        """
-        material_registry_tables = list()
-
-        def split_key(item):
-            parts = item.split("_")
-            if len(parts) > 1 and parts[-1].isdigit():
-                return int(parts[-1])
-            return 0
-
-        registry_df = self.run_query(
-            session, f"show tables starts with '{table_prefix}'"
-        )
+    def get_tables_by_prefix(self, session: snowflake.snowpark.Session, prefix: str):
+        tables = list()
+        registry_df = self.run_query(session, f"show tables starts with '{prefix}'")
         for row in registry_df:
-            material_registry_tables.append(row.name)
-        sorted_material_registry_tables = sorted(
-            material_registry_tables, key=split_key, reverse=True
-        )
-        return sorted_material_registry_tables[0]
+            tables.append(row.name)
+        return tables
 
     def get_creation_ts(
         self,

@@ -38,7 +38,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         redshift_connector = MockRedshiftConnector(folder_path="data")
         material_registry_table = redshift_connector.get_material_registry_table(
-            cursor=None, material_registry_table_name=None
+            session=None, material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict(
             {"seq_no": [2], "metadata": ['{"complete": {"status": 2}}'], "status": [2]}
@@ -71,7 +71,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         redshift_connector = MockRedshiftConnector(folder_path="data")
         material_registry_table = redshift_connector.get_material_registry_table(
-            cursor=None, material_registry_table_name=None
+            session=None, material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict({})
         self.assertEqual(
@@ -95,7 +95,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         # Call the get_material_registry_table method
         material_registry_table = redshift_connector.get_material_registry_table(
-            cursor=None, material_registry_table_name=None
+            session=None, material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict({})
         self.assertEqual(

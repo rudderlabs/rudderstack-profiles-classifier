@@ -1,9 +1,10 @@
 import sys
 import unittest
+from src.wht.pb import getPB
 
 sys.path.append("../..")
 
-from src.utils.utils import replace_seq_no_in_query, split_material_table
+from src.utils.utils import replace_seq_no_in_query
 
 
 class TestReplaceSeqNoInQuery(unittest.TestCase):
@@ -37,35 +38,35 @@ class TestSplitMaterialTable(unittest.TestCase):
     def test_valid_table_name(self):
         table_name = "Material_user_var_table_54ddc22a_383"
         expected_result = ("user_var_table", "54ddc22a", 383)
-        actual_result = split_material_table(table_name)
+        actual_result = getPB().split_material_table(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_missing_prefix(self):
         table_name = "user_var_table_54ddc22a_383"
         expected_result = (None, None, None)
-        actual_result = split_material_table(table_name)
+        actual_result = getPB().split_material_table(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_missing_seq_no(self):
         table_name = "Material_user_var_table_54ddc22a"
         expected_result = (None, None, None)
-        actual_result = split_material_table(table_name)
+        actual_result = getPB().split_material_table(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_invalid_seq_no(self):
         table_name = "Material_user_var_table_54ddc22a_foo"
         expected_result = (None, None, None)
-        actual_result = split_material_table(table_name)
+        actual_result = getPB().split_material_table(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_invalid_table_name(self):
         table_name = "user_var_table_54ddc22a_foo"
         expected_result = (None, None, None)
-        actual_result = split_material_table(table_name)
+        actual_result = getPB().split_material_table(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_material_query(self):
         table_name = "SELECT * FROM SCHEMA.Material_user_var_table_54ddc22a_383"
         expected_result = ("user_var_table", "54ddc22a", 383)
-        actual_result = split_material_table(table_name)
+        actual_result = getPB().split_material_table(table_name)
         self.assertEqual(actual_result, expected_result)

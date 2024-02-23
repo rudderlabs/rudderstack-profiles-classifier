@@ -19,6 +19,7 @@ from src.utils import constants
 from src.utils.constants import TrainTablesInfo
 from src.utils.logger import logger
 from src.connectors.Connector import Connector
+from src.wht.pb import getPB
 
 local_folder = constants.SF_LOCAL_STORAGE_DIR
 
@@ -151,7 +152,9 @@ class SnowflakeConnector(Connector):
             bool: Wether the entry for given material table is exists or not in the material registry
         """
 
-        model_name, model_hash, seq_no = utils.split_material_table(material_table_name)
+        model_name, model_hash, seq_no = getPB().split_material_table(
+            material_table_name
+        )
         if model_name is None or model_hash is None or seq_no is None:
             return False
 
@@ -568,7 +571,6 @@ class SnowflakeConnector(Connector):
         end_time: str,
         features_profiles_model: str,
         model_hash: str,
-        material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
     ) -> List[TrainTablesInfo]:
@@ -581,7 +583,6 @@ class SnowflakeConnector(Connector):
             end_time (str): train_end_dt
             features_profiles_model (str): Present in model_configs file
             model_hash (str) : latest model hash
-            material_table_prefix (str): constant
             prediction_horizon_days (int): period of days
             inputs (List[str]): list of input features
 
@@ -625,7 +626,6 @@ class SnowflakeConnector(Connector):
                 self._fetch_valid_historic_materials(
                     session,
                     row,
-                    material_table_prefix,
                     features_profiles_model,
                     model_hash,
                     inputs,

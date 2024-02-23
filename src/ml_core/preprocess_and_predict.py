@@ -6,7 +6,7 @@ import warnings
 import cachetools
 import numpy as np
 import pandas as pd
-from typing import Any, List
+from typing import Any
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
@@ -15,6 +15,7 @@ import src.utils.utils as utils
 from src.utils.logger import logger
 from src.utils import constants
 from src.utils.S3Utils import S3Utils
+from src.wht.pb import getPB
 
 from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from src.connectors.RedshiftConnector import RedshiftConnector
@@ -66,9 +67,7 @@ def preprocess_and_predict(
     except Exception as e:
         raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 
-    feature_table_name = (
-        f"{constants.MATERIAL_TABLE_PREFIX}{input_model_name}_{model_hash}_{seq_no}"
-    )
+    feature_table_name = getPB().get_material_name(input_model_name, model_hash, seq_no)
 
     material_table = connector.get_material_registry_name(
         session, constants.MATERIAL_REGISTRY_TABLE_PREFIX

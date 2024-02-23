@@ -112,7 +112,6 @@ class TestGetMaterialNames(unittest.TestCase):
         self.end_date = "2022-01-31"
         self.features_profiles_model = "model_name"
         self.model_hash = "model_hash"
-        self.material_table_prefix = "material_prefix"
         self.prediction_horizon_days = 7
         self.output_filename = "output_file.csv"
         self.site_config_path = "siteconfig.yaml"
@@ -305,12 +304,11 @@ class TestGetMaterialNames(unittest.TestCase):
                 label_table_date=None,
             ),
         ]
-        feature_package_path = utils.get_feature_package_path(self.input_models)
-        expected_date = (None, "label_table_dt")
+        expected_date = (None, "2000-01-01")
 
         # Mock the internal method get_valid_feature_label_dates
         self.connector.get_valid_feature_label_dates = Mock(return_value=expected_date)
-        utils.materialise_past_data = Mock(return_value=True)
+        utils.subprocess_run = Mock()
 
         # Invoke the method under test
         dates = self.connector.generate_training_materials(
@@ -328,12 +326,20 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Assert the result
         self.assertEqual(dates, expected_date)
-        utils.materialise_past_data.assert_called_once_with(
-            dates[1],
-            feature_package_path,
-            self.output_filename,
-            self.site_config_path,
-            self.project_folder,
+        utils.subprocess_run.assert_called_once_with(
+            [
+                "pb",
+                "run",
+                "-p",
+                "project_folder",
+                "-m",
+                "model1.yaml,model2.yaml",
+                "--migrate_on_load=True",
+                "--end_time",
+                "946684800",
+                "-c",
+                "siteconfig.yaml",
+            ]
         )
 
     # Retrieves material names and training dates when materialized data is available within the specified date range
@@ -366,7 +372,6 @@ class TestGetMaterialNames(unittest.TestCase):
             self.end_date,
             self.features_profiles_model,
             self.model_hash,
-            self.material_table_prefix,
             self.prediction_horizon_days,
             self.output_filename,
             self.site_config_path,
@@ -408,7 +413,6 @@ class TestGetMaterialNames(unittest.TestCase):
             self.end_date,
             self.features_profiles_model,
             self.model_hash,
-            self.material_table_prefix,
             self.prediction_horizon_days,
             self.output_filename,
             self.site_config_path,
@@ -446,7 +450,6 @@ class TestGetMaterialNames(unittest.TestCase):
                 self.end_date,
                 self.features_profiles_model,
                 self.model_hash,
-                self.material_table_prefix,
                 self.prediction_horizon_days,
                 self.output_filename,
                 self.site_config_path,

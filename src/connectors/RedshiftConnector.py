@@ -206,7 +206,7 @@ class CrossPlatformConnector(Connector):
         """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
         pass
 
-    # TODO: Resume from here.
+    # TODO: check below functions. Resume from here.
     def get_non_stringtype_features(
         self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
     ) -> List[str]:
@@ -355,9 +355,8 @@ class CrossPlatformConnector(Connector):
         timestamp_columns = self.array_time_features["timestamp_columns"]
         return timestamp_columns
 
-    # TODO: Till this point from last check.
+    # TODO: Till this point from last #TODO.
 
-    # TODO: checked this fn.
     def get_default_label_value(
         self, cursor, table_name: str, label_column: str, positive_boolean_flags: list
     ):
@@ -381,7 +380,6 @@ class CrossPlatformConnector(Connector):
             )
         return label_value[0]
 
-    # TODO: checked this fn.
     def fetch_filtered_table(
         self,
         df,
@@ -404,7 +402,6 @@ class CrossPlatformConnector(Connector):
         )
         return filtered_df
 
-    # TODO: checked this fn.
     def get_material_names_(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -489,7 +486,6 @@ class CrossPlatformConnector(Connector):
                 f"Following exception occured while retrieving material names with hash {model_hash} for {model_name} between dates {start_time} and {end_time}: {e}"
             )
 
-    # TODO: checked this fn.
     def get_creation_ts(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -525,7 +521,6 @@ class CrossPlatformConnector(Connector):
             )
         return creation_ts.tz_localize(None)
 
-    # TODO: checked this fn.
     def get_end_ts(
         self, cursor, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
@@ -562,7 +557,6 @@ class CrossPlatformConnector(Connector):
 
         return end_ts.tz_localize(None)
 
-    # TODO: checked this fn.
     def add_index_timestamp_colum_for_predict_data(
         self, predict_data, index_timestamp: str, end_ts: str
     ) -> pd.DataFrame:
@@ -579,7 +573,6 @@ class CrossPlatformConnector(Connector):
         predict_data[index_timestamp] = pd.to_datetime(end_ts)
         return predict_data
 
-    # TODO: checked this fn.
     def fetch_staged_file(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -602,7 +595,6 @@ class CrossPlatformConnector(Connector):
         target_path = os.path.join(target_folder, file_name)
         shutil.move(source_path, target_path)
 
-    # TODO: checked this fn.
     def drop_cols(self, table: pd.DataFrame, col_list: list) -> pd.DataFrame:
         """
         Drops the columns in the given list from the given table.
@@ -623,7 +615,6 @@ class CrossPlatformConnector(Connector):
         ]
         return table.drop(columns=ignore_features_)
 
-    # TODO: checked this fn.
     def filter_feature_table(
         self,
         feature_table: pd.DataFrame,
@@ -653,7 +644,6 @@ class CrossPlatformConnector(Connector):
             )
         return feature_table_filtered
 
-    # TODO: checked this fn.
     def validate_columns_are_present(
         self,
         feature_table: pd.DataFrame,
@@ -671,7 +661,6 @@ class CrossPlatformConnector(Connector):
             )
         return True
 
-    # TODO: checked this fn.
     def validate_class_proportions(
         self,
         feature_table: pd.DataFrame,
@@ -691,7 +680,6 @@ class CrossPlatformConnector(Connector):
             )
         return True
 
-    # TODO: checked this fn.
     def validate_label_distinct_values(
         self,
         feature_table: pd.DataFrame,
@@ -708,7 +696,6 @@ class CrossPlatformConnector(Connector):
             )
         return True
 
-    # TODO: checked this fn.
     def add_days_diff(
         self, table: pd.DataFrame, new_col: str, time_col: str, end_ts: str
     ) -> pd.DataFrame:
@@ -729,7 +716,6 @@ class CrossPlatformConnector(Connector):
         table[new_col] = (table["temp_2"] - table["temp_1"]).dt.days
         return table.drop(columns=["temp_1", "temp_2"])
 
-    # TODO: checked this fn.
     def join_feature_table_label_table(
         self,
         feature_table: pd.DataFrame,
@@ -751,7 +737,6 @@ class CrossPlatformConnector(Connector):
         """
         return feature_table.merge(label_table, on=[entity_column], how=join_type)
 
-    # TODO: checked this fn.
     def get_distinct_values_in_column(
         self, table: pd.DataFrame, column_name: str
     ) -> List:
@@ -766,7 +751,6 @@ class CrossPlatformConnector(Connector):
         """
         return table[column_name].unique()
 
-    # TODO: checked this fn.
     def get_material_registry_name(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -805,7 +789,6 @@ class CrossPlatformConnector(Connector):
 
         return sorted_material_registry_tables[0]
 
-    # TODO: checked this fn.
     def get_material_registry_table(
         self,
         cursor: redshift_connector.cursor.Cursor,
@@ -843,6 +826,7 @@ class CrossPlatformConnector(Connector):
         )
         return material_registry_table[material_registry_table["status"] == 2]
 
+    # TODO: checked this fn. Should be correct. Will make sure after BigQuery run.
     def generate_type_hint(self, df: pd.DataFrame, column_types: Dict[str, List[str]]):
         types = []
         cat_columns = [col.lower() for col in column_types["categorical_columns"]]
@@ -858,6 +842,7 @@ class CrossPlatformConnector(Connector):
                 )
         return types
 
+    # TODO: checked this fn. Should be correct. Will make sure after BigQuery run.
     def call_prediction_udf(
         self,
         predict_data: pd.DataFrame,
@@ -928,25 +913,12 @@ class CrossPlatformConnector(Connector):
                 "timestamp_columns"
             ]
 
-    def make_local_dir(self) -> None:
-        "Created a local directory to store temporary files"
-        Path(self.local_dir).mkdir(parents=True, exist_ok=True)
-
     def fetch_feature_df_path(self, feature_table_name: str) -> str:
         """This function will return the feature_df_path"""
         feature_df_path = os.path.join(
             self.local_dir, f"{feature_table_name}.parquet.gzip"
         )
         return feature_df_path
-
-    def _delete_local_data_folder(self) -> None:
-        """Deletes the local data folder."""
-        try:
-            shutil.rmtree(self.local_dir)
-            logger.info("Local directory removed successfully")
-        except OSError as o:
-            logger.info("Local directory not present")
-            pass
 
     def select_relevant_columns(
         self, table: pd.DataFrame, training_features_columns: Sequence[str]
@@ -962,6 +934,15 @@ class CrossPlatformConnector(Connector):
             training_features_columns
         ), f"Expected columns {training_features_columns} not found in table {matching_columns_upper}"
         return table.filter(matching_columns)
+
+    def _delete_local_data_folder(self) -> None:
+        """Deletes the local data folder."""
+        try:
+            shutil.rmtree(self.local_dir)
+            logger.info("Local directory removed successfully")
+        except OSError as o:
+            logger.info("Local directory not present")
+            pass
 
     def cleanup(self, *args, **kwargs) -> None:
         delete_local_data = kwargs.get("delete_local_data", None)

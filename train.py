@@ -281,7 +281,6 @@ def train(
         connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
         connector.cleanup(delete_local_data=True)
-        connector.make_local_dir()
 
     material_table = connector.get_material_registry_name(
         session, material_registry_table_prefix

@@ -62,13 +62,11 @@ class RudderPB:
             f"Materialising historic data for {arg['features_valid_time']} using pb: {' '.join(pb_args)} "
         )
         try:
-            response_for_past_pb_data = utils.subprocess_run(pb_args)
-            if response_for_past_pb_data.returncode != 0:
-                logger.error(
-                    f"Error occurred while materialising data for date {arg['features_valid_time']} "
-                )
+            utils.subprocess_run(pb_args)
         except Exception as e:
-            logger.error(e)
+            raise Exception(
+                f"Error occurred while materialising data for date {arg['features_valid_time']} : {e}"
+            )
 
     def get_material_name(self, model_name: str, model_hash: str, seq_no: int) -> str:
         return f"{MATERIAL_PREFIX}{model_name}_{model_hash}_{seq_no:.0f}"

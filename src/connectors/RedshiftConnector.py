@@ -26,8 +26,6 @@ from src.wht.pb import getPB
 
 local_folder = constants.LOCAL_STORAGE_DIR
 
-# TODO: Change TypeHints for cursor objects and look for others.
-
 
 class CommonTableTypeConnector(Connector):
     def __init__(self, folder_path: str) -> None:
@@ -56,7 +54,7 @@ class CommonTableTypeConnector(Connector):
         """Calls the given function for training
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
+            cursor : connection cursor for warehouse access
             args (list): List of arguments to be passed to the training function
             kwargs (dict): Dictionary of keyword arguments to be passed to the training function
 
@@ -118,7 +116,7 @@ class CommonTableTypeConnector(Connector):
             return False
 
     def check_table_entry_in_material_registry(
-        self, cursor: redshift_connector.cursor.Cursor, material_table_name: str
+        self, cursor, material_table_name: str
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
@@ -188,11 +186,11 @@ class CommonTableTypeConnector(Connector):
         return json_data
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
-        """Writes the given pandas dataframe to the Redshift schema with the given name.
+        """Writes the given pandas dataframe to the warehouse schema with the given name.
 
         Args:
-            df (pd.DataFrame): Pandas dataframe to be written to the snowpark session
-            table_name (str): Name with which the dataframe is to be written to the snowpark session
+            df (pd.DataFrame): Pandas dataframe to be written to the warehouse schema
+            table_name (str): Name with which the dataframe is to be written
         Returns:
             Nothing
         """
@@ -201,13 +199,13 @@ class CommonTableTypeConnector(Connector):
         self.write_pandas(df, table_name, **kwargs)
 
     def write_pandas(self, df: pd.DataFrame, table_name_remote: str, **kwargs) -> None:
-        """Writes the given pandas dataframe to the Redshift schema with the given name
+        """Writes the given pandas dataframe to the Warehouse schema with the given name
 
         Args:
-            df (pd.DataFrame): Pandas dataframe to be written to the snowpark session
-            table_name (str): Name with which the dataframe is to be written to the snowpark session
+            df (pd.DataFrame): Pandas dataframe to be written
+            table_name (str): Name with which the dataframe is to be written
             [From kwargs]
-                if_exists (str): How to write the dataframe to the Redshift schema | Defaults to "append"
+                if_exists (str): How to write the dataframe to the warehouse schema | Defaults to "append"
         Returns:
             Nothing
         """
@@ -219,7 +217,7 @@ class CommonTableTypeConnector(Connector):
 
     def label_table(
         self,
-        cursor: redshift_connector.cursor.Cursor,
+        cursor,
         label_table_name: str,
         label_column: str,
         entity_column: str,
@@ -229,7 +227,7 @@ class CommonTableTypeConnector(Connector):
         Labels the given label_columns in the table as '1' or '0' if the value matches the label_value or not respectively.
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access
+            cursor : connection cursor for warehouse access
             label_table_name (str): Name of the table to be labelled
             label_column (str): Name of the column to be labelled
             entity_column (str): Name of the entity column
@@ -247,7 +245,7 @@ class CommonTableTypeConnector(Connector):
         return label_table
 
     def save_file(self, *args, **kwargs):
-        """Function needed only for Snowflake Connector, hence an empty function for Redshift Connector."""
+        """Function needed only for Snowflake Connector, hence an empty function here."""
         pass
 
     # TODO: check below functions. Resume from here.
@@ -297,13 +295,11 @@ class CommonTableTypeConnector(Connector):
                 stringtype_features.append(column)
         return stringtype_features
 
-    def get_arraytype_columns(
-        self, cursor: redshift_connector.cursor.Cursor, table_name: str
-    ) -> List[str]:
+    def get_arraytype_columns(self, cursor, table_name: str) -> List[str]:
         """Returns the list of features to be ignored from the feature table.
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connector cursor for data warehouse access
+            cursor : connection cursor for warehouse access
             table_name (str): Name of the table from which to retrieve the arraytype/super columns.
 
         Returns:
@@ -322,7 +318,7 @@ class CommonTableTypeConnector(Connector):
     def get_arraytype_columns_from_table(self, table: pd.DataFrame, **kwargs) -> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
-            table (snowflake.snowpark.Table): snowpark table.
+            table (pd.DataFrame): warehouse table.
         Returns:
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
@@ -355,14 +351,14 @@ class CommonTableTypeConnector(Connector):
 
     def get_timestamp_columns(
         self,
-        cursor: redshift_connector.cursor.Cursor,
+        cursor,
         table_name: str,
     ) -> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): The Snowpark session for data warehouse access.
+            cursor : connection cursor for warehouse access
             table_name (str): Name of the feature table from which to retrieve the timestamp columns.
 
         Returns:
@@ -448,7 +444,7 @@ class CommonTableTypeConnector(Connector):
 
     def get_material_names_(
         self,
-        cursor: redshift_connector.cursor.Cursor,
+        cursor,
         material_table: str,
         start_time: str,
         end_time: str,
@@ -460,7 +456,7 @@ class CommonTableTypeConnector(Connector):
         """Generates material names as list containing feature table name and label table name required to create the training model and their corresponding training dates.
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connector cursor for data warehouse access
+            cursor : connection cursor for warehouse access
             material_table (str): Name of the material table(present in constants.py file)
             start_time (str): train_start_dt
             end_time (str): train_end_dt
@@ -529,7 +525,7 @@ class CommonTableTypeConnector(Connector):
 
     def get_creation_ts(
         self,
-        cursor: redshift_connector.cursor.Cursor,
+        cursor,
         material_table: str,
         model_hash: str,
         entity_key: str,
@@ -537,7 +533,7 @@ class CommonTableTypeConnector(Connector):
         """This function will return the model hash that is latest for given model name in material table
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
+            cursor : connection cursor for warehouse access
             material_table (str): name of material registry table
             model_hash (str): latest model hash
             entity_key (str): entity key
@@ -568,7 +564,7 @@ class CommonTableTypeConnector(Connector):
         """This function will return the end_ts with given model hash and model name
 
         Args:
-            session (snowflake.snowpark.Session): snowpark session
+            cursor : connection cursor for warehouse access
             material_table (str): name of material registry table
             model_name (str): model_name to be searched in material registry table
             model_hash (str): latest model hash
@@ -599,7 +595,7 @@ class CommonTableTypeConnector(Connector):
         return end_ts.tz_localize(None)
 
     def add_index_timestamp_colum_for_predict_data(
-        self, predict_data, index_timestamp: str, end_ts: str
+        self, predict_data: pd.DataFrame, index_timestamp: str, end_ts: str
     ) -> pd.DataFrame:
         """This function will add index timestamp column to predict data
 
@@ -616,7 +612,7 @@ class CommonTableTypeConnector(Connector):
 
     def fetch_staged_file(
         self,
-        cursor: redshift_connector.cursor.Cursor,
+        cursor,
         stage_name: str,
         file_name: str,
         target_folder: str,
@@ -624,7 +620,7 @@ class CommonTableTypeConnector(Connector):
         """Fetches the given file from the given stage and saves it to the given target folder.
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
+            cursor : connection cursor for warehouse access
             stage_name (str): Name of the stage from which to fetch the file.
             file_name (str): Name of the file to be fetched.
             target_folder (str): Path to the folder where the fetched file is to be saved.
@@ -794,13 +790,13 @@ class CommonTableTypeConnector(Connector):
 
     def get_material_registry_name(
         self,
-        cursor: redshift_connector.cursor.Cursor,
+        cursor,
         table_prefix: str = "material_registry",
     ) -> str:
         """This function will return the latest material registry table name
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connector cursor for data warehouse access
+            cursor : connection cursor for warehouse access
             table_name (str): Prefix of the name of the table | Defaults to "material_registry"
 
         Returns:
@@ -832,14 +828,14 @@ class CommonTableTypeConnector(Connector):
 
     def get_material_registry_table(
         self,
-        cursor: redshift_connector.cursor.Cursor,
+        cursor,
         material_registry_table_name: str,
     ) -> pd.DataFrame:
         """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
         Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): Redshift connection cursor for warehouse access.
+            cursor : connection cursor for warehouse access
             material_registry_table_name (str): The material registry table name.
 
         Returns:
@@ -923,7 +919,7 @@ class CommonTableTypeConnector(Connector):
         preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
         return preds
 
-    """ The following functions are only specific to Redshift Connector and not used by any other connector."""
+    """ The following functions are only specific to Redshift Connector and BigQuery Connector and not used by any other connector."""
 
     def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:
         """Writes the given pandas dataframe to the local storage with the given name.

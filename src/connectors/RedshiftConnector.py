@@ -100,19 +100,19 @@ class CommonTableTypeConnector(Connector):
         """
         return None
 
-    def is_valid_table(self, session, table_name: str) -> bool:
+    def is_valid_table(self, cursor, table_name: str) -> bool:
         """
         Checks whether a table exists in the data warehouse.
 
         Args:
-            cursor (redshift_connector.cursor.Cursor): A redshift cursor for data warehouse access.
+            cursor : A cursor for data warehouse access.
             table_name (str): The name of the table to be checked.
 
         Returns:
             bool: True if the table exists, False otherwise.
         """
         try:
-            self.run_query(session, f"select * from {table_name} limit 1")
+            self.run_query(cursor, f"select * from {table_name} limit 1")
             return True
         except:
             return False

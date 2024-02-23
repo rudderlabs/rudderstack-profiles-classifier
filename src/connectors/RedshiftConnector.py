@@ -29,7 +29,7 @@ local_folder = constants.LOCAL_STORAGE_DIR
 # TODO: Change TypeHints for cursor objects and look for others.
 
 
-class CrossPlatformConnector(Connector):
+class CommonTableTypeConnector(Connector):
     def __init__(self, folder_path: str) -> None:
         self.local_dir = os.path.join(folder_path, local_folder)
         path = Path(self.local_dir)
@@ -1009,7 +1009,7 @@ class CrossPlatformConnector(Connector):
         pass
 
 
-class RedshiftConnector(CrossPlatformConnector):
+class RedshiftConnector(CommonTableTypeConnector):
     def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
         """Builds the redshift connection cursor with given credentials (creds)
 
@@ -1073,7 +1073,7 @@ class RedshiftConnector(CrossPlatformConnector):
         return cursor.execute(query).fetch_dataframe()
 
 
-class BigQueryConnector(CrossPlatformConnector):
+class BigQueryConnector(CommonTableTypeConnector):
     def build_session(self, credentials: dict) -> google.cloud.bigquery.client.Client:
         """Builds the BigQuery connection client with given credentials (creds)
 

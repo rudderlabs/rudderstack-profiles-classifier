@@ -46,7 +46,7 @@ class CommonWarehouseConnector(Connector):
         """Calls the given function for training
 
         Args:
-            cursor : connection cursor for warehouse access
+            session : connection session for warehouse access
             args (list): List of arguments to be passed to the training function
             kwargs (dict): Dictionary of keyword arguments to be passed to the training function
 
@@ -90,32 +90,32 @@ class CommonWarehouseConnector(Connector):
         """
         return None
 
-    def is_valid_table(self, cursor, table_name: str) -> bool:
+    def is_valid_table(self, session, table_name: str) -> bool:
         """
         Checks whether a table exists in the data warehouse.
 
         Args:
-            cursor : A cursor for data warehouse access.
+            session : A session for data warehouse access.
             table_name (str): The name of the table to be checked.
 
         Returns:
             bool: True if the table exists, False otherwise.
         """
         try:
-            self.run_query(cursor, f"select * from {table_name} limit 1")
+            self.run_query(session, f"select * from {table_name} limit 1")
             return True
         except:
             return False
 
     def check_table_entry_in_material_registry(
-        self, cursor, material_table_name: str
+        self, session, material_table_name: str
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well
 
         Args:
-            cursor: warehouse db session
+            session: warehouse db session
             material_table_name: Material table name
 
         Returns:
@@ -129,7 +129,7 @@ class CommonWarehouseConnector(Connector):
             return False
 
         material_registry_table_name = self.get_material_registry_name(
-            cursor, constants.MATERIAL_REGISTRY_TABLE_PREFIX
+            session, constants.MATERIAL_REGISTRY_TABLE_PREFIX
         )
 
         query_str = f"""SELECT * FROM {material_registry_table_name}
@@ -137,7 +137,7 @@ class CommonWarehouseConnector(Connector):
             model_hash = '{model_hash}' AND
             seq_no = {seq_no}"""
 
-        result = cursor.execute(query_str).fetch_dataframe()
+        result = session.execute(query_str).fetch_dataframe()
 
         def safe_parse_json(x):
             try:
@@ -150,17 +150,17 @@ class CommonWarehouseConnector(Connector):
         row_count = result.shape[0]
         return row_count != 0
 
-    def get_table(self, cursor, table_name: str, **kwargs) -> pd.DataFrame:
+    def get_table(self, session, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
 
         Args:
-            cursor : connection cursor for warehouse access
+            session : connection session for warehouse access
             table_name (str): Name of the table to be fetched from the schema
 
         Returns:
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
-        return self.get_table_as_dataframe(cursor, table_name, **kwargs)
+        return self.get_table_as_dataframe(session, table_name, **kwargs)
 
     def _create_get_table_query(self, table_name, **kwargs):
         filter_condition = kwargs.get("filter_condition", "")
@@ -209,7 +209,7 @@ class CommonWarehouseConnector(Connector):
 
     def label_table(
         self,
-        cursor,
+        session,
         label_table_name: str,
         label_column: str,
         entity_column: str,
@@ -219,7 +219,7 @@ class CommonWarehouseConnector(Connector):
         Labels the given label_columns in the table as '1' or '0' if the value matches the label_value or not respectively.
 
         Args:
-            cursor : connection cursor for warehouse access
+            session : connection session for warehouse access
             label_table_name (str): Name of the table to be labelled
             label_column (str): Name of the column to be labelled
             entity_column (str): Name of the entity column
@@ -228,7 +228,7 @@ class CommonWarehouseConnector(Connector):
         Returns:
             label_table (pd.DataFrame): The labelled table as a pandas Dataframe object
         """
-        feature_table = self.get_table(cursor, label_table_name)
+        feature_table = self.get_table(session, label_table_name)
         if label_value is not None:
             feature_table[label_column] = np.where(
                 feature_table[label_column] == label_value, 1, 0
@@ -287,20 +287,20 @@ class CommonWarehouseConnector(Connector):
                 stringtype_features.append(column)
         return stringtype_features
 
-    def get_arraytype_columns(self, cursor, table_name: str) -> List[str]:
+    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
         """Returns the list of features to be ignored from the feature table.
 
         Args:
-            cursor : connection cursor for warehouse access
+            session : connection session for warehouse access
             table_name (str): Name of the table from which to retrieve the arraytype/super columns.
 
         Returns:
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
-        cursor.execute(
+        session.execute(
             f"select * from pg_get_cols('{self.schema}.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);"
         )
-        col_df = cursor.fetch_dataframe()
+        col_df = session.fetch_dataframe()
         arraytype_columns = []
         for _, row in col_df.iterrows():
             if row["col_type"] == "super":
@@ -343,23 +343,23 @@ class CommonWarehouseConnector(Connector):
 
     def get_timestamp_columns(
         self,
-        cursor,
+        session,
         table_name: str,
     ) -> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
 
         Args:
-            cursor : connection cursor for warehouse access
+            session : connection session for warehouse access
             table_name (str): Name of the feature table from which to retrieve the timestamp columns.
 
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
-        cursor.execute(
+        session.execute(
             f"select * from pg_get_cols('{self.schema}.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);"
         )
-        col_df = cursor.fetch_dataframe()
+        col_df = session.fetch_dataframe()
         timestamp_columns = []
         for _, row in col_df.iterrows():
             if row["col_type"] in [
@@ -389,10 +389,10 @@ class CommonWarehouseConnector(Connector):
     # TODO: Till this point from last #TODO.
 
     def get_default_label_value(
-        self, cursor, table_name: str, label_column: str, positive_boolean_flags: list
+        self, session, table_name: str, label_column: str, positive_boolean_flags: list
     ):
         label_value = list()
-        table = self.get_table(cursor, table_name)
+        table = self.get_table(session, table_name)
         distinct_labels = table[label_column].unique()
 
         if len(distinct_labels) != 2:
@@ -435,7 +435,7 @@ class CommonWarehouseConnector(Connector):
 
     def get_material_names_(
         self,
-        cursor,
+        session,
         material_table: str,
         start_time: str,
         end_time: str,
@@ -447,7 +447,7 @@ class CommonWarehouseConnector(Connector):
         """Generates material names as list containing feature table name and label table name required to create the training model and their corresponding training dates.
 
         Args:
-            cursor : connection cursor for warehouse access
+            session : connection session for warehouse access
             material_table (str): Name of the material table(present in constants.py file)
             start_time (str): train_start_dt
             end_time (str): train_end_dt
@@ -461,7 +461,7 @@ class CommonWarehouseConnector(Connector):
         try:
             materials = list()
 
-            df = self.get_material_registry_table(cursor, material_table)
+            df = self.get_material_registry_table(session, material_table)
 
             feature_df = self.fetch_filtered_table(
                 df,
@@ -496,7 +496,7 @@ class CommonWarehouseConnector(Connector):
 
             for _, row in feature_label_df.iterrows():
                 self._fetch_valid_historic_materials(
-                    cursor,
+                    session,
                     row,
                     model_name,
                     model_hash,
@@ -516,7 +516,7 @@ class CommonWarehouseConnector(Connector):
 
     def get_creation_ts(
         self,
-        cursor,
+        session,
         material_table: str,
         model_hash: str,
         entity_key: str,
@@ -524,7 +524,7 @@ class CommonWarehouseConnector(Connector):
         """This function will return the model hash that is latest for given model name in material table
 
         Args:
-            cursor : connection cursor for warehouse access
+            session : connection session for warehouse access
             material_table (str): name of material registry table
             model_hash (str): latest model hash
             entity_key (str): entity key
@@ -532,7 +532,7 @@ class CommonWarehouseConnector(Connector):
         Returns:
             (): it's latest creation timestamp
         """
-        redshift_df = self.get_material_registry_table(cursor, material_table)
+        redshift_df = self.get_material_registry_table(session, material_table)
         try:
             temp_hash_vector = (
                 redshift_df.query(f'model_hash == "{model_hash}"')
@@ -550,12 +550,12 @@ class CommonWarehouseConnector(Connector):
         return creation_ts.tz_localize(None)
 
     def get_end_ts(
-        self, cursor, material_table, model_name: str, model_hash: str, seq_no: int
+        self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
         """This function will return the end_ts with given model hash and model name
 
         Args:
-            cursor : connection cursor for warehouse access
+            session : connection session for warehouse access
             material_table (str): name of material registry table
             model_name (str): model_name to be searched in material registry table
             model_hash (str): latest model hash
@@ -564,7 +564,7 @@ class CommonWarehouseConnector(Connector):
         Returns:
             str: end_ts for given model hash and model name
         """
-        df = self.get_material_registry_table(cursor, material_table)
+        df = self.get_material_registry_table(session, material_table)
 
         try:
             feature_table_info_df = (
@@ -603,7 +603,7 @@ class CommonWarehouseConnector(Connector):
 
     def fetch_staged_file(
         self,
-        cursor,
+        session,
         stage_name: str,
         file_name: str,
         target_folder: str,
@@ -611,7 +611,7 @@ class CommonWarehouseConnector(Connector):
         """Fetches the given file from the given stage and saves it to the given target folder.
 
         Args:
-            cursor : connection cursor for warehouse access
+            session : connection session for warehouse access
             stage_name (str): Name of the stage from which to fetch the file.
             file_name (str): Name of the file to be fetched.
             target_folder (str): Path to the folder where the fetched file is to be saved.
@@ -781,13 +781,13 @@ class CommonWarehouseConnector(Connector):
 
     def get_material_registry_name(
         self,
-        cursor,
+        session,
         table_prefix: str = "material_registry",
     ) -> str:
         """This function will return the latest material registry table name
 
         Args:
-            cursor : connection cursor for warehouse access
+            session : connection session for warehouse access
             table_name (str): Prefix of the name of the table | Defaults to "material_registry"
 
         Returns:
@@ -801,7 +801,7 @@ class CommonWarehouseConnector(Connector):
                 return int(parts[-1])
             return 0
 
-        registry_df = self.get_tablenames_from_schema(cursor)
+        registry_df = self.get_tablenames_from_schema(session)
         registry_df = registry_df[
             registry_df["tablename"]
             .str.lower()
@@ -819,20 +819,20 @@ class CommonWarehouseConnector(Connector):
 
     def get_material_registry_table(
         self,
-        cursor,
+        session,
         material_registry_table_name: str,
     ) -> pd.DataFrame:
         """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
         Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
 
         Args:
-            cursor : connection cursor for warehouse access
+            session : connection session for warehouse access
             material_registry_table_name (str): The material registry table name.
 
         Returns:
             pd.DataFrame: The filtered material registry table containing only the successfully materialized data.
         """
-        material_registry_table = self.get_table(cursor, material_registry_table_name)
+        material_registry_table = self.get_table(session, material_registry_table_name)
 
         def safe_parse_json(entry):
             try:
@@ -992,5 +992,5 @@ class CommonWarehouseConnector(Connector):
         pass
 
     @abstractmethod
-    def get_tablenames_from_schema(self, cursor) -> pd.DataFrame:
+    def get_tablenames_from_schema(self, session) -> pd.DataFrame:
         pass

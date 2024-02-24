@@ -18,3 +18,4 @@ snowflake_connector_python>=3.1.0
 snowflake-snowpark-python[pandas]>=0.10.0
 setuptools>=65.5.1 # not directly required, pinned by Snyk to avoid a vulnerability
 # google-cloud-bigquery
+cryptography>=42.0.4 # not directly required, pinned by Snyk to avoid a vulnerability

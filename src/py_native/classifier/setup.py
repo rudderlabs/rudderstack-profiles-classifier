@@ -6,5 +6,5 @@ setup(
     author="RudderStack",
     description="TODO",
     packages=find_packages(),
-    install_requires=[],
+    install_requires=["profiles_rudderstack>=0.10.7"],
 )

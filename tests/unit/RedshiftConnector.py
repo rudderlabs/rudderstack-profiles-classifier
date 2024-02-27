@@ -672,5 +672,5 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
         result = self.connector.validate_historical_materials_hash(
             self.session_mock, "SELECT * FROM material_table_3", 1, 2
         )
-        # Assert the result is True
+        # Assert the result is False
         self.assertFalse(result)

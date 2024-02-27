@@ -75,7 +75,6 @@ class Connector(ABC):
             inputs,
         )
 
-        logger.info(f"no materials {len(materials)}")
         if len(self._get_complete_sequences(materials)) == 0:
             try:
                 _ = self.generate_training_materials(
@@ -105,13 +104,6 @@ class Connector(ABC):
                     f"Following exception occured while generating past materials with hash {model_hash} for {features_profiles_model} between dates {start_date} and {end_date}: {e}"
                 )
 
-        for m in materials:
-            logger.info("material-----")
-            logger.info(m.feature_table_name)
-            logger.info(m.feature_table_date)
-            logger.info(m.label_table_name)
-            logger.info(m.label_table_date)
-
         complete_sequences_materials = self._get_complete_sequences(materials)
         if len(complete_sequences_materials) == 0:
             raise Exception(
@@ -138,8 +130,8 @@ class Connector(ABC):
     ):
         met_data_requirement = data_requirement_check_func(self, session, materials)
 
-        logger.info(f"Min data requirement satishfied: {met_data_requirement}")
-        logger.info(f"New material generation strategy : {strategy}")
+        logger.debug(f"Min data requirement satishfied: {met_data_requirement}")
+        logger.debug(f"New material generation strategy : {strategy}")
         if met_data_requirement or strategy == "":
             return materials
 
@@ -149,8 +141,6 @@ class Connector(ABC):
             if strategy == "auto"
             else len(materialisation_dates)
         )
-
-        print(f"max materializations: {max_materializations}")
 
         for i in range(max_materializations):
             new_feature_date = None
@@ -187,7 +177,6 @@ class Connector(ABC):
             if new_feature_date is None or new_label_date is None:
                 continue
 
-            print(f"feat: {new_feature_date}, {new_label_date}")
             try:
                 for date in [new_feature_date, new_label_date]:
                     args = {
@@ -211,10 +200,10 @@ class Connector(ABC):
             # Get materials with new feature start date
             # and validate min data requirement again
             materials = get_material_func(start_date=new_feature_date)
-            logger.info(
+            logger.debug(
                 f"new feature tables: {[m.feature_table_name for m in materials]}"
             )
-            logger.info(f"new label tables: {[m.label_table_name for m in materials]}")
+            logger.debug(f"new label tables: {[m.label_table_name for m in materials]}")
             met_data_requirement = data_requirement_check_func(self, session, materials)
 
             if met_data_requirement:

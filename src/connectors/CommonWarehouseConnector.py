@@ -673,10 +673,10 @@ class CommonWarehouseConnector(Connector):
     ) -> bool:
         total_negative_samples = 0
         for material in materials:
-            label_material = material[1]
+            label_material = material.label_table_name
             query_str = f"""SELECT {label_column}, COUNT(*) as count
                 FROM {label_material}
-                WHERE label = 0
+                WHERE {label_column} = 0
                 GROUP BY {label_column}"""
 
             result = self.run_query(session, query_str, response=True)

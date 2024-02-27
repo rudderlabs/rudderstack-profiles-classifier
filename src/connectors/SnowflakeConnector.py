@@ -853,8 +853,6 @@ class SnowflakeConnector(Connector):
 
         distinct_values_count = label_table.groupBy(label_column).count()
         min_negative_label_count = constants.MIN_NUM_OF_NEGATIVE_LABELS
-        distinct_values_count.show()
-        logger.info(f"min -ve samples: {min_negative_label_count}")
 
         no_invalid_rows = distinct_values_count.filter(
             (F.col(label_column) == 0) & (F.col("count") < min_negative_label_count)

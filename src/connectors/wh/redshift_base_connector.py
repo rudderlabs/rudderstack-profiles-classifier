@@ -47,15 +47,16 @@ class RedShiftConnector(ConnectorBase):
 
         try:
             if not self.s3_config:
-                df.to_sql(
-                    name=table_name.lower(),
-                    con=self.engine,
-                    schema=schema,
-                    index=False,
-                    if_exists=if_exists,
-                )
+                with self.engine.connect() as con:
+                    df.to_sql(
+                        name=table_name.lower(),
+                        con=con,
+                        schema=schema,
+                        index=False,
+                        if_exists=if_exists,
+                    )
             else:
-                logger.info(f"Establishing connection to Redshift")
+                logger.info("Establishing connection to Redshift")
                 pr.connect_to_redshift(
                     dbname=self.db_config["database"],
                     host=self.creds["host"],
@@ -67,7 +68,7 @@ class RedShiftConnector(ConnectorBase):
                 s3_bucket = self.s3_config.get("bucket", None)
                 s3_sub_dir = self.s3_config.get("path", None)
 
-                logger.info(f"Establishing connection to S3")
+                logger.info("Establishing connection to S3")
                 pr.connect_to_s3(
                     aws_access_key_id=self.s3_config["access_key_id"],
                     aws_secret_access_key=self.s3_config["access_key_secret"],

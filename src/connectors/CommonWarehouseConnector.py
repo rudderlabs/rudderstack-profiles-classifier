@@ -721,7 +721,7 @@ class CommonWarehouseConnector(Connector):
             return False
 
         return True
- 
+
     def validate_columns_are_present(
         self,
         feature_table: pd.DataFrame,

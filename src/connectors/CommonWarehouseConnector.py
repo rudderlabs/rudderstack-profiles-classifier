@@ -501,11 +501,6 @@ class CommonWarehouseConnector(Connector):
                     inputs,
                     materials,
                 )
-                if (
-                    len(self._get_complete_sequences(materials))
-                    >= constants.TRAIN_MATERIALS_LIMIT
-                ):
-                    break
             return materials
         except Exception as e:
             raise Exception(

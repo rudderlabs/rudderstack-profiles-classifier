@@ -641,7 +641,14 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
     def test_enough_negative_samples(self):
         """Test when there are enough negative samples"""
         cursor = MagicMock()
-        materials = [("feature_table", "label_table")]
+        materials = [
+            TrainTablesInfo(
+                feature_table_name="feature_table_name",
+                feature_table_date="2024-02-20 00:00:00",
+                label_table_name="label_table_name",
+                label_table_date="2024-02-27 00:00:00",
+            ),
+        ]
         label_column = "label"
 
         self.connector.run_query = Mock(return_value=([0, 100],))
@@ -653,7 +660,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         self.connector.run_query.assert_called_once_with(
             cursor,
             f"""SELECT {label_column}, COUNT(*) as count
-                FROM label_table
+                FROM label_table_name
                 WHERE label = 0
                 GROUP BY {label_column}""",
             response=True,
@@ -663,7 +670,14 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
     def test_insufficient_negative_samples(self):
         """Test when there are not enough negative samples"""
         cursor = MagicMock()
-        materials = [("feature_table", "label_table")]
+        materials = [
+            TrainTablesInfo(
+                feature_table_name="feature_table_name",
+                feature_table_date="2024-02-20 00:00:00",
+                label_table_name="label_table_name",
+                label_table_date="2024-02-27 00:00:00",
+            ),
+        ]
         label_column = "label"
 
         self.connector.run_query = Mock(return_value=([0, 49],))
@@ -675,7 +689,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         self.connector.run_query.assert_called_once_with(
             cursor,
             f"""SELECT {label_column}, COUNT(*) as count
-                FROM label_table
+                FROM label_table_name
                 WHERE label = 0
                 GROUP BY {label_column}""",
             response=True,
@@ -684,7 +698,14 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
     def test_invalid_query_result(self):
         """Test with invalid query result format"""
         cursor = MagicMock()
-        materials = [("feature_table", "label_table")]
+        materials = [
+            TrainTablesInfo(
+                feature_table_name="feature_table_name",
+                feature_table_date="2024-02-20 00:00:00",
+                label_table_name="label_table_name",
+                label_table_date="2024-02-27 00:00:00",
+            ),
+        ]
         label_column = "label"
 
         self.connector.run_query = Mock(return_value={"invalid_key": "invalid_value"})
@@ -717,7 +738,14 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
     def test_enough_negative_samples(self):
         """Test when there are enough negative samples"""
         cursor = MagicMock()
-        materials = [("feature_table", "label_table")]
+        materials = [
+            TrainTablesInfo(
+                feature_table_name="feature_table_name",
+                feature_table_date="2024-02-20 00:00:00",
+                label_table_name="label_table_name",
+                label_table_date="2024-02-27 00:00:00",
+            ),
+        ]
 
         self.connector.run_query = Mock(return_value=([100],))
         result = self.connector.check_for_regression_data_requirement(cursor, materials)
@@ -726,7 +754,7 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
         self.connector.run_query.assert_called_once_with(
             cursor,
             """SELECT COUNT(*) as count
-                FROM feature_table""",
+                FROM feature_table_name""",
             response=True,
         )
 
@@ -734,7 +762,14 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
     def test_insufficient_negative_samples(self):
         """Test when there are not enough negative samples"""
         cursor = MagicMock()
-        materials = [("feature_table", "label_table")]
+        materials = [
+            TrainTablesInfo(
+                feature_table_name="feature_table_name",
+                feature_table_date="2024-02-20 00:00:00",
+                label_table_name="label_table_name",
+                label_table_date="2024-02-27 00:00:00",
+            ),
+        ]
 
         self.connector.run_query = Mock(return_value=([49],))
         result = self.connector.check_for_regression_data_requirement(cursor, materials)
@@ -743,14 +778,21 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
         self.connector.run_query.assert_called_once_with(
             cursor,
             """SELECT COUNT(*) as count
-                FROM feature_table""",
+                FROM feature_table_name""",
             response=True,
         )
 
     def test_invalid_query_result(self):
         """Test with invalid query result format"""
         cursor = MagicMock()
-        materials = [("feature_table", "label_table")]
+        materials = [
+            TrainTablesInfo(
+                feature_table_name="feature_table_name",
+                feature_table_date="2024-02-20 00:00:00",
+                label_table_name="label_table_name",
+                label_table_date="2024-02-27 00:00:00",
+            ),
+        ]
 
         self.connector.run_query = Mock(return_value={"invalid_key": "invalid_value"})
 

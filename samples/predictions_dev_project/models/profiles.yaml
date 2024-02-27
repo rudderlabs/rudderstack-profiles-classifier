@@ -38,7 +38,7 @@ models:
         - entity_var:
             name: gross_amt_spent_in_past_90_days
             default: 0
-            select: sum(REVENUE::real)
+            select: sum(REVENUE)
             from: inputs/rsOrderCompleted
             where: "{{macro_datediff_n('timestamp','90')}}"
             description: Total amount spent in past 90 days.

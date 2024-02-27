@@ -2,9 +2,31 @@ macros:
   - name: macro_datediff
     inputs:
       - column
-    value: "{% if !(end_time|isnil) %} datediff(day, date({{column}}), date('{{end_time.Format(\"2006-01-02 15:04:05\")}}')) {% else %} datediff(day, date({{column}}::timestamp), GETDATE()) {% endif %}"
+    value: "
+      {% if warehouse.DatabaseType() == \"bigquery\" %}
+        {% if !(end_time|isnil) %} date_diff(date('{{end_time.Format(\"2006-01-02 15:04:05\")}}'), date({{column}}), day)
+        {% else %} 
+        date_diff(CURRENT_DATE(), date({{column}}), day){% endif %}
+      {% else %}
+        {% if !(end_time|isnil) %} datediff(day, date({{column}}), date('{{end_time.Format(\"2006-01-02 15:04:05\")}}'))
+        {% else %} 
+        datediff(day, date({{column}}), GETDATE()) {% endif %}
+      {% endif %}"
   - name: macro_datediff_n
     inputs:
       - column
       - number_of_days
-    value: "{% if !(end_time|isnil) %} datediff(day, date({{column}}), date('{{end_time.Format(\"2006-01-02 15:04:05\")}}')) <={{number_of_days}} {% else %} datediff(day, date({{column}}), GETDATE()) <= {{number_of_days}} {% endif %}"
+    value: |
+      {% if warehouse.DatabaseType() == "bigquery" %}
+        {% if !(end_time|isnil) %}
+          date_diff(date('{{end_time.Format("2006-01-02 15:04:05")}}'), date({{column}}), day) <= {{number_of_days}}
+        {% else %} 
+          date_diff(CURRENT_DATE(), date({{column}}), day) <= {{number_of_days}}
+        {% endif %}
+      {% else %}
+        {% if !(end_time|isnil) %}
+          datediff(day, date({{column}}), date('{{end_time.Format("2006-01-02 15:04:05")}}')) <= {{number_of_days}}
+        {% else %} 
+          datediff(day, date({{column}}), GETDATE()) <= {{number_of_days}}
+        {% endif %}
+      {% endif %}

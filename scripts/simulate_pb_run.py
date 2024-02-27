@@ -1,26 +1,30 @@
 import sys
+import json
 import os
 import yaml
 import pathlib
-import json
-from logger import logger
 from dotenv import load_dotenv  # pip3 install python-dotenv
 
 load_dotenv()
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import train as T
 import predict as P
+
+from src.utils.logger import logger
 
 if __name__ == "__main__":
     train_file_extension = ".json"
     connection_name = os.getenv("SITE_CONN_NAME")
+    training_task = "classification"
     project_folder = "samples/application_project"
     feature_table_name = "rudder_user_base_features"
     eligible_users = "1=1"
     package_name = "feature_table"
-    label_column = "days_since_last_seen"
+    # label_column = "days_since_last_seen"
+    label_column = "is_churned_10_days"
     label_value = 1
     pred_horizon_days = 7
     p_output_tablename = "test_run_can_delete_2"
@@ -37,7 +41,6 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"][connection_name]["outputs"][env_name]
 
     # End of user inputs.
-
     logger.setLevel("DEBUG")
 
     if creds["type"] == "snowflake":
@@ -60,6 +63,7 @@ if __name__ == "__main__":
     site_config_path = os.path.join(homedir, ".pb/siteconfig.yaml")
 
     data = {
+        "task": training_task,
         "label_column": label_column,
         "label_value": label_value,
         "prediction_horizon_days": pred_horizon_days,
@@ -72,7 +76,16 @@ if __name__ == "__main__":
     }
 
     preprocessing = {"ignore_features": ["user_email", "first_name", "last_name"]}
-    train_config = {"data": data, "preprocessing": preprocessing}
+    train_config = {
+        "data": data,
+        "preprocessing": preprocessing,
+        "new_materialisations_config": {
+            "feature_data_min_date_diff": 14,
+            "strategy": "auto",
+            "max_no_of_dates": 3,
+        },
+    }
+
     predict_config = {
         "data": data,
         "preprocessing": preprocessing,
@@ -93,11 +106,15 @@ if __name__ == "__main__":
     }
 
     runtime_info = {"is_rudder_backend": False}
+    train_inputs = os.getenv("TRAIN_INPUTS")
+    if train_inputs is not None:
+        train_inputs = train_inputs.split(",")
 
+    logger.info(f"Training inputs: {train_inputs}")
     if should_train:
         T.train(
             creds,
-            None,
+            train_inputs,
             t_output_filename,
             train_config,
             site_config_path,

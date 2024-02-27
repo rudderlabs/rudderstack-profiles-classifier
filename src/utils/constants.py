@@ -1,7 +1,6 @@
 MODEL_FILE_NAME = "classifier.joblib"
 CARDINAL_FEATURE_THRESOLD = 0.01
 MIN_SAMPLES_FOR_TRAINING = 10
-TRAIN_MATERIALS_LIMIT = 1
 METRICS_TABLE = "TRAINING_METRICS_v4"
 POSITIVE_BOOLEAN_FLAGS = [
     "1",
@@ -36,6 +35,13 @@ LOCAL_MODE = "local"
 WAREHOUSE_MODE = "native-warehouse"
 RUDDERSTACK_MODE = "rudderstack-infra"
 
+# Smart data preparation
+
+# Min training data requirements
+# For classification
+MIN_NUM_OF_NEGATIVE_LABELS = 800
+# For Regression
+MIN_NUM_OF_ROWS = 1000
 
 from typing import NamedTuple
 

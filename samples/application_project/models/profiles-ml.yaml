@@ -13,6 +13,7 @@ models :
           - packages/feature_table/models/rudder_user_base_features # inputs to materialise the required data for model
           - entity/user/max_timestamp_bw_tracks_pages_1
           - entity/user/is_churned_10_days
+          - entity/user/user_var_table
         config:
           data: &model_data_configs
             label_column: is_churned_10_days # Name of column for which we want to find predictions
@@ -34,6 +35,7 @@ models :
           - packages/feature_table/models/rudder_user_base_features
           - entity/user/max_timestamp_bw_tracks_pages_1
           - entity/user/is_churned_10_days
+          - entity/user/user_var_table
         config:
           data: *model_data_configs # Use the same config as training
           preprocessing: *model_prep_configs # Use the same config as training

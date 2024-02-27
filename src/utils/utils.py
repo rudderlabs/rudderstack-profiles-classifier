@@ -494,6 +494,114 @@ def date_add(reference_date: str, add_days: int) -> str:
     return new_date
 
 
+def date_diff(ref_date1: str, ref_date2: str) -> int:
+    """
+    For given two dates in string format, it will retrun the difference in days
+    Args:
+        ref_date1: Reference date1
+        ref_date2: Reference date2
+    Returns:
+        int: Difference in number of dates
+    """
+    d1 = datetime.strptime(ref_date1, "%Y-%m-%d")
+    d2 = datetime.strptime(ref_date2, "%Y-%m-%d")
+    diff = d2 - d1
+    return abs(diff.days)
+
+
+def dates_proximity_check(reference_date: str, dates: list, distance: int) -> bool:
+    """
+    For given reference date and list of training dates, it will check weather any of the
+    given dates falling under given distance to the reference date
+
+    Args:
+        reference_date: Given reference date
+        dates: List of dates to be checked with
+        distance: Difference distance
+    Returns:
+        bool: Wether given date is passing the proximity check
+    """
+    for d in dates:
+        if date_diff(reference_date, d) < distance:
+            return False
+    return True
+
+
+def get_max_date_string(dates: list) -> str:
+    """
+    Get max date from given date strings
+
+    Args:
+        dates: list of date strings
+    Returns:
+        str: max date string
+    """
+    max_date_str = ""
+    try:
+        dates_sorted = sorted(
+            dates, key=lambda x: datetime.strptime(x, "%Y-%m-%d"), reverse=True
+        )
+        max_date_str = dates_sorted[0]
+    except IndexError:
+        logger.warning("dates list is empty")
+    except ValueError:
+        logger.warning(f"Not able to parse one of the date string in {dates}")
+
+    return max_date_str
+
+
+def datetime_to_date_string(datetime_str: str) -> str:
+    """
+    Converts datetime sting to date string
+
+    Args:
+        datetime_str: Datetime in string format
+    Retruns:
+        str: Date in string format
+    """
+    try:
+        datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        # Value error will be raised if its not able
+        # to match datetime string with given format
+        # In this case datetime sting is in "%Y-%m-%d" format
+        # and returing empty string
+        logger.warning(
+            f"Not able to extract date string from datetime string {datetime_str}"
+        )
+        return ""
+
+    date = datetime_obj.date()
+    return str(date)
+
+
+def generate_new_training_dates(
+    max_feature_date: str,
+    training_dates: list,
+    prediction_horizon_days: int,
+    feature_data_min_date_diff: int,
+) -> Tuple:
+    # Find next valid feature date
+    count = 1
+    found = False
+
+    while not found:
+        # d3 = d2 - t
+        max_feature_table_date = date_add(
+            max_feature_date, -1 * count * feature_data_min_date_diff
+        )
+
+        found = dates_proximity_check(
+            max_feature_table_date, training_dates, feature_data_min_date_diff
+        )
+        count += 1
+
+    feature_date = max_feature_table_date
+    label_date = date_add(feature_date, prediction_horizon_days)
+
+    return (feature_date, label_date)
+
+
 def merge_lists_to_unique(l1: list, l2: list) -> list:
     """Merges two lists and returns a unique list of elements.
 

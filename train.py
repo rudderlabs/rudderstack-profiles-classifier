@@ -10,6 +10,7 @@ import hashlib
 from src.utils.logger import logger
 from datetime import datetime
 from dataclasses import asdict
+from functools import partial
 
 import snowflake.snowpark
 from snowflake.snowpark.functions import sproc
@@ -307,19 +308,38 @@ def train(
     logger.info("Getting past data for training")
     try:
         # material_names, training_dates
-        train_table_pairs = connector.get_material_names(
+        get_material_names_partial = partial(
+            connector.get_material_names,
+            session=session,
+            material_table=material_table,
+            end_date=end_date,
+            features_profiles_model=features_profiles_model,
+            model_hash=model_hash,
+            prediction_horizon_days=trainer.prediction_horizon_days,
+            output_filename=output_filename,
+            site_config_path=site_config_path,
+            project_folder=project_folder,
+            input_models=trainer.inputs,
+            inputs=inputs,
+        )
+
+        train_table_pairs = get_material_names_partial(start_date=start_date)
+
+        # Generate new materials for training data
+        train_table_pairs = connector.check_and_generate_more_materials(
             session,
-            material_table,
-            start_date,
-            end_date,
-            features_profiles_model,
-            model_hash,
+            get_material_names_partial,
+            trainer.check_min_data_requirement,
+            trainer.materialisation_strategy,
+            trainer.feature_data_min_date_diff,
+            train_table_pairs,
+            trainer.materialisation_max_no_dates,
+            trainer.materialisation_dates,
             trainer.prediction_horizon_days,
+            trainer.inputs,
             output_filename,
             site_config_path,
             project_folder,
-            trainer.inputs,
-            inputs,
         )
     except TypeError:
         raise Exception(

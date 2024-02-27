@@ -550,6 +550,7 @@ class SnowflakeConnector(Connector):
         columns,
     ):
         """Fetches the filtered table based on the given parameters."""
+        print(f"start_ts: {start_time}, end_ts: {end_time}")
         filtered_snowpark_df = (
             df.filter(col("model_name") == features_profiles_model)
             .filter(col("model_hash") == model_hash)
@@ -629,11 +630,7 @@ class SnowflakeConnector(Connector):
                     inputs,
                     materials,
                 )
-                if (
-                    len(self._get_complete_sequences(materials))
-                    >= constants.TRAIN_MATERIALS_LIMIT
-                ):
-                    break
+
             return materials
         except Exception as e:
             raise Exception(
@@ -840,6 +837,58 @@ class SnowflakeConnector(Connector):
                     Required minimum {min_sample_for_training} user records."
             )
         return table
+
+    def check_for_classification_data_requirement(
+        self,
+        session: snowflake.snowpark.Session,
+        materials: List[constants.TrainTablesInfo],
+        label_column: str,
+    ) -> bool:
+        label_materials = [m.label_table_name for m in materials]
+        label_table = None
+
+        for label_meterial in label_materials:
+            temp_table = self.get_table(session, label_meterial)
+            label_table = self.get_merged_table(label_table, temp_table)
+
+        distinct_values_count = label_table.groupBy(label_column).count()
+        min_negative_label_count = constants.MIN_NUM_OF_NEGATIVE_LABELS
+        distinct_values_count.show()
+        logger.info(f"min -ve samples: {min_negative_label_count}")
+
+        no_invalid_rows = distinct_values_count.filter(
+            (F.col(label_column) == 0) & (F.col("count") < min_negative_label_count)
+        ).count()
+
+        if no_invalid_rows != 0:
+            logger.debug(
+                "Number of negative samples are not meeting the minimum training requirement"
+            )
+            return False
+
+        return True
+
+    def check_for_regression_data_requirement(
+        self,
+        session: snowflake.snowpark.Session,
+        materials: List[constants.TrainTablesInfo],
+    ) -> bool:
+        feature_materials = [m.feature_table_name for m in materials]
+        feature_table = None
+        for feature_meterial in feature_materials:
+            temp_table = self.get_table(session, feature_meterial)
+            feature_table = self.get_merged_table(feature_table, temp_table)
+
+        total_no_rows = feature_table.count()
+        min_no_rows = constants.MIN_NUM_OF_ROWS
+
+        if total_no_rows < min_no_rows:
+            logger.debug(
+                "Number training samples are not meeting the minimum requirement"
+            )
+            return False
+
+        return True
 
     def validate_columns_are_present(
         self, feature_table: snowflake.snowpark.Table, label_column: str

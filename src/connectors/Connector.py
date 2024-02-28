@@ -480,10 +480,7 @@ class Connector(ABC):
         model_hash: str,
         prediction_horizon_days: int,
         inputs: List[str],
-    ) -> Tuple[
-        List[Tuple[str, str]],
-        List[Tuple[str, str]],
-    ]:
+    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]],]:
         pass
 
     @abstractmethod

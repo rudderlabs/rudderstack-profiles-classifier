@@ -26,7 +26,7 @@ from src.utils import constants
 from src.wht.pb import getPB
 
 import src.processors.ProcessorMap as ProcessorMap
-from src.connectors.SnowflakeConnector import SnowflakeConnector 
+from src.connectors.SnowflakeConnector import SnowflakeConnector
 from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from src.ml_core.preprocess_and_train import train_and_store_model_results_rs
 

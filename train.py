@@ -153,6 +153,7 @@ def train(
                 "matplotlib==3.7.1",
                 "seaborn==0.12.0",
                 "scikit-plot==0.3.7",
+                "pycaret"
             ],
         )
         def train_and_store_model_results_sf(
@@ -241,7 +242,7 @@ def train(
                 trainer.label_column,
             )
 
-            connector.save_file(session, model_file, stage_name, overwrite=True)
+            # connector.save_file(session, model_file, stage_name, overwrite=True)
 
             try:
                 figure_file = os.path.join(

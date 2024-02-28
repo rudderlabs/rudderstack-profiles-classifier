@@ -55,6 +55,8 @@ import subprocess
 
 from dataclasses import dataclass
 from src.utils.logger import logger
+from pycaret.classification import predict_model as predict_classification
+from pycaret.regression import predict_model as predict_regression
 
 
 @dataclass
@@ -88,15 +90,14 @@ class TrainerUtils:
     def get_classification_metrics(
         self,
         y_true: pd.DataFrame,
-        y_pred_proba: np.array,
-        th: float = 0.5,
+        y_pred: pd.DataFrame,
         recall_to_precision_importance: float = 1.0,
     ) -> dict:
         """Generates classification metrics
 
         Args:
             y_true (pd.DataFrame): Array of 1s and 0s. True labels
-            y_pred_proba (np.array): Array of predicted probabilities
+            y_pred_proba (np.array): Array of predictions
             th (float, optional): thresold for classification. Defaults to 0.5.
             recall_to_precision_importance (float, optional): Importance of recall to precision. Defaults to 1.0
 
@@ -105,14 +106,14 @@ class TrainerUtils:
         """
         precision, recall, f1, _ = precision_recall_fscore_support(
             y_true,
-            np.where(y_pred_proba > th, 1, 0),
+            y_pred,
             beta=recall_to_precision_importance,
         )
         precision = precision[1]
         recall = recall[1]
         f1 = f1[1]
-        roc_auc = roc_auc_score(y_true, y_pred_proba)
-        pr_auc = average_precision_score(y_true, y_pred_proba)
+        roc_auc = roc_auc_score(y_true, y_pred)
+        pr_auc = average_precision_score(y_true, y_pred)
         user_count = y_true.shape[0]
         metrics = {
             "precision": precision,
@@ -195,26 +196,29 @@ class TrainerUtils:
             Tuple: Returns the classification metrics and predictions for train, \
                 validation and test data along with the best probability thresold.
         """
-        train_preds = clf.predict_proba(X_train)[:, 1]
-        metric_to_optimize = train_config["model_params"]["validation_on"]
-        train_metrics, prob_threshold = self.get_best_th(
-            y_train, train_preds, metric_to_optimize, recall_to_precision_importance
+
+        train_predictions = predict_classification(clf, data=X_train)
+        filtered_train_predictions = train_predictions['prediction_label']
+        train_metrics = self.get_classification_metrics(
+            y_train, filtered_train_predictions, recall_to_precision_importance
         )
 
-        test_preds = clf.predict_proba(X_test)[:, 1]
+        test_predictions = predict_classification(clf, data=X_test)
+        filtered_test_predictions = test_predictions['prediction_label']
         test_metrics = self.get_classification_metrics(
-            y_test, test_preds, prob_threshold, recall_to_precision_importance
+            y_test, filtered_test_predictions, recall_to_precision_importance
         )
 
-        val_preds = clf.predict_proba(X_val)[:, 1]
+        val_predictions = predict_classification(clf, data=X_val)
+        filtered_val_predictions = val_predictions['prediction_label']
         val_metrics = self.get_classification_metrics(
-            y_val, val_preds, prob_threshold, recall_to_precision_importance
+            y_val, filtered_val_predictions, recall_to_precision_importance
         )
 
         metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
-        predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
+        predictions = {"train": train_predictions, "val": val_predictions , "test": test_predictions}
 
-        return metrics, predictions, round(prob_threshold, 2)
+        return metrics, predictions, round(0, 2)
 
     def get_metrics_regressor(
         self, model, train_x, train_y, test_x, test_y, val_x, val_y

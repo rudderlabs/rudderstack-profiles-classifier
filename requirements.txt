@@ -1,7 +1,7 @@
 cachetools>=4.2.2
 hyperopt>=0.2.7
 joblib>=1.2.0
-matplotlib>=3.7.1
+matplotlib>=3.6.0
 seaborn>=0.12.0
 numpy>=1.23.1
 pandas>=1.4.3
@@ -10,6 +10,7 @@ scikit_learn>=1.1.1
 shap>=0.41.0
 platformdirs>=3.8.1
 xgboost>=1.5.0
+pycaret==3.2.0
 # redshift-connector>=2.0.914
 # pandas-redshift>=2.0.5
 # sqlalchemy>=1.4.49

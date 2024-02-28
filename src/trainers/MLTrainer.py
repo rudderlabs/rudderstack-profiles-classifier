@@ -27,9 +27,14 @@ from sklearn.metrics import (
 )
 
 import pandas as pd
-from pycaret.classification import setup as classification_setup, compare_models as classification_compare_models , save_model as save_model_classification
-from pycaret.regression import setup as regression_setup, compare_models as regression_compare_models , save_model as save_model_regression
-from sklearn.metrics import classification_report, mean_squared_error, r2_score
+from pycaret.classification import (
+    setup as classification_setup,
+    compare_models as classification_compare_models,
+)
+from pycaret.regression import (
+    setup as regression_setup,
+    compare_models as regression_compare_models,
+)
 
 import src.utils.utils as utils
 from src.utils import constants
@@ -205,13 +210,14 @@ class MLTrainer(ABC):
     def prepare_training_summary(
         self, model_results: dict, model_timestamp: str
     ) -> dict:
-        pass    
+        pass
 
-    def prepare_data(self,
+    def prepare_data(
+        self,
         feature_df: pd.DataFrame,
         categorical_columns: List[str],
-        numeric_columns: List[str]):
-
+        numeric_columns: List[str],
+    ):
         train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(
             feature_df=feature_df,
             label_column=self.label_column,
@@ -229,10 +235,22 @@ class MLTrainer(ABC):
         test_data = pd.concat([test_x, test_y], axis=1)
         val_data = pd.concat([val_x, val_y], axis=1)
 
-        return train_x, train_y, test_x, test_y, val_x, val_y, train_data, test_data, val_data
+        return (
+            train_x,
+            train_y,
+            test_x,
+            test_y,
+            val_x,
+            val_y,
+            train_data,
+            test_data,
+            val_data,
+        )
 
     @abstractmethod
-    def train_model(self, connector, session, feature_table, label_table, model_configs):
+    def train_model(
+        self, connector, session, feature_table, label_table, model_configs
+    ):
         pass
 
     @abstractmethod
@@ -434,19 +452,32 @@ class ClassificationTrainer(MLTrainer):
         train_config = merged_config["train"]
         model_id = str(int(time.time()))
 
-        train_x, train_y, test_x, test_y, val_x, val_y, train_data, test_data, val_data = self.prepare_data( feature_df, categorical_columns, numeric_columns)
+        (
+            train_x,
+            train_y,
+            test_x,
+            test_y,
+            val_x,
+            val_y,
+            train_data,
+            test_data,
+            val_data,
+        ) = self.prepare_data(feature_df, categorical_columns, numeric_columns)
 
         # Initialize PyCaret setup for classification with train and test data
-        clf_setup = classification_setup(data=train_data, test_data=test_data, 
-                                        fold_strategy='stratifiedkfold',
-                                        fold=5,
-                                        session_id=42)
+        clf_setup = classification_setup(
+            data=train_data,
+            test_data=test_data,
+            fold_strategy="stratifiedkfold",
+            fold=5,
+            session_id=42,
+        )
 
         # Compare different classification models and select the best one
         best_clf_model = classification_compare_models()
 
         # Save the final model
-        save_model_classification(best_clf_model, model_file)
+        joblib.dump(best_clf_model, model_file)
 
         # Get metrics
         results = self.get_metrics(
@@ -462,7 +493,6 @@ class ClassificationTrainer(MLTrainer):
         ).reset_index(drop=True)
 
         return train_x, test_x, test_y, best_clf_model, model_id, metrics_df, results
-
 
     def get_metrics(
         self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
@@ -620,7 +650,7 @@ class RegressionTrainer(MLTrainer):
             self.entity_column,
             None,
         )
-    
+
     def train_model(
         self,
         feature_df: pd.DataFrame,
@@ -652,19 +682,32 @@ class RegressionTrainer(MLTrainer):
         train_config = merged_config["train"]
         model_id = str(int(time.time()))
 
-        train_x, train_y, test_x, test_y, val_x, val_y, train_data, test_data, val_data = self.prepare_data( feature_df, categorical_columns, numeric_columns)
+        (
+            train_x,
+            train_y,
+            test_x,
+            test_y,
+            val_x,
+            val_y,
+            train_data,
+            test_data,
+            val_data,
+        ) = self.prepare_data(feature_df, categorical_columns, numeric_columns)
 
         # Initialize PyCaret setup for classification with train and test data
-        reg_setup = regression_setup(data=train_data, test_data=test_data, 
-                                        fold_strategy='stratifiedkfold',
-                                        fold=5,
-                                        session_id=42)
+        reg_setup = regression_setup(
+            data=train_data,
+            test_data=test_data,
+            fold_strategy="stratifiedkfold",
+            fold=5,
+            session_id=42,
+        )
 
         # Compare different classification models and select the best one
         best_reg_model = regression_compare_models()
 
         # Save the final model
-        save_model_regression(best_reg_model, model_file)
+        joblib.dump(best_reg_model, model_file)
 
         # Get metrics
         results = self.get_metrics(

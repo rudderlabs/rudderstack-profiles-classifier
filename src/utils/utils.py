@@ -198,25 +198,29 @@ class TrainerUtils:
         """
 
         train_predictions = predict_classification(clf, data=X_train)
-        filtered_train_predictions = train_predictions['prediction_label']
+        filtered_train_predictions = train_predictions["prediction_label"]
         train_metrics = self.get_classification_metrics(
             y_train, filtered_train_predictions, recall_to_precision_importance
         )
 
         test_predictions = predict_classification(clf, data=X_test)
-        filtered_test_predictions = test_predictions['prediction_label']
+        filtered_test_predictions = test_predictions["prediction_label"]
         test_metrics = self.get_classification_metrics(
             y_test, filtered_test_predictions, recall_to_precision_importance
         )
 
         val_predictions = predict_classification(clf, data=X_val)
-        filtered_val_predictions = val_predictions['prediction_label']
+        filtered_val_predictions = val_predictions["prediction_label"]
         val_metrics = self.get_classification_metrics(
             y_val, filtered_val_predictions, recall_to_precision_importance
         )
 
         metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
-        predictions = {"train": train_predictions, "val": val_predictions , "test": test_predictions}
+        predictions = {
+            "train": train_predictions,
+            "val": val_predictions,
+            "test": test_predictions,
+        }
 
         return metrics, predictions, round(0, 2)
 
@@ -239,9 +243,9 @@ class TrainerUtils:
         Returns:
             result_dict (dict): Dictionary containing regression metrics.
         """
-        train_pred = predict_regression(model, data=train_x)['prediction_label']
-        test_pred = predict_regression(model, data=test_x)['prediction_label']
-        val_pred = predict_regression(model, data=val_x)['prediction_label']
+        train_pred = predict_regression(model, data=train_x)["prediction_label"]
+        test_pred = predict_regression(model, data=test_x)["prediction_label"]
+        val_pred = predict_regression(model, data=val_x)["prediction_label"]
 
         train_metrics = {}
         test_metrics = {}

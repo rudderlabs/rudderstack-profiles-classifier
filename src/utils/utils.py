@@ -239,9 +239,9 @@ class TrainerUtils:
         Returns:
             result_dict (dict): Dictionary containing regression metrics.
         """
-        train_pred = model.predict(train_x)
-        test_pred = model.predict(test_x)
-        val_pred = model.predict(val_x)
+        train_pred = predict_regression(model, data=train_x)['prediction_label']
+        test_pred = predict_regression(model, data=test_x)['prediction_label']
+        val_pred = predict_regression(model, data=val_x)['prediction_label']
 
         train_metrics = {}
         test_metrics = {}

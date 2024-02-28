@@ -23,6 +23,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import src.utils.utils as utils
 from src.utils import constants
+from src.wht.pb import getPB
 
 import src.processors.ProcessorMap as ProcessorMap
 from src.connectors.SnowflakeConnector import SnowflakeConnector 
@@ -66,9 +67,6 @@ def train(
     Returns:
         None: saves the model but returns nothing
     """
-
-    material_registry_table_prefix = constants.MATERIAL_REGISTRY_TABLE_PREFIX
-    material_table_prefix = constants.MATERIAL_TABLE_PREFIX
     positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS
     is_rudder_backend = utils.fetch_key_from_dict(
         runtime_info, "is_rudder_backend", False
@@ -143,7 +141,7 @@ def train(
             replace=True,
             imports=import_paths,
             packages=[
-                "snowflake-snowpark-python>=0.10.0",
+                "snowflake-snowpark-python==1.11.1",
                 "scikit-learn==1.1.1",
                 "xgboost==1.5.0",
                 "joblib==1.2.0",
@@ -282,15 +280,11 @@ def train(
         connector = RedshiftConnector(folder_path)
         session = connector.build_session(creds)
         connector.cleanup(delete_local_data=True)
-        connector.make_local_dir()
 
-    material_table = connector.get_material_registry_name(
-        session, material_registry_table_prefix
-    )
+    material_table = getPB().get_material_registry_name(connector, session)
 
-    model_hash, features_profiles_model = connector.get_latest_material_hash(
+    model_hash, features_profiles_model = getPB().get_latest_material_hash(
         trainer.entity_key,
-        constants.VAR_TABLE_SUFFIX,
         output_filename,
         site_config_path,
         project_folder,
@@ -320,7 +314,6 @@ def train(
             end_date,
             features_profiles_model,
             model_hash,
-            material_table_prefix,
             trainer.prediction_horizon_days,
             output_filename,
             site_config_path,

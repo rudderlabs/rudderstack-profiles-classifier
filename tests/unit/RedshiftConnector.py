@@ -38,7 +38,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         redshift_connector = MockRedshiftConnector(folder_path="data")
         material_registry_table = redshift_connector.get_material_registry_table(
-            cursor=None, material_registry_table_name=None
+            session=None, material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict(
             {"seq_no": [2], "metadata": ['{"complete": {"status": 2}}'], "status": [2]}
@@ -71,7 +71,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         redshift_connector = MockRedshiftConnector(folder_path="data")
         material_registry_table = redshift_connector.get_material_registry_table(
-            cursor=None, material_registry_table_name=None
+            session=None, material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict({})
         self.assertEqual(
@@ -95,7 +95,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         # Call the get_material_registry_table method
         material_registry_table = redshift_connector.get_material_registry_table(
-            cursor=None, material_registry_table_name=None
+            session=None, material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict({})
         self.assertEqual(
@@ -112,7 +112,6 @@ class TestGetMaterialNames(unittest.TestCase):
         self.end_date = "2022-01-31"
         self.features_profiles_model = "model_name"
         self.model_hash = "model_hash"
-        self.material_table_prefix = "material_prefix"
         self.prediction_horizon_days = 7
         self.output_filename = "output_file.csv"
         self.site_config_path = "siteconfig.yaml"
@@ -186,6 +185,8 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Mock the internal method is_valid_table
         self.connector.is_valid_table = Mock(return_value=True)
+        # Mock the internal method check_table_entry_in_material_registry
+        self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
 
         # Invoke the method under test
         with self.assertRaises(Exception) as context:
@@ -217,6 +218,8 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Mock the internal method is_valid_table
         self.connector.is_valid_table = Mock(return_value=True)
+        # Mock the internal method check_table_entry_in_material_registry
+        self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
         utils.date_add = Mock(return_value="label_table_dt")
 
         # Invoke the method under test
@@ -245,6 +248,8 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Mock the internal method is_valid_table
         self.connector.is_valid_table = Mock(return_value=True)
+        # Mock the internal method check_table_entry_in_material_registry
+        self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
         utils.date_add = Mock(return_value="feature_table_dt")
 
         # Invoke the method under test
@@ -273,6 +278,8 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Mock the internal method is_valid_table
         self.connector.is_valid_table = Mock(return_value=True)
+        # Mock the internal method check_table_entry_in_material_registry
+        self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
         utils.date_add = Mock(return_value="sample_table_dt")
 
         # Invoke the method under test
@@ -297,12 +304,11 @@ class TestGetMaterialNames(unittest.TestCase):
                 label_table_date=None,
             ),
         ]
-        feature_package_path = utils.get_feature_package_path(self.input_models)
-        expected_date = (None, "label_table_dt")
+        expected_date = (None, "2000-01-01")
 
         # Mock the internal method get_valid_feature_label_dates
         self.connector.get_valid_feature_label_dates = Mock(return_value=expected_date)
-        utils.materialise_past_data = Mock(return_value=True)
+        utils.subprocess_run = Mock()
 
         # Invoke the method under test
         dates = self.connector.generate_training_materials(
@@ -320,12 +326,20 @@ class TestGetMaterialNames(unittest.TestCase):
 
         # Assert the result
         self.assertEqual(dates, expected_date)
-        utils.materialise_past_data.assert_called_once_with(
-            dates[1],
-            feature_package_path,
-            self.output_filename,
-            self.site_config_path,
-            self.project_folder,
+        utils.subprocess_run.assert_called_once_with(
+            [
+                "pb",
+                "run",
+                "-p",
+                "project_folder",
+                "-m",
+                "model1.yaml,model2.yaml",
+                "--migrate_on_load=True",
+                "--end_time",
+                "946684800",
+                "-c",
+                "siteconfig.yaml",
+            ]
         )
 
     # Retrieves material names and training dates when materialized data is available within the specified date range
@@ -358,7 +372,6 @@ class TestGetMaterialNames(unittest.TestCase):
             self.end_date,
             self.features_profiles_model,
             self.model_hash,
-            self.material_table_prefix,
             self.prediction_horizon_days,
             self.output_filename,
             self.site_config_path,
@@ -400,7 +413,6 @@ class TestGetMaterialNames(unittest.TestCase):
             self.end_date,
             self.features_profiles_model,
             self.model_hash,
-            self.material_table_prefix,
             self.prediction_horizon_days,
             self.output_filename,
             self.site_config_path,
@@ -438,7 +450,6 @@ class TestGetMaterialNames(unittest.TestCase):
                 self.end_date,
                 self.features_profiles_model,
                 self.model_hash,
-                self.material_table_prefix,
                 self.prediction_horizon_days,
                 self.output_filename,
                 self.site_config_path,
@@ -625,3 +636,41 @@ class TestValidations(unittest.TestCase):
         )
         self.assertTrue(self.connector.validate_columns_are_present(table, "COL1"))
         self.assertTrue(self.connector.validate_label_distinct_values(table, "COL1"))
+
+
+class TestValidateHistoricalMaterialsHash(unittest.TestCase):
+    def setUp(self) -> None:
+        self.session_mock = Mock()
+        self.connector = RedshiftConnector("data")
+        self.material_table = "material_table"
+        self.start_date = "2022-01-01"
+        self.end_date = "2022-01-31"
+        self.features_profiles_model = "model_name"
+        self.model_hash = "model_hash"
+        self.prediction_horizon_days = 7
+        self.output_filename = "output_file.csv"
+        self.site_config_path = "siteconfig.yaml"
+        self.project_folder = "project_folder"
+        self.input_models = ["model1.yaml", "model2.yaml"]
+        self.inputs = ["""select * from material_user_var_736465_0"""]
+
+    # The method is called with valid arguments and all tables exist in the warehouse registry.
+    def test_valid_arguments_all_tables_exist(self):
+        self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
+        # Call the method
+        result = self.connector.validate_historical_materials_hash(
+            self.session_mock, "SELECT * FROM material_table_3", 1, 2
+        )
+        # Assert the result is True
+        self.assertTrue(result)
+
+    def test_valid_arguments_some_tables_dont_exist(self):
+        self.connector.check_table_entry_in_material_registry = Mock(
+            side_effect=[True, False]
+        )
+        # Call the method
+        result = self.connector.validate_historical_materials_hash(
+            self.session_mock, "SELECT * FROM material_table_3", 1, 2
+        )
+        # Assert the result is False
+        self.assertFalse(result)

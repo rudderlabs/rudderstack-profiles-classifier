@@ -35,7 +35,6 @@ class Connector(ABC):
         end_date: str,
         features_profiles_model: str,
         model_hash: str,
-        material_table_prefix: str,
         prediction_horizon_days: int,
         output_filename: str,
         site_config_path: str,
@@ -55,7 +54,6 @@ class Connector(ABC):
             end_date (str): The end date for training data.
             features_profiles_model (str): The name of the model.
             model_hash (str): The latest model hash.
-            material_table_prefix (str): A constant.
             prediction_horizon_days (int): The period of days for prediction horizon.
             site_config_path (str): path to the siteconfig.yaml file
             project_folder (str): project folder path to pb_project.yaml file
@@ -72,7 +70,6 @@ class Connector(ABC):
             end_date,
             features_profiles_model,
             model_hash,
-            material_table_prefix,
             prediction_horizon_days,
             inputs,
         )
@@ -97,7 +94,6 @@ class Connector(ABC):
                     end_date,
                     features_profiles_model,
                     model_hash,
-                    material_table_prefix,
                     prediction_horizon_days,
                     inputs,
                 )
@@ -155,13 +151,14 @@ class Connector(ABC):
         materialise_data = True
         for date in [feature_date, label_date]:
             if date is not None:
-                materialise_data = materialise_data and utils.materialise_past_data(
-                    date,
-                    feature_package_path,
-                    output_filename,
-                    site_config_path,
-                    project_folder,
-                )
+                args = {
+                    "feature_package_path": feature_package_path,
+                    "features_valid_time": date,
+                    "output_path": output_filename,
+                    "site_config_path": site_config_path,
+                    "project_folder": project_folder,
+                }
+                getPB().run(args)
                 logger.info(f"Materialised data successfully, for date {date}")
 
         if not materialise_data:
@@ -192,7 +189,7 @@ class Connector(ABC):
             ):
                 feature_table_name_ = material_info.feature_table_name
                 assert (
-                    self.is_valid_table(session, feature_table_name_) == True
+                    self.is_valid_table(session, feature_table_name_) is True
                 ), f"Failed to fetch \
                     valid feature_date and label_date because table {feature_table_name_} does not exist in the warehouse"
                 label_date = utils.date_add(
@@ -205,7 +202,7 @@ class Connector(ABC):
             ):
                 label_table_name_ = material_info.label_table_name
                 assert (
-                    self.is_valid_table(session, label_table_name_) == True
+                    self.is_valid_table(session, label_table_name_) is True
                 ), f"Failed to fetch \
                     valid feature_date and label_date because table {label_table_name_} does not exist in the warehouse"
                 feature_date = utils.date_add(
@@ -226,89 +223,6 @@ class Connector(ABC):
                     f"We don't need to fetch feature_date and label_date to materialise new datasets because Tables {material_info.feature_table_name} and {material_info.label_table_name} already exist. Please check generated materials for discrepancies."
                 )
         return feature_date, label_date
-
-    def fetch_training_material_names(
-        self,
-        session,
-        feature_date,
-        label_date,
-        material_registry_table,
-        features_profiles_model,
-        material_table_prefix,
-    ) -> Tuple[str, str]:
-        """Fetches the materialised table names of feature table and label table from warehouse registry table, based on the end_ts field in the registry table.
-        If there are more than one materialised table names with the same end_ts, it returns the most recently created one, using creation_ts.
-        Imp Note: It does not do any check on model hash, so it is possible that the materialised tables are not consistent.
-        Currently this is not being in use. This was created as a back up for pb versions inconsistency on rudder-sources
-        Args:
-            session (_type_): _description_
-            feature_date (_type_): _description_
-            label_date (_type_): _description_
-            material_registry_table (_type_): _description_
-            features_profiles_model (_type_): _description_
-            material_table_prefix (_type_): _description_
-
-        Returns:
-            Tuple[str, str]: _description_
-        """
-        for dt in [feature_date, label_date]:
-            query = f"select seq_no, model_hash from {material_registry_table} where DATE(end_ts) = '{dt}' and model_name = '{features_profiles_model}' order by creation_ts desc"
-            table_instance_details = self.run_query(session, query)
-            for row in table_instance_details:
-                seq_no = row[0]
-                model_hash = row[1]
-                table_name = utils.generate_material_name(
-                    material_table_prefix,
-                    features_profiles_model,
-                    model_hash,
-                    str(seq_no),
-                )
-                if self.is_valid_table(session, table_name):
-                    if dt == feature_date:
-                        feature_table_name = table_name
-                    else:
-                        label_table_name = table_name
-                    break
-        return feature_table_name, label_table_name
-
-    def get_latest_material_hash(
-        self,
-        entity_key: str,
-        var_table_suffix: List[str],
-        output_filename: str,
-        site_config_path: str = None,
-        project_folder: str = None,
-    ) -> Tuple[str, str]:
-        args = {
-            "project_folder": project_folder,
-            "output_filename": output_filename,
-            "site_config_path": site_config_path,
-        }
-        pb_compile_output = getPB().compile(args)
-        features_profiles_model = None
-        for var_table in var_table_suffix:
-            if entity_key + var_table in pb_compile_output:
-                features_profiles_model = entity_key + var_table
-                break
-        if features_profiles_model is None:
-            raise Exception(
-                f"Could not find any matching var table in the output of pb compile command"
-            )
-
-        material_file_prefix = (
-            constants.MATERIAL_TABLE_PREFIX + features_profiles_model + "_"
-        ).lower()
-
-        try:
-            model_hash = pb_compile_output[
-                pb_compile_output.index(material_file_prefix)
-                + len(material_file_prefix) :
-            ].split("_")[0]
-        except ValueError:
-            raise Exception(
-                f"Could not find material file prefix {material_file_prefix} in the output of pb compile command: {pb_compile_output}"
-            )
-        return model_hash, features_profiles_model
 
     def validate_historical_materials_hash(
         self,
@@ -338,30 +252,25 @@ class Connector(ABC):
             # and prepare sql statement to check for the table existence
             # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
             if feature_material_seq_no is not None:
-                feature_table_query = (
-                    utils.replace_seq_no_in_query(
-                        material_table_query, int(feature_material_seq_no)
-                    )
-                    + " limit 1"
-                )
-                result = self.run_query(session, feature_table_query, response=True)
-                assert len(result) != 0
+                feature_table_query = utils.replace_seq_no_in_query(
+                    material_table_query, int(feature_material_seq_no)
+                ).lower()
+                assert self.check_table_entry_in_material_registry(
+                    session, feature_table_query
+                ), f"Material table {feature_table_query} does not exist"
 
             if label_material_seq_no is not None:
-                label_table_query = (
-                    utils.replace_seq_no_in_query(
-                        material_table_query, int(label_material_seq_no)
-                    )
-                    + " limit 1"
-                )
-                result = self.run_query(session, label_table_query, response=True)
-                assert len(result) != 0
+                label_table_query = utils.replace_seq_no_in_query(
+                    material_table_query, int(label_material_seq_no)
+                ).lower()
+                assert self.check_table_entry_in_material_registry(
+                    session, label_table_query
+                ), f"Material table {label_table_query} does not exist"
 
             return True
-        except:
-            logger.info(
-                f"{material_table_query} is not materialized for one of the \
-                        seq nos '{feature_material_seq_no}', '{label_material_seq_no}'"
+        except AssertionError as e:
+            logger.debug(
+                f"{e}. Skipping the sequence tuple {feature_material_seq_no, label_material_seq_no} as it is not valid"
             )
             return False
 
@@ -369,7 +278,6 @@ class Connector(ABC):
         self,
         session,
         row,
-        material_table_prefix,
         features_profiles_model,
         model_hash,
         inputs,
@@ -377,15 +285,13 @@ class Connector(ABC):
     ):
         feature_table_name_, label_table_name_ = None, None
         if row.FEATURE_SEQ_NO is not None:
-            feature_table_name_ = utils.generate_material_name(
-                material_table_prefix,
+            feature_table_name_ = getPB().get_material_name(
                 features_profiles_model,
                 model_hash,
                 row.FEATURE_SEQ_NO,
             )
         if row.LABEL_SEQ_NO is not None:
-            label_table_name_ = utils.generate_material_name(
-                material_table_prefix,
+            label_table_name_ = getPB().get_material_name(
                 features_profiles_model,
                 model_hash,
                 row.LABEL_SEQ_NO,
@@ -489,6 +395,12 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def check_table_entry_in_material_registry(
+        self, session, material_table_name: str
+    ) -> bool:
+        pass
+
+    @abstractmethod
     def write_pandas(
         self,
         df: pd.DataFrame,
@@ -566,7 +478,6 @@ class Connector(ABC):
         end_time: str,
         model_name: str,
         model_hash: str,
-        material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
     ) -> Tuple[
@@ -576,7 +487,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_material_registry_name(self, session, table_prefix: str) -> str:
+    def get_tables_by_prefix(self, session, prefix: str) -> str:
         pass
 
     @abstractmethod

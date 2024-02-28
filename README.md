@@ -17,14 +17,14 @@ You can create a virtual environment either through Conda or through the venv mo
 #### 1.1 Building the conda environment
 
 ```bash
-conda create -n pysnowpark --override-channels -c https://repo.anaconda.com/pkgs/snowflake python=3.10
+conda create -n pysnowpark --override-channels -c https://repo.anaconda.com/pkgs/snowflake python=3.8
 ```
 
 NOTE - There is a known issue with running Snowpark Python on Apple silicon chips due to memory handling in pyOpenSSL. The error message displayed is, “Cannot allocate write+execute memory for ffi.callback()”.
 
 As a workaround, set up a virtual environment that uses x86 Python using these commands:
 ```bash
-CONDA_SUBDIR=osx-64 conda create -n pysnowpark python=3.10 --override-channels -c https://repo.anaconda.com/pkgs/snowflake
+CONDA_SUBDIR=osx-64 conda create -n pysnowpark python=3.8 --override-channels -c https://repo.anaconda.com/pkgs/snowflake
 conda activate pysnowpark
 conda config --env --set subdir osx-64
 ```
@@ -39,14 +39,14 @@ conda install -c conda-forge py-xgboost==1.5.0
 #### 1.2 Virtual Environment using venv
 
 For MAC OS
-Install python 3.10 runtime 
+Install python 3.8 runtime 
 
 ```bash
-brew install python@3.10
+brew install python@3.8
 ```
 Run the following command to create the environment 
 ```bash
-python3.10 -m venv pysnowpark 
+python3.8 -m venv pysnowpark 
 ```
 
 Activate the environment and install the dependencies

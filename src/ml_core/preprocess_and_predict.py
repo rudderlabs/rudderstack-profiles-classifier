@@ -141,7 +141,7 @@ def preprocess_and_predict(
             name=udf_name,
             imports=[f"{stage_name}/{model_name}"],
             packages=[
-                "snowflake-snowpark-python>=0.10.0",
+                "snowflake-snowpark-python==1.11.1",
                 "typing",
                 "scikit-learn==1.1.1",
                 "xgboost==1.5.0",

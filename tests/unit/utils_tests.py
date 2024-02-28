@@ -1,10 +1,10 @@
 import sys
 import unittest
-from src.wht.pb import getPB
+from src.predictions.rudderstack_predictions.wht.pb import getPB
 
 sys.path.append("../..")
 
-from src.utils.utils import replace_seq_no_in_query
+from src.predictions.rudderstack_predictions.utils.utils import replace_seq_no_in_query
 
 
 class TestReplaceSeqNoInQuery(unittest.TestCase):

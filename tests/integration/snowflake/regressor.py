@@ -1,7 +1,9 @@
 from train import *
 import shutil
 from predict import *
-from src.wht.pb import getPB
+from src.predictions.rudderstack_predictions.wht.pb import getPB
+import json
+import yaml
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
 creds["schema"] = "PROFILES_INTEGRATION_TEST"

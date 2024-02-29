@@ -7,7 +7,7 @@ from ..utils.logger import logger
 from ..utils import constants
 from ..processors.Processor import Processor
 
-PACKAGE_PATH = "src.predictions.rudderstack_predictions.ml_core."
+PACKAGE_PATH = "src.predictions.rudderstack_predictions.ml_core"
 
 
 class LocalProcessor(Processor):

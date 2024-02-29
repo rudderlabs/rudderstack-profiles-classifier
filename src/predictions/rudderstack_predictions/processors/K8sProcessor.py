@@ -13,7 +13,7 @@ from ..utils.logger import logger
 from ..utils.S3Utils import S3Utils
 from ..utils.constants import TrainTablesInfo
 
-PACKAGE_PATH = "src.predictions.rudderstack_predictions.ml_core."
+PACKAGE_PATH = "src.predictions.rudderstack_predictions.ml_core"
 
 
 class K8sProcessor(Processor):
@@ -191,7 +191,7 @@ class K8sProcessor(Processor):
             "python3",
             "-u",
             "-m",
-            f"{PACKAGE_PATH}preprocess_and_train",
+            f"{PACKAGE_PATH}.preprocess_and_train",
             "--s3_bucket",
             s3_config["bucket"],
             "--mode",
@@ -296,7 +296,7 @@ class K8sProcessor(Processor):
             "python3",
             "-u",
             "-m",
-            f"{PACKAGE_PATH}preprocess_and_predict",
+            f"{PACKAGE_PATH}.preprocess_and_predict",
             "--s3_config",
             json.dumps(s3_config),
             "--mode",

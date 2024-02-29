@@ -895,3 +895,7 @@ class CommonWarehouseConnector(Connector):
     @abstractmethod
     def get_arraytype_columns(self, session, table_name: str) -> List[str]:
         pass
+
+    @abstractmethod
+    def fetch_create_metrics_table_query(self, metrics_df):
+        pass

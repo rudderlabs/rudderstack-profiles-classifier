@@ -1,3 +1,4 @@
+import json
 import inspect
 import pandas as pd
 from typing import List, Tuple, Optional, Dict
@@ -5,6 +6,7 @@ from typing import List, Tuple, Optional, Dict
 import redshift_connector
 import redshift_connector.cursor
 
+from src.utils import constants
 from src.connectors.CommonWarehouseConnector import CommonWarehouseConnector
 
 
@@ -174,3 +176,23 @@ class RedshiftConnector(CommonWarehouseConnector):
             if row["col_type"] == "super":
                 arraytype_columns.append(row["col_name"])
         return arraytype_columns
+
+    def fetch_create_metrics_table_query(self, metrics_df: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
+        database_dtypes = json.loads(constants.rs_dtypes)
+        metrics_table = constants.METRICS_TABLE
+        metrics_table_query = ""
+
+        for col in metrics_df.columns:
+            if metrics_df[col].dtype == "object":
+                metrics_df[col] = metrics_df[col].apply(lambda x: json.dumps(x))
+                metrics_table_query += f"{col} {database_dtypes['text']},"
+            elif metrics_df[col].dtype == "float64" or metrics_df[col].dtype == "int64":
+                metrics_table_query += f"{col} {database_dtypes['num']},"
+            elif metrics_df[col].dtype == "bool":
+                metrics_table_query += f"{col} {database_dtypes['bool']},"
+            elif metrics_df[col].dtype == "datetime64[ns]":
+                metrics_table_query += f"{col} {database_dtypes['timestamp']},"
+
+        metrics_table_query = metrics_table_query[:-1]
+        create_metrics_table_query = f"CREATE TABLE IF NOT EXISTS {metrics_table} ({metrics_table_query});"
+        return metrics_df, create_metrics_table_query

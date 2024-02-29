@@ -1,10 +1,12 @@
+import json
 import pandas as pd
-from typing import List, Optional, Dict
+from typing import List, Tuple, Optional, Dict
 
 import google.cloud
 from google.cloud import bigquery
 from google.oauth2 import service_account
 
+from src.utils import constants
 from src.connectors.CommonWarehouseConnector import CommonWarehouseConnector
 
 
@@ -172,3 +174,22 @@ class BigQueryConnector(CommonWarehouseConnector):
             if all(isinstance(value, list) for value in table_df[column])
         ]
         return arraytype_columns
+
+    def fetch_create_metrics_table_query(self, metrics_df: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
+        metrics_table = constants.METRICS_TABLE
+        metrics_table_query = ""
+
+        for col in metrics_df.columns:
+            if metrics_df[col].dtype == "object":
+                metrics_df[col] = metrics_df[col].apply(lambda x: json.dumps(x))
+                metrics_table_query += f"{col} STRING,"
+            elif metrics_df[col].dtype == "float64" or metrics_df[col].dtype == "int64" or metrics_df[col].dtype == "Float64" or metrics_df[col].dtype == "Int64":
+                metrics_table_query += f"{col} INTEGER,"
+            elif metrics_df[col].dtype == "bool":
+                metrics_table_query += f"{col} BOOL,"
+            elif metrics_df[col].dtype == "datetime64[ns]" or metrics_df[col].dtype == "datetime64[ns, UTC]":
+                metrics_table_query += f"{col} TIMESTAMP,"
+
+        metrics_table_query = metrics_table_query[:-1]
+        create_metrics_table_query = f"CREATE TABLE IF NOT EXISTS {self.project_id}.{self.schema}.{metrics_table} ({metrics_table_query});"
+        return metrics_df, create_metrics_table_query

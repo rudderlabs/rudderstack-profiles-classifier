@@ -255,7 +255,7 @@ class MLTrainer(ABC):
         merged_config: dict,
         model_file: str,
         model_setup,
-        compare_models
+        compare_models,
     ):
         """Creates and saves the trained model pipeline after performing preprocessing and classification
         and returns the various variables required for further processing by training procesudres/functions.
@@ -323,7 +323,6 @@ class MLTrainer(ABC):
         ).reset_index(drop=True)
 
         return train_x, test_x, test_y, best_clf_model, model_id, metrics_df, results
-
 
     @abstractmethod
     def train_model(
@@ -462,7 +461,7 @@ class ClassificationTrainer(MLTrainer):
                 f"Only one value of label column found in label table. Please check if the label column is correct. Label column: {self.label_column}"
             )
         return label_table
-    
+
     def train_model(
         self,
         feature_df: pd.DataFrame,
@@ -471,7 +470,15 @@ class ClassificationTrainer(MLTrainer):
         merged_config: dict,
         model_file: str,
     ):
-       return self.train_model_(feature_df, categorical_columns, numeric_columns, merged_config, model_file, classification_setup, classification_compare_models)
+        return self.train_model_(
+            feature_df,
+            categorical_columns,
+            numeric_columns,
+            merged_config,
+            model_file,
+            classification_setup,
+            classification_compare_models,
+        )
 
     def plot_diagnostics(
         self,
@@ -513,8 +520,6 @@ class ClassificationTrainer(MLTrainer):
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
         pass
-    
-
 
     def get_metrics(
         self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
@@ -681,7 +686,15 @@ class RegressionTrainer(MLTrainer):
         merged_config: dict,
         model_file: str,
     ):
-       return self.train_model_(feature_df, categorical_columns, numeric_columns, merged_config, model_file, regression_setup, regression_compare_models)
+        return self.train_model_(
+            feature_df,
+            categorical_columns,
+            numeric_columns,
+            merged_config,
+            model_file,
+            regression_setup,
+            regression_compare_models,
+        )
 
     def plot_diagnostics(
         self,

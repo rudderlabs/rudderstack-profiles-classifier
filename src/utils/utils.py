@@ -222,7 +222,8 @@ class TrainerUtils:
             "test": test_predictions,
         }
 
-        return metrics, predictions, round(0, 2)
+        prob_th = 0.0
+        return metrics, predictions, round(prob_th, 2)
 
     def get_metrics_regressor(
         self, model, train_x, train_y, test_x, test_y, val_x, val_y

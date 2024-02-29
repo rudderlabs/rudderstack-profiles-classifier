@@ -440,10 +440,6 @@ class SnowflakeConnector(Connector):
             high_cardinal_features = get_high_cardinal_features(feature_table, label_column, entity_column, cardinal_feature_threshold)
             print(high_cardinal_features)
         """
-        # TODO: remove this logger.info
-        logger.info(
-            f"Identifying high cardinality features in the Snowflake feature table."
-        )
         high_cardinal_features = list()
         total_rows = feature_table.count()
         for field in feature_table.schema.fields:

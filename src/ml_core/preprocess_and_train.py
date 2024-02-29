@@ -1,8 +1,6 @@
 import os
 import sys
 import json
-from botocore.exceptions import NoCredentialsError
-from botocore.exceptions import WaiterError
 import pandas as pd
 from typing import List
 
@@ -19,12 +17,13 @@ from src.utils.S3Utils import S3Utils
 
 from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from src.connectors.RedshiftConnector import RedshiftConnector
+from src.connectors.BigQueryConnector import BigQueryConnector
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
 
-def train_and_store_model_results_rs(
+def train_and_store_model_results(
     feature_table_name: str, merged_config: dict, **kwargs
 ) -> dict:
     """Creates and saves the trained model pipeline after performing preprocessing and classification and
@@ -159,6 +158,10 @@ def prepare_feature_table(
         arraytype_columns = connector.get_arraytype_columns(session, feature_table_name)
         ignore_features = utils.merge_lists_to_unique(
             trainer.prep.ignore_features, arraytype_columns
+        )
+
+        logger.info(
+            f"Identifying high cardinality features in the feature table."
         )
         high_cardinal_features = connector.get_high_cardinal_features(
             feature_table,
@@ -314,8 +317,8 @@ if __name__ == "__main__":
         if args.mode == constants.LOCAL_MODE
         else os.path.dirname(os.path.abspath(__file__))
     )
-    train_procedure = train_and_store_model_results_rs
-    connector = RedshiftConnector(current_dir)
+    train_procedure = train_and_store_model_results
+    connector = RedshiftConnector(current_dir) if wh_creds["type"]=="redshift" else BigQueryConnector(current_dir)
     session = connector.build_session(wh_creds)
     local_folder = connector.get_local_dir()
 

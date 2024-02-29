@@ -238,73 +238,6 @@ class CommonWarehouseConnector(Connector):
         """Function needed only for Snowflake Connector, hence an empty function here."""
         pass
 
-    # TODO: check below functions. Resume from here.
-    def get_non_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        """
-        Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
-
-        Args:
-            feature_df (pd.DataFrame): A feature table dataframe
-            label_column (str): A string representing the name of the label column.
-            entity_column (str): A string representing the name of the entity column.
-
-        Returns:
-            List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
-        """
-        non_stringtype_features = []
-        for column in feature_df.columns:
-            if column.lower() not in (label_column, entity_column) and (
-                feature_df[column].dtype == "int64"
-                or feature_df[column].dtype == "float64"
-            ):
-                non_stringtype_features.append(column)
-        return non_stringtype_features
-
-    def get_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        """
-        Extracts the names of StringType(categorical) columns from a given feature table schema.
-
-        Args:
-            feature_df (pd.DataFrame): A feature table dataframe
-            label_column (str): The name of the label column.
-            entity_column (str): The name of the entity column.
-
-        Returns:
-            List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
-        """
-        stringtype_features = []
-        for column in feature_df.columns:
-            if column.lower() not in (label_column, entity_column) and (
-                feature_df[column].dtype != "int64"
-                and feature_df[column].dtype != "float64"
-            ):
-                stringtype_features.append(column)
-        return stringtype_features
-
-    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
-        """Returns the list of features to be ignored from the feature table.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the table from which to retrieve the arraytype/super columns.
-
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
-        session.execute(
-            f"select * from pg_get_cols('{self.schema}.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);"
-        )
-        col_df = session.fetch_dataframe()
-        arraytype_columns = []
-        for _, row in col_df.iterrows():
-            if row["col_type"] == "super":
-                arraytype_columns.append(row["col_name"])
-        return arraytype_columns
-
     def get_arraytype_columns_from_table(self, table: pd.DataFrame, **kwargs) -> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
@@ -323,13 +256,9 @@ class CommonWarehouseConnector(Connector):
         entity_column,
         cardinal_feature_threshold,
     ) -> List[str]:
-        # TODO: remove this logger.info
-        logger.info(
-            f"Identifying high cardinality features in the Redshift feature table."
-        )
         high_cardinal_features = list()
         for field in table.columns:
-            if (table[field].dtype != "int64" and table[field].dtype != "float64") and (
+            if (table[field].dtype != "int64" and table[field].dtype != "float64" and table[field].dtype != "Int64" and table[field].dtype != "Float64") and (
                 field.lower() not in (label_column.lower(), entity_column.lower())
             ):
                 feature_data = table[field]
@@ -338,35 +267,6 @@ class CommonWarehouseConnector(Connector):
                 if top_10_freq_sum < cardinal_feature_threshold * total_rows:
                     high_cardinal_features.append(field)
         return high_cardinal_features
-
-    def get_timestamp_columns(
-        self,
-        session,
-        table_name: str,
-    ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        session.execute(
-            f"select * from pg_get_cols('{self.schema}.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);"
-        )
-        col_df = session.fetch_dataframe()
-        timestamp_columns = []
-        for _, row in col_df.iterrows():
-            if row["col_type"] in [
-                "timestamp without time zone",
-                "date",
-                "time without time zone",
-            ]:
-                timestamp_columns.append(row["col_name"])
-        return timestamp_columns
 
     def get_timestamp_columns_from_table(
         self, table: pd.DataFrame, **kwargs
@@ -383,8 +283,6 @@ class CommonWarehouseConnector(Connector):
         kwargs.get("features_path", None)
         timestamp_columns = self.array_time_features["timestamp_columns"]
         return timestamp_columns
-
-    # TODO: Till this point from last #TODO.
 
     def get_default_label_value(
         self, session, table_name: str, label_column: str, positive_boolean_flags: list
@@ -737,7 +635,7 @@ class CommonWarehouseConnector(Connector):
         Returns:
             The table with the new column added as a Pandas DataFrame object.
         """
-        table["temp_1"] = pd.to_datetime(table[time_col])
+        table["temp_1"] = pd.to_datetime(table[time_col]).dt.tz_localize(None)
         table["temp_2"] = pd.to_datetime(end_ts)
         table[new_col] = (table["temp_2"] - table["temp_1"]).dt.days
         return table.drop(columns=["temp_1", "temp_2"])
@@ -935,6 +833,10 @@ class CommonWarehouseConnector(Connector):
         ), f"Expected columns {training_features_columns} not found in table {matching_columns_upper}"
         return table.filter(matching_columns)
 
+    def make_local_dir(self) -> None:
+        "Created a local directory to store temporary files"
+        Path(self.local_dir).mkdir(parents=True, exist_ok=True)
+
     def _delete_local_data_folder(self) -> None:
         """Deletes the local data folder."""
         try:
@@ -965,4 +867,28 @@ class CommonWarehouseConnector(Connector):
 
     @abstractmethod
     def get_tablenames_from_schema(self, session) -> pd.DataFrame:
+        pass
+
+    @abstractmethod
+    def get_non_stringtype_features(
+        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
+    ) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_stringtype_features(
+        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
+    ) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_timestamp_columns(
+        self,
+        session,
+        table_name: str,
+    ) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
         pass

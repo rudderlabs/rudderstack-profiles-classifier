@@ -1,0 +1,14 @@
+models:
+  - name: training_model
+    model_type: classifier_training
+    model_spec:
+      occurred_at_col: insert_ts
+      entity_key: user
+      validity_time: 24h
+
+  - name: prediction_model
+    model_type: classifier_prediction
+    model_spec:
+      occurred_at_col: insert_ts
+      entity_key: user
+      validity_time: 24h

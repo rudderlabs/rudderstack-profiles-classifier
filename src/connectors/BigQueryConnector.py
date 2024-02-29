@@ -97,9 +97,15 @@ class BigQueryConnector(CommonWarehouseConnector):
         Returns:
             List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
         """
-        non_stringtype_features = feature_df.select_dtypes(include=['number']).columns.to_list()
-        return [col for col in non_stringtype_features if col.lower() not in (label_column.lower(), entity_column.lower())]
-    
+        non_stringtype_features = feature_df.select_dtypes(
+            include=["number"]
+        ).columns.to_list()
+        return [
+            col
+            for col in non_stringtype_features
+            if col.lower() not in (label_column.lower(), entity_column.lower())
+        ]
+
     def get_stringtype_features(
         self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
     ) -> List[str]:
@@ -114,9 +120,15 @@ class BigQueryConnector(CommonWarehouseConnector):
         Returns:
             List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
         """
-        stringtype_features = feature_df.select_dtypes(include=['object', 'category']).columns.to_list()
-        return [col for col in stringtype_features if col.lower() not in (label_column.lower(), entity_column.lower())]
-    
+        stringtype_features = feature_df.select_dtypes(
+            include=["object", "category"]
+        ).columns.to_list()
+        return [
+            col
+            for col in stringtype_features
+            if col.lower() not in (label_column.lower(), entity_column.lower())
+        ]
+
     def get_timestamp_columns(
         self,
         session,
@@ -132,8 +144,14 @@ class BigQueryConnector(CommonWarehouseConnector):
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
-        schema = session.get_table(f"{self.project_id}.{self.schema}.{table_name}").schema
-        timestamp_columns = [field.name for field in schema if field.field_type in ('DATE', 'DATETIME', 'TIMESTAMP', 'INTERVAL')]
+        schema = session.get_table(
+            f"{self.project_id}.{self.schema}.{table_name}"
+        ).schema
+        timestamp_columns = [
+            field.name
+            for field in schema
+            if field.field_type in ("DATE", "DATETIME", "TIMESTAMP", "INTERVAL")
+        ]
         return timestamp_columns
 
     def get_arraytype_columns(self, session, table_name: str) -> List[str]:
@@ -148,5 +166,9 @@ class BigQueryConnector(CommonWarehouseConnector):
         """
         table_df = self.get_table(session, table_name)
         arraytype_columns = []
-        arraytype_columns = [column for column in table_df.columns if all(isinstance(value, list) for value in table_df[column])]
+        arraytype_columns = [
+            column
+            for column in table_df.columns
+            if all(isinstance(value, list) for value in table_df[column])
+        ]
         return arraytype_columns

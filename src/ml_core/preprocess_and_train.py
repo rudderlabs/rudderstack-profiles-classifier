@@ -160,9 +160,7 @@ def prepare_feature_table(
             trainer.prep.ignore_features, arraytype_columns
         )
 
-        logger.info(
-            f"Identifying high cardinality features in the feature table."
-        )
+        logger.info(f"Identifying high cardinality features in the feature table.")
         high_cardinal_features = connector.get_high_cardinal_features(
             feature_table,
             trainer.label_column,
@@ -318,7 +316,11 @@ if __name__ == "__main__":
         else os.path.dirname(os.path.abspath(__file__))
     )
     train_procedure = train_and_store_model_results
-    connector = RedshiftConnector(current_dir) if wh_creds["type"]=="redshift" else BigQueryConnector(current_dir)
+    connector = (
+        RedshiftConnector(current_dir)
+        if wh_creds["type"] == "redshift"
+        else BigQueryConnector(current_dir)
+    )
     session = connector.build_session(wh_creds)
     local_folder = connector.get_local_dir()
 

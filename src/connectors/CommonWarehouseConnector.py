@@ -258,9 +258,12 @@ class CommonWarehouseConnector(Connector):
     ) -> List[str]:
         high_cardinal_features = list()
         for field in table.columns:
-            if (table[field].dtype != "int64" and table[field].dtype != "float64" and table[field].dtype != "Int64" and table[field].dtype != "Float64") and (
-                field.lower() not in (label_column.lower(), entity_column.lower())
-            ):
+            if (
+                table[field].dtype != "int64"
+                and table[field].dtype != "float64"
+                and table[field].dtype != "Int64"
+                and table[field].dtype != "Float64"
+            ) and (field.lower() not in (label_column.lower(), entity_column.lower())):
                 feature_data = table[field]
                 total_rows = len(feature_data)
                 top_10_freq_sum = sum(feature_data.value_counts().head(10))

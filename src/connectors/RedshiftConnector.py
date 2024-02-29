@@ -125,7 +125,7 @@ class RedshiftConnector(CommonWarehouseConnector):
             ):
                 stringtype_features.append(column)
         return stringtype_features
-    
+
     def get_timestamp_columns(
         self,
         session,

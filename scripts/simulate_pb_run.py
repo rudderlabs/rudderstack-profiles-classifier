@@ -1,6 +1,7 @@
 import sys
-sys.path.append('./')
-sys.path.append('../')
+
+sys.path.append("./")
+sys.path.append("../")
 
 import os
 import yaml
@@ -50,7 +51,9 @@ if __name__ == "__main__":
     elif creds["type"] == "redshift":
         print(f"Using {creds['schema']} schema in Redshift account: {creds['host']}")
     elif creds["type"] == "bigquery":
-        print(f"Using {creds['schema']} schema in BigQuery project: {creds['project_id']}")
+        print(
+            f"Using {creds['schema']} schema in BigQuery project: {creds['project_id']}"
+        )
     else:
         raise Exception(f"Unknown database type: {creds['type']}")
 

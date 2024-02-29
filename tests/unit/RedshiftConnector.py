@@ -1018,3 +1018,39 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         )
 
         self.assertEqual(len(result), 1)  # Only one material generated
+class TestValidateHistoricalMaterialsHash(unittest.TestCase):
+    def setUp(self) -> None:
+        self.session_mock = Mock()
+        self.connector = RedshiftConnector("data")
+        self.material_table = "material_table"
+        self.start_date = "2022-01-01"
+        self.end_date = "2022-01-31"
+        self.features_profiles_model = "model_name"
+        self.model_hash = "model_hash"
+        self.prediction_horizon_days = 7
+        self.output_filename = "output_file.csv"
+        self.site_config_path = "siteconfig.yaml"
+        self.project_folder = "project_folder"
+        self.input_models = ["model1.yaml", "model2.yaml"]
+        self.inputs = ["""select * from material_user_var_736465_0"""]
+
+    # The method is called with valid arguments and all tables exist in the warehouse registry.
+    def test_valid_arguments_all_tables_exist(self):
+        self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
+        # Call the method
+        result = self.connector.validate_historical_materials_hash(
+            self.session_mock, "SELECT * FROM material_table_3", 1, 2
+        )
+        # Assert the result is True
+        self.assertTrue(result)
+
+    def test_valid_arguments_some_tables_dont_exist(self):
+        self.connector.check_table_entry_in_material_registry = Mock(
+            side_effect=[True, False]
+        )
+        # Call the method
+        result = self.connector.validate_historical_materials_hash(
+            self.session_mock, "SELECT * FROM material_table_3", 1, 2
+        )
+        # Assert the result is False
+        self.assertFalse(result)

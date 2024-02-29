@@ -257,7 +257,7 @@ class Connector(ABC):
                 ).lower()
                 assert self.check_table_entry_in_material_registry(
                     session, feature_table_query
-                )
+                ), f"Material table {feature_table_query} does not exist"
 
             if label_material_seq_no is not None:
                 label_table_query = utils.replace_seq_no_in_query(
@@ -265,13 +265,12 @@ class Connector(ABC):
                 ).lower()
                 assert self.check_table_entry_in_material_registry(
                     session, label_table_query
-                )
+                ), f"Material table {label_table_query} does not exist"
 
             return True
-        except:
-            logger.info(
-                f"{material_table_query} is not materialized for one of the"
-                "seq nos '{feature_material_seq_no}', '{label_material_seq_no}'"
+        except AssertionError as e:
+            logger.debug(
+                f"{e}. Skipping the sequence tuple {feature_material_seq_no, label_material_seq_no} as it is not valid"
             )
             return False
 

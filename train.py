@@ -146,7 +146,7 @@ def train(
             replace=True,
             imports=import_paths,
             packages=[
-                "snowflake-snowpark-python>=0.10.0",
+                "snowflake-snowpark-python==1.11.1",
                 "scikit-learn==1.1.1",
                 "xgboost==1.5.0",
                 "joblib==1.2.0",

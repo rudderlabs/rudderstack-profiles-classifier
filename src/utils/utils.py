@@ -221,7 +221,8 @@ class TrainerUtils:
             "val": val_predictions,
             "test": test_predictions,
         }
-
+        
+        #ToDO: This is for compatibility with UI and should be safely removed once the param is removed on UI
         prob_th = 0.0
         return metrics, predictions, round(prob_th, 2)
 

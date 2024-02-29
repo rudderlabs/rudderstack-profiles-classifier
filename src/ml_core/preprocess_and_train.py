@@ -100,7 +100,9 @@ def train_and_store_model_results(
     except Exception as e:
         logger.error(f"Could not generate plots {e}")
 
-    metrics_df, create_metrics_table_query = connector.fetch_create_metrics_table_query(metrics_df)
+    metrics_df, create_metrics_table_query = connector.fetch_create_metrics_table_query(
+        metrics_df
+    )
     connector.run_query(
         session,
         create_metrics_table_query,

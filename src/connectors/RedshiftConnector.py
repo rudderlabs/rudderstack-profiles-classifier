@@ -177,7 +177,9 @@ class RedshiftConnector(CommonWarehouseConnector):
                 arraytype_columns.append(row["col_name"])
         return arraytype_columns
 
-    def fetch_create_metrics_table_query(self, metrics_df: pd.DataFrame) -> Tuple[pd.DataFrame, str]:
+    def fetch_create_metrics_table_query(
+        self, metrics_df: pd.DataFrame
+    ) -> Tuple[pd.DataFrame, str]:
         database_dtypes = json.loads(constants.rs_dtypes)
         metrics_table = constants.METRICS_TABLE
         metrics_table_query = ""
@@ -194,5 +196,7 @@ class RedshiftConnector(CommonWarehouseConnector):
                 metrics_table_query += f"{col} {database_dtypes['timestamp']},"
 
         metrics_table_query = metrics_table_query[:-1]
-        create_metrics_table_query = f"CREATE TABLE IF NOT EXISTS {metrics_table} ({metrics_table_query});"
+        create_metrics_table_query = (
+            f"CREATE TABLE IF NOT EXISTS {metrics_table} ({metrics_table_query});"
+        )
         return metrics_df, create_metrics_table_query

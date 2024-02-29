@@ -43,8 +43,20 @@ def ProfilesConnector(
 
     if "role" in config:
         creds["role"] = config.get("role")
+    if "access_token" in config:
+        creds["access_token"] = config.get("access_token")
+    if "http_endpoint" in config:
+        creds["http_endpoint"] = config.get("http_endpoint")
+    if "credentials" in config:
+        creds["credentials"] = config.get("credentials")
 
     db_config = {"database": config.get("dbname"), "schema": config.get("schema")}
+
+    if "catalog" in config:
+        db_config["catalog"] = config.get("catalog")
+
+    if "project_id" in config:
+        db_config["project_id"] = config.get("project_id")
 
     connector = connector(creds, db_config, **kwargs)
     return connector

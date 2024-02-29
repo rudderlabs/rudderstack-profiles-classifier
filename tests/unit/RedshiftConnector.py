@@ -1018,6 +1018,8 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         )
 
         self.assertEqual(len(result), 1)  # Only one material generated
+
+
 class TestValidateHistoricalMaterialsHash(unittest.TestCase):
     def setUp(self) -> None:
         self.session_mock = Mock()

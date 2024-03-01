@@ -33,6 +33,7 @@ try:
 except Exception as e:
     logger.warning(f"Could not import BigQueryConnector")
 
+
 def predict(
     creds: dict,
     _: dict,  # s3_config is not being populated for some reason. Using site_config to get its value

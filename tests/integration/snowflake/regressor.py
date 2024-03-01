@@ -4,7 +4,13 @@ from predict import *
 from src.wht.pb import getPB
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-creds["schema"] = "PROFILES_INTEGRATION_TEST"
+
+# homedir = os.path.expanduser("~")
+
+# with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
+#     env_name = os.getenv("SITE_ENV_NAME")
+#     creds = yaml.safe_load(f)["connections"]["shopify_wh"]["outputs"]["dev"]
+creds["schema"] = "SUBHAM_APP_PROJECT_SCHEMA"
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))

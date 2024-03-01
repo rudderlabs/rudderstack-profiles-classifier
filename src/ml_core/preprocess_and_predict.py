@@ -19,6 +19,7 @@ from src.wht.pb import getPB
 
 from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from src.connectors.RedshiftConnector import RedshiftConnector
+from src.connectors.BigQueryConnector import BigQueryConnector
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -159,7 +160,7 @@ def preprocess_and_predict(
             return predictions.round(4)
 
         prediction_udf = predict_scores
-    elif creds["type"] == "redshift":
+    elif creds["type"] in ("redshift", "bigquery"):
         local_folder = connector.get_local_dir()
 
         def predict_scores_rs(df: pd.DataFrame) -> pd.Series:
@@ -232,7 +233,11 @@ if __name__ == "__main__":
         trainer = RegressionTrainer(**args.merged_config)
 
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
-    connector = RedshiftConnector(output_dir)
+    connector = (
+        RedshiftConnector(output_dir)
+        if wh_creds["type"] == "redshift"
+        else BigQueryConnector(output_dir)
+    )
     session = connector.build_session(wh_creds)
 
     model_path = os.path.join(output_dir, args.json_output_filename)

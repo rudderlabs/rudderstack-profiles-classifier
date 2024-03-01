@@ -28,6 +28,10 @@ try:
 except Exception as e:
     logger.warning(f"Could not import RedshiftConnector")
 
+try:
+    from src.connectors.BigQueryConnector import BigQueryConnector
+except Exception as e:
+    logger.warning(f"Could not import BigQueryConnector")
 
 def predict(
     creds: dict,
@@ -89,8 +93,12 @@ def predict(
     if creds["type"] == "snowflake":
         connector = SnowflakeConnector()
         session = connector.build_session(creds)
-    elif creds["type"] == "redshift":
-        connector = RedshiftConnector(folder_path)
+    elif creds["type"] in ("redshift", "bigquery"):
+        connector = (
+            RedshiftConnector(folder_path)
+            if creds["type"] == "redshift"
+            else BigQueryConnector(folder_path)
+        )
         session = connector.build_session(creds)
 
     udf_name = connector.get_udf_name(model_path)

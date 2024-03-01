@@ -4,7 +4,7 @@ from src.utils.logger import logger
 from datetime import datetime, timezone
 
 PB_PATH = "pb"
-MATERIAL_PREFIX = "material_"
+MATERIAL_PREFIX = "Material_"
 
 
 class RudderPB:

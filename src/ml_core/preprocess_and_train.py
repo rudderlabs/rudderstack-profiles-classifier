@@ -299,16 +299,16 @@ if __name__ == "__main__":
         trainer = RegressionTrainer(**args.merged_config)
 
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
-    current_dir = (
+    output_dir = (
         args.output_path
         if args.mode == constants.LOCAL_MODE
         else os.path.dirname(os.path.abspath(__file__))
     )
     train_procedure = train_and_store_model_results
     connector = (
-        RedshiftConnector(current_dir)
+        RedshiftConnector(output_dir)
         if wh_creds["type"] == "redshift"
-        else BigQueryConnector(current_dir)
+        else BigQueryConnector(output_dir)
     )
     session = connector.build_session(wh_creds)
     local_folder = connector.get_local_dir()

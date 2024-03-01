@@ -1,9 +1,9 @@
+import os
 import sys
 
-sys.path.append("./")
-sys.path.append("../")
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import os
 import yaml
 import pathlib
 import json
@@ -12,8 +12,6 @@ from dotenv import load_dotenv  # pip3 install python-dotenv
 
 load_dotenv()
 
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import train as T
 import predict as P
 

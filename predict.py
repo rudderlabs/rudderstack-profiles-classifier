@@ -66,6 +66,9 @@ def predict(
     default_config = utils.load_yaml(
         os.path.join(
             current_dir,
+            "src",
+            "predictions",
+            "rudderstack_predictions",
             "config",
             "model_configs.yaml",
         )

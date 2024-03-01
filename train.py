@@ -150,7 +150,7 @@ def train(
                 "pandas==1.5.3",
                 "hyperopt==0.2.7",
                 "shap==0.41.0",
-                "matplotlib==3.7.1",
+                "matplotlib==3.6.0",
                 "seaborn==0.12.0",
                 "scikit-plot==0.3.7",
                 "pycaret",

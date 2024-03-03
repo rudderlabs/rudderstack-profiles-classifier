@@ -4,16 +4,11 @@
 
 from typing import Union
 
-from .redshift_base_connector import RedShiftConnector
-from .snowflake_base_connector import SnowflakeConnector
-from .bigquery_base_connector import BigqueryConnector
-from .connector_base import connector_classes
+from .wh.connector_base import connector_classes
 
 
 # SnowflakeConnector not used currently in profiles_rudderstack
-def ProfilesConnector(
-    config: dict, **kwargs
-) -> Union[RedShiftConnector, SnowflakeConnector, BigqueryConnector]:
+def ProfilesConnector(config: dict, **kwargs):
     """Creates a connector object based on the config provided
 
     Args:

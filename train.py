@@ -1,4 +1,11 @@
-from src.predictions.rudderstack_predictions.train import _train
+import sys
+import os
+
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "src", "predictions"))
+)
+
+from rudderstack_predictions.train import _train
 
 
 def train(

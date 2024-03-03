@@ -4,7 +4,7 @@
 
 import pandas as pd
 from sqlalchemy import create_engine
-from ..utils.logger import logger
+from ...utils.logger import logger
 from .connector_base import ConnectorBase, register_connector
 
 

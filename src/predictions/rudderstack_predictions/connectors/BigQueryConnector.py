@@ -1,11 +1,11 @@
 import pandas as pd
-from typing import List, Optional, Dict
+from typing import List, Optional
 
 import google.cloud
 from google.cloud import bigquery
 from google.oauth2 import service_account
 
-from ..connectors.CommonWarehouseConnector import CommonWarehouseConnector
+from .CommonWarehouseConnector import CommonWarehouseConnector
 
 
 class BigQueryConnector(CommonWarehouseConnector):

@@ -12,10 +12,9 @@ from sqlalchemy import orm as sa_orm
 from sqlalchemy import text
 
 from ...utils.logger import logger
-from .connector_base import ConnectorBase, register_connector
+from .connector_base import ConnectorBase
 
 
-@register_connector
 class RedShiftConnector(ConnectorBase):
     def __init__(self, creds: dict, db_config: dict, **kwargs) -> None:
         super().__init__(creds, db_config, **kwargs)

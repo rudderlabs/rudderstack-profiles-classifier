@@ -7,8 +7,6 @@ from ..utils.logger import logger
 from ..utils import constants
 from ..processors.Processor import Processor
 
-PACKAGE_PATH = "src.predictions.rudderstack_predictions.ml_core"
-
 
 class LocalProcessor(Processor):
     def train(
@@ -27,7 +25,7 @@ class LocalProcessor(Processor):
             f"python3",
             "-u",
             "-m",
-            f"{PACKAGE_PATH}.preprocess_and_train",
+            f"{constants.ML_CORE_PATH}.preprocess_and_train",
             "--ec2_temp_output_json",
             ec2_temp_output_json,
             "--material_names",
@@ -80,7 +78,7 @@ class LocalProcessor(Processor):
             "python3",
             "-u",
             "-m",
-            f"{PACKAGE_PATH}.preprocess_and_predict",
+            f"{constants.ML_CORE_PATH}.preprocess_and_predict",
             "--wh_creds",
             json.dumps(creds),
             "--s3_config",

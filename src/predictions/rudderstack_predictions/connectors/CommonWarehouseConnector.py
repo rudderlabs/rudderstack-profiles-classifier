@@ -12,8 +12,8 @@ from ..utils import utils
 from ..utils import constants
 from ..utils.constants import TrainTablesInfo
 from ..utils.logger import logger
-from ..connectors.Connector import Connector
-from . import ProfilesConnector
+from .Connector import Connector
+from .wh.profiles_connector import ProfilesConnector
 from ..wht.pb import getPB
 
 local_folder = constants.LOCAL_STORAGE_DIR

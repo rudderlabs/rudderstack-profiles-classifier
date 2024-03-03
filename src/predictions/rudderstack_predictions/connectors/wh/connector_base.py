@@ -4,21 +4,6 @@
 
 import pandas as pd
 
-connector_classes = {}
-
-
-def register_connector(connector_class):
-    name = connector_class.__name__
-    short_name = name.split("Connector")[0].lower()
-    connector_classes[short_name] = connector_class
-
-
-def get_create_statement(df: pd.DataFrame, table_name: str, schema: str = None) -> None:
-    create_statement = pd.io.sql.get_schema(df, table_name, schema=schema)
-    return create_statement.replace('"', "").replace(
-        "CREATE TABLE", "CREATE TABLE IF NOT EXISTS"
-    )
-
 
 class ConnectorBase:
     """

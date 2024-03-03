@@ -13,8 +13,6 @@ from ..utils.logger import logger
 from ..utils.S3Utils import S3Utils
 from ..utils.constants import TrainTablesInfo
 
-PACKAGE_PATH = "src.predictions.rudderstack_predictions.ml_core"
-
 
 class K8sProcessor(Processor):
     def _create_wh_creds_secret(
@@ -191,7 +189,7 @@ class K8sProcessor(Processor):
             "python3",
             "-u",
             "-m",
-            f"{PACKAGE_PATH}.preprocess_and_train",
+            f"{constants.ML_CORE_PATH}.preprocess_and_train",
             "--s3_bucket",
             s3_config["bucket"],
             "--mode",
@@ -296,7 +294,7 @@ class K8sProcessor(Processor):
             "python3",
             "-u",
             "-m",
-            f"{PACKAGE_PATH}.preprocess_and_predict",
+            f"{constants.ML_CORE_PATH}.preprocess_and_predict",
             "--s3_config",
             json.dumps(s3_config),
             "--mode",

@@ -5,10 +5,9 @@
 import pandas as pd
 from sqlalchemy import create_engine
 from ...utils.logger import logger
-from .connector_base import ConnectorBase, register_connector
+from .connector_base import ConnectorBase
 
 
-@register_connector
 class BigqueryConnector(ConnectorBase):
     def __init__(self, creds: dict, db_config: dict, **kwargs) -> None:
         super().__init__(creds, db_config, **kwargs)

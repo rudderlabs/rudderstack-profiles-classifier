@@ -5,7 +5,7 @@ from typing import Tuple, Optional, Dict
 import redshift_connector
 import redshift_connector.cursor
 
-from ..connectors.CommonWarehouseConnector import CommonWarehouseConnector
+from .CommonWarehouseConnector import CommonWarehouseConnector
 
 
 class RedshiftConnector(CommonWarehouseConnector):

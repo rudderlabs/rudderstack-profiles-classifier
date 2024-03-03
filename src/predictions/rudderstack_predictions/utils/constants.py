@@ -35,6 +35,7 @@ K8S_TIMEOUT_IN_SEC = 120
 LOCAL_MODE = "local"
 WAREHOUSE_MODE = "native-warehouse"
 RUDDERSTACK_MODE = "rudderstack-infra"
+ML_CORE_PATH = "src.predictions.rudderstack_predictions.ml_core"
 
 
 from typing import NamedTuple

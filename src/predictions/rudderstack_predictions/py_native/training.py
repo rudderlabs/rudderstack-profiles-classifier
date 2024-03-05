@@ -84,14 +84,23 @@ class ClassifierTrainingRecipe(PyNativeRecipe):
             "password": os.getenv("REDSHIFT_PASSWORD"),
             "port": os.getenv("REDSHIFT_PORT"),
             "schema": os.getenv("REDSHIFT_SCHEMA"),
-            "type": "REDSHIFT",
+            "type": "redshift",
             "user": os.getenv("REDSHIFT_USER"),
         }
         print(creds)
         inputs = ",".join(self.build_spec.get("inputs", []))
-        output_filename = None
-        config = ""
+        output_filename = os.path.abspath(__file__)
+        config = {
+            "data": {}
+        }
         site_config_path = "/Users/shashankshekhar/.pb/siteconfig.yaml"
-        project_folder = None
+        project_folder = "/Users/shashankshekhar/Documents/RudderStack/rudderstack-profiles-classifier/samples/py_native"
         runtime_info = {}
         _train(creds, inputs, output_filename, config, site_config_path, project_folder, runtime_info)
+
+if __name__ == "__main__":
+    build_spec = {
+        "inputs": [],
+    }
+    a = ClassifierTrainingRecipe(build_spec)
+    a.execute(None)

@@ -165,7 +165,7 @@ class K8sProcessor(Processor):
                 index = max(
                     log.lower().find("traceback"),
                     log.lower().find("exception"),
-                    log.lower().find("typeerror")
+                    log.lower().find("typeerror"),
                 )
                 if index != -1:
                     error_message = log[index:]

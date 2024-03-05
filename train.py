@@ -25,7 +25,7 @@ import src.utils.utils as utils
 from src.utils import constants
 from src.wht.pb import getPB
 
-import src.processors.ProcessorMap as ProcessorMap
+from src.processors.ProcessorFactory import ProcessorFactory
 from src.connectors.SnowflakeConnector import SnowflakeConnector
 from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from src.ml_core.preprocess_and_train import train_and_store_model_results_rs
@@ -339,7 +339,7 @@ def train(
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = ProcessorMap.processor_mode_map[mode](trainer, connector, session)
+    processor = ProcessorFactory(mode)
     logger.debug(f"Using {mode} processor for training")
     train_results = processor.train(
         train_procedure,

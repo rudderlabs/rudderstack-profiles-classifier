@@ -17,7 +17,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import src.utils.utils as utils
 from src.utils import constants
 from src.connectors.SnowflakeConnector import SnowflakeConnector
-import src.processors.ProcessorMap as ProcessorMap
+from src.processors.ProcessorFactory import ProcessorFactory
 from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
@@ -99,7 +99,7 @@ def predict(
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = ProcessorMap.processor_mode_map[mode](trainer, connector, session)
+    processor = ProcessorFactory(mode)
     logger.debug(f"Using {mode} processor for predictions")
 
     if site_config_path == "":

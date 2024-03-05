@@ -101,8 +101,7 @@ class SnowflakeConnector(Connector):
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:
-        mode = "native-warehouse"
-        return mode
+        return constants.WAREHOUSE_MODE
 
     def get_udf_name(self, model_path: str) -> str:
         """Returns the udf name using info from the model_path

@@ -13,7 +13,7 @@ inputs:
         - name: user_id
         - name: anonymous_id
     app_defaults:
-      table: RUDDERSTACK_TEST_DB.DATA_APPS_SIMULATED_SHOPIFY.TRACKS
+      table: TRACKS
       occurred_at_col: timestamp
       ids:
         - select: "user_id"

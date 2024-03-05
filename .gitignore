@@ -27,3 +27,5 @@ tmp/
 *.csv
 .env
 scripts/local_simulator.py
+*.egg-info
+**/build/*

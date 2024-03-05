@@ -2,8 +2,12 @@ from train import *
 import shutil
 from predict import *
 import time
-from src.connectors.RedshiftConnector import RedshiftConnector
-from src.wht.pb import getPB
+from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
+    RedshiftConnector,
+)
+from src.predictions.rudderstack_predictions.wht.pb import getPB
+import json
+import yaml
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
 creds["schema"] = "rs_profiles_3"

@@ -5,10 +5,26 @@ models:
       occurred_at_col: insert_ts
       entity_key: user
       validity_time: 24h
+      inputs:
+        - entity/user/first_seen
+      ml_config:
+        data:
+          label_column: is_churned_7_days
+          prediction_horizon_days: 7
 
-  - name: prediction_model
-    model_type: classifier_prediction
-    model_spec:
-      occurred_at_col: insert_ts
-      entity_key: user
-      validity_time: 24h
+  # - name: prediction_model
+  #   model_type: classifier_prediction
+  #   model_spec:
+  #     occurred_at_col: insert_ts
+  #     entity_key: user
+  #     validity_time: 24h
+
+var_groups:
+  - name: default_vars
+    entity_key: user
+    vars:
+      - entity_var:
+          name: first_seen
+          select: min(timestamp::date)
+          from: inputs/rsTracks
+          is_feature: false

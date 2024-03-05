@@ -4,9 +4,9 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from src.utils.logger import logger
+from src.predictions.rudderstack_predictions.utils.logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-from src.utils.S3Utils import S3Utils
+from src.predictions.rudderstack_predictions.utils.S3Utils import S3Utils
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
@@ -14,17 +14,26 @@ import snowflake.snowpark.functions as F
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-import src.utils.utils as utils
-from src.utils import constants
-from src.connectors.SnowflakeConnector import SnowflakeConnector
-from src.processors.ProcessorFactory import ProcessorFactory
-from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
+import src.predictions.rudderstack_predictions.utils.utils as utils
+from src.predictions.rudderstack_predictions.utils import constants
+from src.predictions.rudderstack_predictions.connectors.SnowflakeConnector import (
+    SnowflakeConnector,
+)
+from src.predictions.rudderstack_predictions.processors.ProcessorFactory import (
+    ProcessorFactory,
+)
+from src.predictions.rudderstack_predictions.trainers.MLTrainer import (
+    ClassificationTrainer,
+    RegressionTrainer,
+)
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
 try:
-    from src.connectors.RedshiftConnector import RedshiftConnector
+    from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
+        RedshiftConnector,
+    )
 except Exception as e:
     logger.warning(f"Could not import RedshiftConnector")
 
@@ -59,11 +68,17 @@ def predict(
     site_config_path = utils.fetch_key_from_dict(runtime_info, "site_config_path", "")
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    src_dir = os.path.join(current_dir, "src")
     folder_path = os.path.dirname(model_path)
 
     default_config = utils.load_yaml(
-        os.path.join(src_dir, "config", "model_configs.yaml")
+        os.path.join(
+            current_dir,
+            "src",
+            "predictions",
+            "rudderstack_predictions",
+            "config",
+            "model_configs.yaml",
+        )
     )
     _ = config["data"].pop(
         "package_name", None

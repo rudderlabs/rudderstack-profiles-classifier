@@ -879,9 +879,13 @@ def plot_top_k_feature_importance(
         shap.plots.beeswarm(shap_values, max_display=20,show=False)
         plt.savefig(figure_file)
 
+        vals = np.abs(shap_values.values).mean(0)
+        feature_names = sample_data.columns
+
+        feature_importance = pd.DataFrame(list(zip(feature_names, vals)),
+                                        columns=['col_name','feature_importance_vals'])
         
-        # shap_df = pd.DataFrame(shap_values, columns=train_x.columns)
-        # return shap_df
+        return feature_importance
 
     except Exception as e:
         logger.warning(f"Exception occured while plotting feature importance {e}")

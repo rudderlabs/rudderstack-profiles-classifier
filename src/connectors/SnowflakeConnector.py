@@ -11,13 +11,15 @@ import snowflake.snowpark
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 from snowflake.snowpark.window import Window
-from snowflake.snowpark.functions import col
+from snowflake.snowpark.functions import col, to_date
 from snowflake.snowpark.session import Session
 
 import src.utils.utils as utils
 from src.utils import constants
+from src.utils.constants import TrainTablesInfo
 from src.utils.logger import logger
 from src.connectors.Connector import Connector
+from src.wht.pb import getPB
 
 local_folder = constants.SF_LOCAL_STORAGE_DIR
 
@@ -116,6 +118,62 @@ class SnowflakeConnector(Connector):
         stage_name = results["model_info"]["file_location"]["stage"]
         return f"prediction_score_{stage_name.replace('@','')}"
 
+    def is_valid_table(
+        self, session: snowflake.snowpark.Session, table_name: str
+    ) -> bool:
+        """
+        Checks whether a table exists in the data warehouse.
+
+        Args:
+            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
+            table_name (str): The name of the table to be checked.
+
+        Returns:
+            bool: True if the table exists, False otherwise.
+        """
+        try:
+            session.sql(f"select * from {table_name} limit 1").collect()
+            return True
+        except:
+            return False
+
+    def check_table_entry_in_material_registry(
+        self, session: snowflake.snowpark.Session, material_table_name: str
+    ) -> bool:
+        """
+        Checks wether an entry is there in the material registry for the given
+        material table name and wether its sucessfully materialised or not as well
+
+        Args:
+            session: warehouse db session
+            material_table_name: Material table name
+
+        Returns:
+            bool: Wether the entry for given material table is exists or not in the material registry
+        """
+
+        model_name, model_hash, seq_no = getPB().split_material_table(
+            material_table_name
+        )
+        if model_name is None or model_hash is None or seq_no is None:
+            return False
+
+        material_registry_table_name = getPB().get_material_registry_name(self, session)
+
+        material_registry_table = self.get_table(session, material_registry_table_name)
+        num_rows = (
+            material_registry_table.withColumn(
+                "status", F.get_path("metadata", F.lit("complete.status"))
+            )
+            .filter(F.col("status") == 2)
+            .filter(col("model_name") == model_name)
+            .filter(col("model_hash") == model_hash)
+            .filter(col("seq_no") == seq_no)
+            .count()
+        )
+
+        return num_rows != 0
+
     def get_table(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs
     ) -> snowflake.snowpark.Table:
@@ -129,7 +187,7 @@ class SnowflakeConnector(Connector):
             table (snowflake.snowpark.Table): The table as a snowpark table object
         """
         filter_condition = kwargs.get("filter_condition", None)
-        if not utils.is_valid_table(session, table_name):
+        if not self.is_valid_table(session, table_name):
             raise Exception(f"Table {table_name} does not exist or not authorized")
         table = session.table(table_name)
         if filter_condition:
@@ -482,6 +540,27 @@ class SnowflakeConnector(Connector):
             )
         return label_value[0]
 
+    def fetch_filtered_table(
+        self,
+        df,
+        features_profiles_model,
+        model_hash,
+        start_time,
+        end_time,
+        columns,
+    ):
+        """Fetches the filtered table based on the given parameters."""
+        filtered_snowpark_df = (
+            df.filter(col("model_name") == features_profiles_model)
+            .filter(col("model_hash") == model_hash)
+            .filter(
+                (to_date(col("end_ts")) >= start_time)
+                & (to_date(col("end_ts")) <= end_time)
+            )
+            .select(columns)
+        ).distinct()
+        return filtered_snowpark_df
+
     def get_material_names_(
         self,
         session: snowflake.snowpark.Session,
@@ -490,11 +569,10 @@ class SnowflakeConnector(Connector):
         end_time: str,
         features_profiles_model: str,
         model_hash: str,
-        material_table_prefix: str,
         prediction_horizon_days: int,
         inputs: List[str],
-    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
-        """Generates material names as list of tuple of feature table name and label table name required to create the training model and their corresponding training dates.
+    ) -> List[TrainTablesInfo]:
+        """Generates material names as list containing feature table name and label table name required to create the training model and their corresponding training dates.
 
         Args:
             session (snowflake.snowpark.Session): Snowpark session for data warehouse access
@@ -503,41 +581,39 @@ class SnowflakeConnector(Connector):
             end_time (str): train_end_dt
             features_profiles_model (str): Present in model_configs file
             model_hash (str) : latest model hash
-            material_table_prefix (str): constant
             prediction_horizon_days (int): period of days
             inputs (List[str]): list of input features
 
         Returns:
-            Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]: Tuple of List of tuples of feature table names, label table names and their corresponding training dates
-            ex: ([('material_shopify_user_features_fa138b1a_785', 'material_shopify_user_features_fa138b1a_786')] , [('2023-04-24 00:00:00', '2023-05-01 00:00:00')])
+            List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
         try:
-            material_names = list()
-            training_dates = list()
+            materials = list()
 
             snowpark_df = self.get_material_registry_table(session, material_table)
 
-            feature_snowpark_df = (
-                snowpark_df.filter(col("model_name") == features_profiles_model)
-                .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-                .filter(col("model_hash") == model_hash)
-                .filter(f"end_ts between '{start_time}' and '{end_time}'")
-                .select("seq_no", "end_ts")
-            ).distinct()
-            label_snowpark_df = (
-                snowpark_df.filter(col("model_name") == features_profiles_model)
-                .filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-                .filter(col("model_hash") == model_hash)
-                .filter(
-                    f"end_ts between dateadd(day, {prediction_horizon_days}, '{start_time}') and dateadd(day, {prediction_horizon_days}, '{end_time}')"
-                )
-                .select("seq_no", "end_ts")
-            ).distinct()
+            feature_snowpark_df = self.fetch_filtered_table(
+                snowpark_df,
+                features_profiles_model,
+                model_hash,
+                start_time,
+                end_time,
+                columns=["seq_no", "end_ts"],
+            )
+            label_snowpark_df = self.fetch_filtered_table(
+                snowpark_df,
+                features_profiles_model,
+                model_hash,
+                utils.date_add(start_time, prediction_horizon_days),
+                utils.date_add(end_time, prediction_horizon_days),
+                columns=["seq_no", "end_ts"],
+            )
 
             feature_label_snowpark_df = feature_snowpark_df.join(
                 label_snowpark_df,
                 F.datediff("day", feature_snowpark_df.end_ts, label_snowpark_df.end_ts)
                 == prediction_horizon_days,
+                join_type="full",
             ).select(
                 feature_snowpark_df.seq_no.alias("feature_seq_no"),
                 feature_snowpark_df.end_ts.alias("feature_end_ts"),
@@ -545,77 +621,36 @@ class SnowflakeConnector(Connector):
                 label_snowpark_df.end_ts.alias("label_end_ts"),
             )
             for row in feature_label_snowpark_df.collect():
-                feature_table_name_ = utils.generate_material_name(
-                    material_table_prefix,
+                self._fetch_valid_historic_materials(
+                    session,
+                    row,
                     features_profiles_model,
                     model_hash,
-                    str(row.FEATURE_SEQ_NO),
+                    inputs,
+                    materials,
                 )
-                label_table_name_ = utils.generate_material_name(
-                    material_table_prefix,
-                    features_profiles_model,
-                    model_hash,
-                    str(row.LABEL_SEQ_NO),
-                )
-
-                if not utils.is_valid_table(
-                    session, feature_table_name_
-                ) or not utils.is_valid_table(session, label_table_name_):
-                    continue
-
-                # Iterate over inputs and validate meterial names
-                for input_material_query in inputs:
-                    if self.validate_historical_materials_hash(
-                        session,
-                        input_material_query,
-                        row.FEATURE_SEQ_NO,
-                        row.LABEL_SEQ_NO,
-                    ):
-                        material_names.append((feature_table_name_, label_table_name_))
-                        training_dates.append(
-                            (str(row.FEATURE_END_TS), str(row.LABEL_END_TS))
-                        )
-            return material_names, training_dates
+                if (
+                    len(self._get_complete_sequences(materials))
+                    >= constants.TRAIN_MATERIALS_LIMIT
+                ):
+                    break
+            return materials
         except Exception as e:
             raise Exception(
                 f"Following exception occured while retrieving material names with hash {model_hash} for {features_profiles_model} between dates {start_time} and {end_time}: {e}"
             )
 
-    def get_material_registry_name(
-        self,
-        session: snowflake.snowpark.Session,
-        table_prefix: str = "MATERIAL_REGISTRY",
-    ) -> str:
-        """This function will return the latest material registry table name
-        Args:
-            session (snowflake.snowpark.Session): snowpark session
-            table_name (str): name of the material registry table prefix | Defaults to "MATERIAL_REGISTRY"
-        Returns:
-            str: latest material registry table name
-        """
-        material_registry_tables = list()
-
-        def split_key(item):
-            parts = item.split("_")
-            if len(parts) > 1 and parts[-1].isdigit():
-                return int(parts[-1])
-            return 0
-
-        registry_df = self.run_query(
-            session, f"show tables starts with '{table_prefix}'"
-        )
+    def get_tables_by_prefix(self, session: snowflake.snowpark.Session, prefix: str):
+        tables = list()
+        registry_df = self.run_query(session, f"show tables starts with '{prefix}'")
         for row in registry_df:
-            material_registry_tables.append(row.name)
-        sorted_material_registry_tables = sorted(
-            material_registry_tables, key=split_key, reverse=True
-        )
-        return sorted_material_registry_tables[0]
+            tables.append(row.name)
+        return tables
 
     def get_creation_ts(
         self,
         session: snowflake.snowpark.Session,
         material_table: str,
-        model_name: str,
         model_hash: str,
         entity_key: str,
     ):
@@ -634,8 +669,7 @@ class SnowflakeConnector(Connector):
         snowpark_df = self.get_material_registry_table(session, material_table)
         try:
             temp_hash_vector = (
-                snowpark_df.filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-                .filter(col("model_hash") == model_hash)
+                snowpark_df.filter(col("model_hash") == model_hash)
                 .filter(col("entity_key") == entity_key)
                 .sort(col("creation_ts"), ascending=False)
                 .select(col("creation_ts"))
@@ -646,7 +680,7 @@ class SnowflakeConnector(Connector):
 
         except:
             raise Exception(
-                f"Project is never materialzied with model name {model_name} and model hash {model_hash}."
+                f"Project is never materialzied with model hash {model_hash}."
             )
         return creation_ts
 
@@ -669,8 +703,7 @@ class SnowflakeConnector(Connector):
 
         try:
             feature_table_info = (
-                snowpark_df.filter(col("model_type") == constants.ENTITY_VAR_MODEL)
-                .filter(col("model_name") == model_name)
+                snowpark_df.filter(col("model_name") == model_name)
                 .filter(col("model_hash") == model_hash)
                 .filter(col("seq_no") == seq_no)
                 .select("end_ts")
@@ -808,7 +841,9 @@ class SnowflakeConnector(Connector):
             )
         return table
 
-    def do_data_validation(self, feature_table, label_column, task_type: str):
+    def validate_columns_are_present(
+        self, feature_table: snowflake.snowpark.Table, label_column: str
+    ) -> bool:
         """This function will do the data validation on feature table and label column
         Args:
             feature_table (snowflake.snowpark.Table): feature table
@@ -816,55 +851,54 @@ class SnowflakeConnector(Connector):
         Returns:
             None
         """
-        try:
-            if label_column.upper() not in feature_table.columns:
-                raise Exception(
-                    f"Label column {label_column} is not present in the feature table."
-                )
-
-            # Check if feature_table has at least one column apart from label_column and entity_column
-            if feature_table.shape[1] < 3:
-                raise Exception(
-                    f"Feature table must have at least one column apart from the label column {label_column}."
-                )
-
-            distinct_values_count = feature_table.groupBy(label_column).count()
-
-            if task_type == "classification":
-                total_count = feature_table.count()
-                result_table = distinct_values_count.withColumn(
-                    "normalized_count", F.col("count") / total_count
-                )
-
-                min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
-                max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
-
-                no_invalid_rows = result_table.filter(
-                    (F.col("normalized_count") < min_label_proportion)
-                    | (F.col("normalized_count") > max_label_proportion)
-                ).count()
-
-                if no_invalid_rows > 0:
-                    raise Exception(
-                        f"Label column {label_column} has invalid proportions. \
-                            Please check if the label column has valid labels."
-                    )
-            elif task_type == "regression":
-                if (
-                    distinct_values_count.count()
-                    < constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
-                ):
-                    raise Exception(
-                        f"Label column {label_column} has invalid number of distinct values. \
-                            Please check if the label column has valid labels."
-                    )
-
-        except AttributeError:
-            logger.warning(
-                "Could not perform data validation. Please check if the required \
-                    configuations are present in the constants.py file."
+        if label_column.upper() not in feature_table.columns:
+            raise Exception(
+                f"Label column {label_column} is not present in the feature table."
             )
-            pass
+        if len(feature_table.columns) < 3:
+            raise Exception(
+                f"Feature table must have at least one column apart from the label column {label_column} and entity_column."
+            )
+        return True
+
+    def validate_class_proportions(
+        self, feature_table: snowflake.snowpark.Table, label_column: str
+    ) -> bool:
+        distinct_values_count = feature_table.groupBy(label_column).count()
+        total_count = int(feature_table.count())
+        result_table = distinct_values_count.withColumn(
+            "NORMALIZED_COUNT", F.col("count") / total_count
+        ).collect()
+
+        min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+        max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
+
+        no_invalid_rows = [
+            row
+            for row in result_table
+            if row["NORMALIZED_COUNT"] < min_label_proportion
+            or row["NORMALIZED_COUNT"] > max_label_proportion
+        ]
+
+        if len(no_invalid_rows) > 0:
+            raise Exception(
+                f"Label column {label_column} has invalid proportions. {no_invalid_rows} \
+                    Please check if the label column has valid labels."
+            )
+        return True
+
+    def validate_label_distinct_values(
+        self, feature_table: snowflake.snowpark.Table, label_column: str
+    ) -> bool:
+        distinct_values_count = feature_table.groupBy(label_column).count()
+        if distinct_values_count.count() < int(
+            constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
+        ):
+            raise Exception(
+                f"Label column {label_column} has invalid number of distinct values. \
+                    Please check if the label column has valid labels."
+            )
+        return True
 
     def add_days_diff(
         self, table: snowflake.snowpark.Table, new_col, time_col, end_ts

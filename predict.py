@@ -4,7 +4,6 @@ import warnings
 import numpy as np
 import pandas as pd
 
-from typing import Any, List
 from src.utils.logger import logger
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 from src.utils.S3Utils import S3Utils
@@ -102,6 +101,7 @@ def predict(
     )
     processor = ProcessorMap.processor_mode_map[mode](trainer, connector, session)
     logger.debug(f"Using {mode} processor for predictions")
+
     if site_config_path == "":
         # TODO - Remove it post pb release
         s3_config = {
@@ -128,11 +128,13 @@ def predict(
             s3_config = {}
         else:
             s3_config = presets["s3"]
-    if mode == ProcessorMap.RUDDERSTACK_MODE:
+
+    if mode == constants.RUDDERSTACK_MODE:
         s3_creds = S3Utils.get_temporary_credentials(s3_config["role_arn"])
         s3_config["access_key_id"] = s3_creds["access_key_id"]
         s3_config["access_key_secret"] = s3_creds["access_key_secret"]
         s3_config["aws_session_token"] = s3_creds["aws_session_token"]
+
     _ = processor.predict(
         creds,
         s3_config,

@@ -1,9 +1,10 @@
 import os
+import sys
 import json
 from botocore.exceptions import NoCredentialsError
 from botocore.exceptions import WaiterError
 import pandas as pd
-from typing import List, Tuple, Union, Dict
+from typing import List
 
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -15,6 +16,9 @@ import src.utils.utils as utils
 from src.utils.logger import logger
 from src.utils import constants
 from src.utils.S3Utils import S3Utils
+
+from src.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
+from src.connectors.RedshiftConnector import RedshiftConnector
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
@@ -191,7 +195,7 @@ def prepare_feature_table(
             feature_table, label_table, trainer.entity_column, "inner"
         )
         feature_table = connector.drop_cols(feature_table, ignore_features_)
-        return feature_table, arraytype_columns, timestamp_columns
+        return feature_table, arraytype_columns, timestamp_columns, ignore_features_
     except Exception as e:
         print(
             "Exception occured while preparing feature table. Please check the logs for more details"
@@ -220,6 +224,7 @@ def preprocess_and_train(
             feature_table_instance,
             arraytype_columns,
             timestamp_columns,
+            ignore_features,
         ) = prepare_feature_table(
             train_table_pair,
             cardinal_feature_threshold,
@@ -236,7 +241,7 @@ def preprocess_and_train(
     task_type = trainer.get_name()
     logger.info(f"Performing data validation for {task_type}")
 
-    connector.do_data_validation(feature_table, trainer.label_column, task_type)
+    trainer.validate_data(connector, feature_table)
     logger.info("Data validation is completed")
 
     feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
@@ -272,18 +277,13 @@ def preprocess_and_train(
 
     train_results_json["column_names"]["arraytype_columns"] = arraytype_columns
     train_results_json["column_names"]["timestamp_columns"] = timestamp_columns
+    train_results_json["column_names"]["ignore_features"] = ignore_features
 
     return train_results_json
 
 
 if __name__ == "__main__":
     import argparse
-    from MLTrainer import ClassificationTrainer, RegressionTrainer
-
-    try:
-        from RedshiftConnector import RedshiftConnector
-    except ImportError:
-        raise Exception("Could not import RedshiftConnector")
 
     parser = argparse.ArgumentParser()
 
@@ -295,14 +295,13 @@ if __name__ == "__main__":
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--prediction_task", type=str)
     parser.add_argument("--wh_creds", type=json.loads)
+    parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
 
-    if args.mode == constants.K8S_MODE:
-        wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
-        wh_creds = json.loads(wh_creds_str)
-    else:
-        wh_creds = args.wh_creds
+    if args.mode == constants.CI_MODE:
+        sys.exit(0)
+    wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
 
     if args.prediction_task == "classification":
         trainer = ClassificationTrainer(**args.merged_config)
@@ -310,7 +309,11 @@ if __name__ == "__main__":
         trainer = RegressionTrainer(**args.merged_config)
 
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    current_dir = (
+        args.output_path
+        if args.mode == constants.LOCAL_MODE
+        else os.path.dirname(os.path.abspath(__file__))
+    )
     train_procedure = train_and_store_model_results_rs
     connector = RedshiftConnector(current_dir)
     session = connector.build_session(wh_creds)
@@ -334,31 +337,24 @@ if __name__ == "__main__":
     with open(os.path.join(local_folder, args.ec2_temp_output_json), "w") as file:
         json.dump(train_results_json, file)
 
-    logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
-    model_id = train_results_json["model_id"]
-    train_upload_whitelist = [
-        trainer.figure_names["feature-importance-chart"],
-        trainer.figure_names["lift-chart"],
-        trainer.figure_names["pr-auc-curve"],
-        trainer.figure_names["roc-auc-curve"],
-        f"{trainer.output_profiles_ml_model}_{model_file_name}",
-        args.ec2_temp_output_json,
-    ]
-    if args.mode == constants.K8S_MODE:
-        S3Utils.upload_directory(
+    if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
+        logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
+
+        train_upload_whitelist = utils.merge_lists_to_unique(
+            list(trainer.figure_names.values()),
+            [
+                f"{trainer.output_profiles_ml_model}_{model_file_name}",
+                args.ec2_temp_output_json,
+            ],
+        )
+        S3Utils.upload_directory_to_S3(
             args.s3_bucket,
             args.aws_region_name,
             args.s3_path,
             local_folder,
             train_upload_whitelist,
+            args.mode,
         )
-    else:
-        S3Utils.upload_directory_using_keys(
-            args.s3_bucket,
-            args.aws_region_name,
-            args.s3_path,
-            local_folder,
-            train_upload_whitelist,
-        )
-    logger.debug(f"Deleting additional local directory from infra mode")
-    connector.cleanup(delete_local_data=True)
+
+        logger.debug(f"Deleting additional local directory from {args.mode} mode.")
+        connector.cleanup(delete_local_data=True)

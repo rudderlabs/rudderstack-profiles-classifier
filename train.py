@@ -339,7 +339,7 @@ def train(
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = ProcessorFactory(mode)
+    processor = ProcessorFactory.create(mode, trainer, connector, session)
     logger.debug(f"Using {mode} processor for training")
     train_results = processor.train(
         train_procedure,

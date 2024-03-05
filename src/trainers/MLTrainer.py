@@ -323,7 +323,7 @@ class MLTrainer(ABC):
             }
         ).reset_index(drop=True)
 
-        return train_x, test_x, test_y, best_model, model_id, metrics_df, results , train_data , test_data
+        return train_x, test_x, test_y, best_model, model_id, metrics_df, results 
 
     @abstractmethod
     def train_model(

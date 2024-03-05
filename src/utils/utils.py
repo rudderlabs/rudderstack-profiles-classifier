@@ -825,24 +825,63 @@ def plot_top_k_feature_importance(
     Returns:
         None. The function generates a bar chart and writes the feature importance values to a table in the session.
     """
-    try:
-        
-        model_type = model.__class__.__name__
+    try:    
 
-        if model_type in ['ExtraTreesClassifier', 'DecisionTreeClassifier', 'XGBClassifier', 'LGBMClassifier', 'RandomForestClassifier']:
-            interpretation = classification_interpret_model(model)
-        else:
-            def predict_fn(X):
-                return model.predict_proba(X)[:, 1]  # Probability of the positive class
+        sample_data = train_x.sample(100, random_state=42)        
+        model_class = model.__class__.__name__
 
-            explainer = shap.KernelExplainer(predict_fn, train_x)
-            shap_values = explainer.shap_values(train_x)
-            shap.summary_plot(shap_values, train_x, plot_type="bar", max_display=top_k_features)
+        # Select the appropriate explainer based on the model class name
+        explainer_map = {
+                'RidgeClassifier': shap.LinearExplainer,
+                'AdaBoostClassifier': shap.KernelExplainer,
+                'ExtraTreesClassifier': shap.TreeExplainer,
+                'RandomForestClassifier': shap.TreeExplainer,
+                'LogisticRegression': shap.LinearExplainer,
+                'GaussianNB': shap.KernelExplainer,
+                'KNeighborsClassifier': shap.KernelExplainer,
+                'DecisionTreeClassifier': shap.TreeExplainer,
+                'GradientBoostingClassifier': shap.TreeExplainer,
+                'LinearDiscriminantAnalysis': shap.LinearExplainer,
+                'LGBMClassifier': shap.TreeExplainer,
+                'DummyClassifier': shap.KernelExplainer,
+                'SVC': shap.KernelExplainer,
+                'QuadraticDiscriminantAnalysis': shap.KernelExplainer,
+                'XGBClassifier': shap.TreeExplainer,
+                'LinearRegression': shap.LinearExplainer,
+                'Ridge': shap.LinearExplainer,
+                'BayesianRidge': shap.LinearExplainer,
+                'Lasso': shap.LinearExplainer,
+                'LeastAngleRegression': shap.LinearExplainer,
+                'LassoLeastAngleRegression': shap.LinearExplainer,
+                'LightGBM': shap.TreeExplainer,
+                'GradientBoostingRegressor': shap.TreeExplainer,
+                'HuberRegressor': shap.LinearExplainer,
+                'RandomForestRegressor': shap.TreeExplainer,
+                'DecisionTreeRegressor': shap.TreeExplainer,
+                'ExtraTreesRegressor': shap.TreeExplainer,
+                'XGBRegressor': shap.TreeExplainer,
+                'AdaBoostRegressor': shap.TreeExplainer,
+                'ElasticNet': shap.LinearExplainer,
+                'OrthogonalMatchingPursuit': shap.LinearExplainer,
+                'KNeighborsRegressor': shap.KernelExplainer,
+                'DummyRegressor': shap.KernelExplainer,
+                'PassiveAggressiveRegressor': shap.LinearExplainer
+        }
 
+        explainer_class = explainer_map[model_class]
 
+        explainer = explainer_class(model, sample_data)
+
+        shap_values = explainer(sample_data)
+        if len(shap_values.shape) == 3:
+            shap_values = shap_values[:,:,1]
+
+        shap.plots.beeswarm(shap_values, max_display=20,show=False)
         plt.savefig(figure_file)
-        shap_df = pd.DataFrame(shap_values, columns=train_x.columns)
-        return shap_df
+
+        
+        # shap_df = pd.DataFrame(shap_values, columns=train_x.columns)
+        # return shap_df
 
     except Exception as e:
         logger.warning(f"Exception occured while plotting feature importance {e}")

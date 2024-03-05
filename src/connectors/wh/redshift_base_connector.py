@@ -21,6 +21,7 @@ class RedShiftConnector(ConnectorBase):
         super().__init__(creds, db_config, **kwargs)
 
         self.s3_config = kwargs.get("s3_config", None)
+                        
         encoded_password = urllib.parse.quote(creds["password"], safe="")
         connection_string = f"postgresql://{creds['user']}:{encoded_password}@{creds['host']}:{creds['port']}/{db_config['database']}"
         self.engine = create_engine(connection_string)

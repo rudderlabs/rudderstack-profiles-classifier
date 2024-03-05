@@ -7,7 +7,7 @@ import pandas as pd
 import sys
 import hashlib
 
-from .processors import ProcessorFactory
+from .processors.ProcessorFactory import ProcessorFactory
 
 from .utils.logger import logger
 from datetime import datetime

@@ -63,8 +63,6 @@ class AWSProcessor(Processor):
 
         S3Utils.download_directory_from_S3(
             s3_bucket,
-            aws_region_name,
-            s3_path,
             self.connector.get_local_dir(),
             constants.RUDDERSTACK_MODE,
         )

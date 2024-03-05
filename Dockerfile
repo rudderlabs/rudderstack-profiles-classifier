@@ -1,3 +1,3 @@
 # "rudderstack/profiles-classifier" image
-FROM rudderstack/wht-python:0.4.2
+FROM rudderstack/wht-python:v0.11.0
 COPY src/ src/

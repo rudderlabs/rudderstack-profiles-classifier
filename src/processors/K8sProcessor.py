@@ -61,7 +61,7 @@ class K8sProcessor(Processor):
                         containers=[
                             client.V1Container(
                                 name="container",
-                                image="rudderstack/profiles-classifier:v1",
+                                image="rudderstack/profiles-classifier:v0.1.0",
                                 image_pull_policy="Always",
                                 env=[
                                     client.V1EnvVar(
@@ -162,10 +162,10 @@ class K8sProcessor(Processor):
                 if error_message != "":
                     error_message = error_message + "\n" + log
                     continue
-                index = (
-                    log.lower().find("traceback")
-                    or log.lower().find("exception")
-                    or log.lower().find("typeerror")
+                index = max(
+                    log.lower().find("traceback"),
+                    log.lower().find("exception"),
+                    log.lower().find("typeerror"),
                 )
                 if index != -1:
                     error_message = log[index:]
@@ -212,9 +212,7 @@ class K8sProcessor(Processor):
             job_name=job_name, wh_creds=wh_creds, k8s_config=k8s_config, command=command
         )
         S3Utils.download_directory_from_S3(
-            s3_config["bucket"],
-            s3_config["region"],
-            s3_config["path"],
+            s3_config,
             self.connector.get_local_dir(),
             constants.K8S_MODE,
         )

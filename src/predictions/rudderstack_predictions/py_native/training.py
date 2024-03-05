@@ -4,6 +4,7 @@ from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
 from typing import Tuple
 
+
 class ClassifierTrainingModel(BaseModelType):
     TypeName = "classifier_training"
     BuildSpecSchema = {

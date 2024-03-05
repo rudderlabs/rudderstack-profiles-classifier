@@ -30,6 +30,7 @@ import pandas as pd
 from pycaret.classification import (
     setup as classification_setup,
     compare_models as classification_compare_models,
+    interpret_model as classification_interpret_model,
 )
 from pycaret.regression import (
     setup as regression_setup,
@@ -304,14 +305,14 @@ class MLTrainer(ABC):
         )
 
         # Compare different models and select the best one
-        best_clf_model = compare_models()
+        best_model = compare_models()
 
         # Save the final model
-        joblib.dump(best_clf_model, model_file)
+        joblib.dump(best_model, model_file)
 
         # Get metrics
         results = self.get_metrics(
-            best_clf_model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
+            best_model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
         )
         results["model_id"] = model_id
         metrics_df = pd.DataFrame(
@@ -322,7 +323,7 @@ class MLTrainer(ABC):
             }
         ).reset_index(drop=True)
 
-        return train_x, test_x, test_y, best_clf_model, model_id, metrics_df, results
+        return train_x, test_x, test_y, best_model, model_id, metrics_df, results , train_data , test_data
 
     @abstractmethod
     def train_model(

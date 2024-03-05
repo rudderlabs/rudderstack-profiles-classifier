@@ -7,7 +7,7 @@ import pandas as pd
 import sys
 import hashlib
 
-from predictions.rudderstack_predictions.processors import ProcessorFactory
+from .processors import ProcessorFactory
 
 from .utils.logger import logger
 from datetime import datetime

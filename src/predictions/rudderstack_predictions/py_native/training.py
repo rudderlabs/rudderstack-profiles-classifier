@@ -2,7 +2,7 @@ from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
-
+from typing import Tuple
 
 class ClassifierTrainingModel(BaseModelType):
     TypeName = "classifier_training"
@@ -16,7 +16,7 @@ class ClassifierTrainingModel(BaseModelType):
     def get_material_recipe(self) -> PyNativeRecipe:
         return ClassifierTrainingRecipe()
 
-    def validate(self) -> tuple[bool, str]:
+    def validate(self) -> Tuple[bool, str]:
         return super().validate()
 
 

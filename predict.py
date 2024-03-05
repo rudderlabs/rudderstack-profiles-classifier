@@ -16,9 +16,16 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import src.predictions.rudderstack_predictions.utils.utils as utils
 from src.predictions.rudderstack_predictions.utils import constants
-from src.predictions.rudderstack_predictions.connectors.SnowflakeConnector import SnowflakeConnector
-from src.predictions.rudderstack_predictions.processors.ProcessorFactory import ProcessorFactory
-from src.predictions.rudderstack_predictions.trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
+from src.predictions.rudderstack_predictions.connectors.SnowflakeConnector import (
+    SnowflakeConnector,
+)
+from src.predictions.rudderstack_predictions.processors.ProcessorFactory import (
+    ProcessorFactory,
+)
+from src.predictions.rudderstack_predictions.trainers.MLTrainer import (
+    ClassificationTrainer,
+    RegressionTrainer,
+)
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)

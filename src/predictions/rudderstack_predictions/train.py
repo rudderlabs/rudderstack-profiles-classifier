@@ -7,6 +7,8 @@ import pandas as pd
 import sys
 import hashlib
 
+from predictions.rudderstack_predictions.processors import ProcessorFactory
+
 from .utils.logger import logger
 from datetime import datetime
 from dataclasses import asdict
@@ -25,7 +27,6 @@ from .utils import utils
 from .utils import constants
 from .wht.pb import getPB
 
-from .processors import ProcessorMap
 from .connectors.SnowflakeConnector import SnowflakeConnector
 from .trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from .ml_core.preprocess_and_train import train_and_store_model_results_rs
@@ -338,7 +339,7 @@ def _train(
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = ProcessorMap.processor_mode_map[mode](trainer, connector, session)
+    processor = ProcessorFactory.create(mode, trainer, connector, session)
     logger.debug(f"Using {mode} processor for training")
     train_results = processor.train(
         train_procedure,

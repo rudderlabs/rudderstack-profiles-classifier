@@ -1,4 +1,5 @@
 import json
+from matplotlib.artist import getp
 import pandas as pd
 
 from abc import ABC, abstractmethod
@@ -62,9 +63,8 @@ class Connector(ABC):
             List[str]: List of input models - full paths in the profiles project for models that are required to generate the current model.
         """
         project_folder = utils.get_project_folder(project_folder, output_filename)
-        pb = utils.get_pb_path()
+        
         args = [
-            pb,
             "show",
             "models",
             "--json",
@@ -76,6 +76,7 @@ class Connector(ABC):
             args.extend(["-c", site_config_path])
         logger.info(f"Fetching models list by running command: {' '.join(args)}")
 
+        getPB().run(args)
         pb_show_models_response = utils.subprocess_run(args)
         pb_show_models_response_output = (pb_show_models_response.stdout).lower()
 

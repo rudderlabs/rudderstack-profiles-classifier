@@ -6,9 +6,12 @@ from unittest.mock import Mock, patch, MagicMock, call
 from redshift_connector.cursor import Cursor
 from pandas.core.api import DataFrame as DataFrame
 
-import src.utils.utils as utils
-from src.utils.constants import TrainTablesInfo
-from src.connectors.RedshiftConnector import RedshiftConnector
+import src.predictions.rudderstack_predictions.utils.utils as utils
+import src.predictions.rudderstack_predictions.utils.constants as constants
+from src.predictions.rudderstack_predictions.utils.constants import TrainTablesInfo
+from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
+    RedshiftConnector,
+)
 
 
 class TestGetMaterialRegistryTable(unittest.TestCase):
@@ -605,8 +608,14 @@ class TestValidations(unittest.TestCase):
             [],
         )
 
-    @patch("src.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION", new=0.05)
-    @patch("src.utils.constants.CLASSIFIER_MAX_LABEL_PROPORTION", new=0.95)
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
+        new=0.05,
+    )
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MAX_LABEL_PROPORTION",
+        new=0.95,
+    )
     def test_passes_for_good_data_classification(self):
         table = pd.DataFrame.from_dict(
             {
@@ -619,7 +628,10 @@ class TestValidations(unittest.TestCase):
         self.assertTrue(self.connector.validate_columns_are_present(table, "COL1"))
         self.assertTrue(self.connector.validate_class_proportions(table, "COL1"))
 
-    @patch("src.utils.constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES", new=3)
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES",
+        new=3,
+    )
     def test_passes_for_good_data_regression(self):
         table = pd.DataFrame.from_dict(
             {
@@ -637,7 +649,10 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
     def setUp(self) -> None:
         self.connector = RedshiftConnector("data")
 
-    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=90)
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        new=90,
+    )
     def test_enough_negative_samples(self):
         """Test when there are enough negative samples"""
         cursor = MagicMock()
@@ -653,19 +668,22 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         self.connector.run_query = Mock(return_value=([0, 100],))
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column, 0
+            cursor, materials, label_column, 1
         )
 
         self.assertTrue(result)
         self.connector.run_query.assert_called_once_with(
             cursor,
-            f"""SELECT {label_column}, COUNT(*) as count
+            """SELECT COUNT(*) as count
                 FROM label_table_name
-                WHERE label = 0""",
+                WHERE label != 1""",
             response=True,
         )
 
-    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=90)
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        new=90,
+    )
     def test_insufficient_negative_samples(self):
         """Test when there are not enough negative samples"""
         cursor = MagicMock()
@@ -681,15 +699,15 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         self.connector.run_query = Mock(return_value=([0, 49],))
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column, 0
+            cursor, materials, label_column, 1
         )
 
         self.assertFalse(result)
         self.connector.run_query.assert_called_once_with(
             cursor,
-            f"""SELECT {label_column}, COUNT(*) as count
+            """SELECT COUNT(*) as count
                 FROM label_table_name
-                WHERE label = 0""",
+                WHERE label != 1""",
             response=True,
         )
 
@@ -710,10 +728,13 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             self.connector.check_for_classification_data_requirement(
-                cursor, materials, label_column, 0
+                cursor, materials, label_column, 1
             )
 
-    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=100)
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        new=100,
+    )
     def test_empty_materials(self):
         """Test with empty materials list"""
         cursor = MagicMock()
@@ -723,7 +744,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         self.connector.run_query = Mock()
         self.connector.run_query.assert_not_called()
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column, 0
+            cursor, materials, label_column, 1
         )
         self.assertFalse(result)  # No materials, so considered sufficient
 
@@ -732,7 +753,10 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
     def setUp(self) -> None:
         self.connector = RedshiftConnector("data")
 
-    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=90)
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        new=90,
+    )
     def test_enough_negative_samples(self):
         """Test when there are enough negative samples"""
         cursor = MagicMock()
@@ -756,7 +780,10 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
             response=True,
         )
 
-    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=90)
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        new=90,
+    )
     def test_insufficient_negative_samples(self):
         """Test when there are not enough negative samples"""
         cursor = MagicMock()
@@ -797,7 +824,10 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
         with self.assertRaises(KeyError):
             self.connector.check_for_regression_data_requirement(cursor, materials)
 
-    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=100)
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        new=100,
+    )
     def test_empty_materials(self):
         """Test with empty materials list"""
         cursor = MagicMock()
@@ -813,12 +843,16 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
     def setUp(self) -> None:
         self.connector = RedshiftConnector("data")
 
-    @patch("src.utils.utils.date_add")
-    @patch("src.utils.utils.dates_proximity_check")
-    @patch("src.utils.utils.get_abs_date_diff")
-    @patch("src.utils.utils.get_feature_package_path")
-    @patch("src.utils.utils.datetime_to_date_string")
-    @patch("src.wht.rudderPB.RudderPB.run")
+    @patch("src.predictions.rudderstack_predictions.utils.utils.date_add")
+    @patch("src.predictions.rudderstack_predictions.utils.utils.dates_proximity_check")
+    @patch("src.predictions.rudderstack_predictions.utils.utils.get_abs_date_diff")
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.utils.get_feature_package_path"
+    )
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.utils.datetime_to_date_string"
+    )
+    @patch("src.predictions.rudderstack_predictions.wht.rudderPB.RudderPB.run")
     def test_generate_new_materials_auto_strategy(
         self,
         mock_rudderpb_run,
@@ -930,10 +964,16 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
 
         self.assertEqual(len(result), 1)  # Only one material generated
 
-    @patch("src.utils.utils.get_feature_package_path")
-    @patch("src.utils.utils.datetime_to_date_string")
-    @patch("src.utils.utils.generate_new_training_dates")
-    @patch("src.wht.rudderPB.RudderPB.run")
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.utils.get_feature_package_path"
+    )
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.utils.datetime_to_date_string"
+    )
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.utils.generate_new_training_dates"
+    )
+    @patch("src.predictions.rudderstack_predictions.wht.rudderPB.RudderPB.run")
     def test_generate_new_materials_manual_strategy(
         self,
         mock_rudderpb_run,

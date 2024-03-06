@@ -84,8 +84,10 @@ class BigQueryConnector(CommonWarehouseConnector):
         """
         query = f"SELECT DISTINCT table_name as tablename FROM `{self.project_id}.{self.schema}.INFORMATION_SCHEMA.TABLES`;"
         return session.query_and_wait(query).to_dataframe()
-    
-    def fetch_schema(self, session: google.cloud.bigquery.client.Client, table_name: str) -> List:
+
+    def fetch_schema(
+        self, session: google.cloud.bigquery.client.Client, table_name: str
+    ) -> List:
         """
         Fetches the schema of the given table from the BigQuery schema.
 
@@ -182,9 +184,7 @@ class BigQueryConnector(CommonWarehouseConnector):
         """
         schema = self.fetch_schema(session, table_name)
         arraytype_columns = [
-            field.name
-            for field in schema
-            if field.field_type in ("ARRAY")
+            field.name for field in schema if field.field_type in ("ARRAY")
         ]
         return arraytype_columns
 

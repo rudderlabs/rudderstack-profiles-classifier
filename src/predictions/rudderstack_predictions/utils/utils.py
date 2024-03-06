@@ -359,9 +359,9 @@ def parse_warehouse_creds(creds: dict, mode: str) -> dict:
 
 def convert_ts_str_to_dt_str(timestamp_str: str) -> str:
     try:
-        if '+' in timestamp_str:
+        if "+" in timestamp_str:
             timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S%z")
-        elif ' ' in timestamp_str:
+        elif " " in timestamp_str:
             timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
         else:
             timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d")
@@ -369,7 +369,9 @@ def convert_ts_str_to_dt_str(timestamp_str: str) -> str:
         return string_date
     except Exception as e:
         logger.error(f"Error occurred while converting timestamp to date string: {e}")
-        raise Exception(f"Error occurred while converting timestamp to date string: {e}")
+        raise Exception(
+            f"Error occurred while converting timestamp to date string: {e}"
+        )
 
 
 def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> List[str]:

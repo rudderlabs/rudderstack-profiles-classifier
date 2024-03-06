@@ -151,7 +151,9 @@ class Connector(ABC):
                     utils.datetime_to_date_string(m.feature_table_date)
                     for m in materials
                 ]
-                training_dates = [date_str for date_str in training_dates if len(date_str) != 0]
+                training_dates = [
+                    date_str for date_str in training_dates if len(date_str) != 0
+                ]
                 logger.info(f"training_dates : {training_dates}")
                 training_dates = sorted(
                     training_dates,

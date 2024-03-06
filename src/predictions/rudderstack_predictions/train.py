@@ -305,31 +305,31 @@ def _train(
         )
 
     logger.info("Getting past data for training")
-    try:
-        # material_names, training_dates
+    # try:
+    # material_names, training_dates
 
-        trainer.inputs = connector.get_input_models(
-            trainer.inputs, output_filename, project_folder, site_config_path
-        )
+    trainer.inputs = connector.get_input_models(
+        trainer.inputs, output_filename, project_folder, site_config_path
+    )
 
-        train_table_pairs = connector.get_material_names(
-            session,
-            material_table,
-            start_date,
-            end_date,
-            features_profiles_model,
-            model_hash,
-            trainer.prediction_horizon_days,
-            output_filename,
-            site_config_path,
-            project_folder,
-            trainer.inputs,
-            inputs,
-        )
-    except TypeError:
-        raise Exception(
-            "Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly"
-        )
+    train_table_pairs = connector.get_material_names(
+        session,
+        material_table,
+        start_date,
+        end_date,
+        features_profiles_model,
+        model_hash,
+        trainer.prediction_horizon_days,
+        output_filename,
+        site_config_path,
+        project_folder,
+        trainer.inputs,
+        inputs,
+    )
+    # except TypeError:
+    #     raise Exception(
+    #         "Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly"
+    #     )
 
     if trainer.label_value is None and prediction_task == "classification":
         sample_material_ = train_table_pairs[0]

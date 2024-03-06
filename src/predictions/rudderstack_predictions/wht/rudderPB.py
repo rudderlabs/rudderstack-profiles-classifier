@@ -68,6 +68,28 @@ class RudderPB:
                 f"Error occurred while materialising data for date {arg['features_valid_time']} : {e}"
             )
 
+    def show_models(self, arg: dict) -> List[str]:
+        pb_args = [
+            PB_PATH,
+            "show",
+            "models",
+            "--json",
+            "--migrate_on_load=True",
+            "-p",
+            arg["project_folder"],
+            "-c",
+            arg["site_config_path"],
+        ]
+        logger.info(f"Fetching all models by running command: {' '.join(pb_args)}")
+
+        try:
+            pb_show_models_response = utils.subprocess_run(pb_args)
+            pb_show_models_response_output = (pb_show_models_response.stdout).lower()
+        except Exception as e:
+            raise Exception(f"Error occurred while fetching all models : {e}")
+
+        return pb_show_models_response_output
+
     def get_material_name(self, model_name: str, model_hash: str, seq_no: int) -> str:
         return f"{MATERIAL_PREFIX}{model_name}_{model_hash}_{seq_no:.0f}"
 

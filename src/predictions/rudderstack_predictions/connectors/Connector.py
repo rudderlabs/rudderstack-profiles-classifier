@@ -60,25 +60,15 @@ class Connector(ABC):
         """
         project_folder = utils.get_project_folder(project_folder, output_filename)
 
-        args = [
-            "show",
-            "models",
-            "--json",
-            "--migrate_on_load=True",
-            "-p",
-            project_folder,
-        ]
-        if site_config_path is not None:
-            args.extend(["-c", site_config_path])
-        logger.info(f"Fetching models list by running command: {' '.join(args)}")
+        args = {
+            "site_config_path": site_config_path,
+            "project_folder": project_folder,
+        }
 
-        getPB().run(args)
-        pb_show_models_response = utils.subprocess_run(args)
-        pb_show_models_response_output = (pb_show_models_response.stdout).lower()
+        pb_show_models_response_output = getPB().show_models(args)
 
         # Extract JSON from the output
         json_data = self.extract_json_from_stdout(pb_show_models_response_output)
-        print(f"pb show models output: {json_data}")
 
         # Find matches for input models in the JSON data
         new_input_models = []

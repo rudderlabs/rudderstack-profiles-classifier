@@ -19,3 +19,5 @@ sqlalchemy-redshift>=0.8.14
 sqlalchemy>=1.4.51,<2.0.0
 snowflake_connector_python>=3.6.0
 snowflake-snowpark-python[pandas]>=1.11.1
+google-cloud-bigquery>=3.17.2
+db-dtypes>=1.2.0

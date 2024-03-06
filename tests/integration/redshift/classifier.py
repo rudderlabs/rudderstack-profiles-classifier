@@ -2,8 +2,12 @@ from train import *
 import shutil
 from predict import *
 import time
-from src.connectors.RedshiftConnector import RedshiftConnector
-from src.wht.pb import getPB
+from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
+    RedshiftConnector,
+)
+from src.predictions.rudderstack_predictions.wht.pb import getPB
+import json
+import yaml
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
 creds["schema"] = "rs_profiles_3"
@@ -30,7 +34,6 @@ output_label = "OUTPUT_LABEL"
 s3_config = {}
 p_output_tablename = "test_run_can_delete_2"
 entity_key = "user"
-var_table_suffix = ["_var_table", "_all_var_table"]
 
 
 data = {
@@ -194,7 +197,6 @@ def test_classification():
 
     latest_model_hash, _ = getPB().get_latest_material_hash(
         entity_key,
-        var_table_suffix,
         output_filename,
         siteconfig_path,
         project_path,

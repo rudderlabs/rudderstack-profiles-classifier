@@ -6,10 +6,12 @@ from unittest.mock import Mock, patch
 from redshift_connector.cursor import Cursor
 from pandas.core.api import DataFrame as DataFrame
 
-import src.utils.utils as utils
-import src.utils.constants as constants
-from src.utils.constants import TrainTablesInfo
-from src.connectors.RedshiftConnector import RedshiftConnector
+import src.predictions.rudderstack_predictions.utils.utils as utils
+import src.predictions.rudderstack_predictions.utils.constants as constants
+from src.predictions.rudderstack_predictions.utils.constants import TrainTablesInfo
+from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
+    RedshiftConnector,
+)
 
 
 class TestGetMaterialRegistryTable(unittest.TestCase):
@@ -38,7 +40,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         redshift_connector = MockRedshiftConnector(folder_path="data")
         material_registry_table = redshift_connector.get_material_registry_table(
-            cursor=None, material_registry_table_name=None
+            session=None, material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict(
             {"seq_no": [2], "metadata": ['{"complete": {"status": 2}}'], "status": [2]}
@@ -71,7 +73,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         redshift_connector = MockRedshiftConnector(folder_path="data")
         material_registry_table = redshift_connector.get_material_registry_table(
-            cursor=None, material_registry_table_name=None
+            session=None, material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict({})
         self.assertEqual(
@@ -95,7 +97,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         # Call the get_material_registry_table method
         material_registry_table = redshift_connector.get_material_registry_table(
-            cursor=None, material_registry_table_name=None
+            session=None, material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict({})
         self.assertEqual(
@@ -610,8 +612,14 @@ class TestValidations(unittest.TestCase):
             [],
         )
 
-    @patch("src.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION", new=0.05)
-    @patch("src.utils.constants.CLASSIFIER_MAX_LABEL_PROPORTION", new=0.95)
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
+        new=0.05,
+    )
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MAX_LABEL_PROPORTION",
+        new=0.95,
+    )
     def test_passes_for_good_data_classification(self):
         table = pd.DataFrame.from_dict(
             {
@@ -624,7 +632,10 @@ class TestValidations(unittest.TestCase):
         self.assertTrue(self.connector.validate_columns_are_present(table, "COL1"))
         self.assertTrue(self.connector.validate_class_proportions(table, "COL1"))
 
-    @patch("src.utils.constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES", new=3)
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES",
+        new=3,
+    )
     def test_passes_for_good_data_regression(self):
         table = pd.DataFrame.from_dict(
             {
@@ -636,3 +647,41 @@ class TestValidations(unittest.TestCase):
         )
         self.assertTrue(self.connector.validate_columns_are_present(table, "COL1"))
         self.assertTrue(self.connector.validate_label_distinct_values(table, "COL1"))
+
+
+class TestValidateHistoricalMaterialsHash(unittest.TestCase):
+    def setUp(self) -> None:
+        self.session_mock = Mock()
+        self.connector = RedshiftConnector("data")
+        self.material_table = "material_table"
+        self.start_date = "2022-01-01"
+        self.end_date = "2022-01-31"
+        self.features_profiles_model = "model_name"
+        self.model_hash = "model_hash"
+        self.prediction_horizon_days = 7
+        self.output_filename = "output_file.csv"
+        self.site_config_path = "siteconfig.yaml"
+        self.project_folder = "project_folder"
+        self.input_models = ["model1.yaml", "model2.yaml"]
+        self.inputs = ["""select * from material_user_var_736465_0"""]
+
+    # The method is called with valid arguments and all tables exist in the warehouse registry.
+    def test_valid_arguments_all_tables_exist(self):
+        self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
+        # Call the method
+        result = self.connector.validate_historical_materials_hash(
+            self.session_mock, "SELECT * FROM material_table_3", 1, 2
+        )
+        # Assert the result is True
+        self.assertTrue(result)
+
+    def test_valid_arguments_some_tables_dont_exist(self):
+        self.connector.check_table_entry_in_material_registry = Mock(
+            side_effect=[True, False]
+        )
+        # Call the method
+        result = self.connector.validate_historical_materials_hash(
+            self.session_mock, "SELECT * FROM material_table_3", 1, 2
+        )
+        # Assert the result is False
+        self.assertFalse(result)

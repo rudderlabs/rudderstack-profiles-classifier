@@ -338,24 +338,24 @@ def _train(
         train_table_pairs = get_material_names_partial(start_date=start_date)
 
         # Generate new materials for training data
-        # try:
-        train_table_pairs = connector.check_and_generate_more_materials(
-            session,
-            get_material_names_partial,
-            trainer.check_min_data_requirement,
-            trainer.materialisation_strategy,
-            trainer.feature_data_min_date_diff,
-            train_table_pairs,
-            trainer.materialisation_max_no_dates,
-            trainer.materialisation_dates,
-            trainer.prediction_horizon_days,
-            trainer.inputs,
-            output_filename,
-            site_config_path,
-            project_folder,
-        )
-        # except Exception as e:
-        #    logger.error(f"Error while generating new materials, {str(e)}")
+        try:
+            train_table_pairs = connector.check_and_generate_more_materials(
+                session,
+                get_material_names_partial,
+                trainer.check_min_data_requirement,
+                trainer.materialisation_strategy,
+                trainer.feature_data_min_date_diff,
+                train_table_pairs,
+                trainer.materialisation_max_no_dates,
+                trainer.materialisation_dates,
+                trainer.prediction_horizon_days,
+                trainer.inputs,
+                output_filename,
+                site_config_path,
+                project_folder,
+            )
+        except Exception as e:
+            logger.error(f"Error while generating new materials, {str(e)}")
     except TypeError:
         raise Exception(
             "Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly"

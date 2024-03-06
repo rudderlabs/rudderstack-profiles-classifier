@@ -11,17 +11,17 @@ models:
               from: inputs/rsTracks
           #days since last seen
           - entity_var:
-              name: days_since_last_seen
+              name: days_since_last_seen_1
               select: "{{macro_datediff('{{user.Var(\"max_timestamp_bw_tracks_pages_1\")}}')}}"
               dependencies:
                 - max_timestamp_bw_tracks_pages_1
           #Churn features
           - entity_var:
               name: is_churned_10_days
-              select: case when {{user.Var("days_since_last_seen")}} > 10 then 1 else 0 end
+              select: case when {{user.Var("days_since_last_seen_1")}} > 10 then 1 else 0 end
               description: Depending on the n value, it specifies if there is any activity observed in the last 10 days.
               dependencies:
-                - days_since_last_seen
+                - days_since_last_seen_1
       features:
         - max_timestamp_bw_tracks_pages_1
         - is_churned_10_days

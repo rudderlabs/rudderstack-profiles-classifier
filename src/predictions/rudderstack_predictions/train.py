@@ -307,6 +307,11 @@ def _train(
     logger.info("Getting past data for training")
     try:
         # material_names, training_dates
+
+        trainer.inputs = connector.get_input_models(
+            trainer.inputs, output_filename, project_folder, site_config_path
+        )
+
         train_table_pairs = connector.get_material_names(
             session,
             material_table,

@@ -550,7 +550,6 @@ class SnowflakeConnector(Connector):
         columns,
     ):
         """Fetches the filtered table based on the given parameters."""
-        print(f"start_ts: {start_time}, end_ts: {end_time}")
         filtered_snowpark_df = (
             df.filter(col("model_name") == features_profiles_model)
             .filter(col("model_hash") == model_hash)
@@ -843,6 +842,7 @@ class SnowflakeConnector(Connector):
         session: snowflake.snowpark.Session,
         materials: List[constants.TrainTablesInfo],
         label_column: str,
+        label_value: str,
     ) -> bool:
         label_materials = [m.label_table_name for m in materials]
         label_table = None
@@ -851,14 +851,13 @@ class SnowflakeConnector(Connector):
             temp_table = self.get_table(session, label_meterial)
             label_table = self.get_merged_table(label_table, temp_table)
 
-        distinct_values_count = label_table.groupBy(label_column).count()
-        min_negative_label_count = constants.MIN_NUM_OF_NEGATIVE_LABELS
-
-        no_invalid_rows = distinct_values_count.filter(
-            (F.col(label_column) == 0) & (F.col("count") < min_negative_label_count)
+        negative_label_count = label_table.filter(
+            F.col(label_column) != label_value
         ).count()
 
-        if no_invalid_rows != 0:
+        min_negative_label_count = constants.MIN_NUM_OF_SAMPLES
+
+        if negative_label_count < min_negative_label_count:
             logger.debug(
                 "Number of negative samples are not meeting the minimum training requirement"
             )
@@ -878,7 +877,7 @@ class SnowflakeConnector(Connector):
             feature_table = self.get_merged_table(feature_table, temp_table)
 
         total_no_rows = feature_table.count()
-        min_no_rows = constants.MIN_NUM_OF_ROWS
+        min_no_rows = constants.MIN_NUM_OF_SAMPLES
 
         if total_no_rows < min_no_rows:
             logger.debug(

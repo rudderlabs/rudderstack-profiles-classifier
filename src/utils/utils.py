@@ -1,3 +1,4 @@
+import math
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -494,7 +495,7 @@ def date_add(reference_date: str, add_days: int) -> str:
     return new_date
 
 
-def date_diff(ref_date1: str, ref_date2: str) -> int:
+def get_abs_date_diff(ref_date1: str, ref_date2: str) -> int:
     """
     For given two dates in string format, it will retrun the difference in days
     Args:
@@ -511,8 +512,8 @@ def date_diff(ref_date1: str, ref_date2: str) -> int:
 
 def dates_proximity_check(reference_date: str, dates: list, distance: int) -> bool:
     """
-    For given reference date and list of training dates, it will check weather any of the
-    given dates falling under given distance to the reference date
+    For given reference date and list of training dates, it will check
+    whether a given date(reference_date) is farther from every date in the dates list, by minimum "distance" days
 
     Args:
         reference_date: Given reference date
@@ -522,32 +523,9 @@ def dates_proximity_check(reference_date: str, dates: list, distance: int) -> bo
         bool: Wether given date is passing the proximity check
     """
     for d in dates:
-        if date_diff(reference_date, d) < distance:
+        if get_abs_date_diff(reference_date, d) < distance:
             return False
     return True
-
-
-def get_max_date_string(dates: list) -> str:
-    """
-    Get max date from given date strings
-
-    Args:
-        dates: list of date strings
-    Returns:
-        str: max date string
-    """
-    max_date_str = ""
-    try:
-        dates_sorted = sorted(
-            dates, key=lambda x: datetime.strptime(x, "%Y-%m-%d"), reverse=True
-        )
-        max_date_str = dates_sorted[0]
-    except IndexError:
-        logger.warning("dates list is empty")
-    except ValueError:
-        logger.warning(f"Not able to parse one of the date string in {dates}")
-
-    return max_date_str
 
 
 def datetime_to_date_string(datetime_str: str) -> str:
@@ -577,24 +555,28 @@ def datetime_to_date_string(datetime_str: str) -> str:
 
 def generate_new_training_dates(
     max_feature_date: str,
+    min_feature_date: str,
     training_dates: list,
     prediction_horizon_days: int,
     feature_data_min_date_diff: int,
 ) -> Tuple:
     # Find next valid feature date
-    count = 1
-    found = False
+    # It is garenteed that new training date will be found within 'max_num_of_tries' terations
+    num_days_diff = get_abs_date_diff(max_feature_date, min_feature_date)
+    max_num_of_tries = math.ceil(num_days_diff / feature_data_min_date_diff) + 1
 
-    while not found:
+    for idx in range(max_num_of_tries):
         # d3 = d2 - t
         max_feature_table_date = date_add(
-            max_feature_date, -1 * count * feature_data_min_date_diff
+            max_feature_date, -1 * (idx + 1) * feature_data_min_date_diff
         )
 
         found = dates_proximity_check(
             max_feature_table_date, training_dates, feature_data_min_date_diff
         )
-        count += 1
+
+        if found:
+            break
 
     feature_date = max_feature_table_date
     label_date = date_add(feature_date, prediction_horizon_days)

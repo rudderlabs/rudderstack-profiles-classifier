@@ -305,6 +305,18 @@ def train(
             creation_ts, trainer.prediction_horizon_days
         )
 
+    if trainer.label_value is None and prediction_task == "classification":
+        latest_feature_table_name = getPB().get_latest_feature_table_name(
+            model_hash, features_profiles_model, inputs
+        )
+        label_value = connector.get_default_label_value(
+            session,
+            latest_feature_table_name,
+            trainer.label_column,
+            positive_boolean_flags,
+        )
+        trainer.label_value = label_value
+
     logger.info("Getting past data for training")
     try:
         # material_names, training_dates
@@ -326,35 +338,29 @@ def train(
         train_table_pairs = get_material_names_partial(start_date=start_date)
 
         # Generate new materials for training data
-        train_table_pairs = connector.check_and_generate_more_materials(
-            session,
-            get_material_names_partial,
-            trainer.check_min_data_requirement,
-            trainer.materialisation_strategy,
-            trainer.feature_data_min_date_diff,
-            train_table_pairs,
-            trainer.materialisation_max_no_dates,
-            trainer.materialisation_dates,
-            trainer.prediction_horizon_days,
-            trainer.inputs,
-            output_filename,
-            site_config_path,
-            project_folder,
-        )
+        try:
+            train_table_pairs = connector.check_and_generate_more_materials(
+                session,
+                get_material_names_partial,
+                trainer.check_min_data_requirement,
+                trainer.materialisation_strategy,
+                trainer.feature_data_min_date_diff,
+                train_table_pairs,
+                trainer.materialisation_max_no_dates,
+                trainer.materialisation_dates,
+                trainer.prediction_horizon_days,
+                trainer.inputs,
+                output_filename,
+                site_config_path,
+                project_folder,
+            )
+        except Exception as e:
+            logger.error(f"Error while generating new materials, {str(e)}")
+
     except TypeError:
         raise Exception(
             "Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly"
         )
-
-    if trainer.label_value is None and prediction_task == "classification":
-        sample_material_ = train_table_pairs[0]
-        label_value = connector.get_default_label_value(
-            session,
-            sample_material_.label_table_name,
-            trainer.label_column,
-            positive_boolean_flags,
-        )
-        trainer.label_value = label_value
 
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend

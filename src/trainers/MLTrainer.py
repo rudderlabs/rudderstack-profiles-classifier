@@ -126,6 +126,7 @@ class MLTrainer(ABC):
                 assert cat_params_name in ["SimpleImputer", "OneHotEncoder"]
             except AssertionError:
                 error_message = f"Invalid cat_params_name: {cat_params_name} for categorical pipeline."
+
                 logger.error(error_message)
                 raise ValueError(error_message)
 
@@ -510,7 +511,7 @@ class ClassificationTrainer(MLTrainer):
     def check_min_data_requirement(self, connector, session, materials) -> bool:
         label_column = self.label_column
         return connector.check_for_classification_data_requirement(
-            session, materials, label_column
+            session, materials, label_column, self.label_value
         )
 
 

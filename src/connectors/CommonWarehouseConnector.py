@@ -670,21 +670,21 @@ class CommonWarehouseConnector(Connector):
         session,
         materials: List[constants.TrainTablesInfo],
         label_column: str,
+        label_value: str,
     ) -> bool:
         total_negative_samples = 0
         for material in materials:
             label_material = material.label_table_name
             query_str = f"""SELECT {label_column}, COUNT(*) as count
                 FROM {label_material}
-                WHERE {label_column} = 0
-                GROUP BY {label_column}"""
+                WHERE {label_column} != {label_value}"""
 
             result = self.run_query(session, query_str, response=True)
 
             if len(result) != 0:
                 total_negative_samples += result[0][1]
 
-        min_negative_label_count = constants.MIN_NUM_OF_NEGATIVE_LABELS
+        min_negative_label_count = constants.MIN_NUM_OF_SAMPLES
         if total_negative_samples < min_negative_label_count:
             logger.debug(
                 "Number of negative samples are not meeting the minimum training requirement"
@@ -707,11 +707,11 @@ class CommonWarehouseConnector(Connector):
             if len(result) != 0:
                 total_no_rows += result[0][0]
 
-        min_no_rows = constants.MIN_NUM_OF_ROWS
+        min_no_rows = constants.MIN_NUM_OF_SAMPLES
 
         if total_no_rows < min_no_rows:
             logger.debug(
-                "Number training samples are not meeting the minimum requirement"
+                f"Number training samples are not meeting the minimum requirement, total samples - {total_no_rows}, minimum samles required - {min_no_rows}"
             )
             return False
 

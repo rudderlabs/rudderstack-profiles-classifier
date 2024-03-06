@@ -73,28 +73,28 @@ class TestSplitMaterialTable(unittest.TestCase):
 class TestDateDiff(unittest.TestCase):
     def test_same_date(self):
         """Test for same dates"""
-        result = utils.date_diff("2023-11-21", "2023-11-21")
+        result = utils.get_abs_date_diff("2023-11-21", "2023-11-21")
         self.assertEqual(result, 0)
 
     def test_different_dates(self):
         """Test for different dates"""
-        result = utils.date_diff("2023-11-20", "2023-11-22")
+        result = utils.get_abs_date_diff("2023-11-20", "2023-11-22")
         self.assertEqual(result, 2)
 
     def test_date_order(self):
         """Test for different date order"""
-        result = utils.date_diff("2024-01-15", "2023-12-25")
+        result = utils.get_abs_date_diff("2024-01-15", "2023-12-25")
         self.assertEqual(result, 21)
 
     def test_invalid_date_format(self):
         """Test for invalid date format"""
         with self.assertRaises(ValueError):
-            utils.date_diff("2023/11/21", "2023-11-22")
+            utils.get_abs_date_diff("2023/11/21", "2023-11-22")
 
     def test_invalid_date_values(self):
         """Test for invalid date values"""
         with self.assertRaises(ValueError):
-            utils.date_diff("2023-11-31", "2023-11-22")
+            utils.get_abs_date_diff("2023-11-31", "2023-11-22")
 
 
 class TestDatesProximityCheck(unittest.TestCase):
@@ -127,17 +127,26 @@ class TestDatesProximityCheck(unittest.TestCase):
 class TestGenerateNewTrainingDates(unittest.TestCase):
     @patch.object(utils, "date_add")
     @patch.object(utils, "dates_proximity_check")
-    def test_no_training_dates(self, mock_dates_proximity_check, mock_date_add):
+    @patch.object(utils, "get_abs_date_diff")
+    def test_no_training_dates(
+        self, mock_get_abs_date_diff, mock_dates_proximity_check, mock_date_add
+    ):
         """Test with no training dates"""
         max_feature_date = "2024-02-26"
+        min_feature_date = "2024-02-7"
         prediction_horizon_days = 7
         feature_data_min_date_diff = 10
 
+        mock_get_abs_date_diff.return_value = 19
         mock_date_add.side_effect = ["2024-02-16", "2024-02-23"]
         mock_dates_proximity_check.return_value = True
 
         result = utils.generate_new_training_dates(
-            max_feature_date, [], prediction_horizon_days, feature_data_min_date_diff
+            max_feature_date,
+            min_feature_date,
+            [],
+            prediction_horizon_days,
+            feature_data_min_date_diff,
         )
 
         self.assertEqual(
@@ -147,41 +156,46 @@ class TestGenerateNewTrainingDates(unittest.TestCase):
 
     @patch.object(utils, "date_add")
     @patch.object(utils, "dates_proximity_check")
-    def test_find_valid_feature_date(self, mock_dates_proximity_check, moc_date_add):
+    @patch.object(utils, "get_abs_date_diff")
+    def test_find_valid_feature_date(
+        self, mock_get_abs_date_diff, mock_dates_proximity_check, mock_date_add
+    ):
         """Test finding a valid feature date"""
         max_feature_date = "2024-02-26"
+        min_feature_date = "2024-02-18"
         training_dates = ["2024-02-26", "2024-02-18"]
         prediction_horizon_days = 7
         feature_data_min_date_diff = 5
 
+        mock_get_abs_date_diff.return_value = 8
         mock_dates_proximity_check.side_effect = [
-            False,
             False,
             False,
             True,
         ]  # Fourth call returns True
 
-        moc_date_add.side_effect = [
-            "2024-02-25",
-            "2024-02-20",
-            "2024-02-15",
-            "2024-02-10",
-            "2024-02-17",
+        mock_date_add.side_effect = [
+            "2024-02-21",
+            "2024-02-16",
+            "2024-02-11",
+            "2024-02-18",
         ]
 
         result = utils.generate_new_training_dates(
             max_feature_date,
+            min_feature_date,
             training_dates,
             prediction_horizon_days,
             feature_data_min_date_diff,
         )
 
-        self.assertEqual(result, ("2024-02-10", "2024-02-17"))
+        self.assertEqual(result, ("2024-02-11", "2024-02-18"))
 
     @patch.object(utils, "date_diff")
     def test_invalid_max_feature_date(self, mock_date_diff):
         """Test with invalid max_feature_date format"""
         max_feature_date = "invalid_date_format"
+        min_feature_date = "2024-02-15"
         training_dates = ["2024-02-20", "2024-02-15"]
         prediction_horizon_days = 7
         feature_data_min_date_diff = 5
@@ -190,36 +204,11 @@ class TestGenerateNewTrainingDates(unittest.TestCase):
         with self.assertRaises(ValueError):
             utils.generate_new_training_dates(
                 max_feature_date,
+                min_feature_date,
                 training_dates,
                 prediction_horizon_days,
                 feature_data_min_date_diff,
             )
-
-
-class TestGetMaxDateString(unittest.TestCase):
-    def test_single_date(self):
-        """Test with a single date"""
-        dates = ["2024-02-26"]
-        result = utils.get_max_date_string(dates)
-        self.assertEqual(result, "2024-02-26")
-
-    def test_multiple_dates(self):
-        """Test with multiple dates"""
-        dates = ["2024-02-22", "2024-02-26", "2024-02-23"]
-        result = utils.get_max_date_string(dates)
-        self.assertEqual(result, "2024-02-26")
-
-    def test_empty_list(self):
-        """Test with an empty list of dates"""
-        dates = []
-        result = utils.get_max_date_string(dates)
-        self.assertEqual(result, "")
-
-    def test_invalid_date_format(self):
-        """Test with invalid date format"""
-        dates = ["2024/02/26", "2024-02-twenty-six"]
-        result = utils.get_max_date_string(dates)
-        self.assertEqual(result, "")
 
 
 class TestDatetimeToDateString(unittest.TestCase):

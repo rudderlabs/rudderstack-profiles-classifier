@@ -130,7 +130,7 @@ class Connector(ABC):
     ):
         met_data_requirement = data_requirement_check_func(self, session, materials)
 
-        logger.debug(f"Min data requirement satishfied: {met_data_requirement}")
+        logger.debug(f"Min data requirement satisfied: {met_data_requirement}")
         logger.debug(f"New material generation strategy : {strategy}")
         if met_data_requirement or strategy == "":
             return materials
@@ -143,8 +143,8 @@ class Connector(ABC):
         )
 
         for i in range(max_materializations):
-            new_feature_date = None
-            new_label_date = None
+            feature_date = None
+            label_date = None
 
             if strategy == "auto":
                 training_dates = [
@@ -159,26 +159,29 @@ class Connector(ABC):
                 )
 
                 max_feature_date = training_dates[0]
-                new_feature_date, new_label_date = utils.generate_new_training_dates(
+                min_feature_date = training_dates[-1]
+
+                feature_date, label_date = utils.generate_new_training_dates(
                     max_feature_date,
+                    min_feature_date,
                     training_dates,
                     prediction_horizon_days,
                     feature_data_min_date_diff,
                 )
                 logger.info(
-                    f"new generated dates for feature: {new_feature_date}, label: {new_label_date}"
+                    f"new generated dates for feature: {feature_date}, label: {label_date}"
                 )
             elif strategy == "manual":
                 dates = materialisation_dates[i].split(",")
                 if len(dates) >= 2:
-                    new_feature_date = dates[0]
-                    new_label_date = dates[1]
+                    feature_date = dates[0]
+                    label_date = dates[1]
 
-            if new_feature_date is None or new_label_date is None:
+            if feature_date is None or label_date is None:
                 continue
 
             try:
-                for date in [new_feature_date, new_label_date]:
+                for date in [feature_date, label_date]:
                     args = {
                         "feature_package_path": feature_package_path,
                         "features_valid_time": date,
@@ -194,12 +197,12 @@ class Connector(ABC):
 
             logger.info(
                 "Materialised feature and label data successfully, "
-                f"for dates {new_feature_date} and {new_label_date}"
+                f"for dates {feature_date} and {label_date}"
             )
 
             # Get materials with new feature start date
             # and validate min data requirement again
-            materials = get_material_func(start_date=new_feature_date)
+            materials = get_material_func(start_date=feature_date)
             logger.debug(
                 f"new feature tables: {[m.feature_table_name for m in materials]}"
             )
@@ -638,7 +641,7 @@ class Connector(ABC):
 
     @abstractmethod
     def check_for_classification_data_requirement(
-        self, session, meterials, label_column
+        self, session, meterials, label_column, label_value
     ) -> bool:
         pass
 

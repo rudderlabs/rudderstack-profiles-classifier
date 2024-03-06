@@ -18,13 +18,12 @@ from src.utils.logger import logger
 if __name__ == "__main__":
     train_file_extension = ".json"
     connection_name = os.getenv("SITE_CONN_NAME")
-    training_task = "classification"
+    training_task = os.getenv("TRAINING_TASK")
     project_folder = "samples/application_project"
     feature_table_name = "rudder_user_base_features"
     eligible_users = "1=1"
     package_name = "feature_table"
-    # label_column = "days_since_last_seen"
-    label_column = "is_churned_10_days"
+    label_column = os.getenv("LABEL_COLUMN")
     label_value = 1
     pred_horizon_days = 7
     p_output_tablename = "test_run_can_delete_2"
@@ -106,9 +105,12 @@ if __name__ == "__main__":
     }
 
     runtime_info = {"is_rudder_backend": False}
-    train_inputs = os.getenv("TRAIN_INPUTS")
-    if train_inputs is not None:
+    train_inputs = os.getenv("TRAIN_INPUTS", None)
+    try:
         train_inputs = train_inputs.split(",")
+    except Exception as e:
+        logger.error(f"Error parsing train inputs: {str(e)}")
+        raise Exception(f"Error parsing train inputs: {str(e)}")
 
     logger.info(f"Training inputs: {train_inputs}")
     if should_train:

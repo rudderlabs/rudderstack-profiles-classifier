@@ -2,7 +2,7 @@
 import pandas as pd
 from datetime import datetime
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, call
 from redshift_connector.cursor import Cursor
 from pandas.core.api import DataFrame as DataFrame
 
@@ -637,7 +637,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
     def setUp(self) -> None:
         self.connector = RedshiftConnector("data")
 
-    @patch("src.utils.constants.MIN_NUM_OF_NEGATIVE_LABELS", new=90)
+    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=90)
     def test_enough_negative_samples(self):
         """Test when there are enough negative samples"""
         cursor = MagicMock()
@@ -653,7 +653,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         self.connector.run_query = Mock(return_value=([0, 100],))
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column
+            cursor, materials, label_column, 0
         )
 
         self.assertTrue(result)
@@ -661,12 +661,11 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
             cursor,
             f"""SELECT {label_column}, COUNT(*) as count
                 FROM label_table_name
-                WHERE label = 0
-                GROUP BY {label_column}""",
+                WHERE label = 0""",
             response=True,
         )
 
-    @patch("src.utils.constants.MIN_NUM_OF_NEGATIVE_LABELS", new=90)
+    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=90)
     def test_insufficient_negative_samples(self):
         """Test when there are not enough negative samples"""
         cursor = MagicMock()
@@ -682,7 +681,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         self.connector.run_query = Mock(return_value=([0, 49],))
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column
+            cursor, materials, label_column, 0
         )
 
         self.assertFalse(result)
@@ -690,8 +689,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
             cursor,
             f"""SELECT {label_column}, COUNT(*) as count
                 FROM label_table_name
-                WHERE label = 0
-                GROUP BY {label_column}""",
+                WHERE label = 0""",
             response=True,
         )
 
@@ -712,10 +710,10 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             self.connector.check_for_classification_data_requirement(
-                cursor, materials, label_column
+                cursor, materials, label_column, 0
             )
 
-    @patch("src.utils.constants.MIN_NUM_OF_NEGATIVE_LABELS", new=100)
+    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=100)
     def test_empty_materials(self):
         """Test with empty materials list"""
         cursor = MagicMock()
@@ -725,7 +723,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         self.connector.run_query = Mock()
         self.connector.run_query.assert_not_called()
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column
+            cursor, materials, label_column, 0
         )
         self.assertFalse(result)  # No materials, so considered sufficient
 
@@ -734,7 +732,7 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
     def setUp(self) -> None:
         self.connector = RedshiftConnector("data")
 
-    @patch("src.utils.constants.MIN_NUM_OF_ROWS", new=90)
+    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=90)
     def test_enough_negative_samples(self):
         """Test when there are enough negative samples"""
         cursor = MagicMock()
@@ -758,7 +756,7 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
             response=True,
         )
 
-    @patch("src.utils.constants.MIN_NUM_OF_ROWS", new=90)
+    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=90)
     def test_insufficient_negative_samples(self):
         """Test when there are not enough negative samples"""
         cursor = MagicMock()
@@ -799,7 +797,7 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
         with self.assertRaises(KeyError):
             self.connector.check_for_regression_data_requirement(cursor, materials)
 
-    @patch("src.utils.constants.MIN_NUM_OF_NEGATIVE_LABELS", new=100)
+    @patch("src.utils.constants.MIN_NUM_OF_SAMPLES", new=100)
     def test_empty_materials(self):
         """Test with empty materials list"""
         cursor = MagicMock()
@@ -815,26 +813,25 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
     def setUp(self) -> None:
         self.connector = RedshiftConnector("data")
 
+    @patch("src.utils.utils.date_add")
+    @patch("src.utils.utils.dates_proximity_check")
+    @patch("src.utils.utils.get_abs_date_diff")
     @patch("src.utils.utils.get_feature_package_path")
     @patch("src.utils.utils.datetime_to_date_string")
-    @patch("src.utils.utils.generate_new_training_dates")
     @patch("src.wht.rudderPB.RudderPB.run")
     def test_generate_new_materials_auto_strategy(
         self,
         mock_rudderpb_run,
-        mock_generate_new_training_dates,
         mock_datetime_to_date_string,
         mock_get_feature_package_path,
+        mock_get_abs_date_diff,
+        mock_dates_proximity_check,
+        mock_date_add,
     ):
         # Mock data
         session = MagicMock()
         mock_rudderpb_run.return_value = True
-        mock_generate_new_training_dates.return_value = ("2024-02-15", "2024-02-22")
-        mock_datetime_to_date_string.side_effect = [
-            "2024-02-20",
-            "2024-02-20",
-            "2024-02-15",
-        ]
+        mock_datetime_to_date_string.side_effect = ["2024-02-20", "2024-02-20"]
         mock_get_feature_package_path.return_value = "feature_package_path"
         materials = [
             TrainTablesInfo(
@@ -848,15 +845,16 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         new_materials = materials + [
             TrainTablesInfo(
                 feature_table_name="feature_table_name",
-                feature_table_date="2024-02-15 00:00:00",
+                feature_table_date="2024-02-06 00:00:00",
                 label_table_name="label_table_name",
-                label_table_date="2024-02-22 00:00:00",
+                label_table_date="2024-02-13 00:00:00",
             ),
         ]
 
         mock_data_requirement_check_func = Mock(side_effect=[False, True])
         mock_get_material_func = Mock(return_value=new_materials)
         max_num_of_materialisations = 2
+        feature_data_min_date_diff = 14
         materialisation_dates = []
         prediction_horizon_days = 7
         input_models = "model_name"
@@ -866,6 +864,12 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
 
         # Set strategy to "auto"
         strategy = "auto"
+        mock_date_add.side_effect = [
+            "2024-02-06",
+            "2024-02-13",
+            "2024-02-06",
+            "2024-02-13",
+        ]
 
         # Call the function
         result = self.connector.check_and_generate_more_materials(
@@ -873,7 +877,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             mock_get_material_func,
             mock_data_requirement_check_func,
             strategy,
-            feature_data_min_date_diff=0,
+            feature_data_min_date_diff,
             materials=materials,
             max_num_of_materialisations=max_num_of_materialisations,
             materialisation_dates=materialisation_dates,
@@ -890,8 +894,19 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         # Verify calls to mock functions
         mock_get_feature_package_path.assert_called_once_with(input_models)
         mock_datetime_to_date_string.assert_called()  # Called multiple times
-        mock_generate_new_training_dates.assert_called_once()
         mock_rudderpb_run.assert_called()  # Called twice
+
+        mock_dates_proximity_check.assert_called_once_with(
+            "2024-02-06", ["2024-02-20"], feature_data_min_date_diff
+        )
+        mock_date_add.assert_has_calls(
+            [
+                call("2024-02-20", -1 * feature_data_min_date_diff),
+                call("2024-02-06", prediction_horizon_days),
+            ]
+        )
+        mock_datetime_to_date_string.assert_called_once()
+        mock_get_abs_date_diff.assert_called_once()
 
         # Test early termination due to materialisation failure
         mock_rudderpb_run.side_effect = ValueError

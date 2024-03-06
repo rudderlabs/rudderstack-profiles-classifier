@@ -38,10 +38,9 @@ RUDDERSTACK_MODE = "rudderstack-infra"
 # Smart data preparation
 
 # Min training data requirements
-# For classification
-MIN_NUM_OF_NEGATIVE_LABELS = 800
-# For Regression
-MIN_NUM_OF_ROWS = 1000
+# For classification its minimum negative sample
+# For regression its minimum number of samples
+MIN_NUM_OF_SAMPLES = 3
 
 from typing import NamedTuple
 

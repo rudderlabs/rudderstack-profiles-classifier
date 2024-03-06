@@ -153,6 +153,7 @@ def _train(
                 "matplotlib==3.7.1",
                 "seaborn==0.12.0",
                 "scikit-plot==0.3.7",
+                "pycaret",
             ],
         )
         def train_and_store_model_results_sf(

@@ -56,6 +56,19 @@ import subprocess
 from dataclasses import dataclass
 from ..utils.logger import logger
 
+from pycaret.classification import predict_model as predict_classification
+from pycaret.regression import predict_model as predict_regression
+
+from pycaret.classification import (
+    predict_model as predict_classification,
+    interpret_model as classification_interpret_model,
+)
+
+from pycaret.regression import (
+    predict_model as predict_regression,
+    interpret_model as regression_interpret_model,
+)
+
 
 @dataclass
 class PreprocessorConfig:
@@ -88,15 +101,14 @@ class TrainerUtils:
     def get_classification_metrics(
         self,
         y_true: pd.DataFrame,
-        y_pred_proba: np.array,
-        th: float = 0.5,
+        y_pred: pd.DataFrame,
         recall_to_precision_importance: float = 1.0,
     ) -> dict:
         """Generates classification metrics
 
         Args:
             y_true (pd.DataFrame): Array of 1s and 0s. True labels
-            y_pred_proba (np.array): Array of predicted probabilities
+            y_pred_proba (np.array): Array of predictions
             th (float, optional): thresold for classification. Defaults to 0.5.
             recall_to_precision_importance (float, optional): Importance of recall to precision. Defaults to 1.0
 
@@ -105,14 +117,14 @@ class TrainerUtils:
         """
         precision, recall, f1, _ = precision_recall_fscore_support(
             y_true,
-            np.where(y_pred_proba > th, 1, 0),
+            y_pred,
             beta=recall_to_precision_importance,
         )
         precision = precision[1]
         recall = recall[1]
         f1 = f1[1]
-        roc_auc = roc_auc_score(y_true, y_pred_proba)
-        pr_auc = average_precision_score(y_true, y_pred_proba)
+        roc_auc = roc_auc_score(y_true, y_pred)
+        pr_auc = average_precision_score(y_true, y_pred)
         user_count = y_true.shape[0]
         metrics = {
             "precision": precision,
@@ -195,26 +207,35 @@ class TrainerUtils:
             Tuple: Returns the classification metrics and predictions for train, \
                 validation and test data along with the best probability thresold.
         """
-        train_preds = clf.predict_proba(X_train)[:, 1]
-        metric_to_optimize = train_config["model_params"]["validation_on"]
-        train_metrics, prob_threshold = self.get_best_th(
-            y_train, train_preds, metric_to_optimize, recall_to_precision_importance
+
+        train_predictions = predict_classification(clf, data=X_train)
+        filtered_train_predictions = train_predictions["prediction_label"]
+        train_metrics = self.get_classification_metrics(
+            y_train, filtered_train_predictions, recall_to_precision_importance
         )
 
-        test_preds = clf.predict_proba(X_test)[:, 1]
+        test_predictions = predict_classification(clf, data=X_test)
+        filtered_test_predictions = test_predictions["prediction_label"]
         test_metrics = self.get_classification_metrics(
-            y_test, test_preds, prob_threshold, recall_to_precision_importance
+            y_test, filtered_test_predictions, recall_to_precision_importance
         )
 
-        val_preds = clf.predict_proba(X_val)[:, 1]
+        val_predictions = predict_classification(clf, data=X_val)
+        filtered_val_predictions = val_predictions["prediction_label"]
         val_metrics = self.get_classification_metrics(
-            y_val, val_preds, prob_threshold, recall_to_precision_importance
+            y_val, filtered_val_predictions, recall_to_precision_importance
         )
 
         metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
-        predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
+        predictions = {
+            "train": train_predictions,
+            "val": val_predictions,
+            "test": test_predictions,
+        }
 
-        return metrics, predictions, round(prob_threshold, 2)
+        # ToDO: This is for compatibility with UI and should be safely removed once the param is removed on UI
+        prob_th = 0.0
+        return metrics, predictions, round(prob_th, 2)
 
     def get_metrics_regressor(
         self, model, train_x, train_y, test_x, test_y, val_x, val_y
@@ -235,9 +256,9 @@ class TrainerUtils:
         Returns:
             result_dict (dict): Dictionary containing regression metrics.
         """
-        train_pred = model.predict(train_x)
-        test_pred = model.predict(test_x)
-        val_pred = model.predict(val_x)
+        train_pred = predict_regression(model, data=train_x)["prediction_label"]
+        test_pred = predict_regression(model, data=test_x)["prediction_label"]
+        val_pred = predict_regression(model, data=val_x)["prediction_label"]
 
         train_metrics = {}
         test_metrics = {}
@@ -787,14 +808,14 @@ def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
 
 
 def plot_top_k_feature_importance(
-    pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5
+    model, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5
 ) -> pd.DataFrame:
     """
     Generates a bar chart to visualize the top k important features in a machine learning model.
 
     Args:
         session (object): The session object used for writing the feature importance values and saving the chart image.
-        pipe (object): The pipeline object containing the preprocessor and model.
+        model (object): The trained model object.
         stage_name (str): The name of the stage where the chart image will be saved.
         train_x (array-like): The input data used for calculating the feature importance values.
         numeric_columns (list): The list of column names for numeric features.
@@ -806,62 +827,68 @@ def plot_top_k_feature_importance(
         None. The function generates a bar chart and writes the feature importance values to a table in the session.
     """
     try:
-        train_x_processed = pipe["preprocessor"].transform(train_x)
-        train_x_processed = train_x_processed.astype(np.int_)
+        sample_data = train_x.sample(100, random_state=42)
+        model_class = model.__class__.__name__
 
-        try:
-            shap_values = shap.TreeExplainer(pipe["model"]).shap_values(
-                train_x_processed
-            )
-        except Exception as e:
-            logger.warning(
-                f"Exception occured while calculating shap values {e}, using KernelExplainer"
-            )
-            shap_values = shap.KernelExplainer(
-                pipe["model"].predict_proba, data=train_x_processed
-            ).shap_values(train_x_processed)
+        # Select the appropriate explainer based on the model class name
+        explainer_map = {
+            "RidgeClassifier": shap.LinearExplainer,
+            "AdaBoostClassifier": shap.KernelExplainer,
+            "ExtraTreesClassifier": shap.TreeExplainer,
+            "RandomForestClassifier": shap.TreeExplainer,
+            "LogisticRegression": shap.LinearExplainer,
+            "GaussianNB": shap.KernelExplainer,
+            "KNeighborsClassifier": shap.KernelExplainer,
+            "DecisionTreeClassifier": shap.TreeExplainer,
+            "GradientBoostingClassifier": shap.TreeExplainer,
+            "LinearDiscriminantAnalysis": shap.LinearExplainer,
+            "LGBMClassifier": shap.TreeExplainer,
+            "DummyClassifier": shap.KernelExplainer,
+            "SVC": shap.KernelExplainer,
+            "QuadraticDiscriminantAnalysis": shap.KernelExplainer,
+            "XGBClassifier": shap.TreeExplainer,
+            "LinearRegression": shap.LinearExplainer,
+            "Ridge": shap.LinearExplainer,
+            "BayesianRidge": shap.LinearExplainer,
+            "Lasso": shap.LinearExplainer,
+            "LeastAngleRegression": shap.LinearExplainer,
+            "LassoLeastAngleRegression": shap.LinearExplainer,
+            "LightGBM": shap.TreeExplainer,
+            "GradientBoostingRegressor": shap.TreeExplainer,
+            "HuberRegressor": shap.LinearExplainer,
+            "RandomForestRegressor": shap.TreeExplainer,
+            "DecisionTreeRegressor": shap.TreeExplainer,
+            "ExtraTreesRegressor": shap.TreeExplainer,
+            "XGBRegressor": shap.TreeExplainer,
+            "AdaBoostRegressor": shap.TreeExplainer,
+            "ElasticNet": shap.LinearExplainer,
+            "OrthogonalMatchingPursuit": shap.LinearExplainer,
+            "KNeighborsRegressor": shap.KernelExplainer,
+            "DummyRegressor": shap.KernelExplainer,
+            "PassiveAggressiveRegressor": shap.LinearExplainer,
+        }
 
-        x_label = "Importance scores"
-        if isinstance(shap_values, list):
-            logger.debug(
-                "Got List output, suggesting that the model is a multi-output model. \
-                    Using the second output for plotting feature importance"
-            )
-            x_label = "Importance scores of positive label"
-            shap_values = shap_values[1]
-        onehot_encoder_columns = get_column_names(
-            dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"],
-            categorical_columns,
-        )
-        col_names_ = (
-            numeric_columns
-            + onehot_encoder_columns
-            + [
-                col
-                for col in list(train_x)
-                if col not in numeric_columns and col not in categorical_columns
-            ]
+        explainer_class = explainer_map[model_class]
+
+        explainer = explainer_class(model, sample_data)
+
+        shap_values = explainer(sample_data)
+        if len(shap_values.shape) == 3:
+            shap_values = shap_values[:, :, 1]
+
+        shap.plots.beeswarm(shap_values, max_display=20, show=False)
+        plt.savefig(figure_file)
+
+        vals = np.abs(shap_values.values).mean(0)
+        feature_names = sample_data.columns
+
+        feature_importance = pd.DataFrame(
+            list(zip(feature_names, vals)),
+            columns=["col_name", "feature_importance_vals"],
         )
 
-        shap_df = pd.DataFrame(shap_values, columns=col_names_)
-        vals = np.abs(shap_df.values).mean(0)
-        feature_names = shap_df.columns
-        shap_importance = pd.DataFrame(
-            data=vals, index=feature_names, columns=["feature_importance_vals"]
-        )
-        shap_importance.sort_values(
-            by=["feature_importance_vals"], ascending=False, inplace=True
-        )
+        return feature_importance
 
-        ax = shap_importance[:top_k_features][::-1].plot(
-            kind="barh", figsize=(8, 6), color="#86bf91", width=0.3
-        )
-        ax.set_xlabel(x_label)
-        ax.set_ylabel("Feature Name")
-        plt.title(f"Top {top_k_features} Important Features")
-        plt.savefig(figure_file, bbox_inches="tight")
-        plt.clf()
-        return shap_importance
     except Exception as e:
         logger.warning(f"Exception occured while plotting feature importance {e}")
 

@@ -666,7 +666,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         ]
         label_column = "label"
 
-        self.connector.run_query = Mock(return_value=([0, 100],))
+        self.connector.run_query = Mock(return_value=([100],))
         result = self.connector.check_for_classification_data_requirement(
             cursor, materials, label_column, 1
         )
@@ -697,7 +697,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         ]
         label_column = "label"
 
-        self.connector.run_query = Mock(return_value=([0, 49],))
+        self.connector.run_query = Mock(return_value=([49],))
         result = self.connector.check_for_classification_data_requirement(
             cursor, materials, label_column, 1
         )

@@ -29,7 +29,9 @@ if __name__ == "__main__":
     should_train = True
     entity_key = "user"
     output_model_name = "shopify_churn"
-    inputs = [f"packages/{package_name}/models/{feature_table_name}"]
+    inputs = [
+        f"packages/{package_name}/models/{feature_table_name}"
+    ]  # TODO: packages/{package_name} will be removed from input while running with 'samples/predictions_dev_project'
 
     homedir = os.path.expanduser("~")
 

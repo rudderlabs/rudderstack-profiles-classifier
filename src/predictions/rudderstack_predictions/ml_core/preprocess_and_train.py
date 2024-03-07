@@ -16,8 +16,7 @@ from ..utils import constants
 from ..utils.S3Utils import S3Utils
 
 from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
-from ..connectors.RedshiftConnector import RedshiftConnector
-from ..connectors.BigQueryConnector import BigQueryConnector
+from ..connectors.ConnectorFactory import ConnectorFactory
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
@@ -306,12 +305,10 @@ if __name__ == "__main__":
         if args.mode == constants.LOCAL_MODE
         else os.path.dirname(os.path.abspath(__file__))
     )
+
+    warehouse = wh_creds["type"]
     train_procedure = train_and_store_model_results
-    connector = (
-        RedshiftConnector(current_dir)
-        if wh_creds["type"] == "redshift"
-        else BigQueryConnector(current_dir)
-    )
+    connector = ConnectorFactory.create(warehouse, current_dir)
     session = connector.build_session(wh_creds)
     local_folder = connector.get_local_dir()
 

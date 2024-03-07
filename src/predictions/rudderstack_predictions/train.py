@@ -284,6 +284,8 @@ def _train(
             else BigQueryConnector(folder_path)
         )
         session = connector.build_session(creds)
+        connector.cleanup(delete_local_data=True)
+        connector.make_local_dir()
 
     material_table = getPB().get_material_registry_name(connector, session)
 

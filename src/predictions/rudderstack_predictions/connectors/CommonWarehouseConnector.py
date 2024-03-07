@@ -837,6 +837,10 @@ class CommonWarehouseConnector(Connector):
         ), f"Expected columns {training_features_columns} not found in table {matching_columns_upper}"
         return table.filter(matching_columns)
 
+    def make_local_dir(self) -> None:
+        "Created a local directory to store temporary files"
+        Path(self.local_dir).mkdir(parents=True, exist_ok=True)
+
     def _delete_local_data_folder(self) -> None:
         """Deletes the local data folder."""
         try:

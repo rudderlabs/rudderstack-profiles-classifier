@@ -4,7 +4,7 @@ from ..utils.logger import logger
 from datetime import datetime, timezone
 
 PB_PATH = "pb"
-MATERIAL_PREFIX = "material_"
+MATERIAL_PREFIX = "Material_"
 
 
 class RudderPB:
@@ -117,14 +117,18 @@ class RudderPB:
             Tuple: returns ("model_name", "model_hash", seq_no)
         """
         mlower = material_table_name.lower()
-        if MATERIAL_PREFIX not in mlower:
+        if MATERIAL_PREFIX.lower() not in mlower:
             logger.warning(
-                f"Couldn't split {material_table_name}, it does not contain table prefix '{MATERIAL_PREFIX}'"
+                f"Couldn't split {material_table_name.lower()}, it does not contain table prefix '{MATERIAL_PREFIX.lower()}'"
             )
             return (None, None, None)
 
         try:
-            table_suffix = mlower.split(MATERIAL_PREFIX)[-1]
+            if "`" in mlower:  # BigQuery case table name
+                table_name = mlower.split("`")[-2]
+            else:
+                table_name = mlower.split()[-1]
+            table_suffix = table_name.split(MATERIAL_PREFIX.lower())[-1]
             split_parts = table_suffix.split("_")
             seq_no = int(split_parts[-1])
             model_hash = split_parts[-2]

@@ -18,7 +18,7 @@ from ..utils.S3Utils import S3Utils
 from ..wht.pb import getPB
 
 from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
-from ..connectors.RedshiftConnector import RedshiftConnector
+from ..connectors.ConnectorFactory import ConnectorFactory
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -232,7 +232,8 @@ if __name__ == "__main__":
         trainer = RegressionTrainer(**args.merged_config)
 
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
-    connector = RedshiftConnector(output_dir)
+    warehouse = wh_creds["type"]
+    connector = ConnectorFactory.create(warehouse, output_dir)
     session = connector.build_session(wh_creds)
 
     model_path = os.path.join(output_dir, args.json_output_filename)

@@ -29,9 +29,9 @@ class BigqueryConnector(ConnectorBase):
             schema, table_name = table_name.split(".")
         try:
             df.to_sql(
-                name=table_name,
+                name=table_name.replace("`", ""),
                 con=self.engine,
-                schema=schema,
+                schema=schema.replace("`", ""),
                 index=False,
                 if_exists=if_exists,
             )

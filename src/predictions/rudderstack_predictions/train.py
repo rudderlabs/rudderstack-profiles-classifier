@@ -31,7 +31,11 @@ from .connectors.SnowflakeConnector import SnowflakeConnector
 from .trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from .ml_core.preprocess_and_train import train_and_store_model_results
 from .connectors.RedshiftConnector import RedshiftConnector
-from .connectors.BigQueryConnector import BigQueryConnector
+
+try:
+    from .connectors.BigQueryConnector import BigQueryConnector
+except Exception as e:
+    logger.warning(f"Could not import BigQueryConnector")
 
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)

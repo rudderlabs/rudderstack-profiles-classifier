@@ -17,7 +17,11 @@ from ..utils.S3Utils import S3Utils
 
 from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from ..connectors.RedshiftConnector import RedshiftConnector
-from ..connectors.BigQueryConnector import BigQueryConnector
+
+try:
+    from ..connectors.BigQueryConnector import BigQueryConnector
+except Exception as e:
+    logger.warning(f"Could not import BigQueryConnector")
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME

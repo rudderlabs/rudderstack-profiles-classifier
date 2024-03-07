@@ -1,4 +1,4 @@
-from ..utils import logger
+from ..utils.logger import logger
 
 from .RedshiftConnector import RedshiftConnector
 from .SnowflakeConnector import SnowflakeConnector

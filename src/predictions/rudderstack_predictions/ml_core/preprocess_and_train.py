@@ -1,8 +1,6 @@
 import os
 import sys
 import json
-from botocore.exceptions import NoCredentialsError
-from botocore.exceptions import WaiterError
 import pandas as pd
 from typing import List
 
@@ -19,12 +17,13 @@ from ..utils.S3Utils import S3Utils
 
 from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from ..connectors.RedshiftConnector import RedshiftConnector
+from ..connectors.BigQueryConnector import BigQueryConnector
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
 
-def train_and_store_model_results_rs(
+def train_and_store_model_results(
     feature_table_name: str, merged_config: dict, **kwargs
 ) -> dict:
     """Creates and saves the trained model pipeline after performing preprocessing and classification and
@@ -101,23 +100,12 @@ def train_and_store_model_results_rs(
     except Exception as e:
         logger.error(f"Could not generate plots {e}")
 
-    database_dtypes = json.loads(constants.rs_dtypes)
-    metrics_table_query = ""
-    for col in metrics_df.columns:
-        if metrics_df[col].dtype == "object":
-            metrics_df[col] = metrics_df[col].apply(lambda x: json.dumps(x))
-            metrics_table_query += f"{col} {database_dtypes['text']},"
-        elif metrics_df[col].dtype == "float64" or metrics_df[col].dtype == "int64":
-            metrics_table_query += f"{col} {database_dtypes['num']},"
-        elif metrics_df[col].dtype == "bool":
-            metrics_table_query += f"{col} {database_dtypes['bool']},"
-        elif metrics_df[col].dtype == "datetime64[ns]":
-            metrics_table_query += f"{col} {database_dtypes['timestamp']},"
-    metrics_table_query = metrics_table_query[:-1]
-
+    metrics_df, create_metrics_table_query = connector.fetch_create_metrics_table_query(
+        metrics_df
+    )
     connector.run_query(
         session,
-        f"CREATE TABLE IF NOT EXISTS {metrics_table} ({metrics_table_query});",
+        create_metrics_table_query,
         response=False,
     )
     connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
@@ -142,8 +130,10 @@ def prepare_feature_table(
     trainer = kwargs.get("trainer", None)
     try:
         feature_table_name = train_table_pair.feature_table_name
-        feature_table_dt = train_table_pair.feature_table_date
         label_table_name = train_table_pair.label_table_name
+        feature_table_dt = utils.convert_ts_str_to_dt_str(
+            train_table_pair.feature_table_date
+        )
         if trainer.eligible_users:
             feature_table = connector.get_table(
                 session, feature_table_name, filter_condition=trainer.eligible_users
@@ -160,6 +150,8 @@ def prepare_feature_table(
         ignore_features = utils.merge_lists_to_unique(
             trainer.prep.ignore_features, arraytype_columns
         )
+
+        logger.info(f"Identifying high cardinality features in the feature table.")
         high_cardinal_features = connector.get_high_cardinal_features(
             feature_table,
             trainer.label_column,
@@ -314,8 +306,12 @@ if __name__ == "__main__":
         if args.mode == constants.LOCAL_MODE
         else os.path.dirname(os.path.abspath(__file__))
     )
-    train_procedure = train_and_store_model_results_rs
-    connector = RedshiftConnector(current_dir)
+    train_procedure = train_and_store_model_results
+    connector = (
+        RedshiftConnector(current_dir)
+        if wh_creds["type"] == "redshift"
+        else BigQueryConnector(current_dir)
+    )
     session = connector.build_session(wh_creds)
     local_folder = connector.get_local_dir()
 

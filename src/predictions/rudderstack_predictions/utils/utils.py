@@ -1,4 +1,5 @@
 import math
+import re
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -355,6 +356,23 @@ def parse_warehouse_creds(creds: dict, mode: str) -> dict:
     else:
         wh_creds = creds
     return wh_creds
+
+
+def convert_ts_str_to_dt_str(timestamp_str: str) -> str:
+    try:
+        if "+" in timestamp_str:
+            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S%z")
+        elif " " in timestamp_str:
+            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+        else:
+            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d")
+        string_date = timestamp.strftime("%Y-%m-%d")
+        return string_date
+    except Exception as e:
+        logger.error(f"Error occurred while converting timestamp to date string: {e}")
+        raise Exception(
+            f"Error occurred while converting timestamp to date string: {e}"
+        )
 
 
 def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> List[str]:
@@ -1204,6 +1222,11 @@ def plot_user_feature_importance(
 
 
 def replace_seq_no_in_query(query: str, seq_no: int) -> str:
-    query_split = query.split("_")
-    new_query = "_".join(query_split[:-1]) + "_" + f"{seq_no:.0f}"
-    return new_query
+    match = re.search(r"(_\d+)(`|$)", query)
+    if match:
+        replaced_query = (
+            query[: match.start(1)] + "_" + str(seq_no) + query[match.end(1) :]
+        )
+        return replaced_query
+    else:
+        raise Exception(f"Couldn't find an integer seq_no in the input query: {query}")

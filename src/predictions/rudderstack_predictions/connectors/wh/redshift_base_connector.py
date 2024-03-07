@@ -88,7 +88,7 @@ class RedShiftConnector(ConnectorBase):
                 )
         except Exception as e:
             # Check for non existing schema
-            if "cannot copy into nonexistent table" in str(e).lower():
+            if f"cannot copy into nonexistent table {table_name}" in str(e).lower():
                 logger.info(f"{table_name} not found. Creating it")
                 self.create_table(df, table_name, schema)
                 # Try again

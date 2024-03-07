@@ -5,6 +5,13 @@
 import pandas as pd
 
 
+def get_create_statement(df: pd.DataFrame, table_name: str, schema: str = None) -> None:
+    create_statement = pd.io.sql.get_schema(df, table_name, schema=schema)
+    return create_statement.replace('"', "").replace(
+        "CREATE TABLE", "CREATE TABLE IF NOT EXISTS"
+    )
+
+
 class ConnectorBase:
     """
     Base class for all warehouse connectors.

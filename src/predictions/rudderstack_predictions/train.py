@@ -27,12 +27,9 @@ from .utils import utils
 from .utils import constants
 from .wht.pb import getPB
 
-from .connectors.SnowflakeConnector import SnowflakeConnector
+from .connectors.ConnectorFactory import ConnectorFactory
 from .trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from .ml_core.preprocess_and_train import train_and_store_model_results
-from .connectors.RedshiftConnector import RedshiftConnector
-from .connectors.BigQueryConnector import BigQueryConnector
-
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
@@ -125,7 +122,7 @@ def _train(
         ).hexdigest()
         stage_name = f"@rs_{run_id}"
         train_procedure = f"train_and_store_model_results_sf_{run_id}"
-        connector = SnowflakeConnector()
+        connector = ConnectorFactory.create(warehouse)
         session = connector.build_session(creds)
         connector.create_stage(session, stage_name)
         connector.cleanup(
@@ -278,11 +275,7 @@ def _train(
 
     elif warehouse in ("redshift", "bigquery"):
         train_procedure = train_and_store_model_results
-        connector = (
-            RedshiftConnector(folder_path)
-            if warehouse == "redshift"
-            else BigQueryConnector(folder_path)
-        )
+        connector = ConnectorFactory.create(warehouse, folder_path)
         session = connector.build_session(creds)
         connector.cleanup(delete_local_data=True)
         connector.make_local_dir()

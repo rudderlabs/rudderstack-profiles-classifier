@@ -122,7 +122,7 @@ def validate_reports_regression():
 
 
 def validate_predictions_df():
-    connector = SnowflakeConnector()
+    connector = ConnectorFactory.create("snowflake")
     session = connector.build_session(creds)
     required_columns = [
         "USER_MAIN_ID",

@@ -195,14 +195,24 @@ class BigQueryConnector(CommonWarehouseConnector):
         metrics_table_query = ""
 
         for col in metrics_df.columns:
-            if metrics_df[col].dtype in ("object"):
+            if (
+                metrics_df[col].dtype == "object"
+            ):  # can't find a str using "in" keyword as it's numpy dtype
                 metrics_df[col] = metrics_df[col].apply(lambda x: json.dumps(x))
                 metrics_table_query += f"{col} STRING,"
-            elif metrics_df[col].dtype in ("float64", "int64", "Float64", "Int64"):
+            elif (
+                metrics_df[col].dtype == "float64"
+                or metrics_df[col].dtype == "int64"
+                or metrics_df[col].dtype == "Float64"
+                or metrics_df[col].dtype == "Int64"
+            ):
                 metrics_table_query += f"{col} INTEGER,"
-            elif metrics_df[col].dtype in ("bool"):
+            elif metrics_df[col].dtype == "bool":
                 metrics_table_query += f"{col} BOOL,"
-            elif metrics_df[col].dtype in ("datetime64[ns]", "datetime64[ns, UTC]"):
+            elif (
+                metrics_df[col].dtype == "datetime64[ns]"
+                or metrics_df[col].dtype == "datetime64[ns, UTC]"
+            ):
                 metrics_table_query += f"{col} TIMESTAMP,"
 
         metrics_table_query = metrics_table_query[:-1]

@@ -159,7 +159,7 @@ def preprocess_and_predict(
             return predictions.round(4)
 
         prediction_udf = predict_scores
-    elif creds["type"] == "redshift":
+    elif creds["type"] in ("redshift", "bigquery"):
         local_folder = connector.get_local_dir()
 
         def predict_scores_rs(df: pd.DataFrame) -> pd.Series:

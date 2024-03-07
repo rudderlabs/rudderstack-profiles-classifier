@@ -1,5 +1,9 @@
-import sys
 import os
+import sys
+
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 import yaml
 import pathlib
 import json
@@ -7,7 +11,6 @@ from dotenv import load_dotenv  # pip3 install python-dotenv
 
 load_dotenv()
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import train as T
 import predict as P
 
@@ -42,6 +45,10 @@ if __name__ == "__main__":
         )
     elif creds["type"] == "redshift":
         print(f"Using {creds['schema']} schema in Redshift account: {creds['host']}")
+    elif creds["type"] == "bigquery":
+        print(
+            f"Using {creds['schema']} schema in BigQuery project: {creds['project_id']}"
+        )
     else:
         raise Exception(f"Unknown database type: {creds['type']}")
 

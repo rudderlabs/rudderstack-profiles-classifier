@@ -253,10 +253,7 @@ class CommonWarehouseConnector(Connector):
         high_cardinal_features = list()
         for field in table.columns:
             if (
-                table[field].dtype != "int64"
-                and table[field].dtype != "float64"
-                and table[field].dtype != "Int64"
-                and table[field].dtype != "Float64"
+                table[field].dtype not in ("int64", "float64", "Int64", "Float64")
             ) and (field.lower() not in (label_column.lower(), entity_column.lower())):
                 feature_data = table[field]
                 total_rows = len(feature_data)
@@ -839,10 +836,6 @@ class CommonWarehouseConnector(Connector):
             training_features_columns
         ), f"Expected columns {training_features_columns} not found in table {matching_columns_upper}"
         return table.filter(matching_columns)
-
-    def make_local_dir(self) -> None:
-        "Created a local directory to store temporary files"
-        Path(self.local_dir).mkdir(parents=True, exist_ok=True)
 
     def _delete_local_data_folder(self) -> None:
         """Deletes the local data folder."""

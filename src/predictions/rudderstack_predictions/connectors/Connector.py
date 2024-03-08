@@ -386,6 +386,10 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
+        pass
+
+    @abstractmethod
     def write_table(self, table, table_name_remote: str, **kwargs) -> Any:
         pass
 

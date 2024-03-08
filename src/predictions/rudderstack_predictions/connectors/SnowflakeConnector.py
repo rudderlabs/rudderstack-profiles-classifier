@@ -80,7 +80,12 @@ class SnowflakeConnector(Connector):
         session = kwargs.get("session", None)
         if session == None:
             raise Exception("Session object not found")
-        args = args[:1] + args[2:]
+        args = list(args)
+        feature_table_df = args.pop(
+            1
+        )  # Snowflake stored procedure for training requires feature_table_name saved on warehouse instead of feature_table_df
+        del feature_table_df
+
         return session.call(*args)
 
     def get_merged_table(self, base_table, incoming_table):
@@ -208,10 +213,10 @@ class SnowflakeConnector(Connector):
         """
         return self.get_table(session, table_name, **kwargs).toPandas()
 
-    def write_feature_df_to_warehouse(
+    def send_to_train_env(
         self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
     ) -> Any:
-        """Writes the given feature dataframe to the snowflake warehouse with the name as the given name"""
+        """Sends the given snowpark table to the training env(ie. snowflake warehouse in this case) with the name as given"""
         self.write_table(table, table_name_remote, **kwargs)
 
     def write_table(

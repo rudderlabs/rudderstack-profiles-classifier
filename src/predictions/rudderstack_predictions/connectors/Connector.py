@@ -386,9 +386,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def write_feature_df_to_warehouse(
-        self, table, table_name_remote: str, **kwargs
-    ) -> Any:
+    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
         pass
 
     @abstractmethod

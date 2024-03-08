@@ -240,7 +240,7 @@ def preprocess_and_train(
         trainer.max_row_count,
         min_sample_for_training,
     )
-    connector.write_feature_df_to_warehouse(
+    connector.send_to_train_env(
         filtered_feature_table,
         feature_table_name_remote,
         write_mode="overwrite",

@@ -53,8 +53,13 @@ class CommonWarehouseConnector(Connector):
         Returns:
             Results of the training function
         """
-        train_function = args[0]
-        args = args[1:2] + args[3:]
+        args = list(args)
+        snowflake_relevent_feature_table_name = args.pop[
+            2
+        ]  # feature_table_name of snowflake table store on warehouse. Thus, irrelevant for Redshift/BigQuery.
+        del snowflake_relevent_feature_table_name
+
+        train_function = args.pop[0]
         return train_function(*args, **kwargs)
 
     def get_merged_table(self, base_table, incoming_table):
@@ -169,11 +174,9 @@ class CommonWarehouseConnector(Connector):
         utils.delete_file(file_path)
         return json_data
 
-    def write_feature_df_to_warehouse(
-        self, table, table_name_remote: str, **kwargs
-    ) -> Any:
-        """Writes the given feature dataframe to the snowflake warehouse with the name as the given name.
-        Therefore, no usecase for this function in Redshift/BigQuery."""
+    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
+        """Sends the given snowpark table to the training env(ie. local env) with the name as given.
+        Therefore, no usecase for this function in case of Redshift/BigQuery."""
         pass
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:

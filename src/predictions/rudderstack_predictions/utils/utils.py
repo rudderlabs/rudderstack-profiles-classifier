@@ -552,7 +552,7 @@ def datetime_to_date_string(datetime_str: str) -> str:
 
     Args:
         datetime_str: Datetime in string format
-    Retruns:
+    Returns:
         str: Date in string format
     """
     try:
@@ -561,7 +561,7 @@ def datetime_to_date_string(datetime_str: str) -> str:
         # Value error will be raised if its not able
         # to match datetime string with given format
         # In this case datetime sting is in "%Y-%m-%d" format
-        # and returing empty string
+        # and returning empty string
         logger.warning(
             f"Not able to extract date string from datetime string {datetime_str}"
         )
@@ -579,24 +579,30 @@ def generate_new_training_dates(
     feature_data_min_date_diff: int,
 ) -> Tuple:
     # Find next valid feature date
-    # It is garenteed that new training date will be found within 'max_num_of_tries' terations
+    # It is guaranteed that new training date will be found within 'max_num_of_tries' iterations
     num_days_diff = get_abs_date_diff(max_feature_date, min_feature_date)
     max_num_of_tries = math.ceil(num_days_diff / feature_data_min_date_diff) + 1
 
     for idx in range(max_num_of_tries):
         # d3 = d2 - t
-        max_feature_table_date = date_add(
+        generated_feature_date = date_add(
             max_feature_date, -1 * (idx + 1) * feature_data_min_date_diff
         )
 
         found = dates_proximity_check(
-            max_feature_table_date, training_dates, feature_data_min_date_diff
+            generated_feature_date, training_dates, feature_data_min_date_diff
         )
 
         if found:
             break
 
-    feature_date = max_feature_table_date
+    if not found:
+        logger.warning(
+            "Couldn't find a date honouring proximity check. "
+            f"Proceeding with {generated_feature_date} as feature_date"
+        )
+
+    feature_date = generated_feature_date
     label_date = date_add(feature_date, prediction_horizon_days)
 
     return (feature_date, label_date)

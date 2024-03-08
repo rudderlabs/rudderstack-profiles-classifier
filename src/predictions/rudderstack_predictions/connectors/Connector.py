@@ -180,8 +180,8 @@ class Connector(ABC):
                     feature_date = dates[0]
                     label_date = dates[1]
 
-            if feature_date is None or label_date is None:
-                continue
+                if feature_date is None or label_date is None:
+                    continue
 
             try:
                 for date in [feature_date, label_date]:

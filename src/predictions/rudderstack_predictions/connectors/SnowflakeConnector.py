@@ -842,22 +842,32 @@ class SnowflakeConnector(Connector):
         label_materials = [m.label_table_name for m in materials]
         label_table = None
 
-        for label_meterial in label_materials:
-            temp_table = self.get_table(session, label_meterial)
+        for label_material in label_materials:
+            temp_table = self.get_table(session, label_material)
             label_table = self.get_merged_table(label_table, temp_table)
 
-        negative_label_count = label_table.filter(
+        total_samples = label_table.count()
+
+        total_negative_samples = label_table.filter(
             F.col(label_column) != label_value
         ).count()
 
-        min_negative_label_count = constants.MIN_NUM_OF_SAMPLES
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+        min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+        min_negative_label_count = min_label_proportion * total_samples
 
-        if negative_label_count < min_negative_label_count:
+        if (
+            total_samples < min_no_of_samples
+            or total_negative_samples < min_negative_label_count
+        ):
             logger.debug(
-                "Number of negative samples are not meeting the minimum training requirement"
+                "Total number of samples or number of negative samples are "
+                "not meeting the minimum training requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}, "
+                f"total negative samples - {total_negative_samples}, "
+                f"minimum negative samples portion required - {min_label_proportion}"
             )
             return False
-
         return True
 
     def check_for_regression_data_requirement(
@@ -865,18 +875,19 @@ class SnowflakeConnector(Connector):
         session: snowflake.snowpark.Session,
         materials: List[constants.TrainTablesInfo],
     ) -> bool:
-        feature_materials = [m.feature_table_name for m in materials]
         feature_table = None
-        for feature_meterial in feature_materials:
-            temp_table = self.get_table(session, feature_meterial)
+        for material in materials:
+            feature_material = material.feature_table_name
+            temp_table = self.get_table(session, feature_material)
             feature_table = self.get_merged_table(feature_table, temp_table)
 
-        total_no_rows = feature_table.count()
-        min_no_rows = constants.MIN_NUM_OF_SAMPLES
+        total_samples = feature_table.count()
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
 
-        if total_no_rows < min_no_rows:
+        if total_samples < min_no_of_samples:
             logger.debug(
-                "Number training samples are not meeting the minimum requirement"
+                "Number training samples are not meeting the minimum requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}"
             )
             return False
 

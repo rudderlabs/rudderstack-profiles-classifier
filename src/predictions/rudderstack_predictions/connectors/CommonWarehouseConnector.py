@@ -575,6 +575,7 @@ class CommonWarehouseConnector(Connector):
         label_value: str,
     ) -> bool:
         total_negative_samples = 0
+        total_samples = 0
         for material in materials:
             label_material = material.label_table_name
             query_str = f"""SELECT COUNT(*) as count
@@ -586,10 +587,27 @@ class CommonWarehouseConnector(Connector):
             if len(result) != 0:
                 total_negative_samples += result[0][0]
 
-        min_negative_label_count = constants.MIN_NUM_OF_SAMPLES
-        if total_negative_samples < min_negative_label_count:
+            query_str = f"""SELECT COUNT(*) as count
+                FROM {label_material}"""
+            result = self.run_query(session, query_str, response=True)
+
+            if len(result) != 0:
+                total_samples += result[0][0]
+
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+        min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+        min_negative_label_count = min_label_proportion * total_samples
+
+        if (
+            total_samples < min_no_of_samples
+            or total_negative_samples < min_negative_label_count
+        ):
             logger.debug(
-                "Number of negative samples are not meeting the minimum training requirement"
+                "Total number of samples or number of negative samples are "
+                "not meeting the minimum training requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}, "
+                f"total negative samples - {total_negative_samples}, "
+                f"minimum negative samples portion required - {min_label_proportion}"
             )
             return False
         return True
@@ -599,21 +617,22 @@ class CommonWarehouseConnector(Connector):
         session,
         materials: List[constants.TrainTablesInfo],
     ) -> bool:
-        total_no_rows = 0
+        total_samples = 0
         for material in materials:
-            feature_material = material[0]
+            feature_material = material.feature_table_name
             query_str = f"""SELECT COUNT(*) as count
                 FROM {feature_material}"""
             result = self.run_query(session, query_str, response=True)
 
             if len(result) != 0:
-                total_no_rows += result[0][0]
+                total_samples += result[0][0]
 
-        min_no_rows = constants.MIN_NUM_OF_SAMPLES
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
 
-        if total_no_rows < min_no_rows:
+        if total_samples < min_no_of_samples:
             logger.debug(
-                f"Number training samples are not meeting the minimum requirement, total samples - {total_no_rows}, minimum samles required - {min_no_rows}"
+                "Number training samples are not meeting the minimum requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}"
             )
             return False
 

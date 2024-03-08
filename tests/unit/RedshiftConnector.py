@@ -653,7 +653,11 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
         new=90,
     )
-    def test_enough_negative_samples(self):
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
+        new=0.01,
+    )
+    def test_enough_negative_and_total_samples(self):
         """Test when there are enough negative samples"""
         cursor = MagicMock()
         materials = [
@@ -666,13 +670,13 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         ]
         label_column = "label"
 
-        self.connector.run_query = Mock(return_value=([100],))
+        self.connector.run_query = Mock(side_effect=[([15],), ([100],)])
         result = self.connector.check_for_classification_data_requirement(
             cursor, materials, label_column, 1
         )
 
         self.assertTrue(result)
-        self.connector.run_query.assert_called_once_with(
+        self.connector.run_query.assert_any_call(
             cursor,
             """SELECT COUNT(*) as count
                 FROM label_table_name
@@ -684,7 +688,11 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
         new=90,
     )
-    def test_insufficient_negative_samples(self):
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
+        new=0.01,
+    )
+    def test_insufficient_negative_and_total_samples(self):
         """Test when there are not enough negative samples"""
         cursor = MagicMock()
         materials = [
@@ -697,17 +705,16 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         ]
         label_column = "label"
 
-        self.connector.run_query = Mock(return_value=([49],))
+        self.connector.run_query = Mock(side_effect=[([9],), ([80],)])
         result = self.connector.check_for_classification_data_requirement(
             cursor, materials, label_column, 1
         )
 
         self.assertFalse(result)
-        self.connector.run_query.assert_called_once_with(
+        self.connector.run_query.assert_any_call(
             cursor,
             """SELECT COUNT(*) as count
-                FROM label_table_name
-                WHERE label != 1""",
+                FROM label_table_name""",
             response=True,
         )
 
@@ -735,6 +742,10 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
         new=100,
     )
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
+        new=0.01,
+    )
     def test_empty_materials(self):
         """Test with empty materials list"""
         cursor = MagicMock()
@@ -757,7 +768,7 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
         "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
         new=90,
     )
-    def test_enough_negative_samples(self):
+    def test_enough_total_samples(self):
         """Test when there are enough negative samples"""
         cursor = MagicMock()
         materials = [
@@ -784,7 +795,7 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
         "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
         new=90,
     )
-    def test_insufficient_negative_samples(self):
+    def test_insufficient_total_samples(self):
         """Test when there are not enough negative samples"""
         cursor = MagicMock()
         materials = [

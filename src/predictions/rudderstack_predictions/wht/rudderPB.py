@@ -156,14 +156,15 @@ class RudderPB:
         )
         return sorted_material_registry_tables[0]
 
-    def get_latest_feature_table_name(
-        model_hash: str, feature_profile_model: str, inputs: list
+    def get_latest_entity_var_table_name(
+        model_hash: str, entity_var_model: str, inputs: list
     ) -> str:
         try:
             input = inputs[0]
             seq_no = int(input.split("_")[-1])
-            return MATERIAL_PREFIX + feature_profile_model + "_" + f"{seq_no:.0f}"
+            return MATERIAL_PREFIX + entity_var_model + "_" + f"{seq_no:.0f}"
         except IndexError:
             raise Exception(
-                f"Erro while getting feature table name using model hash {model_hash}, feature profile model {feature_profile_model} and input {inputs}"
+                "Error while getting feature table name using model "
+                f"hash {model_hash}, feature profile model {entity_var_model} and input {inputs}"
             )

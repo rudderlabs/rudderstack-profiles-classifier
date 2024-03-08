@@ -14,17 +14,31 @@ load_dotenv()
 import train as T
 import predict as P
 
-from src.utils.logger import logger
+from src.predictions.rudderstack_predictions.utils.logger import logger
+
 
 if __name__ == "__main__":
+    connection_name = os.getenv("SITE_CONN_NAME", None)
+    training_task = os.getenv("TRAINING_TASK", None)
+    env_name = os.getenv("SITE_ENV_NAME", None)
+    label_column = os.getenv("LABEL_COLUMN", None)
+    train_inputs = os.getenv("TRAIN_INPUTS", None)
+
+    if (
+        connection_name is None
+        or training_task is None
+        or env_name is None
+        or label_column is None
+        or train_inputs is None
+    ):
+        logger.error("One or more required environment variable(s) are not set")
+        sys.exit(1)
+
     train_file_extension = ".json"
-    connection_name = os.getenv("SITE_CONN_NAME")
-    training_task = os.getenv("TRAINING_TASK")
     project_folder = "samples/application_project"
     feature_table_name = "rudder_user_base_features"
     eligible_users = "1=1"
     package_name = "feature_table"
-    label_column = os.getenv("LABEL_COLUMN")
     label_value = 1
     pred_horizon_days = 7
     p_output_tablename = "test_run_can_delete_2"
@@ -39,7 +53,6 @@ if __name__ == "__main__":
     homedir = os.path.expanduser("~")
 
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-        env_name = os.getenv("SITE_ENV_NAME")
         creds = yaml.safe_load(f)["connections"][connection_name]["outputs"][env_name]
 
     # End of user inputs.
@@ -62,7 +75,7 @@ if __name__ == "__main__":
     if should_train:
         print("Training step is enabled.")
     else:
-        print("Skipping training as the shoud_train param is set to False")
+        print("Skipping training as the should_train param is set to False")
 
     print(f"Training output file: {t_output_filename}")
     pathlib.Path(os.path.dirname(t_output_filename)).mkdir(parents=True, exist_ok=True)
@@ -112,7 +125,6 @@ if __name__ == "__main__":
     }
 
     runtime_info = {"is_rudder_backend": False}
-    train_inputs = os.getenv("TRAIN_INPUTS", None)
     try:
         train_inputs = train_inputs.split(",")
     except Exception as e:

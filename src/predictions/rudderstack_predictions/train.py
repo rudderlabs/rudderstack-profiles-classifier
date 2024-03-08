@@ -305,7 +305,7 @@ def _train(
         )
 
     if trainer.label_value is None and prediction_task == "classification":
-        latest_feature_table_name = getPB().get_latest_feature_table_name(
+        latest_feature_table_name = getPB().get_latest_entity_var_table_name(
             model_hash, features_profiles_model, inputs
         )
         label_value = connector.get_default_label_value(

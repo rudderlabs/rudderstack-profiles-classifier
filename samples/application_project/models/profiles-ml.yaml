@@ -24,9 +24,9 @@ models:
             task: classification
             inputs: *inputs
             new_materialisations_config: # Configuration for generating new materials
-              feature_data_min_date_diff": 14 # Minimum number of days in the difference between new generated material and existing materials
-              strategy": "auto" # Strategy for generating new materials
-              max_no_of_dates": 3 # Upper limit on how many new materials that can be generated
+              feature_data_min_date_diff: 14 # Minimum number of days in the difference between new generated material and existing materials
+              strategy: "auto" # Strategy for generating new materials
+              max_no_of_dates: 3 # Upper limit on how many new materials that can be generated
 
           preprocessing: &model_prep_configs
             ignore_features:

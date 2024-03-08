@@ -59,7 +59,7 @@ class CommonWarehouseConnector(Connector):
         )  # feature_table_name of snowflake table store on warehouse. Thus, irrelevant for Redshift/BigQuery.
         del snowflake_relevent_feature_table_name
 
-        train_function = args.pop[0]
+        train_function = args.pop(0)
         return train_function(*args, **kwargs)
 
     def get_merged_table(self, base_table, incoming_table):

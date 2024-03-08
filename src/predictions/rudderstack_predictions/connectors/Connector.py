@@ -158,7 +158,7 @@ class Connector(ABC):
                 training_dates = sorted(
                     training_dates,
                     key=lambda x: datetime.strptime(x, "%Y-%m-%d"),
-                    reverse=False,
+                    reverse=True,
                 )
 
                 max_feature_date = training_dates[0]

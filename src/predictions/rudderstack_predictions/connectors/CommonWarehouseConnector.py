@@ -54,9 +54,9 @@ class CommonWarehouseConnector(Connector):
             Results of the training function
         """
         args = list(args)
-        snowflake_relevent_feature_table_name = args.pop[
+        snowflake_relevent_feature_table_name = args.pop(
             2
-        ]  # feature_table_name of snowflake table store on warehouse. Thus, irrelevant for Redshift/BigQuery.
+        )  # feature_table_name of snowflake table store on warehouse. Thus, irrelevant for Redshift/BigQuery.
         del snowflake_relevent_feature_table_name
 
         train_function = args.pop[0]

@@ -16,11 +16,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import src.predictions.rudderstack_predictions.utils.utils as utils
 from src.predictions.rudderstack_predictions.utils import constants
-from src.predictions.rudderstack_predictions.connectors.SnowflakeConnector import (
-    SnowflakeConnector,
-)
 from src.predictions.rudderstack_predictions.processors.ProcessorFactory import (
     ProcessorFactory,
+)
+from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
+    ConnectorFactory,
 )
 from src.predictions.rudderstack_predictions.trainers.MLTrainer import (
     ClassificationTrainer,
@@ -29,13 +29,6 @@ from src.predictions.rudderstack_predictions.trainers.MLTrainer import (
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
-
-try:
-    from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
-        RedshiftConnector,
-    )
-except Exception as e:
-    logger.warning(f"Could not import RedshiftConnector")
 
 
 def predict(
@@ -101,12 +94,9 @@ def predict(
         f"Started Predicting for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
     )
 
-    if creds["type"] == "snowflake":
-        connector = SnowflakeConnector()
-        session = connector.build_session(creds)
-    elif creds["type"] == "redshift":
-        connector = RedshiftConnector(folder_path)
-        session = connector.build_session(creds)
+    warehouse = creds["type"]
+    connector = ConnectorFactory.create(warehouse, folder_path)
+    session = connector.build_session(creds)
 
     udf_name = connector.get_udf_name(model_path)
     connector.cleanup(session, udf_name=udf_name)

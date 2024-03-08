@@ -149,7 +149,7 @@ def create_site_config_file(creds, siteconfig_path):
 
 
 def validate_predictions_df():
-    connector = SnowflakeConnector()
+    connector = ConnectorFactory.create("snowflake")
     session = connector.build_session(creds)
     required_columns = [
         "USER_MAIN_ID",

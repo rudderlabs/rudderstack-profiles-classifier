@@ -386,6 +386,12 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def write_feature_df_to_warehouse(
+        self, table, table_name_remote: str, **kwargs
+    ) -> Any:
+        pass
+
+    @abstractmethod
     def write_table(self, table, table_name_remote: str, **kwargs) -> Any:
         pass
 

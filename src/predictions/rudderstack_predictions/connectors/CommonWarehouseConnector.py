@@ -54,7 +54,7 @@ class CommonWarehouseConnector(Connector):
             Results of the training function
         """
         train_function = args[0]
-        args = args[1:]
+        args = args[1:2] + args[3:]
         return train_function(*args, **kwargs)
 
     def get_merged_table(self, base_table, incoming_table):
@@ -168,6 +168,13 @@ class CommonWarehouseConnector(Connector):
             json_data = json.load(file)
         utils.delete_file(file_path)
         return json_data
+
+    def write_feature_df_to_warehouse(
+        self, table, table_name_remote: str, **kwargs
+    ) -> Any:
+        """Writes the given feature dataframe to the snowflake warehouse with the name as the given name.
+        Therefore, no usecase for this function in Redshift/BigQuery."""
+        pass
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
         """Writes the given pandas dataframe to the warehouse schema with the given name.

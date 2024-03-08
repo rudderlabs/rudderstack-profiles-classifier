@@ -80,6 +80,7 @@ class SnowflakeConnector(Connector):
         session = kwargs.get("session", None)
         if session == None:
             raise Exception("Session object not found")
+        args = args[:1] + args[2:]
         return session.call(*args)
 
     def get_merged_table(self, base_table, incoming_table):
@@ -206,6 +207,12 @@ class SnowflakeConnector(Connector):
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
         return self.get_table(session, table_name, **kwargs).toPandas()
+
+    def write_feature_df_to_warehouse(
+        self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
+    ) -> Any:
+        """Writes the given feature dataframe to the snowflake warehouse with the name as the given name"""
+        self.write_table(table, table_name_remote, **kwargs)
 
     def write_table(
         self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs

@@ -108,32 +108,12 @@ def predict(
     processor = ProcessorFactory.create(mode, trainer, connector, session)
     logger.debug(f"Using {mode} processor for predictions")
 
-    if site_config_path == "":
-        # TODO - Remove it post pb release
-        s3_config = {
-            "bucket": "ml-usecases-poc-srinivas",
-            "region": "us-east-1",
-            "path": "2b0AM2EcotEiuoa0GwkpCtzuQaa/cmu7ff9gtmi99j1fb330/cmu7ff9gtmi99j1fb33g",
-            "role_arn": "arn:aws:iam::454531037350:role/profiles-ml-s3",
-        }
-        site_config = {
-            "py_models": {
-                "credentials_presets": {
-                    "s3": s3_config,
-                    "kubernetes": {
-                        "namespace": "profiles-qa",
-                        "resources": {"limits_cpu": "2000m", "limits_memory": "2Gi"},
-                    },
-                }
-            }
-        }
+    site_config = utils.load_yaml(site_config_path)
+    presets = site_config["py_models"].get("credentials_presets")
+    if presets is None or presets.get("s3") is None:
+        s3_config = {}
     else:
-        site_config = utils.load_yaml(site_config_path)
-        presets = site_config["py_models"].get("credentials_presets")
-        if presets is None or presets.get("s3") is None:
-            s3_config = {}
-        else:
-            s3_config = presets["s3"]
+        s3_config = presets["s3"]
 
     if mode == constants.RUDDERSTACK_MODE:
         s3_creds = S3Utils.get_temporary_credentials(s3_config["role_arn"])

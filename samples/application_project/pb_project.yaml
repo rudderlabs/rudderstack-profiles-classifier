@@ -5,7 +5,7 @@ name: sample_application_project
 schema_version: 38
 
 # WH Connection to use.
-connection: dev_wh2
+connection: default
 
 # Whether to allow inputs having no timestamps,
 # if true, data without timestamps are included when running models

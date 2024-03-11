@@ -58,6 +58,18 @@ class MLTrainer(ABC):
         self.outputs = utils.OutputsConfig(**kwargs["outputs"])
         self.isStratify = None
 
+        new_materialisations_config = kwargs.get("new_materialisations_config", {})
+        self.materialisation_strategy = new_materialisations_config.get(
+            "strategy", ""
+        ).lower()
+        self.materialisation_dates = new_materialisations_config.get("dates", [])
+        self.materialisation_max_no_dates = int(
+            new_materialisations_config.get("max_no_of_dates", 0)
+        )
+        self.feature_data_min_date_diff = int(
+            new_materialisations_config.get("feature_data_min_date_diff", 0)
+        )
+
     hyperopts_expressions_map = {
         exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]
     }
@@ -113,6 +125,7 @@ class MLTrainer(ABC):
                 assert cat_params_name in ["SimpleImputer", "OneHotEncoder"]
             except AssertionError:
                 error_message = f"Invalid cat_params_name: {cat_params_name} for categorical pipeline."
+
                 logger.error(error_message)
                 raise ValueError(error_message)
 
@@ -285,6 +298,10 @@ class MLTrainer(ABC):
 
     @abstractmethod
     def validate_data(self, connector, feature_table):
+        pass
+
+    @abstractmethod
+    def check_min_data_requirement(self, connector, session, materials) -> bool:
         pass
 
 
@@ -490,6 +507,12 @@ class ClassificationTrainer(MLTrainer):
             feature_table, self.label_column
         ) and connector.validate_class_proportions(feature_table, self.label_column)
 
+    def check_min_data_requirement(self, connector, session, materials) -> bool:
+        label_column = self.label_column
+        return connector.check_for_classification_data_requirement(
+            session, materials, label_column, self.label_value
+        )
+
 
 class RegressionTrainer(MLTrainer):
     evalution_metrics_map = {
@@ -666,3 +689,6 @@ class RegressionTrainer(MLTrainer):
         return connector.validate_columns_are_present(
             feature_table, self.label_column
         ) and connector.validate_label_distinct_values(feature_table, self.label_column)
+
+    def check_min_data_requirement(self, connector, session, materials) -> bool:
+        return connector.check_for_regression_data_requirement(session, materials)

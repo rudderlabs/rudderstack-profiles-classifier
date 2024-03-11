@@ -1,3 +1,4 @@
+import math
 import re
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -510,6 +511,101 @@ def date_add(reference_date: str, add_days: int) -> str:
     )
     new_date = new_timestamp.strftime("%Y-%m-%d")
     return new_date
+
+
+def get_abs_date_diff(ref_date1: str, ref_date2: str) -> int:
+    """
+    For given two dates in string format, it will retrun the difference in days
+    Args:
+        ref_date1: Reference date1
+        ref_date2: Reference date2
+    Returns:
+        int: Difference in number of dates
+    """
+    d1 = datetime.strptime(ref_date1, "%Y-%m-%d")
+    d2 = datetime.strptime(ref_date2, "%Y-%m-%d")
+    diff = d2 - d1
+    return abs(diff.days)
+
+
+def dates_proximity_check(reference_date: str, dates: list, distance: int) -> bool:
+    """
+    For given reference date and list of training dates, it will check
+    whether a given date(reference_date) is farther from every date in the dates list, by minimum "distance" days
+
+    Args:
+        reference_date: Given reference date
+        dates: List of dates to be checked with
+        distance: Difference distance
+    Returns:
+        bool: Wether given date is passing the proximity check
+    """
+    for d in dates:
+        if get_abs_date_diff(reference_date, d) < distance:
+            return False
+    return True
+
+
+def datetime_to_date_string(datetime_str: str) -> str:
+    """
+    Converts datetime sting to date string
+
+    Args:
+        datetime_str: Datetime in string format
+    Returns:
+        str: Date in string format
+    """
+    try:
+        datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        # Value error will be raised if its not able
+        # to match datetime string with given format
+        # In this case datetime sting is in "%Y-%m-%d" format
+        # and returning empty string
+        logger.warning(
+            f"Not able to extract date string from datetime string {datetime_str}"
+        )
+        return ""
+
+    date = datetime_obj.date()
+    return str(date)
+
+
+def generate_new_training_dates(
+    max_feature_date: str,
+    min_feature_date: str,
+    training_dates: list,
+    prediction_horizon_days: int,
+    feature_data_min_date_diff: int,
+) -> Tuple:
+    # Find next valid feature date
+    # It is guaranteed that new training date will be found within 'max_num_of_tries' iterations
+    num_days_diff = get_abs_date_diff(max_feature_date, min_feature_date)
+    max_num_of_tries = math.ceil(num_days_diff / feature_data_min_date_diff) + 1
+
+    for idx in range(max_num_of_tries):
+        # d3 = d2 - t
+        generated_feature_date = date_add(
+            max_feature_date, -1 * (idx + 1) * feature_data_min_date_diff
+        )
+
+        found = dates_proximity_check(
+            generated_feature_date, training_dates, feature_data_min_date_diff
+        )
+
+        if found:
+            break
+
+    if not found:
+        logger.warning(
+            "Couldn't find a date honouring proximity check. "
+            f"Proceeding with {generated_feature_date} as feature_date"
+        )
+
+    feature_date = generated_feature_date
+    label_date = date_add(feature_date, prediction_horizon_days)
+
+    return (feature_date, label_date)
 
 
 def merge_lists_to_unique(l1: list, l2: list) -> list:

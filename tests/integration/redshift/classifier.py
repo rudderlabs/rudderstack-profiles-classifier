@@ -1,3 +1,4 @@
+from tests.integration.utils import create_site_config_file
 from train import *
 import shutil
 from predict import *
@@ -7,7 +8,6 @@ from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import
 )
 from src.predictions.rudderstack_predictions.wht.pb import getPB
 import json
-import yaml
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
 creds["schema"] = "rs_profiles_3"
@@ -138,16 +138,6 @@ def validate_reports():
             missing_files.append(expected_file)
     if len(missing_files) > 0:
         raise Exception(f"{missing_files} not found in reports directory")
-
-
-def create_site_config_file(creds, siteconfig_path):
-    json_data = {
-        "connections": {"test": {"target": "test", "outputs": {"test": creds}}},
-        "py_models": {"credentials_presets": None},
-    }
-    yaml_data = yaml.dump(json_data, default_flow_style=False)
-    with open(siteconfig_path, "w") as file:
-        file.write(yaml_data)
 
 
 def validate_predictions_df():

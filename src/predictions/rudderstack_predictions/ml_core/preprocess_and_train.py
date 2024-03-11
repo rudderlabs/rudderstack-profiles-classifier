@@ -79,24 +79,18 @@ def train_and_store_model_results(
     trainer.plot_diagnostics(
         connector, session, pipe, None, test_x, test_y, trainer.label_column
     )
-    try:
-        figure_file = connector.join_file_path(
-            trainer.figure_names["feature-importance-chart"]
-        )
-        shap_importance = utils.plot_top_k_feature_importance(
-            pipe,
-            train_x,
-            numeric_columns,
-            categorical_columns,
-            figure_file,
-            top_k_features=5,
-        )
-        connector.write_pandas(
-            shap_importance, "FEATURE_IMPORTANCE", if_exists="replace"
-        )
-    except Exception as e:
-        logger.error(f"Could not generate plots {e}")
-
+    figure_file = connector.join_file_path(
+        trainer.figure_names["feature-importance-chart"]
+    )
+    shap_importance = utils.plot_top_k_feature_importance(
+        pipe,
+        train_x,
+        numeric_columns,
+        categorical_columns,
+        figure_file,
+        top_k_features=5,
+    )
+    connector.write_pandas(shap_importance, "FEATURE_IMPORTANCE", if_exists="replace")
     metrics_df, create_metrics_table_query = connector.fetch_create_metrics_table_query(
         metrics_df
     )

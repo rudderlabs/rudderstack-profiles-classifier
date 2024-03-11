@@ -1,4 +1,4 @@
-models :
+models:
   - name: &model_name shopify_churn
     model_type: python_model
     model_spec:
@@ -18,12 +18,16 @@ models :
             label_column: is_churned_10_days # Name of column for which we want to find predictions
             label_value: 1 # Value of label column for which prediction is generated
             prediction_horizon_days: 7 # Number of days in future for which we want to predict
-            features_profiles_model: 'rudder_user_base_features' # Model name
+            features_profiles_model: "rudder_user_base_features" # Model name
             output_profiles_ml_model: *model_name # Name of output model based on current model to dinstinguish between multiple models
             eligible_users: 1=1
-            task: classification 
+            task: classification
             inputs: *inputs
-          
+            new_materialisations_config: # Configuration for generating new materials
+              feature_data_min_date_diff: 14 # Minimum number of days in the difference between new generated material and existing materials
+              strategy: "auto" # Strategy for generating new materials
+              max_no_of_dates: 3 # Upper limit on how many new materials that can be generated
+
           preprocessing: &model_prep_configs
             ignore_features:
               - user_email
@@ -44,5 +48,5 @@ models :
             feature_meta_data: &feature_meta_data
               features:
                 - name: *percentile_name
-                  description: 'Percentile of churn score. Higher the percentile, higher the probability of churn'
+                  description: "Percentile of churn score. Higher the percentile, higher the probability of churn"
       <<: *feature_meta_data

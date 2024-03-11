@@ -413,11 +413,6 @@ class CommonWarehouseConnector(Connector):
                     inputs,
                     materials,
                 )
-                if (
-                    len(self._get_complete_sequences(materials))
-                    >= constants.TRAIN_MATERIALS_LIMIT
-                ):
-                    break
             return materials
         except Exception as e:
             raise Exception(
@@ -581,6 +576,77 @@ class CommonWarehouseConnector(Connector):
                 f"Insufficient data for training. Only {len(feature_table_filtered)} user records found. Required minimum {min_sample_for_training} user records."
             )
         return feature_table_filtered
+
+    def check_for_classification_data_requirement(
+        self,
+        session,
+        materials: List[constants.TrainTablesInfo],
+        label_column: str,
+        label_value: str,
+    ) -> bool:
+        total_negative_samples = 0
+        total_samples = 0
+        for material in materials:
+            label_material = material.label_table_name
+            query_str = f"""SELECT COUNT(*) as count
+                FROM {label_material}
+                WHERE {label_column} != {label_value}"""
+
+            result = self.run_query(session, query_str, response=True)
+
+            if len(result) != 0:
+                total_negative_samples += result[0][0]
+
+            query_str = f"""SELECT COUNT(*) as count
+                FROM {label_material}"""
+            result = self.run_query(session, query_str, response=True)
+
+            if len(result) != 0:
+                total_samples += result[0][0]
+
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+        min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+        min_negative_label_count = min_label_proportion * total_samples
+
+        if (
+            total_samples < min_no_of_samples
+            or total_negative_samples < min_negative_label_count
+        ):
+            logger.debug(
+                "Total number of samples or number of negative samples are "
+                "not meeting the minimum training requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}, "
+                f"total negative samples - {total_negative_samples}, "
+                f"minimum negative samples portion required - {min_label_proportion}"
+            )
+            return False
+        return True
+
+    def check_for_regression_data_requirement(
+        self,
+        session,
+        materials: List[constants.TrainTablesInfo],
+    ) -> bool:
+        total_samples = 0
+        for material in materials:
+            feature_material = material.feature_table_name
+            query_str = f"""SELECT COUNT(*) as count
+                FROM {feature_material}"""
+            result = self.run_query(session, query_str, response=True)
+
+            if len(result) != 0:
+                total_samples += result[0][0]
+
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+
+        if total_samples < min_no_of_samples:
+            logger.debug(
+                "Number training samples are not meeting the minimum requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}"
+            )
+            return False
+
+        return True
 
     def validate_columns_are_present(
         self,

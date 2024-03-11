@@ -196,6 +196,7 @@ def preprocess_and_train(
     train_procedure,
     train_table_pairs: List[constants.TrainTablesInfo],
     merged_config: dict,
+    run_id: str,
     **kwargs,
 ):
     session = kwargs.get("session", None)
@@ -233,7 +234,8 @@ def preprocess_and_train(
     trainer.validate_data(connector, feature_table)
     logger.info("Data validation is completed")
 
-    feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
+    # We are using the same 'run_id' as train script. This can help in debugging/tracing to correct stage and training_procedure.
+    feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features_{run_id}"
     filtered_feature_table = connector.filter_feature_table(
         feature_table,
         trainer.entity_column,
@@ -286,6 +288,7 @@ if __name__ == "__main__":
     parser.add_argument("--prediction_task", type=str)
     parser.add_argument("--wh_creds", type=json.loads)
     parser.add_argument("--output_path", type=str)
+    parser.add_argument("--run_id", type=str)
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
 
@@ -322,6 +325,7 @@ if __name__ == "__main__":
         train_procedure,
         material_info,
         args.merged_config,
+        args.run_id,
         session=session,
         connector=connector,
         trainer=trainer,
@@ -349,4 +353,5 @@ if __name__ == "__main__":
         )
 
         logger.debug(f"Deleting additional local directory from {args.mode} mode.")
-        connector.cleanup(delete_local_data=True)
+        connector.delete_local_data=True
+        connector.post_job_cleanup(session)

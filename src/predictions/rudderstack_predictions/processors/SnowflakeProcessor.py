@@ -15,11 +15,13 @@ class SnowflakeProcessor(Processor):
         prediction_task: str,
         wh_creds: dict,
         site_config: dict,
+        run_id: str,
     ):
         return preprocess_and_train(
             train_procedure,
             materials,
             model_config,
+            run_id,
             session=self.session,
             connector=self.connector,
             trainer=self.trainer,

@@ -192,7 +192,9 @@ def preprocess_and_predict(
         s3_config=s3_config,
     )
     logger.debug("Closing the session")
-    connector.cleanup(session, udf_name=udf_name, close_session=True)
+
+    connector.udf_name = udf_name
+    connector.post_job_cleanup(session)
     logger.debug("Finished Predict job")
 
 

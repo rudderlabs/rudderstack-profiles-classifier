@@ -26,6 +26,10 @@ local_folder = constants.SF_LOCAL_STORAGE_DIR
 
 class SnowflakeConnector(Connector):
     def __init__(self) -> None:
+        self.stage_name = None
+        self.udf_name = None
+        self.stored_procedure_name = None
+        self.delete_files = None
         return
 
     def build_session(self, credentials: dict) -> snowflake.snowpark.Session:
@@ -1234,18 +1238,14 @@ class SnowflakeConnector(Connector):
         ]
         return table.select(*shortlisted_columns)
 
-    def cleanup(self, session: snowflake.snowpark.Session, **kwargs):
-        stored_procedure_name = kwargs.get("stored_procedure_name", None)
-        udf_name = kwargs.get("udf_name", None)
-        delete_files = kwargs.get("delete_files", None)
-        close_session = kwargs.get("close_session", False)
+    def pre_job_cleanup(self, session: snowflake.snowpark.Session):
+        if self.stored_procedure_name:
+            self._delete_procedures(session, self.stored_procedure_name)
+        if self.udf_name:
+            self._drop_fn_if_exists(session, self.udf_name)
+        if self.delete_files:
+            self._delete_import_files(session, self.stage_name, self.delete_files)
 
-        stage_name = kwargs.get("stage_name", None)
-        if stored_procedure_name:
-            self._delete_procedures(session, stored_procedure_name)
-        if udf_name:
-            self._drop_fn_if_exists(session, udf_name)
-        if delete_files:
-            self._delete_import_files(session, stage_name, delete_files)
-        if close_session:
-            session.close()
+    def post_job_cleanup(self, session: snowflake.snowpark.Session):
+        self.pre_job_cleanup(session)
+        session.close()

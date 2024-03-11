@@ -713,5 +713,9 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def cleanup(self, *args, **kwargs) -> None:
+    def pre_job_cleanup(self, session) -> None:
+        pass
+
+    @abstractmethod
+    def post_job_cleanup(self, session) -> None:
         pass

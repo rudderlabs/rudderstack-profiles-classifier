@@ -25,6 +25,8 @@ class CommonWarehouseConnector(Connector):
         path = Path(self.local_dir)
         path.mkdir(parents=True, exist_ok=True)
         self.array_time_features = {}
+        self.udf_name = None
+        self.delete_local_data = False
         return
 
     def get_local_dir(self) -> str:
@@ -954,9 +956,11 @@ class CommonWarehouseConnector(Connector):
             logger.info("Local directory not present")
             pass
 
-    def cleanup(self, *args, **kwargs) -> None:
-        delete_local_data = kwargs.get("delete_local_data", None)
-        if delete_local_data:
+    def pre_job_cleanup(self, session) -> None:
+        pass
+    
+    def post_job_cleanup(self, session) -> None:
+        if self.delete_local_data:
             self._delete_local_data_folder()
 
     @abstractmethod

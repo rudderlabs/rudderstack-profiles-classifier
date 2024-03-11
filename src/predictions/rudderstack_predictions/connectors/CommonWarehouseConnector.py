@@ -242,6 +242,32 @@ class CommonWarehouseConnector(Connector):
         """Function needed only for Snowflake Connector, hence an empty function here."""
         pass
 
+    def get_non_stringtype_features(
+        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
+    ) -> List[str]:
+        """Extracts the names of Non-StringType(numeric) columns having 'integer' dtype"""
+        non_stringtype_features = feature_df.select_dtypes(
+            include=["number"]
+        ).columns.to_list()
+        return [
+            col
+            for col in non_stringtype_features
+            if col.lower() not in (label_column.lower(), entity_column.lower())
+        ]
+
+    def get_stringtype_features(
+        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
+    ) -> List[str]:
+        """Extracts the names of StringType(categorical) columns having non 'integer' dtype"""
+        stringtype_features = feature_df.select_dtypes(
+            exclude=["number"]
+        ).columns.to_list()
+        return [
+            col
+            for col in stringtype_features
+            if col.lower() not in (label_column.lower(), entity_column.lower())
+        ]
+
     def get_arraytype_columns_from_table(self, table: pd.DataFrame, **kwargs) -> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
@@ -738,7 +764,6 @@ class CommonWarehouseConnector(Connector):
         )
         return material_registry_table[material_registry_table["status"] == 2]
 
-    # TODO: checked this fn. Should be correct. Will make sure after BigQuery run.
     def generate_type_hint(self, df: pd.DataFrame, column_types: Dict[str, List[str]]):
         types = []
         cat_columns = [col.lower() for col in column_types["categorical_columns"]]
@@ -754,7 +779,6 @@ class CommonWarehouseConnector(Connector):
                 )
         return types
 
-    # TODO: checked this fn. Should be correct. Will make sure after BigQuery run.
     def call_prediction_udf(
         self,
         predict_data: pd.DataFrame,
@@ -881,18 +905,6 @@ class CommonWarehouseConnector(Connector):
 
     @abstractmethod
     def get_tablenames_from_schema(self, session) -> pd.DataFrame:
-        pass
-
-    @abstractmethod
-    def get_non_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
         pass
 
     @abstractmethod

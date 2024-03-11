@@ -103,52 +103,6 @@ class BigQueryConnector(CommonWarehouseConnector):
         ).schema
         return schema
 
-    def get_non_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        """
-        Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
-
-        Args:
-            feature_df (pd.DataFrame): A feature table dataframe
-            label_column (str): A string representing the name of the label column.
-            entity_column (str): A string representing the name of the entity column.
-
-        Returns:
-            List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
-        """
-        non_stringtype_features = feature_df.select_dtypes(
-            include=["number"]
-        ).columns.to_list()
-        return [
-            col
-            for col in non_stringtype_features
-            if col.lower() not in (label_column.lower(), entity_column.lower())
-        ]
-
-    def get_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        """
-        Extracts the names of StringType(categorical) columns from a given feature table schema.
-
-        Args:
-            feature_df (pd.DataFrame): A feature table dataframe
-            label_column (str): The name of the label column.
-            entity_column (str): The name of the entity column.
-
-        Returns:
-            List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
-        """
-        stringtype_features = feature_df.select_dtypes(
-            include=["object", "category"]
-        ).columns.to_list()
-        return [
-            col
-            for col in stringtype_features
-            if col.lower() not in (label_column.lower(), entity_column.lower())
-        ]
-
     def get_timestamp_columns(
         self,
         session,

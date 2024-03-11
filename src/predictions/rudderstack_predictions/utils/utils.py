@@ -807,22 +807,6 @@ def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
 def plot_top_k_feature_importance(
     pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5
 ) -> pd.DataFrame:
-    """
-    Generates a bar chart to visualize the top k important features in a machine learning model.
-
-    Args:
-        session (object): The session object used for writing the feature importance values and saving the chart image.
-        pipe (object): The pipeline object containing the preprocessor and model.
-        stage_name (str): The name of the stage where the chart image will be saved.
-        train_x (array-like): The input data used for calculating the feature importance values.
-        numeric_columns (list): The list of column names for numeric features.
-        categorical_columns (list): The list of column names for categorical features.
-        chart_name (str): The name of the chart image file.
-        top_k_features (int, optional): The number of top important features to display in the chart. Default is 5.
-
-    Returns:
-        None. The function generates a bar chart and writes the feature importance values to a table in the session.
-    """
     train_x_processed = pipe["preprocessor"].transform(train_x)
     train_x_processed = train_x_processed.astype(np.int_)
 
@@ -849,6 +833,9 @@ def plot_top_k_feature_importance(
         and len(shap_values.shape) == 3
         and shap_values.shape[2] == 2
     ):
+        logger.debug(
+            "Got 3D numpy array with last dimension having depth of 2. Taking the second output for plotting feature importance"
+        )
         shap_values = shap_values[:, :, 1]
     onehot_encoder_columns = get_column_names(
         dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"],

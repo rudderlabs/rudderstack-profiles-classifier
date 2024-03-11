@@ -184,6 +184,7 @@ def test_regressor():
     train_inputs = [
         f"""SELECT * FROM {creds['schema']}.material_user_var_table_{latest_model_hash}_0""",
     ]
+    runtime_info = {"site_config_path": siteconfig_path}
 
     try:
         train(
@@ -193,6 +194,7 @@ def test_regressor():
             train_config,
             siteconfig_path,
             project_path,
+            runtime_info,
         )
         validate_training_summary_regression()
         validate_reports_regression()

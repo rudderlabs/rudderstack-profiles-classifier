@@ -194,7 +194,6 @@ def test_regressor():
             train_config,
             siteconfig_path,
             project_path,
-            runtime_info,
         )
         validate_training_summary_regression()
         validate_reports_regression()
@@ -214,6 +213,7 @@ def test_regressor():
             predict_inputs,
             p_output_tablename,
             predict_config,
+            runtime_info,
         )
         validate_predictions_df()
 

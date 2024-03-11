@@ -228,6 +228,7 @@ def test_classification():
             predict_inputs,
             p_output_tablename,
             predict_config,
+            runtime_info,
         )
         validate_predictions_df()
 

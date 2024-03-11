@@ -7,6 +7,7 @@ import pandas as pd
 import sys
 import hashlib
 
+from functools import partial
 from .processors.ProcessorFactory import ProcessorFactory
 
 from .utils.logger import logger
@@ -27,11 +28,9 @@ from .utils import utils
 from .utils import constants
 from .wht.pb import getPB
 
-from .connectors.SnowflakeConnector import SnowflakeConnector
+from .connectors.ConnectorFactory import ConnectorFactory
 from .trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
-from .ml_core.preprocess_and_train import train_and_store_model_results_rs
-from .connectors.RedshiftConnector import RedshiftConnector
-
+from .ml_core.preprocess_and_train import train_and_store_model_results
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
@@ -124,7 +123,7 @@ def _train(
         ).hexdigest()
         stage_name = f"@rs_{run_id}"
         train_procedure = f"train_and_store_model_results_sf_{run_id}"
-        connector = SnowflakeConnector()
+        connector = ConnectorFactory.create(warehouse)
         session = connector.build_session(creds)
         connector.create_stage(session, stage_name)
         connector.cleanup(
@@ -275,11 +274,12 @@ def _train(
             )
             return results
 
-    elif warehouse == "redshift":
-        train_procedure = train_and_store_model_results_rs
-        connector = RedshiftConnector(folder_path)
+    elif warehouse in ("redshift", "bigquery"):
+        train_procedure = train_and_store_model_results
+        connector = ConnectorFactory.create(warehouse, folder_path)
         session = connector.build_session(creds)
         connector.cleanup(delete_local_data=True)
+        connector.make_local_dir()
 
     material_table = getPB().get_material_registry_name(connector, session)
 
@@ -304,42 +304,61 @@ def _train(
             creation_ts, trainer.prediction_horizon_days
         )
 
-    logger.info("Getting past data for training")
-    # try:
-    # material_names, training_dates
-
-    trainer.inputs = connector.get_input_models(
-        trainer.inputs, output_filename, project_folder, site_config_path
-    )
-
-    train_table_pairs = connector.get_material_names(
-        session,
-        material_table,
-        start_date,
-        end_date,
-        features_profiles_model,
-        model_hash,
-        trainer.prediction_horizon_days,
-        output_filename,
-        site_config_path,
-        project_folder,
-        trainer.inputs,
-        inputs,
-    )
-    # except TypeError:
-    #     raise Exception(
-    #         "Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly"
-    #     )
-
     if trainer.label_value is None and prediction_task == "classification":
-        sample_material_ = train_table_pairs[0]
+        latest_feature_table_name = getPB().get_latest_entity_var_table_name(
+            model_hash, features_profiles_model, inputs
+        )
         label_value = connector.get_default_label_value(
             session,
-            sample_material_.label_table_name,
+            latest_feature_table_name,
             trainer.label_column,
             positive_boolean_flags,
         )
         trainer.label_value = label_value
+
+    logger.info("Getting past data for training")
+    try:
+        get_material_names_partial = partial(
+            connector.get_material_names,
+            session=session,
+            material_table=material_table,
+            end_date=end_date,
+            features_profiles_model=features_profiles_model,
+            model_hash=model_hash,
+            prediction_horizon_days=trainer.prediction_horizon_days,
+            output_filename=output_filename,
+            site_config_path=site_config_path,
+            project_folder=project_folder,
+            input_models=trainer.inputs,
+            inputs=inputs,
+        )
+
+        # material_names, training_dates
+        train_table_pairs = get_material_names_partial(start_date=start_date)
+
+        # Generate new materials for training data
+        try:
+            train_table_pairs = connector.check_and_generate_more_materials(
+                session,
+                get_material_names_partial,
+                trainer.check_min_data_requirement,
+                trainer.materialisation_strategy,
+                trainer.feature_data_min_date_diff,
+                train_table_pairs,
+                trainer.materialisation_max_no_dates,
+                trainer.materialisation_dates,
+                trainer.prediction_horizon_days,
+                trainer.inputs,
+                output_filename,
+                site_config_path,
+                project_folder,
+            )
+        except Exception as e:
+            logger.error(f"Error while generating new materials, {str(e)}")
+    except TypeError:
+        raise Exception(
+            "Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly"
+        )
 
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend

@@ -1,8 +1,9 @@
 import pandas as pd
 import json
 
+from datetime import datetime
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple, Union, Sequence, Optional, Dict
+from typing import Any, List, Tuple, Union, Sequence, Optional
 
 from ..utils import utils
 from ..utils.logger import logger
@@ -124,6 +125,7 @@ class Connector(ABC):
         Returns:
             List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
+        logger.info("getting material names")
         (materials) = self.get_material_names_(
             session,
             material_table,
@@ -134,6 +136,7 @@ class Connector(ABC):
             prediction_horizon_days,
             inputs,
         )
+
         if len(self._get_complete_sequences(materials)) == 0:
             try:
                 _ = self.generate_training_materials(
@@ -168,7 +171,113 @@ class Connector(ABC):
             raise Exception(
                 f"Tried to materialise past data but no materialized data found for {features_profiles_model} between dates {start_date} and {end_date}"
             )
+
         return complete_sequences_materials
+
+    def check_and_generate_more_materials(
+        self,
+        session,
+        get_material_func: callable,
+        data_requirement_check_func: callable,
+        strategy: str,
+        feature_data_min_date_diff: int,
+        materials: List[TrainTablesInfo],
+        max_num_of_materialisations: int,
+        materialisation_dates: list,
+        prediction_horizon_days: int,
+        input_models: str,
+        output_filename: str,
+        site_config_path: str,
+        project_folder: str,
+    ):
+        met_data_requirement = data_requirement_check_func(self, session, materials)
+
+        logger.debug(f"Min data requirement satisfied: {met_data_requirement}")
+        logger.debug(f"New material generation strategy : {strategy}")
+        if met_data_requirement or strategy == "":
+            return materials
+
+        feature_package_path = utils.get_feature_package_path(input_models)
+        max_materializations = (
+            max_num_of_materialisations
+            if strategy == "auto"
+            else len(materialisation_dates)
+        )
+
+        for i in range(max_materializations):
+            feature_date = None
+            label_date = None
+
+            if strategy == "auto":
+                training_dates = [
+                    utils.datetime_to_date_string(m.feature_table_date)
+                    for m in materials
+                ]
+                training_dates = [
+                    date_str for date_str in training_dates if len(date_str) != 0
+                ]
+                logger.info(f"training_dates : {training_dates}")
+                training_dates = sorted(
+                    training_dates,
+                    key=lambda x: datetime.strptime(x, "%Y-%m-%d"),
+                    reverse=True,
+                )
+
+                max_feature_date = training_dates[0]
+                min_feature_date = training_dates[-1]
+
+                feature_date, label_date = utils.generate_new_training_dates(
+                    max_feature_date,
+                    min_feature_date,
+                    training_dates,
+                    prediction_horizon_days,
+                    feature_data_min_date_diff,
+                )
+                logger.info(
+                    f"new generated dates for feature: {feature_date}, label: {label_date}"
+                )
+            elif strategy == "manual":
+                dates = materialisation_dates[i].split(",")
+                if len(dates) >= 2:
+                    feature_date = dates[0]
+                    label_date = dates[1]
+
+                if feature_date is None or label_date is None:
+                    continue
+
+            try:
+                for date in [feature_date, label_date]:
+                    args = {
+                        "feature_package_path": feature_package_path,
+                        "features_valid_time": date,
+                        "output_path": output_filename,
+                        "site_config_path": site_config_path,
+                        "project_folder": project_folder,
+                    }
+                    getPB().run(args)
+            except Exception as e:
+                logger.warning(str(e))
+                logger.warning("Stopped generating new material dates.")
+                break
+
+            logger.info(
+                "Materialised feature and label data successfully, "
+                f"for dates {feature_date} and {label_date}"
+            )
+
+            # Get materials with new feature start date
+            # and validate min data requirement again
+            materials = get_material_func(start_date=feature_date)
+            logger.debug(
+                f"new feature tables: {[m.feature_table_name for m in materials]}"
+            )
+            logger.debug(f"new label tables: {[m.label_table_name for m in materials]}")
+            met_data_requirement = data_requirement_check_func(self, session, materials)
+
+            if met_data_requirement:
+                break
+
+        return materials
 
     def generate_training_materials(
         self,
@@ -268,7 +377,7 @@ class Connector(ABC):
                     valid feature_date and label_date because table {label_table_name_} does not exist in the warehouse"
                 feature_date = utils.date_add(
                     material_info.label_table_date.split()[0],
-                    -prediction_horizon_days,
+                    -1 * prediction_horizon_days,
                 )
             elif (
                 material_info.feature_table_name is None
@@ -315,7 +424,7 @@ class Connector(ABC):
             if feature_material_seq_no is not None:
                 feature_table_query = utils.replace_seq_no_in_query(
                     material_table_query, int(feature_material_seq_no)
-                ).lower()
+                )
                 assert self.check_table_entry_in_material_registry(
                     session, feature_table_query
                 ), f"Material table {feature_table_query} does not exist"
@@ -323,7 +432,7 @@ class Connector(ABC):
             if label_material_seq_no is not None:
                 label_table_query = utils.replace_seq_no_in_query(
                     material_table_query, int(label_material_seq_no)
-                ).lower()
+                )
                 assert self.check_table_entry_in_material_registry(
                     session, label_table_query
                 ), f"Material table {label_table_query} does not exist"
@@ -445,6 +554,10 @@ class Connector(ABC):
     def get_table_as_dataframe(
         self, session, table_name: str, **kwargs
     ) -> pd.DataFrame:
+        pass
+
+    @abstractmethod
+    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
         pass
 
     @abstractmethod
@@ -593,6 +706,16 @@ class Connector(ABC):
         max_row_count: int,
         min_sample_for_training: int,
     ):
+        pass
+
+    @abstractmethod
+    def check_for_classification_data_requirement(
+        self, session, meterials, label_column, label_value
+    ) -> bool:
+        pass
+
+    @abstractmethod
+    def check_for_regression_data_requirement(self, session, meterials) -> bool:
         pass
 
     @abstractmethod

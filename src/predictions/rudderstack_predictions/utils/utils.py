@@ -1,3 +1,5 @@
+import math
+import re
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -356,6 +358,23 @@ def parse_warehouse_creds(creds: dict, mode: str) -> dict:
     return wh_creds
 
 
+def convert_ts_str_to_dt_str(timestamp_str: str) -> str:
+    try:
+        if "+" in timestamp_str:
+            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S%z")
+        elif " " in timestamp_str:
+            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+        else:
+            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d")
+        string_date = timestamp.strftime("%Y-%m-%d")
+        return string_date
+    except Exception as e:
+        logger.error(f"Error occurred while converting timestamp to date string: {e}")
+        raise Exception(
+            f"Error occurred while converting timestamp to date string: {e}"
+        )
+
+
 def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> List[str]:
     """Assigning new column names for the one-hot encoded columns.
 
@@ -492,6 +511,101 @@ def date_add(reference_date: str, add_days: int) -> str:
     )
     new_date = new_timestamp.strftime("%Y-%m-%d")
     return new_date
+
+
+def get_abs_date_diff(ref_date1: str, ref_date2: str) -> int:
+    """
+    For given two dates in string format, it will retrun the difference in days
+    Args:
+        ref_date1: Reference date1
+        ref_date2: Reference date2
+    Returns:
+        int: Difference in number of dates
+    """
+    d1 = datetime.strptime(ref_date1, "%Y-%m-%d")
+    d2 = datetime.strptime(ref_date2, "%Y-%m-%d")
+    diff = d2 - d1
+    return abs(diff.days)
+
+
+def dates_proximity_check(reference_date: str, dates: list, distance: int) -> bool:
+    """
+    For given reference date and list of training dates, it will check
+    whether a given date(reference_date) is farther from every date in the dates list, by minimum "distance" days
+
+    Args:
+        reference_date: Given reference date
+        dates: List of dates to be checked with
+        distance: Difference distance
+    Returns:
+        bool: Wether given date is passing the proximity check
+    """
+    for d in dates:
+        if get_abs_date_diff(reference_date, d) < distance:
+            return False
+    return True
+
+
+def datetime_to_date_string(datetime_str: str) -> str:
+    """
+    Converts datetime sting to date string
+
+    Args:
+        datetime_str: Datetime in string format
+    Returns:
+        str: Date in string format
+    """
+    try:
+        datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        # Value error will be raised if its not able
+        # to match datetime string with given format
+        # In this case datetime sting is in "%Y-%m-%d" format
+        # and returning empty string
+        logger.warning(
+            f"Not able to extract date string from datetime string {datetime_str}"
+        )
+        return ""
+
+    date = datetime_obj.date()
+    return str(date)
+
+
+def generate_new_training_dates(
+    max_feature_date: str,
+    min_feature_date: str,
+    training_dates: list,
+    prediction_horizon_days: int,
+    feature_data_min_date_diff: int,
+) -> Tuple:
+    # Find next valid feature date
+    # It is guaranteed that new training date will be found within 'max_num_of_tries' iterations
+    num_days_diff = get_abs_date_diff(max_feature_date, min_feature_date)
+    max_num_of_tries = math.ceil(num_days_diff / feature_data_min_date_diff) + 1
+
+    for idx in range(max_num_of_tries):
+        # d3 = d2 - t
+        generated_feature_date = date_add(
+            max_feature_date, -1 * (idx + 1) * feature_data_min_date_diff
+        )
+
+        found = dates_proximity_check(
+            generated_feature_date, training_dates, feature_data_min_date_diff
+        )
+
+        if found:
+            break
+
+    if not found:
+        logger.warning(
+            "Couldn't find a date honouring proximity check. "
+            f"Proceeding with {generated_feature_date} as feature_date"
+        )
+
+    feature_date = generated_feature_date
+    label_date = date_add(feature_date, prediction_horizon_days)
+
+    return (feature_date, label_date)
 
 
 def merge_lists_to_unique(l1: list, l2: list) -> list:
@@ -789,81 +903,68 @@ def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
 def plot_top_k_feature_importance(
     pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5
 ) -> pd.DataFrame:
-    """
-    Generates a bar chart to visualize the top k important features in a machine learning model.
+    train_x_processed = pipe["preprocessor"].transform(train_x)
+    train_x_processed = train_x_processed.astype(np.int_)
 
-    Args:
-        session (object): The session object used for writing the feature importance values and saving the chart image.
-        pipe (object): The pipeline object containing the preprocessor and model.
-        stage_name (str): The name of the stage where the chart image will be saved.
-        train_x (array-like): The input data used for calculating the feature importance values.
-        numeric_columns (list): The list of column names for numeric features.
-        categorical_columns (list): The list of column names for categorical features.
-        chart_name (str): The name of the chart image file.
-        top_k_features (int, optional): The number of top important features to display in the chart. Default is 5.
-
-    Returns:
-        None. The function generates a bar chart and writes the feature importance values to a table in the session.
-    """
     try:
-        train_x_processed = pipe["preprocessor"].transform(train_x)
-        train_x_processed = train_x_processed.astype(np.int_)
-
-        try:
-            shap_values = shap.TreeExplainer(pipe["model"]).shap_values(
-                train_x_processed
-            )
-        except Exception as e:
-            logger.warning(
-                f"Exception occured while calculating shap values {e}, using KernelExplainer"
-            )
-            shap_values = shap.KernelExplainer(
-                pipe["model"].predict_proba, data=train_x_processed
-            ).shap_values(train_x_processed)
-
-        x_label = "Importance scores"
-        if isinstance(shap_values, list):
-            logger.debug(
-                "Got List output, suggesting that the model is a multi-output model. \
-                    Using the second output for plotting feature importance"
-            )
-            x_label = "Importance scores of positive label"
-            shap_values = shap_values[1]
-        onehot_encoder_columns = get_column_names(
-            dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"],
-            categorical_columns,
-        )
-        col_names_ = (
-            numeric_columns
-            + onehot_encoder_columns
-            + [
-                col
-                for col in list(train_x)
-                if col not in numeric_columns and col not in categorical_columns
-            ]
-        )
-
-        shap_df = pd.DataFrame(shap_values, columns=col_names_)
-        vals = np.abs(shap_df.values).mean(0)
-        feature_names = shap_df.columns
-        shap_importance = pd.DataFrame(
-            data=vals, index=feature_names, columns=["feature_importance_vals"]
-        )
-        shap_importance.sort_values(
-            by=["feature_importance_vals"], ascending=False, inplace=True
-        )
-
-        ax = shap_importance[:top_k_features][::-1].plot(
-            kind="barh", figsize=(8, 6), color="#86bf91", width=0.3
-        )
-        ax.set_xlabel(x_label)
-        ax.set_ylabel("Feature Name")
-        plt.title(f"Top {top_k_features} Important Features")
-        plt.savefig(figure_file, bbox_inches="tight")
-        plt.clf()
-        return shap_importance
+        shap_values = shap.TreeExplainer(pipe["model"]).shap_values(train_x_processed)
     except Exception as e:
-        logger.warning(f"Exception occured while plotting feature importance {e}")
+        logger.warning(
+            f"Exception occured while calculating shap values {e}, using KernelExplainer"
+        )
+        shap_values = shap.KernelExplainer(
+            pipe["model"].predict_proba, data=train_x_processed
+        ).shap_values(train_x_processed)
+
+    x_label = "Importance scores"
+    if isinstance(shap_values, list):
+        logger.debug(
+            "Got List output, suggesting that the model is a multi-output model. \
+                Using the second output for plotting feature importance"
+        )
+        x_label = "Importance scores of positive label"
+        shap_values = shap_values[1]
+    elif (
+        isinstance(shap_values, np.ndarray)
+        and len(shap_values.shape) == 3
+        and shap_values.shape[2] == 2
+    ):
+        logger.debug(
+            "Got 3D numpy array with last dimension having depth of 2. Taking the second output for plotting feature importance"
+        )
+        shap_values = shap_values[:, :, 1]
+    onehot_encoder_columns = get_column_names(
+        dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"],
+        categorical_columns,
+    )
+    col_names_ = (
+        numeric_columns
+        + onehot_encoder_columns
+        + [
+            col
+            for col in list(train_x)
+            if col not in numeric_columns and col not in categorical_columns
+        ]
+    )
+    shap_df = pd.DataFrame(shap_values, columns=col_names_)
+    vals = np.abs(shap_df.values).mean(0)
+    feature_names = shap_df.columns
+    shap_importance = pd.DataFrame(
+        data=vals, index=feature_names, columns=["feature_importance_vals"]
+    )
+    shap_importance.sort_values(
+        by=["feature_importance_vals"], ascending=False, inplace=True
+    )
+
+    ax = shap_importance[:top_k_features][::-1].plot(
+        kind="barh", figsize=(8, 6), color="#86bf91", width=0.3
+    )
+    ax.set_xlabel(x_label)
+    ax.set_ylabel("Feature Name")
+    plt.title(f"Top {top_k_features} Important Features")
+    plt.savefig(figure_file, bbox_inches="tight")
+    plt.clf()
+    return shap_importance
 
 
 def fetch_staged_file(
@@ -1114,6 +1215,11 @@ def plot_user_feature_importance(
 
 
 def replace_seq_no_in_query(query: str, seq_no: int) -> str:
-    query_split = query.split("_")
-    new_query = "_".join(query_split[:-1]) + "_" + f"{seq_no:.0f}"
-    return new_query
+    match = re.search(r"(_\d+)(`|$)", query)
+    if match:
+        replaced_query = (
+            query[: match.start(1)] + "_" + str(seq_no) + query[match.end(1) :]
+        )
+        return replaced_query
+    else:
+        raise Exception(f"Couldn't find an integer seq_no in the input query: {query}")

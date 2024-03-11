@@ -53,8 +53,13 @@ class CommonWarehouseConnector(Connector):
         Returns:
             Results of the training function
         """
-        train_function = args[0]
-        args = args[1:]
+        args = list(args)
+        snowflake_relevent_feature_table_name = args.pop(
+            2
+        )  # feature_table_name of snowflake table store on warehouse. Thus, irrelevant for Redshift/BigQuery.
+        del snowflake_relevent_feature_table_name
+
+        train_function = args.pop(0)
         return train_function(*args, **kwargs)
 
     def get_merged_table(self, base_table, incoming_table):
@@ -129,22 +134,16 @@ class CommonWarehouseConnector(Connector):
             return False
 
         material_registry_table_name = getPB().get_material_registry_name(self, session)
+        material_registry_table = self.get_material_registry_table(
+            session, material_registry_table_name
+        )
 
-        query_str = f"""SELECT * FROM {material_registry_table_name}
-            WHERE model_name = '{model_name}' AND
-            model_hash = '{model_hash}' AND
-            seq_no = {seq_no}"""
+        result = material_registry_table.loc[
+            (material_registry_table["model_name"] == model_name)
+            & (material_registry_table["model_hash"] == model_hash)
+            & (material_registry_table["seq_no"] == seq_no)
+        ]
 
-        result = session.execute(query_str).fetch_dataframe()
-
-        def safe_parse_json(x):
-            try:
-                return eval(x).get("complete", {}).get("status")
-            except:
-                return None
-
-        result["status"] = result["metadata"].apply(safe_parse_json)
-        result = result[result["status"] == 2]
         row_count = result.shape[0]
         return row_count != 0
 
@@ -174,6 +173,11 @@ class CommonWarehouseConnector(Connector):
             json_data = json.load(file)
         utils.delete_file(file_path)
         return json_data
+
+    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
+        """Sends the given snowpark table to the training env(ie. local env) with the name as given.
+        Therefore, no usecase for this function in case of Redshift/BigQuery."""
+        pass
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
         """Writes the given pandas dataframe to the warehouse schema with the given name.
@@ -238,73 +242,6 @@ class CommonWarehouseConnector(Connector):
         """Function needed only for Snowflake Connector, hence an empty function here."""
         pass
 
-    # TODO: check below functions. Resume from here.
-    def get_non_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        """
-        Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
-
-        Args:
-            feature_df (pd.DataFrame): A feature table dataframe
-            label_column (str): A string representing the name of the label column.
-            entity_column (str): A string representing the name of the entity column.
-
-        Returns:
-            List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
-        """
-        non_stringtype_features = []
-        for column in feature_df.columns:
-            if column.lower() not in (label_column, entity_column) and (
-                feature_df[column].dtype == "int64"
-                or feature_df[column].dtype == "float64"
-            ):
-                non_stringtype_features.append(column)
-        return non_stringtype_features
-
-    def get_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        """
-        Extracts the names of StringType(categorical) columns from a given feature table schema.
-
-        Args:
-            feature_df (pd.DataFrame): A feature table dataframe
-            label_column (str): The name of the label column.
-            entity_column (str): The name of the entity column.
-
-        Returns:
-            List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
-        """
-        stringtype_features = []
-        for column in feature_df.columns:
-            if column.lower() not in (label_column, entity_column) and (
-                feature_df[column].dtype != "int64"
-                and feature_df[column].dtype != "float64"
-            ):
-                stringtype_features.append(column)
-        return stringtype_features
-
-    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
-        """Returns the list of features to be ignored from the feature table.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the table from which to retrieve the arraytype/super columns.
-
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
-        session.execute(
-            f"select * from pg_get_cols('{self.schema}.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);"
-        )
-        col_df = session.fetch_dataframe()
-        arraytype_columns = []
-        for _, row in col_df.iterrows():
-            if row["col_type"] == "super":
-                arraytype_columns.append(row["col_name"])
-        return arraytype_columns
-
     def get_arraytype_columns_from_table(self, table: pd.DataFrame, **kwargs) -> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
@@ -323,50 +260,17 @@ class CommonWarehouseConnector(Connector):
         entity_column,
         cardinal_feature_threshold,
     ) -> List[str]:
-        # TODO: remove this logger.info
-        logger.info(
-            f"Identifying high cardinality features in the Redshift feature table."
-        )
         high_cardinal_features = list()
         for field in table.columns:
-            if (table[field].dtype != "int64" and table[field].dtype != "float64") and (
-                field.lower() not in (label_column.lower(), entity_column.lower())
-            ):
+            if (
+                table[field].dtype not in ("int64", "float64", "Int64", "Float64")
+            ) and (field.lower() not in (label_column.lower(), entity_column.lower())):
                 feature_data = table[field]
                 total_rows = len(feature_data)
                 top_10_freq_sum = sum(feature_data.value_counts().head(10))
                 if top_10_freq_sum < cardinal_feature_threshold * total_rows:
                     high_cardinal_features.append(field)
         return high_cardinal_features
-
-    def get_timestamp_columns(
-        self,
-        session,
-        table_name: str,
-    ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        session.execute(
-            f"select * from pg_get_cols('{self.schema}.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);"
-        )
-        col_df = session.fetch_dataframe()
-        timestamp_columns = []
-        for _, row in col_df.iterrows():
-            if row["col_type"] in [
-                "timestamp without time zone",
-                "date",
-                "time without time zone",
-            ]:
-                timestamp_columns.append(row["col_name"])
-        return timestamp_columns
 
     def get_timestamp_columns_from_table(
         self, table: pd.DataFrame, **kwargs
@@ -383,8 +287,6 @@ class CommonWarehouseConnector(Connector):
         kwargs.get("features_path", None)
         timestamp_columns = self.array_time_features["timestamp_columns"]
         return timestamp_columns
-
-    # TODO: Till this point from last #TODO.
 
     def get_default_label_value(
         self, session, table_name: str, label_column: str, positive_boolean_flags: list
@@ -469,7 +371,8 @@ class CommonWarehouseConnector(Connector):
                 end_time,
                 columns={"seq_no": "FEATURE_SEQ_NO", "end_ts": "FEATURE_END_TS"},
             )
-            feature_df["LABEL_END_TS"] = feature_df["FEATURE_END_TS"] + timedelta(
+            required_feature_cols = feature_df.columns.to_list()
+            feature_df["TEMP_LABEL_END_TS"] = feature_df["FEATURE_END_TS"] + timedelta(
                 days=prediction_horizon_days
             )
 
@@ -488,9 +391,18 @@ class CommonWarehouseConnector(Connector):
                 label_end_time,
                 columns={"seq_no": "LABEL_SEQ_NO", "end_ts": "LABEL_END_TS"},
             )
+            required_label_cols = label_df.columns.to_list()
+
             feature_label_df = pd.merge(
-                feature_df, label_df, on="LABEL_END_TS", how="outer"
+                feature_df,
+                label_df,
+                left_on=feature_df["TEMP_LABEL_END_TS"].dt.date,
+                right_on=label_df["LABEL_END_TS"].dt.date,
+                how="outer",
             ).replace({np.nan: None})
+            feature_label_df = feature_label_df[
+                utils.merge_lists_to_unique(required_feature_cols, required_label_cols)
+            ]
 
             for _, row in feature_label_df.iterrows():
                 self._fetch_valid_historic_materials(
@@ -501,11 +413,6 @@ class CommonWarehouseConnector(Connector):
                     inputs,
                     materials,
                 )
-                if (
-                    len(self._get_complete_sequences(materials))
-                    >= constants.TRAIN_MATERIALS_LIMIT
-                ):
-                    break
             return materials
         except Exception as e:
             raise Exception(
@@ -670,6 +577,77 @@ class CommonWarehouseConnector(Connector):
             )
         return feature_table_filtered
 
+    def check_for_classification_data_requirement(
+        self,
+        session,
+        materials: List[constants.TrainTablesInfo],
+        label_column: str,
+        label_value: str,
+    ) -> bool:
+        total_negative_samples = 0
+        total_samples = 0
+        for material in materials:
+            label_material = material.label_table_name
+            query_str = f"""SELECT COUNT(*) as count
+                FROM {label_material}
+                WHERE {label_column} != {label_value}"""
+
+            result = self.run_query(session, query_str, response=True)
+
+            if len(result) != 0:
+                total_negative_samples += result[0][0]
+
+            query_str = f"""SELECT COUNT(*) as count
+                FROM {label_material}"""
+            result = self.run_query(session, query_str, response=True)
+
+            if len(result) != 0:
+                total_samples += result[0][0]
+
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+        min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+        min_negative_label_count = min_label_proportion * total_samples
+
+        if (
+            total_samples < min_no_of_samples
+            or total_negative_samples < min_negative_label_count
+        ):
+            logger.debug(
+                "Total number of samples or number of negative samples are "
+                "not meeting the minimum training requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}, "
+                f"total negative samples - {total_negative_samples}, "
+                f"minimum negative samples portion required - {min_label_proportion}"
+            )
+            return False
+        return True
+
+    def check_for_regression_data_requirement(
+        self,
+        session,
+        materials: List[constants.TrainTablesInfo],
+    ) -> bool:
+        total_samples = 0
+        for material in materials:
+            feature_material = material.feature_table_name
+            query_str = f"""SELECT COUNT(*) as count
+                FROM {feature_material}"""
+            result = self.run_query(session, query_str, response=True)
+
+            if len(result) != 0:
+                total_samples += result[0][0]
+
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+
+        if total_samples < min_no_of_samples:
+            logger.debug(
+                "Number training samples are not meeting the minimum requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}"
+            )
+            return False
+
+        return True
+
     def validate_columns_are_present(
         self,
         feature_table: pd.DataFrame,
@@ -737,7 +715,7 @@ class CommonWarehouseConnector(Connector):
         Returns:
             The table with the new column added as a Pandas DataFrame object.
         """
-        table["temp_1"] = pd.to_datetime(table[time_col])
+        table["temp_1"] = pd.to_datetime(table[time_col]).dt.tz_localize(None)
         table["temp_2"] = pd.to_datetime(end_ts)
         table[new_col] = (table["temp_2"] - table["temp_1"]).dt.days
         return table.drop(columns=["temp_1", "temp_2"])
@@ -935,6 +913,10 @@ class CommonWarehouseConnector(Connector):
         ), f"Expected columns {training_features_columns} not found in table {matching_columns_upper}"
         return table.filter(matching_columns)
 
+    def make_local_dir(self) -> None:
+        "Created a local directory to store temporary files"
+        Path(self.local_dir).mkdir(parents=True, exist_ok=True)
+
     def _delete_local_data_folder(self) -> None:
         """Deletes the local data folder."""
         try:
@@ -965,4 +947,32 @@ class CommonWarehouseConnector(Connector):
 
     @abstractmethod
     def get_tablenames_from_schema(self, session) -> pd.DataFrame:
+        pass
+
+    @abstractmethod
+    def get_non_stringtype_features(
+        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
+    ) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_stringtype_features(
+        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
+    ) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_timestamp_columns(
+        self,
+        session,
+        table_name: str,
+    ) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
+        pass
+
+    @abstractmethod
+    def fetch_create_metrics_table_query(self, metrics_df):
         pass

@@ -80,6 +80,12 @@ class SnowflakeConnector(Connector):
         session = kwargs.get("session", None)
         if session == None:
             raise Exception("Session object not found")
+        args = list(args)
+        feature_table_df = args.pop(
+            1
+        )  # Snowflake stored procedure for training requires feature_table_name saved on warehouse instead of feature_table_df
+        del feature_table_df
+
         return session.call(*args)
 
     def get_merged_table(self, base_table, incoming_table):
@@ -206,6 +212,12 @@ class SnowflakeConnector(Connector):
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
         return self.get_table(session, table_name, **kwargs).toPandas()
+
+    def send_to_train_env(
+        self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
+    ) -> Any:
+        """Sends the given snowpark table to the training env(ie. snowflake warehouse in this case) with the name as given"""
+        self.write_table(table, table_name_remote, **kwargs)
 
     def write_table(
         self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
@@ -439,10 +451,6 @@ class SnowflakeConnector(Connector):
             high_cardinal_features = get_high_cardinal_features(feature_table, label_column, entity_column, cardinal_feature_threshold)
             print(high_cardinal_features)
         """
-        # TODO: remove this logger.info
-        logger.info(
-            f"Identifying high cardinality features in the Snowflake feature table."
-        )
         high_cardinal_features = list()
         total_rows = feature_table.count()
         for field in feature_table.schema.fields:
@@ -628,11 +636,7 @@ class SnowflakeConnector(Connector):
                     inputs,
                     materials,
                 )
-                if (
-                    len(self._get_complete_sequences(materials))
-                    >= constants.TRAIN_MATERIALS_LIMIT
-                ):
-                    break
+
             return materials
         except Exception as e:
             raise Exception(
@@ -839,6 +843,67 @@ class SnowflakeConnector(Connector):
                     Required minimum {min_sample_for_training} user records."
             )
         return table
+
+    def check_for_classification_data_requirement(
+        self,
+        session: snowflake.snowpark.Session,
+        materials: List[constants.TrainTablesInfo],
+        label_column: str,
+        label_value: str,
+    ) -> bool:
+        label_materials = [m.label_table_name for m in materials]
+        label_table = None
+
+        for label_material in label_materials:
+            temp_table = self.get_table(session, label_material)
+            label_table = self.get_merged_table(label_table, temp_table)
+
+        total_samples = label_table.count()
+
+        total_negative_samples = label_table.filter(
+            F.col(label_column) != label_value
+        ).count()
+
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+        min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+        min_negative_label_count = min_label_proportion * total_samples
+
+        if (
+            total_samples < min_no_of_samples
+            or total_negative_samples < min_negative_label_count
+        ):
+            logger.debug(
+                "Total number of samples or number of negative samples are "
+                "not meeting the minimum training requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}, "
+                f"total negative samples - {total_negative_samples}, "
+                f"minimum negative samples portion required - {min_label_proportion}"
+            )
+            return False
+        return True
+
+    def check_for_regression_data_requirement(
+        self,
+        session: snowflake.snowpark.Session,
+        materials: List[constants.TrainTablesInfo],
+    ) -> bool:
+        feature_table = None
+        for material in materials:
+            feature_material = material.feature_table_name
+            temp_table = self.get_table(session, feature_material)
+            feature_table = self.get_merged_table(feature_table, temp_table)
+
+        total_samples = feature_table.count()
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+
+        if total_samples < min_no_of_samples:
+            logger.debug(
+                "Number training samples are not meeting the minimum requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}"
+            )
+            return False
+
+        return True
 
     def validate_columns_are_present(
         self, feature_table: snowflake.snowpark.Table, label_column: str

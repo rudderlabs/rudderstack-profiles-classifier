@@ -59,7 +59,9 @@ class Connector(ABC):
         Returns:
             List[str]: List of input models - full paths in the profiles project for models that are required to generate the current model.
         """
-        project_folder = utils.get_project_folder(project_folder, train_summary_output_file_name)
+        project_folder = utils.get_project_folder(
+            project_folder, train_summary_output_file_name
+        )
 
         args = {
             "site_config_path": site_config_path,

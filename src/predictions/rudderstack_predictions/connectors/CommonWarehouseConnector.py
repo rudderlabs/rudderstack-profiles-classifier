@@ -287,10 +287,14 @@ class CommonWarehouseConnector(Connector):
         cardinal_feature_threshold,
     ) -> List[str]:
         high_cardinal_features = list()
+        non_stringtype_features = self.get_non_stringtype_features(
+            table, label_column, entity_column
+        )
+        lower_non_stringtype_features = [col.lower() for col in non_stringtype_features]
         for field in table.columns:
-            if (
-                table[field].dtype not in ("int64", "float64", "Int64", "Float64")
-            ) and (field.lower() not in (label_column.lower(), entity_column.lower())):
+            if (field.lower() not in lower_non_stringtype_features) and (
+                field.lower() not in (label_column.lower(), entity_column.lower())
+            ):
                 feature_data = table[field]
                 total_rows = len(feature_data)
                 top_10_freq_sum = sum(feature_data.value_counts().head(10))

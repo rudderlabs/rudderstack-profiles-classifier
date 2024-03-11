@@ -115,9 +115,7 @@ def _train(
         )
 
     """ Building session """
-    run_id = hashlib.md5(
-        f"{str(datetime.now())}_{project_folder}".encode()
-    ).hexdigest()
+    run_id = hashlib.md5(f"{str(datetime.now())}_{project_folder}".encode()).hexdigest()
     warehouse = creds["type"]
     logger.debug(f"Building session for {warehouse}")
     if warehouse == "snowflake":

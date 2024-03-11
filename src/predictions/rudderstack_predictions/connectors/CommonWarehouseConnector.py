@@ -958,7 +958,7 @@ class CommonWarehouseConnector(Connector):
 
     def pre_job_cleanup(self, session) -> None:
         pass
-    
+
     def post_job_cleanup(self, session) -> None:
         if self.delete_local_data:
             self._delete_local_data_folder()

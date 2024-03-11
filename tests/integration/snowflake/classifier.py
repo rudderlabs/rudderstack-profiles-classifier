@@ -4,7 +4,7 @@ import time
 from predict import *
 from src.predictions.rudderstack_predictions.wht.pb import getPB
 import json
-import yaml
+from tests.integration.utils import create_site_config_file
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
 creds["schema"] = "PROFILES_INTEGRATION_TEST"
@@ -137,15 +137,6 @@ def validate_reports():
             missing_files.append(expected_file)
     if len(missing_files) > 0:
         raise Exception(f"{missing_files} not found in reports directory")
-
-
-def create_site_config_file(creds, siteconfig_path):
-    json_data = {
-        "connections": {"test": {"target": "test", "outputs": {"test": creds}}}
-    }
-    yaml_data = yaml.dump(json_data, default_flow_style=False)
-    with open(siteconfig_path, "w") as file:
-        file.write(yaml_data)
 
 
 def validate_predictions_df():

@@ -6,7 +6,7 @@ from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import
 )
 from src.predictions.rudderstack_predictions.wht.pb import getPB
 import json
-import yaml
+from tests.integration.utils import create_site_config_file
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
 creds["schema"] = "rs_profiles_3"
@@ -153,16 +153,6 @@ def validate_predictions_df():
 
     session.close()
     return True
-
-
-def create_site_config_file(creds, siteconfig_path):
-    json_data = {
-        "connections": {"test": {"target": "test", "outputs": {"test": creds}}},
-        "py_models": {"credentials_presets": None},
-    }
-    yaml_data = yaml.dump(json_data, default_flow_style=False)
-    with open(siteconfig_path, "w") as file:
-        file.write(yaml_data)
 
 
 def test_regressor():

@@ -258,6 +258,8 @@ def preprocess_and_train(
         logger.error(f"Error while training the model: {e}")
         raise e
 
+    connector.delete_table_from_train_env(session, feature_table_name_remote)
+
     if not isinstance(train_results_json, dict):
         train_results_json = json.loads(train_results_json)
 

@@ -563,6 +563,10 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def delete_table_from_train_env(self, session, table_name, **kwargs):
+        pass
+
+    @abstractmethod
     def write_table(self, table, table_name_remote: str, **kwargs) -> Any:
         pass
 

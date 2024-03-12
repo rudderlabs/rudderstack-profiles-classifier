@@ -181,6 +181,10 @@ class CommonWarehouseConnector(Connector):
         Therefore, no usecase for this function in case of Redshift/BigQuery."""
         pass
 
+    def delete_table_from_train_env(self, session, table_name, **kwargs):
+        """Deletes the given table from the training env(ie. local env). Doesn't have any usecase for Redshift/BigQuery."""
+        pass
+
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
         """Writes the given pandas dataframe to the warehouse schema with the given name.
 

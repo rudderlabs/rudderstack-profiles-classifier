@@ -223,6 +223,12 @@ class SnowflakeConnector(Connector):
         """Sends the given snowpark table to the training env(ie. snowflake warehouse in this case) with the name as given"""
         self.write_table(table, table_name_remote, **kwargs)
 
+    def delete_table_from_train_env(
+        self, session: snowflake.snowpark.Session, table_name: str, **kwargs
+    ):
+        """Deletes the table with the given name from the snowpark session"""
+        self.run_query(session, f"drop table if exists {table_name}")
+
     def write_table(
         self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
     ) -> None:

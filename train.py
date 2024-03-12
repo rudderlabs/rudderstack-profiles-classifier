@@ -6,6 +6,7 @@ sys.path.append(
 )
 
 from rudderstack_predictions.train import _train
+from rudderstack_predictions.wht.pythonWHT import PythonWHT
 
 
 def train(
@@ -17,6 +18,7 @@ def train(
     project_folder: str = None,
     runtime_info: dict = None,
 ) -> None:
+    input_models = config["data"]["inputs"]
     _train(
         creds,
         inputs,
@@ -25,4 +27,6 @@ def train(
         site_config_path,
         project_folder,
         runtime_info,
+        input_models,
+        PythonWHT(),
     )

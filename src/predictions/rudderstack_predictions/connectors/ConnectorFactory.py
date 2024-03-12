@@ -1,3 +1,4 @@
+from .Connector import Connector
 from ..utils.logger import logger
 
 from .RedshiftConnector import RedshiftConnector
@@ -10,7 +11,7 @@ except Exception as e:
 
 
 class ConnectorFactory:
-    def create(warehouse, folder_path: str = None):
+    def create(warehouse, folder_path: str = None) -> Connector:
         connector = None
         if warehouse == "snowflake":
             connector = SnowflakeConnector()

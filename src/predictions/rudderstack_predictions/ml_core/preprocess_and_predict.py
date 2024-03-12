@@ -11,11 +11,12 @@ from typing import Any
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 
+from ..wht.pythonWHT import PythonWHT
+
 from ..utils import utils
 from ..utils.logger import logger
 from ..utils import constants
 from ..utils.S3Utils import S3Utils
-from ..wht.pb import getPB
 
 from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
@@ -68,12 +69,19 @@ def preprocess_and_predict(
     except Exception as e:
         raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 
-    feature_table_name = getPB().get_material_name(input_model_name, model_hash, seq_no)
+    whtService = PythonWHT()
+    whtService.init(connector, session, "", "")
 
-    material_table = getPB().get_material_registry_name(connector, session)
+    feature_table_name = whtService.compute_material_name(
+        input_model_name, model_hash, seq_no
+    )
 
     end_ts = connector.get_end_ts(
-        session, material_table, input_model_name, model_hash, seq_no
+        session,
+        whtService.get_registry_table_name(),
+        input_model_name,
+        model_hash,
+        seq_no,
     )
     logger.debug(f"Pulling data from Feature table - {feature_table_name}")
 

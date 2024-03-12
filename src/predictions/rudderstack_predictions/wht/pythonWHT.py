@@ -217,11 +217,6 @@ class PythonWHT:
                 inputs,
                 materials,
             )
-            if (
-                len(self._get_complete_sequences(materials))
-                >= constants.TRAIN_MATERIALS_LIMIT
-            ):
-                break
         return materials
 
     def _generate_training_materials(

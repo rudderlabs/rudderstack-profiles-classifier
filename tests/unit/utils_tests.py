@@ -1,9 +1,6 @@
-import sys
 import unittest
 from unittest.mock import patch
-from src.predictions.rudderstack_predictions.wht.pb import getPB
-
-sys.path.append("../..")
+from src.predictions.rudderstack_predictions.wht.pythonWHT import PythonWHT
 
 from src.predictions.rudderstack_predictions.utils.utils import (
     dates_proximity_check,
@@ -55,56 +52,77 @@ class TestReplaceSeqNoInQuery(unittest.TestCase):
 class TestSplitMaterialTable(unittest.TestCase):
     def test_valid_table_name(self):
         table_name = "Material_user_var_table_54ddc22a_383"
-        expected_result = ("user_var_table", "54ddc22a", 383)
-        actual_result = getPB().split_material_table(table_name)
+        expected_result = {
+            "model_name": "user_var_table",
+            "model_hash": "54ddc22a",
+            "seq_no": 383,
+        }
+        actual_result = PythonWHT()._split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_missing_prefix(self):
         table_name = "user_var_table_54ddc22a_383"
-        expected_result = (None, None, None)
-        actual_result = getPB().split_material_table(table_name)
+        expected_result = {
+            "model_name": "user_var_table",
+            "model_hash": "54ddc22a",
+            "seq_no": 383,
+        }
+        actual_result = PythonWHT()._split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_missing_seq_no(self):
         table_name = "Material_user_var_table_54ddc22a"
-        expected_result = (None, None, None)
-        actual_result = getPB().split_material_table(table_name)
-        self.assertEqual(actual_result, expected_result)
+        with self.assertRaises(Exception):
+            PythonWHT()._split_material_name(table_name)
 
     def test_invalid_seq_no(self):
         table_name = "Material_user_var_table_54ddc22a_foo"
-        expected_result = (None, None, None)
-        actual_result = getPB().split_material_table(table_name)
-        self.assertEqual(actual_result, expected_result)
+        with self.assertRaises(Exception):
+            PythonWHT()._split_material_name(table_name)
 
     def test_invalid_table_name(self):
         table_name = "user_var_table_54ddc22a_foo"
-        expected_result = (None, None, None)
-        actual_result = getPB().split_material_table(table_name)
-        self.assertEqual(actual_result, expected_result)
+        with self.assertRaises(Exception):
+            PythonWHT()._split_material_name(table_name)
 
     def test_material_query(self):
         table_name = "SELECT * FROM SCHEMA.Material_user_var_table_54ddc22a_383"
-        expected_result = ("user_var_table", "54ddc22a", 383)
-        actual_result = getPB().split_material_table(table_name)
+        expected_result = {
+            "model_name": "user_var_table",
+            "model_hash": "54ddc22a",
+            "seq_no": 383,
+        }
+        actual_result = PythonWHT()._split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_material_query_with_snowflake_input(self):
         table_name = "SELECT * FROM Material_user_var_table_54ddc22a_383"
-        expected_result = ("user_var_table", "54ddc22a", 383)
-        actual_result = getPB().split_material_table(table_name)
+        expected_result = {
+            "model_name": "user_var_table",
+            "model_hash": "54ddc22a",
+            "seq_no": 383,
+        }
+        actual_result = PythonWHT()._split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_material_query_with_redshift_input(self):
         table_name = "SELECT * FROM material_user_var_table_54ddc22a_383"
-        expected_result = ("user_var_table", "54ddc22a", 383)
-        actual_result = getPB().split_material_table(table_name)
+        expected_result = {
+            "model_name": "user_var_table",
+            "model_hash": "54ddc22a",
+            "seq_no": 383,
+        }
+        actual_result = PythonWHT()._split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_material_query_with_bigquery_input(self):
         table_name = "SELECT * FROM `SCHEMA`.`Material_user_var_table_54ddc22a_383`"
-        expected_result = ("user_var_table", "54ddc22a", 383)
-        actual_result = getPB().split_material_table(table_name)
+        expected_result = {
+            "model_name": "user_var_table",
+            "model_hash": "54ddc22a",
+            "seq_no": 383,
+        }
+        actual_result = PythonWHT()._split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
 

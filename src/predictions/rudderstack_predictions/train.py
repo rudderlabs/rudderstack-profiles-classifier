@@ -318,7 +318,9 @@ def _train(
         trainer.label_value = label_value
 
     input_models = [getPB().split_material_table(input_)[0] for input_ in inputs]
-    new_input_models = connector.get_input_models( input_models , output_filename , project_folder, site_config_path)
+    new_input_models = connector.get_input_models(
+        input_models, output_filename, project_folder, site_config_path
+    )
     trainer.inputs = new_input_models
 
     logger.info("Getting past data for training")

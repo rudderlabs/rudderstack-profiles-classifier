@@ -88,6 +88,7 @@ def _train(
     _ = config["data"].pop(
         "features_profiles_model", None
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
+
     merged_config = utils.combine_config(default_config, config)
 
     user_preference_order_infra = merged_config["data"].pop(
@@ -315,6 +316,10 @@ def _train(
             positive_boolean_flags,
         )
         trainer.label_value = label_value
+
+    input_models = [getPB().split_material_table(input_)[0] for input_ in inputs]
+    new_input_models = connector.get_input_models( input_models , output_filename , project_folder, site_config_path)
+    trainer.inputs = new_input_models
 
     logger.info("Getting past data for training")
     try:

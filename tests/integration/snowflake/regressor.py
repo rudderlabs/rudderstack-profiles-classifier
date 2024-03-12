@@ -1,7 +1,7 @@
 from train import *
 import shutil
 from predict import *
-from src.predictions.rudderstack_predictions.wht.pb import getPB
+from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
 import json
 from tests.integration.utils import create_site_config_file
 
@@ -165,9 +165,8 @@ def test_regressor():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, _ = getPB().get_latest_material_hash(
+    latest_model_hash, _ = RudderPB().get_latest_material_hash(
         entity_key,
-        output_filename,
         siteconfig_path,
         project_path,
     )

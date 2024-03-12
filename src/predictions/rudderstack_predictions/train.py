@@ -70,7 +70,6 @@ def _train(
     stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    import_paths = [current_dir]
     config_path = os.path.join(
         current_dir,
         "config",
@@ -119,15 +118,13 @@ def _train(
     warehouse = creds["type"]
     logger.debug(f"Building session for {warehouse}")
     if warehouse == "snowflake":
-        stage_name = f"@rs_{run_id}"
-        train_procedure = f"train_and_store_model_results_sf_{run_id}"
         connector = ConnectorFactory.create(warehouse)
         session = connector.build_session(creds)
-        connector.create_stage(session, stage_name)
+        stage_name = connector.get_stage_name(run_id)
+        train_procedure = connector.get_stored_procedure_name(run_id)
+        import_paths = connector.get_import_paths(current_dir)
 
-        connector.stage_name = stage_name
-        connector.stored_procedure_name = train_procedure
-        connector.delete_files = import_paths
+        connector.create_stage(session, stage_name)
         connector.pre_job_cleanup(session)
 
         @sproc(
@@ -275,8 +272,7 @@ def _train(
         train_procedure = train_and_store_model_results
         connector = ConnectorFactory.create(warehouse, folder_path)
         session = connector.build_session(creds)
-        connector.delete_local_data = True
-        connector.pre_job_cleanup(session)
+        connector.delete_local_data_folder()
         connector.make_local_dir()
 
     material_table = getPB().get_material_registry_name(connector, session)

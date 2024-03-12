@@ -559,11 +559,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
-        pass
-
-    @abstractmethod
-    def delete_table_from_train_env(self, session, table_name, **kwargs):
+    def send_table_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
         pass
 
     @abstractmethod

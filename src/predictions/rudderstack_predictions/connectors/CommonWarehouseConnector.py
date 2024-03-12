@@ -26,7 +26,6 @@ class CommonWarehouseConnector(Connector):
         path.mkdir(parents=True, exist_ok=True)
         self.array_time_features = {}
         self.udf_name = None
-        self.delete_local_data = False
         return
 
     def get_local_dir(self) -> str:
@@ -176,13 +175,9 @@ class CommonWarehouseConnector(Connector):
         utils.delete_file(file_path)
         return json_data
 
-    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
+    def send_table_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
         """Sends the given snowpark table to the training env(ie. local env) with the name as given.
         Therefore, no usecase for this function in case of Redshift/BigQuery."""
-        pass
-
-    def delete_table_from_train_env(self, session, table_name, **kwargs):
-        """Deletes the given table from the training env(ie. local env). Doesn't have any usecase for Redshift/BigQuery."""
         pass
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
@@ -951,7 +946,7 @@ class CommonWarehouseConnector(Connector):
         "Created a local directory to store temporary files"
         Path(self.local_dir).mkdir(parents=True, exist_ok=True)
 
-    def _delete_local_data_folder(self) -> None:
+    def delete_local_data_folder(self) -> None:
         """Deletes the local data folder."""
         try:
             shutil.rmtree(self.local_dir)
@@ -961,8 +956,7 @@ class CommonWarehouseConnector(Connector):
             pass
 
     def pre_job_cleanup(self, session) -> None:
-        if self.delete_local_data:
-            self._delete_local_data_folder()
+        pass
 
     def post_job_cleanup(self, session) -> None:
         pass

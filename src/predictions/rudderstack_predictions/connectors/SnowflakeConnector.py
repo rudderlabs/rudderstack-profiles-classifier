@@ -30,6 +30,7 @@ class SnowflakeConnector(Connector):
         self.udf_name = None
         self.stored_procedure_name = None
         self.delete_files = None
+        self.feature_table_name = None
         return
 
     def build_session(self, credentials: dict) -> snowflake.snowpark.Session:
@@ -125,7 +126,20 @@ class SnowflakeConnector(Connector):
         with open(model_path, "r") as f:
             results = json.load(f)
         stage_name = results["model_info"]["file_location"]["stage"]
-        return f"prediction_score_{stage_name.replace('@','')}"
+        self.udf_name = f"prediction_score_{stage_name.replace('@','')}"
+        return self.udf_name
+
+    def get_stage_name(self, run_id: str) -> str:
+        self.stage_name = f"@rs_{run_id}"
+        return self.stage_name
+
+    def get_stored_procedure_name(self, run_id: str) -> str:
+        self.stored_procedure_name = f"train_and_store_model_results_sf_{run_id}"
+        return self.stored_procedure_name
+
+    def get_import_paths(self, current_dir):
+        self.delete_files = [current_dir]
+        return self.delete_files
 
     def is_valid_table(
         self, session: snowflake.snowpark.Session, table_name: str
@@ -217,17 +231,12 @@ class SnowflakeConnector(Connector):
         """
         return self.get_table(session, table_name, **kwargs).toPandas()
 
-    def send_to_train_env(
+    def send_table_to_train_env(
         self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
     ) -> Any:
         """Sends the given snowpark table to the training env(ie. snowflake warehouse in this case) with the name as given"""
+        self.feature_table_name = table_name_remote
         self.write_table(table, table_name_remote, **kwargs)
-
-    def delete_table_from_train_env(
-        self, session: snowflake.snowpark.Session, table_name: str, **kwargs
-    ):
-        """Deletes the table with the given name from the snowpark session"""
-        self.run_query(session, f"drop table if exists {table_name}")
 
     def write_table(
         self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
@@ -1209,6 +1218,12 @@ class SnowflakeConnector(Connector):
             logger.info("All functions with the same name dropped")
             return True
 
+    def _delete_table_from_train_env(
+        self, session: snowflake.snowpark.Session, table_name: str, **kwargs
+    ):
+        """Deletes the table with the given name from the snowpark session"""
+        self.run_query(session, f"drop table if exists {table_name}")
+
     def get_file(
         self,
         session: snowflake.snowpark.Session,
@@ -1257,4 +1272,6 @@ class SnowflakeConnector(Connector):
 
     def post_job_cleanup(self, session: snowflake.snowpark.Session):
         self._job_cleanup(session)
+        if self.feature_table_name:
+            self._delete_table_from_train_env(session, self.feature_table_name)
         session.close()

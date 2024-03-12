@@ -193,7 +193,6 @@ def preprocess_and_predict(
     )
     logger.debug("Closing the session")
 
-    connector.udf_name = udf_name
     connector.post_job_cleanup(session)
     logger.debug("Finished Predict job")
 

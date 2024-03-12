@@ -236,7 +236,7 @@ def preprocess_and_train(
         trainer.max_row_count,
         min_sample_for_training,
     )
-    connector.send_to_train_env(
+    connector.send_table_to_train_env(
         filtered_feature_table,
         feature_table_name_remote,
         write_mode="overwrite",
@@ -257,8 +257,6 @@ def preprocess_and_train(
     except Exception as e:
         logger.error(f"Error while training the model: {e}")
         raise e
-
-    connector.delete_table_from_train_env(session, feature_table_name_remote)
 
     if not isinstance(train_results_json, dict):
         train_results_json = json.loads(train_results_json)
@@ -349,5 +347,4 @@ if __name__ == "__main__":
         )
 
         logger.debug(f"Deleting additional local directory from {args.mode} mode.")
-        connector.delete_local_data = True
-        connector.pre_job_cleanup(session)
+        connector.delete_local_data_folder()

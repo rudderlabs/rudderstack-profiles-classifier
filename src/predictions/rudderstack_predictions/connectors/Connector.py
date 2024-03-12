@@ -1,4 +1,5 @@
 import pandas as pd
+import json
 
 from datetime import datetime
 from abc import ABC, abstractmethod
@@ -26,6 +27,69 @@ class Connector(ABC):
             if k != "type"
         }
         return new_creds
+
+    def extract_json_from_stdout(self, stdout):
+        lines = stdout.splitlines()
+
+        start_index = next(
+            (i for i, line in enumerate(lines) if line.strip().startswith("{")), None
+        )
+        if start_index is None:
+            return None
+
+        # Parse JSON
+        json_string = "".join(lines[start_index:])
+        json_data = json.loads(json_string)
+
+        return json_data
+
+    def get_input_models(
+        self,
+        original_input_models: List[str],
+        train_summary_output_file_name: str,
+        project_folder: str,
+        site_config_path: str,
+    ) -> List[str]:
+        """Find matches for input models in the JSON data. If no matches are found, an exception is raised.
+        Args:
+            original_input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model.
+            train_summary_output_file_name (str): output filename
+            project_folder (str): project folder path to pb_project.yaml file
+            site_config_path (str): path to the siteconfig.yaml file
+        Returns:
+            List[str]: List of input models - full paths in the profiles project for models that are required to generate the current model.
+        """
+        project_folder = utils.get_project_folder(
+            project_folder, train_summary_output_file_name
+        )
+
+        args = {
+            "site_config_path": site_config_path,
+            "project_folder": project_folder,
+        }
+
+        pb_show_models_response_output = getPB().show_models(args)
+
+        # Extract JSON from the output
+        json_data = self.extract_json_from_stdout(pb_show_models_response_output)
+
+        # Find matches for input models in the JSON data
+        new_input_models = []
+
+        for model in original_input_models:
+            model_key = model.split("/")[-1]
+            found_unique_match = False
+            for key in json_data:
+                if key.endswith(model_key):
+                    if found_unique_match:
+                        raise ValueError(
+                            f"Multiple unique occurrences found for {model_key}"
+                        )
+                    model_path = key.split("/", 1)[-1]
+                    new_input_models.append(model_path)
+                    found_unique_match = True
+
+        return new_input_models
 
     def get_material_names(
         self,

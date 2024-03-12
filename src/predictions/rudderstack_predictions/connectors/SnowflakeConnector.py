@@ -1244,7 +1244,7 @@ class SnowflakeConnector(Connector):
         ]
         return table.select(*shortlisted_columns)
 
-    def pre_job_cleanup(self, session: snowflake.snowpark.Session):
+    def _job_cleanup(self, session: snowflake.snowpark.Session):
         if self.stored_procedure_name:
             self._delete_procedures(session, self.stored_procedure_name)
         if self.udf_name:
@@ -1252,6 +1252,9 @@ class SnowflakeConnector(Connector):
         if self.delete_files:
             self._delete_import_files(session, self.stage_name, self.delete_files)
 
+    def pre_job_cleanup(self, session: snowflake.snowpark.Session):
+        self._job_cleanup(session)
+
     def post_job_cleanup(self, session: snowflake.snowpark.Session):
-        self.pre_job_cleanup(session)
+        self._job_cleanup(session)
         session.close()

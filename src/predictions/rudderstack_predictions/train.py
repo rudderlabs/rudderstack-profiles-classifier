@@ -275,6 +275,9 @@ def _train(
         train_procedure = train_and_store_model_results
         connector = ConnectorFactory.create(warehouse, folder_path)
         session = connector.build_session(creds)
+        connector.delete_local_data = True
+        connector.pre_job_cleanup(session)
+        connector.make_local_dir()
 
     material_table = getPB().get_material_registry_name(connector, session)
 

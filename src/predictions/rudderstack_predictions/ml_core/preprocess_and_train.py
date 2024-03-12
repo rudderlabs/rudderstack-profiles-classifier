@@ -350,4 +350,4 @@ if __name__ == "__main__":
 
         logger.debug(f"Deleting additional local directory from {args.mode} mode.")
         connector.delete_local_data = True
-        connector.post_job_cleanup(session)
+        connector.pre_job_cleanup(session)

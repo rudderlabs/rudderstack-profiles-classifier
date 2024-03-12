@@ -961,11 +961,11 @@ class CommonWarehouseConnector(Connector):
             pass
 
     def pre_job_cleanup(self, session) -> None:
-        pass
-
-    def post_job_cleanup(self, session) -> None:
         if self.delete_local_data:
             self._delete_local_data_folder()
+
+    def post_job_cleanup(self, session) -> None:
+        pass
 
     @abstractmethod
     def build_session(self, credentials: dict):

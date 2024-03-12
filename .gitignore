@@ -8,7 +8,7 @@ classifier.log
 **/output/*
 train_output.json
 appmap.yml
-*.ipynb
+
 pysnowpark/*
 data/*
 testenv/*

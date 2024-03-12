@@ -9,6 +9,7 @@ from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import
 from src.predictions.rudderstack_predictions.wht.pb import getPB
 import json
 
+
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
 creds["schema"] = "rs_profiles_3"
 

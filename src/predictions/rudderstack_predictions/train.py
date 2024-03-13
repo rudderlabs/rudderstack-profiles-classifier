@@ -94,6 +94,11 @@ def _train(
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None
     )
+
+    _ = merged_config["data"].pop(
+        "inputs", None
+    )  # For backward compatibility. Not using it anywhere else, hence deleting.
+
     prediction_task = merged_config["data"].pop(
         "task", "classification"
     )  # Assuming default as classification
@@ -318,10 +323,10 @@ def _train(
         trainer.label_value = label_value
 
     input_models = [getPB().split_material_table(input_)[0] for input_ in inputs]
+
     new_input_models = connector.get_input_models(
         input_models, output_filename, project_folder, site_config_path
     )
-    trainer.inputs = new_input_models
 
     logger.info("Getting past data for training")
     try:
@@ -336,7 +341,7 @@ def _train(
             output_filename=output_filename,
             site_config_path=site_config_path,
             project_folder=project_folder,
-            input_models=trainer.inputs,
+            input_models=new_input_models,
             inputs=inputs,
         )
 
@@ -355,7 +360,7 @@ def _train(
                 trainer.materialisation_max_no_dates,
                 trainer.materialisation_dates,
                 trainer.prediction_horizon_days,
-                trainer.inputs,
+                new_input_models,
                 output_filename,
                 site_config_path,
                 project_folder,

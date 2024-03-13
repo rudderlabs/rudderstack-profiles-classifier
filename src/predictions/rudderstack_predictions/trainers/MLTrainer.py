@@ -49,7 +49,6 @@ class MLTrainer(ABC):
         self.train_start_dt = kwargs["data"]["train_start_dt"]
         self.train_end_dt = kwargs["data"]["train_end_dt"]
         self.prediction_horizon_days = kwargs["data"]["prediction_horizon_days"]
-        self.inputs = kwargs["data"]["inputs"]
         self.max_row_count = kwargs["data"]["max_row_count"]
         self.recall_to_precision_importance = kwargs["data"][
             "recall_to_precision_importance"

@@ -1,5 +1,5 @@
 models:
-  - name: &model_name shopify_churn
+  - name: &model_name shopify_churn_base
     model_type: python_model
     model_spec:
       occurred_at_col: insert_ts
@@ -10,12 +10,10 @@ models:
         file_extension: .json
         file_validity: 0s # If the last trained model is older than this, then the model will be trained again,
         inputs: &inputs
-          - packages/feature_table/models/rudder_user_base_features # inputs to materialise the required data for model
-          - entity/user/max_timestamp_bw_tracks_pages_1
-          - entity/user/is_churned_10_days
+          - models/rudder_user_base_features # inputs to materialise the required data for model
         config:
           data: &model_data_configs
-            label_column: is_churned_10_days # Name of column for which we want to find predictions
+            label_column: is_churned_7_days # Name of column for which we want to find predictions
             label_value: 1 # Value of label column for which prediction is generated
             prediction_horizon_days: 7 # Number of days in future for which we want to predict
             features_profiles_model: "rudder_user_base_features" # Model name
@@ -33,15 +31,13 @@ models:
               - last_name
       predict:
         inputs:
-          - packages/feature_table/models/rudder_user_base_features
-          - entity/user/max_timestamp_bw_tracks_pages_1
-          - entity/user/is_churned_10_days
+          - models/rudder_user_base_features
         config:
           data: *model_data_configs # Use the same config as training
           preprocessing: *model_prep_configs # Use the same config as training
           outputs:
             column_names:
-              percentile: &percentile_name percentile_churn_score_7_days # Name of column in output table having percentile score
+              percentile: &percentile_name percentile_churn_score_7_days_base # Name of column in output table having percentile score
               score: churn_score_7_days # Name of column in output table having probabilistic score
             feature_meta_data: &feature_meta_data
               features:

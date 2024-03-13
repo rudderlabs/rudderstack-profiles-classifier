@@ -29,22 +29,21 @@ class Connector(ABC):
         return new_creds
 
     def extract_json_from_stdout(self, stdout):
-
-        start_index = stdout.find("printing models")        
+        start_index = stdout.find("printing models")
         if start_index == -1:
             return None
-        
+
         # Find the index of the first '{' after the line
-        start_index = stdout.find('{', start_index)
+        start_index = stdout.find("{", start_index)
 
         if start_index == -1:
             return None
 
         # Find the index of the last '}'
-        end_index = stdout.rfind('}')
-        
+        end_index = stdout.rfind("}")
+
         # Extract the JSON string between the first '{' and the last '}'
-        json_string = stdout[start_index:end_index+1]
+        json_string = stdout[start_index : end_index + 1]
 
         # Replace single quotes with double quotes
         json_string = json_string.replace("'", '"')

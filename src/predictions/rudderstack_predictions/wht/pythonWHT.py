@@ -165,17 +165,6 @@ class PythonWHT:
             )
             materials.append(train_table_info)
 
-    def _get_complete_sequences(self, sequences: List[Sequence]) -> int:
-        """
-        A sequence is said to be complete if it does not have any Nones.
-        """
-        complete_sequences = [
-            sequence
-            for sequence in sequences
-            if all(element is not None for element in sequence)
-        ]
-        return complete_sequences
-
     def _get_material_names(
         self,
         start_time: str,
@@ -381,6 +370,18 @@ class PythonWHT:
         Returns:
             List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
+
+        def get_complete_sequences(sequences: List[Sequence]) -> int:
+            """
+            A sequence is said to be complete if it does not have any Nones.
+            """
+            complete_sequences = [
+                sequence
+                for sequence in sequences
+                if all(element is not None for element in sequence)
+            ]
+            return complete_sequences
+
         logger.info("getting material names")
         (materials) = self._get_material_names(
             start_date,
@@ -390,7 +391,7 @@ class PythonWHT:
             prediction_horizon_days,
             inputs,
         )
-        if len(self._get_complete_sequences(materials)) == 0:
+        if len(get_complete_sequences(materials)) == 0:
             self._generate_training_materials(
                 materials,
                 start_date,
@@ -406,7 +407,7 @@ class PythonWHT:
                 inputs,
             )
 
-        complete_sequences_materials = self._get_complete_sequences(materials)
+        complete_sequences_materials = get_complete_sequences(materials)
         if len(complete_sequences_materials) == 0:
             raise Exception(
                 f"Tried to materialise past data but no materialized data found for {features_model_name} between dates {start_date} and {end_date}"

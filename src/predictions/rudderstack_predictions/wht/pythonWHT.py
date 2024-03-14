@@ -176,7 +176,7 @@ class PythonWHT:
         ]
         return complete_sequences
 
-    def _get_material_names_(
+    def _get_material_names(
         self,
         start_time: str,
         end_time: str,
@@ -382,7 +382,7 @@ class PythonWHT:
             List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
         logger.info("getting material names")
-        (materials) = self._get_material_names_(
+        (materials) = self._get_material_names(
             start_date,
             end_date,
             features_model_name,
@@ -397,7 +397,7 @@ class PythonWHT:
                 prediction_horizon_days,
                 input_models,
             )
-            (materials) = self._get_material_names_(
+            (materials) = self._get_material_names(
                 start_date,
                 end_date,
                 features_model_name,

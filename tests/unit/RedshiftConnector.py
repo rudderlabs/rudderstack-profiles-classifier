@@ -339,7 +339,7 @@ class TestGetMaterialNames(unittest.TestCase):
         ]
 
         # Mock the internal method get_material_names_
-        self.whtService._get_material_names_ = Mock(return_value=input_materials)
+        self.whtService._get_material_names = Mock(return_value=input_materials)
         # Invoke the method under test
         materials = self.whtService.get_material_names(
             self.start_date,
@@ -373,7 +373,7 @@ class TestGetMaterialNames(unittest.TestCase):
             )
         ]
         # Mock the internal methods get_material_names_ and generate_training_materials
-        self.whtService._get_material_names_ = Mock(side_effect=[[], input_materials])
+        self.whtService._get_material_names = Mock(side_effect=[[], input_materials])
         utils.subprocess_run = Mock()
 
         # Invoke the method under test
@@ -407,7 +407,7 @@ class TestGetMaterialNames(unittest.TestCase):
 
     def test_materializes_data_once_even_if_it_cant_find_right_materials(self):
         # Mock the internal methods get_material_names_ and generate_training_materials
-        self.whtService._get_material_names_ = Mock(return_value=[])
+        self.whtService._get_material_names = Mock(return_value=[])
         self.whtService._generate_training_materials = Mock()
 
         # Invoke the method under test and assert exception

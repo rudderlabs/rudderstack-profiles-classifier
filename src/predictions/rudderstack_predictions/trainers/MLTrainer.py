@@ -210,13 +210,24 @@ class MLTrainer(ABC):
         self, model_results: dict, model_timestamp: str
     ) -> dict:
         pass
-
+    
+    @abstractmethod
     def prepare_data(
         self,
         feature_df: pd.DataFrame,
         categorical_columns: List[str],
         numeric_columns: List[str],
     ):
+        pass
+
+    def prepare_data_(
+        self,
+        preprocess_setup,
+        feature_df: pd.DataFrame,
+        categorical_columns: List[str],
+        numeric_columns: List[str],
+    ):
+        
         train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(
             feature_df=feature_df,
             label_column=self.label_column,
@@ -228,6 +239,7 @@ class MLTrainer(ABC):
         )
 
         train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
+        test_x = utils.transform_null(test_x, numeric_columns, categorical_columns)
         val_x = utils.transform_null(val_x, numeric_columns, categorical_columns)
 
         train_data = pd.concat([train_x, train_y], axis=1)
@@ -359,6 +371,19 @@ class ClassificationTrainer(MLTrainer):
             "feature-importance-chart": f"01-feature-importance-chart-{self.output_profiles_ml_model}.png",
         }
         self.isStratify = True
+
+    def prepare_data(
+        self,
+        feature_df: pd.DataFrame,
+        categorical_columns: List[str],
+        numeric_columns: List[str],
+    ):
+        return self.prepare_data_(
+            classification_setup,
+            feature_df,
+            categorical_columns,
+            numeric_columns,
+        )
 
     def build_model(
         self,
@@ -582,6 +607,19 @@ class RegressionTrainer(MLTrainer):
         }
         self.isStratify = False
 
+    def prepare_data(
+        self,
+        feature_df: pd.DataFrame,
+        categorical_columns: List[str],
+        numeric_columns: List[str],
+    ):
+        return self.prepare_data_(
+            regression_setup,
+            feature_df,
+            categorical_columns,
+            numeric_columns,
+        )
+    
     def build_model(
         self,
         X_train: pd.DataFrame,
@@ -676,7 +714,24 @@ class RegressionTrainer(MLTrainer):
             self.entity_column,
             None,
         )
-
+    def train_model(
+        self,
+        feature_df: pd.DataFrame,
+        categorical_columns: List[str],
+        numeric_columns: List[str],
+        merged_config: dict,
+        model_file: str,
+    ):
+        return self.train_model_(
+            feature_df,
+            categorical_columns,
+            numeric_columns,
+            merged_config,
+            model_file,
+            regression_setup,
+            regression_compare_models,
+        )
+    
     def plot_diagnostics(
         self,
         connector: Connector,

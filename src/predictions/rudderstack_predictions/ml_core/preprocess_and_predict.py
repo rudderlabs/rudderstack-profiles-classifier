@@ -121,8 +121,8 @@ def preprocess_and_predict(
         trained_model = load_model(model_name)
         df.columns = [x.upper() for x in df.columns]
 
-        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+        df = utils.transform_null(df, numeric_columns, categorical_columns)
+        
         if prediction_task == "classification":
             return trained_model.predict_proba(df)[:, 1]
         elif prediction_task == "regression":

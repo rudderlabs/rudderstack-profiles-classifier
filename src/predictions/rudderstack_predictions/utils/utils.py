@@ -428,8 +428,15 @@ def transform_null(
         pd.DataFrame: The transformed DataFrame with pd.NA values replaced by np.nan in numeric columns and \
             None in categorical columns.
     """
-    df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-    df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+   # Replace pd.NA with mean in numeric columns
+    for col in numeric_columns:
+        mean_value = df[col].mean()
+        df[col] = df[col].fillna(mean_value)
+    
+    # Replace pd.NA with mode in categorical columns
+    for col in categorical_columns:
+        mode_value = df[col].mode().iloc[0]
+        df[col] = df[col].fillna(mode_value)
     return df
 
 
@@ -845,7 +852,10 @@ def plot_top_k_feature_importance(
         None. The function generates a bar chart and writes the feature importance values to a table in the session.
     """
     try:
-        sample_data = train_x.sample(100, random_state=42)
+        if len(train_x) < 100:
+            sample_data = train_x
+        else:
+            sample_data = train_x.sample(100, random_state=42)
         model_class = model.__class__.__name__
 
         # Select the appropriate explainer based on the model class name

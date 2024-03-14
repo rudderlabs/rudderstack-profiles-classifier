@@ -821,10 +821,10 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
                 label_table_date="2024-02-27 00:00:00",
             ),
         ]
-        session = MagicMock()
+        self.session = MagicMock()
         self.whtService = PythonWHT()
         self.whtService.init(
-            self.connector, session, "siteconfig.yaml", "project_folder"
+            self.connector, self.session, "siteconfig.yaml", "project_folder"
         )
         trainer_input = build_trainer_config()
         self.trainer = ClassificationTrainer(**trainer_input)
@@ -885,6 +885,8 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             materials=self.materials,
             input_models=self.input_models,
             whtService=self.whtService,
+            connector=self.connector,
+            session=self.session,
         )
 
         # Assertions
@@ -916,6 +918,8 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             materials=self.materials,
             input_models=self.input_models,
             whtService=self.whtService,
+            connector=self.connector,
+            session=self.session,
         )
 
         self.assertEqual(len(result), 1)  # Only one material generated
@@ -970,6 +974,8 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             materials=self.materials,
             input_models=self.input_models,
             whtService=self.whtService,
+            connector=self.connector,
+            session=self.session,
         )
 
         # Assertions
@@ -990,6 +996,8 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             materials=self.materials,
             input_models=self.input_models,
             whtService=self.whtService,
+            connector=self.connector,
+            session=self.session,
         )
 
         self.assertEqual(len(result), 1)  # Only one material generated

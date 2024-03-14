@@ -57,7 +57,7 @@ class TestSplitMaterialTable(unittest.TestCase):
             "model_hash": "54ddc22a",
             "seq_no": 383,
         }
-        actual_result = PythonWHT()._split_material_name(table_name)
+        actual_result = PythonWHT().split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_missing_prefix(self):
@@ -67,23 +67,23 @@ class TestSplitMaterialTable(unittest.TestCase):
             "model_hash": "54ddc22a",
             "seq_no": 383,
         }
-        actual_result = PythonWHT()._split_material_name(table_name)
+        actual_result = PythonWHT().split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_missing_seq_no(self):
         table_name = "Material_user_var_table_54ddc22a"
         with self.assertRaises(Exception):
-            PythonWHT()._split_material_name(table_name)
+            PythonWHT().split_material_name(table_name)
 
     def test_invalid_seq_no(self):
         table_name = "Material_user_var_table_54ddc22a_foo"
         with self.assertRaises(Exception):
-            PythonWHT()._split_material_name(table_name)
+            PythonWHT().split_material_name(table_name)
 
     def test_invalid_table_name(self):
         table_name = "user_var_table_54ddc22a_foo"
         with self.assertRaises(Exception):
-            PythonWHT()._split_material_name(table_name)
+            PythonWHT().split_material_name(table_name)
 
     def test_material_query(self):
         table_name = "SELECT * FROM SCHEMA.Material_user_var_table_54ddc22a_383"
@@ -92,7 +92,7 @@ class TestSplitMaterialTable(unittest.TestCase):
             "model_hash": "54ddc22a",
             "seq_no": 383,
         }
-        actual_result = PythonWHT()._split_material_name(table_name)
+        actual_result = PythonWHT().split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_material_query_with_snowflake_input(self):
@@ -102,7 +102,7 @@ class TestSplitMaterialTable(unittest.TestCase):
             "model_hash": "54ddc22a",
             "seq_no": 383,
         }
-        actual_result = PythonWHT()._split_material_name(table_name)
+        actual_result = PythonWHT().split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_material_query_with_redshift_input(self):
@@ -112,7 +112,7 @@ class TestSplitMaterialTable(unittest.TestCase):
             "model_hash": "54ddc22a",
             "seq_no": 383,
         }
-        actual_result = PythonWHT()._split_material_name(table_name)
+        actual_result = PythonWHT().split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
     def test_material_query_with_bigquery_input(self):
@@ -122,7 +122,7 @@ class TestSplitMaterialTable(unittest.TestCase):
             "model_hash": "54ddc22a",
             "seq_no": 383,
         }
-        actual_result = PythonWHT()._split_material_name(table_name)
+        actual_result = PythonWHT().split_material_name(table_name)
         self.assertEqual(actual_result, expected_result)
 
 

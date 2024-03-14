@@ -15,6 +15,9 @@ from ..utils.constants import TrainTablesInfo
 
 
 class K8sProcessor(Processor):
+    def __init__(self, trainer, connector, session, ml_core_path: str):
+        super().__init__(trainer, connector, session, ml_core_path)
+
     def _create_wh_creds_secret(
         self, job_name: str, namespace: str, wh_creds: dict, core_v1_api
     ):
@@ -189,7 +192,7 @@ class K8sProcessor(Processor):
             "python3",
             "-u",
             "-m",
-            f"{constants.ML_CORE_PATH}.preprocess_and_train",
+            f"{self.ml_core_path}.preprocess_and_train",
             "--s3_bucket",
             s3_config["bucket"],
             "--mode",
@@ -294,7 +297,7 @@ class K8sProcessor(Processor):
             "python3",
             "-u",
             "-m",
-            f"{constants.ML_CORE_PATH}.preprocess_and_predict",
+            f"{self.ml_core_path}.preprocess_and_predict",
             "--s3_config",
             json.dumps(s3_config),
             "--mode",

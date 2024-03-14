@@ -57,13 +57,16 @@ class PythonWHT:
             self.site_config_path,
             self.project_folder_path,
         )
-        creation_ts = self.connector.get_creation_ts(
+        creation_ts = self.get_model_creation_ts(model_hash, entity_key)
+        return model_hash, model_name, creation_ts
+
+    def get_model_creation_ts(self, model_hash: str, entity_key: str):
+        return self.connector.get_creation_ts(
             self.session,
             self.get_registry_table_name(),
             model_hash,
             entity_key,
         )
-        return model_hash, model_name, creation_ts
 
     def _validate_historical_materials_hash(
         self,
@@ -98,7 +101,7 @@ class PythonWHT:
                 assert self.connector.check_table_entry_in_material_registry(
                     self.session,
                     self.get_registry_table_name(),
-                    self._split_material_name(feature_table_query),
+                    self.split_material_name(feature_table_query),
                 ), f"Material table {feature_table_query} does not exist"
 
             if label_material_seq_no is not None:
@@ -108,7 +111,7 @@ class PythonWHT:
                 assert self.connector.check_table_entry_in_material_registry(
                     self.session,
                     self.get_registry_table_name(),
-                    self._split_material_name(label_table_query),
+                    self.split_material_name(label_table_query),
                 ), f"Material table {label_table_query} does not exist"
 
             return True
@@ -314,7 +317,7 @@ class PythonWHT:
                 )
         return feature_date, label_date
 
-    def _split_material_name(self, name: str) -> dict:
+    def split_material_name(self, name: str) -> dict:
         """
         Splits given material table into model_name, model_hash and seq_no
         Ex. Splits "Material_user_var_table_54ddc22a_383" into (user_var_table, 54ddc22a, 383)

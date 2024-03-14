@@ -315,9 +315,11 @@ class MLTrainer(ABC):
         materials: List[TrainTablesInfo],
         input_models: str,
         whtService: PythonWHT,
+        connector: Connector,
+        session,
     ):
         met_data_requirement = self.check_min_data_requirement(
-            whtService.connector, whtService.session, materials
+            connector, session, materials
         )
 
         logger.debug(f"Min data requirement satisfied: {met_data_requirement}")
@@ -396,7 +398,7 @@ class MLTrainer(ABC):
             )
             logger.debug(f"new label tables: {[m.label_table_name for m in materials]}")
             met_data_requirement = self.check_min_data_requirement(
-                whtService.connector, whtService.session, materials
+                connector, session, materials
             )
 
             if met_data_requirement:
@@ -523,7 +525,7 @@ class ClassificationTrainer(MLTrainer):
         )
         if len(distinct_values) == 1:
             raise ValueError(
-                f"Only one value of label column found in label table. Please check if the label column is correct. Label column: {self.label_column}"
+                f"Only one value of label column found in label table {label_table_name}. Please check if the label column is correct. Label column: {self.label_column}"
             )
         return label_table
 

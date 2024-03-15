@@ -9,7 +9,6 @@ from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import
 from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
 import json
 
-
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
 creds["schema"] = "rs_profiles_3"
 
@@ -127,6 +126,7 @@ def validate_reports():
         "02-test-lift-chart",
         "03-test-pr-auc",
         "04-test-roc-auc",
+        "preprocess_and_train.log",
     ]
     files = os.listdir(reports_directory)
     missing_files = []

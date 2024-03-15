@@ -311,6 +311,17 @@ if __name__ == "__main__":
     if isinstance(material_info_[0], list):
         for material in material_info_:
             material_info.append(constants.TrainTablesInfo(*material))
+    import logging
+
+    file_handler = logging.FileHandler(
+        os.path.join(output_dir, "preprocess_and_train.log")
+    )
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
 
     train_results_json = preprocess_and_train(
         train_procedure,

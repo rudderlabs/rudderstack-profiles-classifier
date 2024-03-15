@@ -904,13 +904,9 @@ def plot_top_k_feature_importance(
             "Got 3D numpy array with last dimension having depth of 2. Taking the second output for plotting feature importance"
         )
         shap_values = shap_values[:, :, 1]
-    onehot_encoder = (
-        dict(pipe.steps)["preprocessor"]
-        .named_transformers_["cat"]
-        .named_steps["encoder"]
-    )
     onehot_encoder_columns = get_onehot_encoded_col_names(
-        onehot_encoder, categorical_columns
+        dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"],
+        categorical_columns,
     )
     col_names_ = (
         numeric_columns

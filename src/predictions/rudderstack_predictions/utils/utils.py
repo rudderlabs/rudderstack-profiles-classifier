@@ -375,22 +375,10 @@ def convert_ts_str_to_dt_str(timestamp_str: str) -> str:
         )
 
 
-def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> List[str]:
-    """Assigning new column names for the one-hot encoded columns.
-
-    Args:
-        onehot_encoder (OneHotEncoder): OneHotEncoder object.
-        col_names (List[str]): List of categorical column names before applying onehot transformation
-
-    Returns:
-        List[str]: List of categorical column names of the output dataframe \
-            including categories after applying onehot transformation.
-    """
-    category_names = []
-    for col_id, col in enumerate(col_names):
-        for value in onehot_encoder.categories_[col_id]:
-            category_names.append(f"{col}_{value}")
-    return category_names
+def get_onehot_encoded_col_names(
+    onehot_encoder: OneHotEncoder, col_names: List[str]
+) -> List[str]:
+    return list(onehot_encoder.get_feature_names_out(col_names))
 
 
 def transform_null(
@@ -916,9 +904,13 @@ def plot_top_k_feature_importance(
             "Got 3D numpy array with last dimension having depth of 2. Taking the second output for plotting feature importance"
         )
         shap_values = shap_values[:, :, 1]
-    onehot_encoder_columns = get_column_names(
-        dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"],
-        categorical_columns,
+    onehot_encoder = (
+        dict(pipe.steps)["preprocessor"]
+        .named_transformers_["cat"]
+        .named_steps["encoder"]
+    )
+    onehot_encoder_columns = get_onehot_encoded_col_names(
+        onehot_encoder, categorical_columns
     )
     col_names_ = (
         numeric_columns
@@ -1129,7 +1121,7 @@ def explain_prediction(
     pipe = load_stage_file_from_local(
         session, stage_name, model_file_name, ".", "joblib"
     )
-    onehot_encoder_columns = get_column_names(
+    onehot_encoder_columns = get_onehot_encoded_col_names(
         dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"],
         categorical_columns,
     )
@@ -1176,7 +1168,7 @@ def plot_user_feature_importance(
     Returns:
     figure object and a dictionary of feature importance scores for the user.
     """
-    onehot_encoder_columns = get_column_names(
+    onehot_encoder_columns = get_onehot_encoded_col_names(
         dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"],
         categorical_columns,
     )

@@ -8,7 +8,14 @@ from src.predictions.rudderstack_predictions.utils.utils import (
     generate_new_training_dates,
     replace_seq_no_in_query,
     get_abs_date_diff,
+    get_onehot_encoded_col_names,
 )
+
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.linear_model import LogisticRegression
 
 
 class TestReplaceSeqNoInQuery(unittest.TestCase):
@@ -287,3 +294,115 @@ class TestDatetimeToDateString(unittest.TestCase):
         datetime_str = "2024/02/26"
         result = datetime_to_date_string(datetime_str)
         self.assertEqual(result, "")
+
+
+class TestGetOnehotEncodedColNames(unittest.TestCase):
+    def setUp(self) -> None:
+        # Create a sample pipe from a real dataset
+        from sklearn.datasets import load_iris
+
+        import numpy as np
+        import pandas as pd
+
+        data = load_iris()
+        X, y = data.data, data.target
+        df = pd.DataFrame(X, columns=data.feature_names)
+        bin_labels = ["short", "medium", "long"]
+        df["sepal_len_cat"] = pd.cut(df["sepal length (cm)"], bins=3, labels=bin_labels)
+        df["sepal_wid_cat"] = pd.cut(df["sepal width (cm)"], bins=3, labels=bin_labels)
+        # Define numeric and categorical features
+        self.numeric_features = ["petal length (cm)", "petal width (cm)"]
+        self.categorical_features = ["sepal_len_cat", "sepal_wid_cat"]
+        self.df = df
+        self.y = y
+        self.bin_labels = bin_labels
+
+    def test_returns_list_of_encoded_col_names(self):
+        # Numeric pipeline
+        numeric_pipeline = Pipeline(steps=[("imputer", SimpleImputer(strategy="mean"))])
+        # Categorical pipeline
+        categorical_pipeline = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                ("encoder", OneHotEncoder(handle_unknown="ignore")),
+            ]
+        )
+        # Combine pipelines with ColumnTransformer
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ("num", numeric_pipeline, self.numeric_features),
+                ("cat", categorical_pipeline, self.categorical_features),
+            ]
+        )
+        # Full pipeline with a classifier
+        full_pipeline = Pipeline(
+            steps=[("preprocessor", preprocessor), ("classifier", LogisticRegression())]
+        )
+        # Fit the pipeline
+        full_pipeline.fit(self.df, self.y)
+        onehot_encoder = (
+            dict(full_pipeline.steps)["preprocessor"]
+            .named_transformers_["cat"]
+            .named_steps["encoder"]
+        )
+        encoded_col_names = get_onehot_encoded_col_names(
+            onehot_encoder, self.categorical_features
+        )
+        self.assertIsInstance(encoded_col_names, list)
+        self.assertEqual(
+            len(encoded_col_names),
+            len(self.categorical_features) * len(self.bin_labels),
+        )
+        # Assert lists contain same elements but order may be different
+        self.assertListEqual(
+            sorted(encoded_col_names),
+            sorted(
+                [
+                    f"{feature}_{label}"
+                    for feature in self.categorical_features
+                    for label in self.bin_labels
+                ]
+            ),
+        )
+
+    def test_returns_correct_list_with_max_categories(self):
+        max_categories = 2
+        # Numeric pipeline
+        numeric_pipeline = Pipeline(steps=[("imputer", SimpleImputer(strategy="mean"))])
+        # Categorical pipeline
+        categorical_pipeline = Pipeline(
+            steps=[
+                ("imputer", SimpleImputer(strategy="most_frequent")),
+                (
+                    "encoder",
+                    OneHotEncoder(
+                        handle_unknown="ignore", max_categories=max_categories
+                    ),
+                ),
+            ]
+        )
+        # Combine pipelines with ColumnTransformer
+        preprocessor = ColumnTransformer(
+            transformers=[
+                ("num", numeric_pipeline, self.numeric_features),
+                ("cat", categorical_pipeline, self.categorical_features),
+            ]
+        )
+        # Full pipeline with a classifier
+        full_pipeline = Pipeline(
+            steps=[("preprocessor", preprocessor), ("classifier", LogisticRegression())]
+        )
+        # Fit the pipeline
+        full_pipeline.fit(self.df, self.y)
+        onehot_encoder = (
+            dict(full_pipeline.steps)["preprocessor"]
+            .named_transformers_["cat"]
+            .named_steps["encoder"]
+        )
+        encoded_col_names = get_onehot_encoded_col_names(
+            onehot_encoder, self.categorical_features
+        )
+        self.assertIsInstance(encoded_col_names, list)
+        self.assertEqual(
+            len(encoded_col_names), len(self.categorical_features) * max_categories
+        )

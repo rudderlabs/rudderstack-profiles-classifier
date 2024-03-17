@@ -356,7 +356,7 @@ def get_feature_table_column_types(
     entity_column: str,
 ):
     feature_table_column_types = {}
-    lowercase_columns = lambda table: [col.lower() for col in table.columns]
+    lowercase_columns = lambda columns: [col.lower() for col in columns]
 
     lower_numeric_input_cols = lowercase_columns(input_column_types["numeric"])
     lower_timestamp_input_cols = lowercase_columns(input_column_types["timestamp"])

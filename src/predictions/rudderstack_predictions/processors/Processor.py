@@ -27,6 +27,7 @@ class Processor(ABC):
         train_procedure,
         materials: List[TrainTablesInfo],
         model_config: dict,
+        input_column_types: dict,
         prediction_task: str,
         wh_creds: dict,
         site_config: dict,

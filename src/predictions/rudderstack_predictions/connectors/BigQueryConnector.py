@@ -103,10 +103,41 @@ class BigQueryConnector(CommonWarehouseConnector):
         ).schema
         return schema
 
+    def get_non_stringtype_features(
+        self, session, table_name: str, label_column: str, entity_column: str
+    ) -> List[str]:
+        numeric_data_types = (
+            "INT",
+            "SMALLINT",
+            "INTEGER",
+            "BIGINT",
+            "TINYINT",
+            "BYTEINT",
+            "DECIMAL",
+            "BIGDECIMAL",
+        )
+        return self.fetch_given_data_type_columns(
+            session, table_name, numeric_data_types, label_column, entity_column
+        )
+
+    def get_stringtype_features(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        stringtype_data_types = ("STRING", "JSON")
+        return self.fetch_given_data_type_columns(
+            session, table_name, stringtype_data_types, label_column, entity_column
+        )
+
     def get_timestamp_columns(
         self,
         session,
         table_name: str,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
@@ -118,15 +149,18 @@ class BigQueryConnector(CommonWarehouseConnector):
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
-        schema = self.fetch_schema(session, table_name)
-        timestamp_columns = [
-            field.name
-            for field in schema
-            if field.field_type in ("DATE", "TIME", "DATETIME", "TIMESTAMP", "INTERVAL")
-        ]
-        return timestamp_columns
+        timestamp_data_types = ("DATE", "TIME", "DATETIME", "TIMESTAMP", "INTERVAL")
+        return self.fetch_given_data_type_columns(
+            session, table_name, timestamp_data_types, label_column, entity_column
+        )
 
-    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
+    def get_arraytype_columns(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
         """Returns the list of features to be ignored from the feature table.
 
         Args:
@@ -136,11 +170,10 @@ class BigQueryConnector(CommonWarehouseConnector):
         Returns:
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
-        schema = self.fetch_schema(session, table_name)
-        arraytype_columns = [
-            field.name for field in schema if field.field_type in ("ARRAY")
-        ]
-        return arraytype_columns
+        arraytype_data_types = "ARRAY"
+        return self.fetch_given_data_type_columns(
+            session, table_name, arraytype_data_types, label_column, entity_column
+        )
 
     def fetch_create_metrics_table_query(
         self, metrics_df: pd.DataFrame

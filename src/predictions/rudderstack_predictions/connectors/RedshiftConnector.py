@@ -1,6 +1,7 @@
 import json
 import inspect
 import pandas as pd
+from collections import namedtuple
 from typing import List, Tuple, Optional
 
 import redshift_connector
@@ -82,10 +83,58 @@ class RedshiftConnector(CommonWarehouseConnector):
         query = f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';"
         return session.execute(query).fetch_dataframe()
 
+    def fetch_schema(
+        self, session: redshift_connector.cursor.Cursor, table_name: str
+    ) -> List:
+        """Fetches the (column_name, data_type) tuple of the given table."""
+        query = f"""SELECT column_name, data_type
+                    FROM information_schema.columns
+                    where table_schema='{self.schema}'
+                        and table_name='{table_name}';"""
+        schema_list = self.run_query(session, query)
+        schemaFields = namedtuple("schemaFields", ["name", "field_type"])
+        named_schema_list = [schemaFields(*row) for row in schema_list]
+        return named_schema_list
+
+    def get_non_stringtype_features(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        numeric_data_types = (
+            "integer",
+            "bigint",
+            "float",
+            "smallint",
+            "decimal",
+            "numeric",
+            "real",
+            "double precision",
+        )
+        return self.fetch_given_data_type_columns(
+            session, table_name, numeric_data_types, label_column, entity_column
+        )
+
+    def get_stringtype_features(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        stringtype_data_types = ("character varying", "super")
+        return self.fetch_given_data_type_columns(
+            session, table_name, stringtype_data_types, label_column, entity_column
+        )
+
     def get_timestamp_columns(
         self,
         session,
         table_name: str,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
@@ -97,21 +146,22 @@ class RedshiftConnector(CommonWarehouseConnector):
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
-        session.execute(
-            f"select * from pg_get_cols('{self.schema}.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);"
+        timestamp_data_types = (
+            "timestamp without time zone",
+            "date",
+            "time without time zone",
         )
-        col_df = session.fetch_dataframe()
-        timestamp_columns = []
-        for _, row in col_df.iterrows():
-            if row["col_type"] in [
-                "timestamp without time zone",
-                "date",
-                "time without time zone",
-            ]:
-                timestamp_columns.append(row["col_name"])
-        return timestamp_columns
+        return self.fetch_given_data_type_columns(
+            session, table_name, timestamp_data_types, label_column, entity_column
+        )
 
-    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
+    def get_arraytype_columns(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
         """Returns the list of features to be ignored from the feature table.
 
         Args:
@@ -121,15 +171,10 @@ class RedshiftConnector(CommonWarehouseConnector):
         Returns:
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
-        session.execute(
-            f"select * from pg_get_cols('{self.schema}.{table_name}') cols(view_schema name, view_name name, col_name name, col_type varchar, col_num int);"
+        arraytype_data_types = "array"
+        return self.fetch_given_data_type_columns(
+            session, table_name, arraytype_data_types, label_column, entity_column
         )
-        col_df = session.fetch_dataframe()
-        arraytype_columns = []
-        for _, row in col_df.iterrows():
-            if row["col_type"] == "super":
-                arraytype_columns.append(row["col_name"])
-        return arraytype_columns
 
     def fetch_create_metrics_table_query(
         self, metrics_df: pd.DataFrame

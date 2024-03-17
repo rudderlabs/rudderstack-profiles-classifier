@@ -349,6 +349,26 @@ def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
     return merged_config
 
 
+def get_all_ignore_features(
+    feature_table, input_column_types, config_ignore_features, high_cardinal_features
+):
+    ignore_features_ = merge_lists_to_unique(
+        input_column_types["arraytype"], high_cardinal_features
+    )
+    ignore_features_ = merge_lists_to_unique(ignore_features_, config_ignore_features)
+
+    uppercase_list = lambda names: [name.upper() for name in names]
+    lowercase_list = lambda names: [name.lower() for name in names]
+
+    ignore_features = [
+        col
+        for col in feature_table.columns
+        if col in uppercase_list(ignore_features_)
+        or col in lowercase_list(ignore_features_)
+    ]
+    return ignore_features
+
+
 def parse_warehouse_creds(creds: dict, mode: str) -> dict:
     if mode == constants.K8S_MODE:
         wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]

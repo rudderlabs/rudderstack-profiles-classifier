@@ -6,7 +6,7 @@ import pandas as pd
 from pathlib import Path
 from abc import abstractmethod
 from datetime import datetime, timedelta
-from typing import List, Any, Union, Optional, Sequence, Dict
+from typing import List, Tuple, Any, Union, Optional, Sequence, Dict
 
 from ..utils import utils
 from ..utils import constants
@@ -242,30 +242,21 @@ class CommonWarehouseConnector(Connector):
         """Function needed only for Snowflake Connector, hence an empty function here."""
         pass
 
-    def get_non_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        """Extracts the names of Non-StringType(numeric) columns having 'integer' dtype"""
-        non_stringtype_features = feature_df.select_dtypes(
-            include=["number"]
-        ).columns.to_list()
+    def fetch_given_data_type_columns(
+        self,
+        session,
+        table_name: str,
+        required_data_types: Tuple,
+        label_column: str,
+        entity_column: str,
+    ) -> List:
+        """Fetches the column names from the given schemaField based on the required data types (exclude label and entity columns)"""
+        schemaField = self.fetch_schema(session, table_name)
         return [
-            col
-            for col in non_stringtype_features
-            if col.lower() not in (label_column.lower(), entity_column.lower())
-        ]
-
-    def get_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        """Extracts the names of StringType(categorical) columns having non 'integer' dtype"""
-        stringtype_features = feature_df.select_dtypes(
-            exclude=["number"]
-        ).columns.to_list()
-        return [
-            col
-            for col in stringtype_features
-            if col.lower() not in (label_column.lower(), entity_column.lower())
+            field.name
+            for field in schemaField
+            if field.field_type in required_data_types
+            and field.name.lower() not in (label_column.lower(), entity_column.lower())
         ]
 
     def get_arraytype_columns_from_table(self, table: pd.DataFrame, **kwargs) -> list:
@@ -282,17 +273,15 @@ class CommonWarehouseConnector(Connector):
     def get_high_cardinal_features(
         self,
         table: pd.DataFrame,
+        categorical_columns: List[str],
         label_column,
         entity_column,
         cardinal_feature_threshold,
     ) -> List[str]:
         high_cardinal_features = list()
-        non_stringtype_features = self.get_non_stringtype_features(
-            table, label_column, entity_column
-        )
-        lower_non_stringtype_features = [col.lower() for col in non_stringtype_features]
+        lower_categorical_features = [col.lower() for col in categorical_columns]
         for field in table.columns:
-            if (field.lower() not in lower_non_stringtype_features) and (
+            if (field.lower() in lower_categorical_features) and (
                 field.lower() not in (label_column.lower(), entity_column.lower())
             ):
                 feature_data = table[field]
@@ -968,6 +957,10 @@ class CommonWarehouseConnector(Connector):
         pass
 
     @abstractmethod
+    def fetch_schema(self, session, table_name: str) -> List:
+        pass
+
+    @abstractmethod
     def get_table_as_dataframe(
         self, session, table_name: str, **kwargs
     ) -> pd.DataFrame:
@@ -978,15 +971,35 @@ class CommonWarehouseConnector(Connector):
         pass
 
     @abstractmethod
-    def get_timestamp_columns(
-        self,
-        session,
-        table_name: str,
+    def get_non_stringtype_features(
+        self, session, table_name: str, label_column: str, entity_column: str
     ) -> List[str]:
         pass
 
     @abstractmethod
-    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
+    def get_stringtype_features(
+        self, session, table_name: str, label_column: str, entity_column: str
+    ) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_timestamp_columns(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_arraytype_columns(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
         pass
 
     @abstractmethod

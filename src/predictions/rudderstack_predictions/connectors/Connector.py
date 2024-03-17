@@ -3,7 +3,7 @@ import json
 
 from datetime import datetime
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple, Union, Sequence, Optional
+from typing import Any, List, Tuple, Dict, Union, Sequence, Optional
 
 from ..utils import utils
 from ..utils.logger import logger
@@ -510,6 +510,70 @@ class Connector(ABC):
         ]
         return complete_sequences
 
+    def get_input_column_types(
+        self,
+        session,
+        trainer_obj,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> Dict:
+        numeric_columns = utils.merge_lists_to_unique(
+            self.get_non_stringtype_features(
+                session, table_name, label_column, entity_column
+            ),
+            trainer_obj.prep.numeric_pipeline["numeric_columns"],
+        )
+        categorical_columns = utils.merge_lists_to_unique(
+            self.get_stringtype_features(
+                session, table_name, label_column, entity_column
+            ),
+            trainer_obj.prep.categorical_pipeline["categorical_columns"],
+        )
+        arraytype_columns = self.get_arraytype_columns(
+            session, table_name, label_column, entity_column
+        )
+        timestamp_columns = (
+            self.get_timestamp_columns(session, table_name, label_column, entity_column)
+            if len(trainer_obj.prep.timestamp_columns) == 0
+            else trainer_obj.prep.timestamp_columns
+        )
+        return {
+            "numeric": numeric_columns,
+            "categorical": categorical_columns,
+            "arraytype": arraytype_columns,
+            "timestamp": timestamp_columns,
+        }
+
+    def get_feature_table_column_types(
+        feature_table, input_column_types, label_column, entity_column
+    ):
+        feature_table_column_types = {}
+        lowercase_columns = lambda table: [col.lower() for col in table.columns]
+
+        lower_numeric_input_cols = lowercase_columns(input_column_types["numeric"])
+        lower_timestamp_input_cols = lowercase_columns(input_column_types["timestamp"])
+        lower_feature_table_numeric_cols = utils.merge_lists_to_unique(
+            lower_numeric_input_cols, lower_timestamp_input_cols
+        )
+
+        for col in feature_table.columns:
+            if (
+                col.lower() not in (label_column.lower(), entity_column.lower())
+                and col.lower() in lower_feature_table_numeric_cols
+            ):
+                feature_table_column_types["numeric"] = col
+            elif col.lower() not in (
+                label_column.lower(),
+                entity_column.lower(),
+            ) and col.lower() in lowercase_columns(input_column_types["categorical"]):
+                feature_table_column_types["categorical"] = col
+            else:
+                raise Exception(
+                    f"Column {col} in feature table is not numeric or categorical"
+                )
+        return feature_table_column_types
+
     @abstractmethod
     def fetch_filtered_table(
         self,
@@ -605,18 +669,32 @@ class Connector(ABC):
 
     @abstractmethod
     def get_non_stringtype_features(
-        self, feature_table, label_column: str, entity_column: str, **kwargs
+        self,
+        session,
+        feature_table,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         pass
 
     @abstractmethod
     def get_stringtype_features(
-        self, feature_table, label_column: str, entity_column: str, **kwargs
+        self,
+        session,
+        feature_table,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         pass
 
     @abstractmethod
-    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
+    def get_arraytype_columns(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
         pass
 
     @abstractmethod
@@ -625,12 +703,23 @@ class Connector(ABC):
 
     @abstractmethod
     def get_high_cardinal_features(
-        self, feature_table, label_column, entity_column, cardinal_feature_threshold
+        self,
+        feature_table,
+        categorical_columns,
+        label_column,
+        entity_column,
+        cardinal_feature_threshold,
     ) -> List[str]:
         pass
 
     @abstractmethod
-    def get_timestamp_columns(self, session, table_name: str) -> List[str]:
+    def get_timestamp_columns(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
         pass
 
     @abstractmethod

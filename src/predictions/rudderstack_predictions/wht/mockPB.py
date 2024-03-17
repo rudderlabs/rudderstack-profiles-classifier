@@ -9,12 +9,3 @@ class MockPB:
 
     def run(self, *args):
         return RudderPB().run(*args)
-
-    def get_material_name(self, *args):
-        return RudderPB().get_material_name(*args)
-
-    def split_material_table(self, *args):
-        return RudderPB().split_material_table(*args)
-
-    def get_material_registry_name(self, *args):
-        return RudderPB().get_material_registry_name(*args)

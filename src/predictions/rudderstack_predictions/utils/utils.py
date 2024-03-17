@@ -375,7 +375,7 @@ def get_feature_table_column_types(
             entity_column.lower(),
         ) and col.lower() in lowercase_columns(input_column_types["categorical"]):
             feature_table_column_types["categorical"] = col
-        else:
+        elif col.lower() not in (label_column.lower(), entity_column.lower()):
             raise Exception(
                 f"Column {col} in feature table is not numeric or categorical"
             )

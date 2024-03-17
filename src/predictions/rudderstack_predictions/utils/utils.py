@@ -348,8 +348,12 @@ def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
             merged_config[key] = default_config[key]
     return merged_config
 
+
 def get_feature_table_column_types(
-    feature_table, input_column_types: dict, label_column: str, entity_column: str,
+    feature_table,
+    input_column_types: dict,
+    label_column: str,
+    entity_column: str,
 ):
     feature_table_column_types = {}
     lowercase_columns = lambda table: [col.lower() for col in table.columns]
@@ -376,6 +380,7 @@ def get_feature_table_column_types(
                 f"Column {col} in feature table is not numeric or categorical"
             )
     return feature_table_column_types
+
 
 def get_all_ignore_features(
     feature_table, input_column_types, config_ignore_features, high_cardinal_features

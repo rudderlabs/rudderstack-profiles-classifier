@@ -480,7 +480,9 @@ class PythonWHT:
             self.session, table_name, label_column, entity_column
         )
         timestamp_columns = (
-            self.connector.get_timestamp_columns(self.session, table_name, label_column, entity_column)
+            self.connector.get_timestamp_columns(
+                self.session, table_name, label_column, entity_column
+            )
             if len(trainer_obj.prep.timestamp_columns) == 0
             else trainer_obj.prep.timestamp_columns
         )

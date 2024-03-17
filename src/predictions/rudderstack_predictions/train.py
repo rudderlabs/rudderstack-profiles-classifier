@@ -268,9 +268,6 @@ def _train(
             creation_ts, trainer.prediction_horizon_days
         )
 
-    latest_feature_table_name = getPB().get_latest_entity_var_table_name(
-        model_hash, features_profiles_model, inputs
-    )
     if trainer.label_value is None and prediction_task == "classification":
         label_value = connector.get_default_label_value(
             session,
@@ -280,10 +277,9 @@ def _train(
         )
         trainer.label_value = label_value
 
-    input_column_types = connector.get_input_column_types(
-        session,
+    input_column_types = whtService.get_input_column_types(
         trainer,
-        latest_feature_table_name,
+        features_model_name,
         trainer.label_column,
         trainer.entity_column,
     )

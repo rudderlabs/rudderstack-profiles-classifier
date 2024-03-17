@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple, Dict
 
 from .rudderPB import MATERIAL_PREFIX
 
@@ -456,3 +456,37 @@ class PythonWHT:
                     found_unique_match = True
 
         return new_input_models
+
+    def get_input_column_types(
+        self,
+        trainer_obj,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> Dict:
+        numeric_columns = utils.merge_lists_to_unique(
+            self.connector.get_non_stringtype_features(
+                self.session, table_name, label_column, entity_column
+            ),
+            trainer_obj.prep.numeric_pipeline["numeric_columns"],
+        )
+        categorical_columns = utils.merge_lists_to_unique(
+            self.connector.get_stringtype_features(
+                self.session, table_name, label_column, entity_column
+            ),
+            trainer_obj.prep.categorical_pipeline["categorical_columns"],
+        )
+        arraytype_columns = self.connector.get_arraytype_columns(
+            self.session, table_name, label_column, entity_column
+        )
+        timestamp_columns = (
+            self.connector.get_timestamp_columns(self.session, table_name, label_column, entity_column)
+            if len(trainer_obj.prep.timestamp_columns) == 0
+            else trainer_obj.prep.timestamp_columns
+        )
+        return {
+            "numeric": numeric_columns,
+            "categorical": categorical_columns,
+            "arraytype": arraytype_columns,
+            "timestamp": timestamp_columns,
+        }

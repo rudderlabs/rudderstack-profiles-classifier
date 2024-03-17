@@ -195,7 +195,7 @@ def preprocess_and_train(
     )
     feature_table = connector.drop_cols(feature_table, ignore_features)
 
-    feature_table_column_types = connector.get_feature_table_column_types(
+    feature_table_column_types = utils.get_feature_table_column_types(
         feature_table, input_column_types, trainer.label_column, trainer.entity_column
     )
 

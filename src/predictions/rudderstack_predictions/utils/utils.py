@@ -348,6 +348,34 @@ def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
             merged_config[key] = default_config[key]
     return merged_config
 
+def get_feature_table_column_types(
+    feature_table, input_column_types: dict, label_column: str, entity_column: str,
+):
+    feature_table_column_types = {}
+    lowercase_columns = lambda table: [col.lower() for col in table.columns]
+
+    lower_numeric_input_cols = lowercase_columns(input_column_types["numeric"])
+    lower_timestamp_input_cols = lowercase_columns(input_column_types["timestamp"])
+    lower_feature_table_numeric_cols = merge_lists_to_unique(
+        lower_numeric_input_cols, lower_timestamp_input_cols
+    )
+
+    for col in feature_table.columns:
+        if (
+            col.lower() not in (label_column.lower(), entity_column.lower())
+            and col.lower() in lower_feature_table_numeric_cols
+        ):
+            feature_table_column_types["numeric"] = col
+        elif col.lower() not in (
+            label_column.lower(),
+            entity_column.lower(),
+        ) and col.lower() in lowercase_columns(input_column_types["categorical"]):
+            feature_table_column_types["categorical"] = col
+        else:
+            raise Exception(
+                f"Column {col} in feature table is not numeric or categorical"
+            )
+    return feature_table_column_types
 
 def get_all_ignore_features(
     feature_table, input_column_types, config_ignore_features, high_cardinal_features

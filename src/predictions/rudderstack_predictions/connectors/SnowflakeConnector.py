@@ -1,6 +1,7 @@
 import os
 import gzip
 import json
+import uuid
 import shutil
 import pandas as pd
 
@@ -23,11 +24,15 @@ local_folder = constants.SF_LOCAL_STORAGE_DIR
 
 class SnowflakeConnector(Connector):
     def __init__(self) -> None:
-        self.stage_name = None
-        self.udf_name = None
-        self.stored_procedure_name = None
-        self.delete_files = None
-        self.feature_table_name = None
+        self.run_id = str(uuid.uuid4())
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        train_script_dir = os.path.dirname(current_dir)
+
+        self.stage_name = f"@rs_{self.run_id}"
+        self.udf_name = f"prediction_score_{self.stage_name.replace('@','')}"
+        self.stored_procedure_name = f"train_and_store_model_results_sf_{self.run_id}"
+        self.delete_files = [train_script_dir]
+        self.feature_table_name = f"features_{self.run_id}"
         return
 
     def build_session(self, credentials: dict) -> snowflake.snowpark.Session:
@@ -83,6 +88,7 @@ class SnowflakeConnector(Connector):
         if session == None:
             raise Exception("Session object not found")
         args = list(args)
+        args.insert(2, self.feature_table_name)
         feature_table_df = args.pop(
             1
         )  # Snowflake stored procedure for training requires feature_table_name saved on warehouse instead of feature_table_df
@@ -125,18 +131,6 @@ class SnowflakeConnector(Connector):
         stage_name = results["model_info"]["file_location"]["stage"]
         self.udf_name = f"prediction_score_{stage_name.replace('@','')}"
         return self.udf_name
-
-    def get_stage_name(self, run_id: str) -> str:
-        self.stage_name = f"@rs_{run_id}"
-        return self.stage_name
-
-    def get_stored_procedure_name(self, run_id: str) -> str:
-        self.stored_procedure_name = f"train_and_store_model_results_sf_{run_id}"
-        return self.stored_procedure_name
-
-    def get_import_paths(self, current_dir):
-        self.delete_files = [current_dir]
-        return self.delete_files
 
     def is_valid_table(
         self, session: snowflake.snowpark.Session, table_name: str
@@ -216,12 +210,9 @@ class SnowflakeConnector(Connector):
         """
         return self.get_table(session, table_name, **kwargs).toPandas()
 
-    def send_table_to_train_env(
-        self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
-    ) -> Any:
+    def send_table_to_train_env(self, table: snowflake.snowpark.Table, **kwargs) -> Any:
         """Sends the given snowpark table to the training env(ie. snowflake warehouse in this case) with the name as given"""
-        self.feature_table_name = table_name_remote
-        self.write_table(table, table_name_remote, **kwargs)
+        self.write_table(table, self.feature_table_name, **kwargs)
 
     def write_table(
         self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs

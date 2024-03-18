@@ -23,7 +23,6 @@ class CommonWarehouseConnector(Connector):
         path = Path(self.local_dir)
         path.mkdir(parents=True, exist_ok=True)
         self.array_time_features = {}
-        self.udf_name = None
         return
 
     def get_local_dir(self) -> str:
@@ -53,11 +52,6 @@ class CommonWarehouseConnector(Connector):
             Results of the training function
         """
         args = list(args)
-        snowflake_relevent_feature_table_name = args.pop(
-            2
-        )  # feature_table_name of snowflake table store on warehouse. Thus, irrelevant for Redshift/BigQuery.
-        del snowflake_relevent_feature_table_name
-
         train_function = args.pop(0)
         return train_function(*args, **kwargs)
 
@@ -156,7 +150,7 @@ class CommonWarehouseConnector(Connector):
         utils.delete_file(file_path)
         return json_data
 
-    def send_table_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
+    def send_table_to_train_env(self, table, **kwargs) -> Any:
         """Sends the given snowpark table to the training env(ie. local env) with the name as given.
         Therefore, no usecase for this function in case of Redshift/BigQuery."""
         pass

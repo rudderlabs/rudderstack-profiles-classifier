@@ -116,15 +116,14 @@ def _train(
         )
 
     """ Building session """
-    run_id = hashlib.md5(f"{str(datetime.now())}_{project_folder}".encode()).hexdigest()
     warehouse = creds["type"]
     logger.debug(f"Building session for {warehouse}")
     if warehouse == "snowflake":
         connector = ConnectorFactory.create(warehouse)
         session = connector.build_session(creds)
-        stage_name = connector.get_stage_name(run_id)
-        train_procedure = connector.get_stored_procedure_name(run_id)
-        import_paths = connector.get_import_paths(current_dir)
+        stage_name = connector.stage_name
+        train_procedure = connector.stored_procedure_name
+        import_paths = connector.delete_files
 
         connector.create_stage(session, stage_name)
         connector.pre_job_cleanup(session)
@@ -338,7 +337,7 @@ def _train(
         prediction_task,
         creds,
         utils.load_yaml(site_config_path),
-        run_id,
+        connector.run_id,
     )
     logger.debug("Training completed. Saving the artefacts")
 

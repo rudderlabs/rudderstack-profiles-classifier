@@ -69,7 +69,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def send_table_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
+    def send_table_to_train_env(self, table, **kwargs) -> Any:
         pass
 
     @abstractmethod

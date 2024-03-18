@@ -229,7 +229,6 @@ def preprocess_and_train(
     logger.info("Data validation is completed")
 
     # We are using the same 'run_id' as train script. This can help in debugging/tracing to correct stage and training_procedure.
-    feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features_{run_id}"
     filtered_feature_table = connector.filter_feature_table(
         feature_table,
         trainer.entity_column,
@@ -238,7 +237,6 @@ def preprocess_and_train(
     )
     connector.send_table_to_train_env(
         filtered_feature_table,
-        feature_table_name_remote,
         write_mode="overwrite",
         if_exists="replace",
     )
@@ -248,7 +246,6 @@ def preprocess_and_train(
         train_results_json = connector.call_procedure(
             train_procedure,
             filtered_feature_table,
-            feature_table_name_remote,
             merged_config,
             session=session,
             connector=connector,

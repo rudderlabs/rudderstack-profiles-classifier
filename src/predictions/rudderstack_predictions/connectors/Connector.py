@@ -273,6 +273,10 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def compute_udf_name(self, model_path: str) -> None:
+        pass
+
+    @abstractmethod
     def pre_job_cleanup(self, session) -> None:
         pass
 

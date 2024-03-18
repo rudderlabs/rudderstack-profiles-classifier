@@ -98,8 +98,7 @@ def predict(
     connector = ConnectorFactory.create(warehouse, folder_path)
     session = connector.build_session(creds)
 
-    # get_udf_name() also sets the udf_name in the connector object which helps in pre_job_cleanup() and post_job_cleanup()
-    _ = connector.get_udf_name(model_path)
+    connector.compute_udf_name(model_path)
     connector.pre_job_cleanup(session)
 
     mode = connector.fetch_processor_mode(

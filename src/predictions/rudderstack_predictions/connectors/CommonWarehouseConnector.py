@@ -77,7 +77,7 @@ class CommonWarehouseConnector(Connector):
         )
         return mode
 
-    def get_udf_name(self, model_path: str) -> str:
+    def compute_udf_name(self, model_path: str) -> None:
         """Returns the udf name using info from the model_path
 
         Args:
@@ -86,7 +86,7 @@ class CommonWarehouseConnector(Connector):
         Returns:
             str: UDF name
         """
-        return None
+        return
 
     def is_valid_table(self, session, table_name: str) -> bool:
         """

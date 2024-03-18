@@ -33,10 +33,10 @@ class SnowflakeConnector(Connector):
         train_script_dir = os.path.dirname(current_dir)
 
         self.stage_name = f"@rs_{self.run_id}"
-        self.udf_name = f"prediction_score_{self.stage_name.replace('@','')}"
         self.stored_procedure_name = f"train_and_store_model_results_sf_{self.run_id}"
         self.delete_files = [train_script_dir]
         self.feature_table_name = f"features_{self.run_id}"
+        self.udf_name = None
         return
 
     def build_session(self, credentials: dict) -> snowflake.snowpark.Session:
@@ -121,7 +121,7 @@ class SnowflakeConnector(Connector):
     ) -> str:
         return constants.WAREHOUSE_MODE
 
-    def get_udf_name(self, model_path: str) -> str:
+    def compute_udf_name(self, model_path: str) -> None:
         """Returns the udf name using info from the model_path
 
         Args:
@@ -134,7 +134,6 @@ class SnowflakeConnector(Connector):
             results = json.load(f)
         stage_name = results["model_info"]["file_location"]["stage"]
         self.udf_name = f"prediction_score_{stage_name.replace('@','')}"
-        return self.udf_name
 
     def is_valid_table(
         self, session: snowflake.snowpark.Session, table_name: str

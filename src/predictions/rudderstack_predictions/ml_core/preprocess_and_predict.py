@@ -45,7 +45,7 @@ def preprocess_and_predict(
     trainer = kwargs.get("trainer", None)
 
     model_file_name = constants.MODEL_FILE_NAME
-    udf_name = connector.get_udf_name(model_path)
+    connector.compute_udf_name(model_path)
 
     with open(model_path, "r") as f:
         results = json.load(f)
@@ -139,6 +139,7 @@ def preprocess_and_predict(
     features = input_df.columns
 
     if creds["type"] == "snowflake":
+        udf_name = connector.udf_name
 
         @F.pandas_udf(
             session=session,

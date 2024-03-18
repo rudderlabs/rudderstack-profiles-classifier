@@ -1025,9 +1025,9 @@ class SnowflakeConnector(Connector):
     ):
         types = []
         for col in df.columns:
-            if col in column_types["categorical_columns"]:
+            if col in column_types["categorical"]:
                 types.append(str)
-            elif col in column_types["numeric_columns"]:
+            elif col in column_types["numeric"]:
                 types.append(float)
             else:
                 raise Exception(

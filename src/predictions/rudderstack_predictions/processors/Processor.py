@@ -30,7 +30,6 @@ class Processor(ABC):
         prediction_task: str,
         wh_creds: dict,
         site_config: dict,
-        run_id: str,
     ):
         pass
 

@@ -3,7 +3,6 @@
 import os
 import json
 import sys
-import hashlib
 
 from .wht.pythonWHT import PythonWHT
 
@@ -125,7 +124,7 @@ def _train(
         train_procedure = connector.stored_procedure_name
         import_paths = connector.delete_files
 
-        connector.create_stage(session, stage_name)
+        connector.create_stage(session)
         connector.pre_job_cleanup(session)
 
         @sproc(
@@ -337,7 +336,6 @@ def _train(
         prediction_task,
         creds,
         utils.load_yaml(site_config_path),
-        connector.run_id,
     )
     logger.debug("Training completed. Saving the artefacts")
 

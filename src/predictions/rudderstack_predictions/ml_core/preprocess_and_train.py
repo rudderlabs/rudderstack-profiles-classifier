@@ -190,7 +190,6 @@ def preprocess_and_train(
     train_procedure,
     train_table_pairs: List[constants.TrainTablesInfo],
     merged_config: dict,
-    run_id: str,
     **kwargs,
 ):
     session = kwargs.get("session", None)
@@ -279,7 +278,6 @@ if __name__ == "__main__":
     parser.add_argument("--prediction_task", type=str)
     parser.add_argument("--wh_creds", type=json.loads)
     parser.add_argument("--output_path", type=str)
-    parser.add_argument("--run_id", type=str)
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
 
@@ -316,7 +314,6 @@ if __name__ == "__main__":
         train_procedure,
         material_info,
         args.merged_config,
-        args.run_id,
         session=session,
         connector=connector,
         trainer=trainer,

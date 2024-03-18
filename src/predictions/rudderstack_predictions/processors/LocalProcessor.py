@@ -17,7 +17,6 @@ class LocalProcessor(Processor):
         prediction_task: str,
         wh_creds: dict,
         site_config: dict,
-        run_id: str,
     ):
         ec2_temp_output_json = constants.EC2_TEMP_OUTPUT_JSON
         local_dir = self.connector.get_local_dir()
@@ -39,8 +38,6 @@ class LocalProcessor(Processor):
             json.dumps(wh_creds),
             "--output_path",
             output_path,
-            "--run_id",
-            run_id,
             "--mode",
             constants.LOCAL_MODE,
         ]

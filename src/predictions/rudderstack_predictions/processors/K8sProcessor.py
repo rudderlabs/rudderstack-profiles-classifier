@@ -181,7 +181,6 @@ class K8sProcessor(Processor):
         prediction_task: str,
         wh_creds: dict,
         site_config: dict,
-        run_id: str,
     ):
         credentials_presets = site_config["py_models"]["credentials_presets"]
         k8s_config = credentials_presets["kubernetes"]
@@ -205,8 +204,6 @@ class K8sProcessor(Processor):
             json.dumps(materials),
             "--merged_config",
             json.dumps(merged_config),
-            "--run_id",
-            run_id,
             "--prediction_task",
             prediction_task,
         ]

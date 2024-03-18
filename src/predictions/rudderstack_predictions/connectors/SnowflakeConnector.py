@@ -1,9 +1,10 @@
 import os
 import gzip
 import json
-import uuid
+import hashlib
 import shutil
 import pandas as pd
+from datetime import datetime
 
 from typing import Any, Iterable, List, Union, Optional, Sequence, Dict
 
@@ -24,7 +25,7 @@ local_folder = constants.SF_LOCAL_STORAGE_DIR
 
 class SnowflakeConnector(Connector):
     def __init__(self) -> None:
-        self.run_id = str(uuid.uuid4())
+        self.run_id = hashlib.md5(f"{str(datetime.now())}".encode()).hexdigest()
         current_dir = os.path.dirname(os.path.abspath(__file__))
         train_script_dir = os.path.dirname(current_dir)
 
@@ -1066,7 +1067,7 @@ class SnowflakeConnector(Connector):
 
     """ The following functions are only specific to Snowflake Connector and not used by any other connector."""
 
-    def create_stage(self, session: snowflake.snowpark.Session, stage_name: str):
+    def create_stage(self, session: snowflake.snowpark.Session):
         """
         Creates a Snowflake stage with the given name if it does not exist.
 
@@ -1078,7 +1079,7 @@ class SnowflakeConnector(Connector):
             Nothing
         """
         self.run_query(
-            session, f"create stage if not exists {stage_name.replace('@', '')}"
+            session, f"create stage if not exists {self.stage_name.replace('@', '')}"
         )
 
     def _delete_import_files(

@@ -235,7 +235,7 @@ def preprocess_and_train(
 
     train_results_json["column_names"] = {}
     train_results_json["column_names"]["input_column_types"] = input_column_types
-    train_results_json["column_names"]["ignore_columns"] = ignore_features
+    train_results_json["column_names"]["ignore_features"] = ignore_features
     train_results_json["column_names"][
         "feature_table_column_types"
     ] = feature_table_column_types

@@ -124,7 +124,7 @@ if __name__ == "__main__":
         },
     }
 
-    runtime_info = {"is_rudder_backend": False}
+    runtime_info = {"is_rudder_backend": False, "site_config_path": site_config_path}
     try:
         train_inputs = train_inputs.split(",")
     except Exception as e:

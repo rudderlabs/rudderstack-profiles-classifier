@@ -424,6 +424,25 @@ class CommonWarehouseConnector(Connector):
             )
         return creation_ts.tz_localize(None)
 
+    def get_latest_seq_no_from_registry(
+        self, session, material_table: str, model_hash: str, model_name: str
+    ) -> int:
+        redshift_df = self.get_material_registry_table(session, material_table)
+        try:
+            temp_hash_vector = (
+                redshift_df.query(f'model_hash == "{model_hash}"')
+                .query(f'model_name == "{model_name}"')
+                .sort_values(by="creation_ts", ascending=False)
+                .reset_index(drop=True)[["seq_no"]]
+                .iloc[0]
+            )
+            seq_no = temp_hash_vector["seq_no"]
+        except:
+            raise Exception(
+                f"Error occured while fetching latest seq_no from registry table. Project is never materialzied with model hash {model_hash}."
+            )
+        return int(seq_no)
+
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
@@ -776,8 +795,8 @@ class CommonWarehouseConnector(Connector):
 
     def generate_type_hint(self, df: pd.DataFrame, column_types: Dict[str, List[str]]):
         types = []
-        cat_columns = [col.lower() for col in column_types["categorical_columns"]]
-        numeric_columns = [col.lower() for col in column_types["numeric_columns"]]
+        cat_columns = [col.lower() for col in column_types["categorical"]]
+        numeric_columns = [col.lower() for col in column_types["numeric"]]
         for col in df.columns:
             if col.lower() in cat_columns:
                 types.append(str)

@@ -65,6 +65,14 @@ class PythonWHT:
         )
         return model_hash, model_name, creation_ts
 
+    def latest_existing_entity_var_table_from_registry(
+        self, model_hash: str, feature_model_name: str
+    ) -> str:
+        seq_no = self.connector.get_latest_seq_no_from_registry(
+            self.session, self.get_registry_table_name(), model_hash, feature_model_name
+        )
+        return self.compute_material_name(feature_model_name, model_hash, seq_no)
+
     def get_latest_entity_var_table_name(
         self, model_hash: str, entity_var_model: str, inputs: list
     ) -> str:

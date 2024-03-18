@@ -195,6 +195,12 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def get_latest_seq_no_from_registry(
+        self, session, material_table: str, model_hash: str, model_name: str
+    ) -> int:
+        pass
+
+    @abstractmethod
     def get_end_ts(
         self,
         session,

@@ -650,6 +650,25 @@ class SnowflakeConnector(Connector):
             )
         return creation_ts
 
+    def get_latest_seq_no_from_registry(
+        self, session, material_table: str, model_hash: str, model_name: str
+    ) -> int:
+        snowpark_df = self.get_material_registry_table(session, material_table)
+        try:
+            temp_hash_vector = (
+                snowpark_df.filter(col("model_hash") == model_hash)
+                .filter(col("model_name") == model_name)
+                .sort(col("creation_ts"), ascending=False)
+                .select(col("seq_no"))
+                .collect()[0]
+            )
+            seq_no = temp_hash_vector.SEQ_NO
+        except:
+            raise Exception(
+                f"Error occured while fetching latest seq_no from registry table. Project is never materialzied with model hash {model_hash}."
+            )
+        return int(seq_no)
+
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:

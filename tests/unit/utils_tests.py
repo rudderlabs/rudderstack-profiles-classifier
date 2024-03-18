@@ -276,11 +276,17 @@ class TestDatetimeToDateString(unittest.TestCase):
         result = datetime_to_date_string(datetime_str)
         self.assertEqual(result, "2024-02-26")
 
+    def test_datetime_with_timezone(self):
+        """Test with a datetime string with time components"""
+        datetime_str = "2024-02-26 15:30:45+05:30"
+        result = datetime_to_date_string(datetime_str)
+        self.assertEqual(result, "2024-02-26")
+
     def test_date_only_string(self):
         """Test with a date-only string"""
         datetime_str = "2024-02-26"
         result = datetime_to_date_string(datetime_str)
-        self.assertEqual(result, "")
+        self.assertEqual(result, "2024-02-26")
 
     def test_invalid_format(self):
         """Test with an invalid datetime format"""

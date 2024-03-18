@@ -609,7 +609,12 @@ def datetime_to_date_string(datetime_str: str) -> str:
         str: Date in string format
     """
     try:
-        datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+        if "+" in datetime_str:
+            datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S%z")
+        elif " " in datetime_str:
+            datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+        else:
+            datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d")
     except ValueError:
         # Value error will be raised if its not able
         # to match datetime string with given format

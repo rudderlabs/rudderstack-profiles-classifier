@@ -355,29 +355,29 @@ def get_feature_table_column_types(
     label_column: str,
     entity_column: str,
 ):
-    feature_table_column_types = {}
-    lowercase_columns = lambda columns: [col.lower() for col in columns]
+    feature_table_column_types = {"numeric": [], "categorical": []}
+    uppercase_columns = lambda columns: [col.upper() for col in columns]
 
-    lower_numeric_input_cols = lowercase_columns(input_column_types["numeric"])
-    lower_timestamp_input_cols = lowercase_columns(input_column_types["timestamp"])
-    lower_feature_table_numeric_cols = merge_lists_to_unique(
-        lower_numeric_input_cols, lower_timestamp_input_cols
+    upper_numeric_input_cols = uppercase_columns(input_column_types["numeric"])
+    upper_timestamp_input_cols = uppercase_columns(input_column_types["timestamp"])
+    upper_feature_table_numeric_cols = merge_lists_to_unique(
+        upper_numeric_input_cols, upper_timestamp_input_cols
     )
 
     for col in feature_table.columns:
         if (
-            col.lower() not in (label_column.lower(), entity_column.lower())
-            and col.lower() in lower_feature_table_numeric_cols
+            col.upper() not in (label_column.upper(), entity_column.upper())
+            and col.upper() in upper_feature_table_numeric_cols
         ):
-            feature_table_column_types["numeric"] = col
-        elif col.lower() not in (
-            label_column.lower(),
-            entity_column.lower(),
-        ) and col.lower() in lowercase_columns(input_column_types["categorical"]):
-            feature_table_column_types["categorical"] = col
-        elif col.lower() not in (label_column.lower(), entity_column.lower()):
+            feature_table_column_types["numeric"].append(col.upper())
+        elif col.upper() not in (
+            label_column.upper(),
+            entity_column.upper(),
+        ) and col.upper() in uppercase_columns(input_column_types["categorical"]):
+            feature_table_column_types["categorical"].append(col.upper())
+        elif col.upper() not in (label_column.upper(), entity_column.upper()):
             raise Exception(
-                f"Column {col} in feature table is not numeric or categorical"
+                f"Column {col.upper()} in feature table is not numeric or categorical"
             )
     return feature_table_column_types
 

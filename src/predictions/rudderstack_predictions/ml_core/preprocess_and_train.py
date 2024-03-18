@@ -63,11 +63,6 @@ def train_and_store_model_results(
         feature_df, categorical_columns, numeric_columns, train_config, model_file
     )
 
-    results["column_names"] = {
-        "numeric_columns": numeric_columns,
-        "categorical_columns": categorical_columns,
-    }
-
     trainer.plot_diagnostics(
         connector, session, pipe, None, test_x, test_y, trainer.label_column
     )
@@ -238,6 +233,7 @@ def preprocess_and_train(
     if not isinstance(train_results_json, dict):
         train_results_json = json.loads(train_results_json)
 
+    train_results_json["column_names"] = {}
     train_results_json["column_names"]["input_column_types"] = input_column_types
     train_results_json["column_names"]["ignore_columns"] = ignore_features
     train_results_json["column_names"][

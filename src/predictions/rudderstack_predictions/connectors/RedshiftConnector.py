@@ -90,7 +90,7 @@ class RedshiftConnector(CommonWarehouseConnector):
         query = f"""SELECT column_name, data_type
                     FROM information_schema.columns
                     where table_schema='{self.schema}'
-                        and table_name='{table_name}';"""
+                        and table_name='{table_name.lower()}';"""
         schema_list = self.run_query(session, query)
         schemaFields = namedtuple("schemaFields", ["name", "field_type"])
         named_schema_list = [schemaFields(*row) for row in schema_list]

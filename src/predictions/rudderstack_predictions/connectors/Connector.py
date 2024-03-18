@@ -1,14 +1,6 @@
 import pandas as pd
-import json
-
-from datetime import datetime
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple, Union, Sequence, Optional
-
-from ..utils import utils
-from ..utils.logger import logger
-from ..utils.constants import TrainTablesInfo
-from ..wht.pb import getPB
+from typing import Any, Iterable, List, Union, Sequence, Optional
 
 
 class Connector(ABC):
@@ -582,7 +574,7 @@ class Connector(ABC):
 
     @abstractmethod
     def check_table_entry_in_material_registry(
-        self, session, material_table_name: str
+        self, session, registry_table_name: str, material: dict
     ) -> bool:
         pass
 
@@ -653,20 +645,6 @@ class Connector(ABC):
     def get_default_label_value(
         self, session, table_name: str, label_column: str, positive_boolean_flags: list
     ):
-        pass
-
-    @abstractmethod
-    def get_material_names_(
-        self,
-        session,
-        material_table: str,
-        start_time: str,
-        end_time: str,
-        model_name: str,
-        model_hash: str,
-        prediction_horizon_days: int,
-        inputs: List[str],
-    ) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]],]:
         pass
 
     @abstractmethod
@@ -788,4 +766,17 @@ class Connector(ABC):
 
     @abstractmethod
     def cleanup(self, *args, **kwargs) -> None:
+        pass
+
+    @abstractmethod
+    def join_feature_label_tables(
+        self,
+        session,
+        registry_table_name: str,
+        features_model_name: str,
+        model_hash: str,
+        start_time: str,
+        end_time: str,
+        prediction_horizon_days: int,
+    ) -> Iterable:
         pass

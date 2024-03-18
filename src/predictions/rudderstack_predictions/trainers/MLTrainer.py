@@ -1,9 +1,8 @@
+from datetime import datetime
 import joblib
 import time
-import json
 import numpy as np
 import pandas as pd
-import snowflake.snowpark
 
 from copy import deepcopy
 from dataclasses import dataclass
@@ -25,6 +24,11 @@ from sklearn.metrics import (
     mean_squared_error,
     r2_score,
 )
+
+from ..utils.constants import (
+    TrainTablesInfo,
+)
+from ..wht.pythonWHT import PythonWHT
 
 from ..utils import utils
 from ..utils.logger import logger
@@ -300,8 +304,105 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
-    def check_min_data_requirement(self, connector, session, materials) -> bool:
+    def check_min_data_requirement(
+        self, connector: Connector, session, materials
+    ) -> bool:
         pass
+
+    def check_and_generate_more_materials(
+        self,
+        get_material_func: callable,
+        materials: List[TrainTablesInfo],
+        input_models: str,
+        whtService: PythonWHT,
+    ):
+        met_data_requirement = self.check_min_data_requirement(
+            whtService.connector, whtService.session, materials
+        )
+
+        logger.debug(f"Min data requirement satisfied: {met_data_requirement}")
+        logger.debug(
+            f"New material generation strategy : {self.materialisation_strategy}"
+        )
+        if met_data_requirement or self.materialisation_strategy == "":
+            return materials
+
+        feature_package_path = utils.get_feature_package_path(input_models)
+        max_materializations = (
+            self.materialisation_max_no_dates
+            if self.materialisation_strategy == "auto"
+            else len(self.materialisation_dates)
+        )
+
+        for i in range(max_materializations):
+            feature_date = None
+            label_date = None
+
+            if self.materialisation_strategy == "auto":
+                training_dates = [
+                    utils.datetime_to_date_string(m.feature_table_date)
+                    for m in materials
+                ]
+                training_dates = [
+                    date_str for date_str in training_dates if len(date_str) != 0
+                ]
+                logger.info(f"training_dates : {training_dates}")
+                training_dates = sorted(
+                    training_dates,
+                    key=lambda x: datetime.strptime(x, "%Y-%m-%d"),
+                    reverse=True,
+                )
+
+                max_feature_date = training_dates[0]
+                min_feature_date = training_dates[-1]
+
+                feature_date, label_date = utils.generate_new_training_dates(
+                    max_feature_date,
+                    min_feature_date,
+                    training_dates,
+                    self.prediction_horizon_days,
+                    self.feature_data_min_date_diff,
+                )
+                logger.info(
+                    f"new generated dates for feature: {feature_date}, label: {label_date}"
+                )
+            elif self.materialisation_strategy == "manual":
+                dates = self.materialisation_dates[i].split(",")
+                if len(dates) >= 2:
+                    feature_date = dates[0]
+                    label_date = dates[1]
+
+                if feature_date is None or label_date is None:
+                    continue
+
+            try:
+                for date in [feature_date, label_date]:
+                    whtService.run(feature_package_path, date)
+            except Exception as e:
+                logger.warning(str(e))
+                logger.warning("Stopped generating new material dates.")
+                break
+
+            logger.info(
+                "Materialised feature and label data successfully, "
+                f"for dates {feature_date} and {label_date}"
+            )
+
+            # Get materials with new feature start date
+            # and validate min data requirement again
+            materials = get_material_func(start_date=feature_date)
+            logger.debug(
+                f"new feature tables: {[m.feature_table_name for m in materials]}"
+            )
+            logger.debug(f"new label tables: {[m.label_table_name for m in materials]}")
+            met_data_requirement = self.check_min_data_requirement(
+                whtService.connector, whtService.session, materials
+            )
+
+            if met_data_requirement:
+                break
+
+        return materials
 
 
 class ClassificationTrainer(MLTrainer):
@@ -506,7 +607,9 @@ class ClassificationTrainer(MLTrainer):
             feature_table, self.label_column
         ) and connector.validate_class_proportions(feature_table, self.label_column)
 
-    def check_min_data_requirement(self, connector, session, materials) -> bool:
+    def check_min_data_requirement(
+        self, connector: Connector, session, materials
+    ) -> bool:
         label_column = self.label_column
         return connector.check_for_classification_data_requirement(
             session, materials, label_column, self.label_value
@@ -689,5 +792,7 @@ class RegressionTrainer(MLTrainer):
             feature_table, self.label_column
         ) and connector.validate_label_distinct_values(feature_table, self.label_column)
 
-    def check_min_data_requirement(self, connector, session, materials) -> bool:
+    def check_min_data_requirement(
+        self, connector: Connector, session, materials
+    ) -> bool:
         return connector.check_for_regression_data_requirement(session, materials)

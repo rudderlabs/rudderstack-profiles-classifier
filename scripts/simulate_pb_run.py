@@ -23,6 +23,8 @@ if __name__ == "__main__":
     env_name = os.getenv("SITE_ENV_NAME", None)
     label_column = os.getenv("LABEL_COLUMN", None)
     train_inputs = os.getenv("TRAIN_INPUTS", None)
+    project_folder = os.getenv("PROJECT_FOLDER", "samples/application_project")
+    feature_table_name = os.getenv("FEATURE_TABLE_NAME", "rudder_user_base_features")
 
     if (
         connection_name is None
@@ -35,8 +37,6 @@ if __name__ == "__main__":
         sys.exit(1)
 
     train_file_extension = ".json"
-    project_folder = "samples/application_project"
-    feature_table_name = "rudder_user_base_features"
     eligible_users = "1=1"
     package_name = "feature_table"
     label_value = 1
@@ -124,7 +124,10 @@ if __name__ == "__main__":
         },
     }
 
-    runtime_info = {"is_rudder_backend": False}
+    runtime_info = {
+        "is_rudder_backend": False,
+        "site_config_path": site_config_path,
+    }
     try:
         train_inputs = train_inputs.split(",")
     except Exception as e:

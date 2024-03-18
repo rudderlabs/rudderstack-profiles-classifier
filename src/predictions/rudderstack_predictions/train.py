@@ -277,7 +277,9 @@ def _train(
         )
         trainer.label_value = label_value
 
-    latest_entity_var_table_name = whtService.get_latest_entity_var_table_name(model_hash, features_model_name, inputs)
+    latest_entity_var_table_name = whtService.get_latest_entity_var_table_name(
+        model_hash, features_model_name, inputs
+    )
     input_column_types = whtService.get_input_column_types(
         trainer,
         latest_entity_var_table_name,

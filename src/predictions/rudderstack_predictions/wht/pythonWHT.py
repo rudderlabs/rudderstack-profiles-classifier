@@ -64,14 +64,21 @@ class PythonWHT:
             entity_key,
         )
         return model_hash, model_name, creation_ts
-    
+
     def get_latest_entity_var_table_name(
         self, model_hash: str, entity_var_model: str, inputs: list
     ) -> str:
         try:
             input = inputs[0]
             seq_no = int(input.split("_")[-1])
-            return MATERIAL_PREFIX + entity_var_model + "_" + model_hash + "_" + f"{seq_no:.0f}"
+            return (
+                MATERIAL_PREFIX
+                + entity_var_model
+                + "_"
+                + model_hash
+                + "_"
+                + f"{seq_no:.0f}"
+            )
         except IndexError:
             raise Exception(
                 "Error while getting feature table name using model "

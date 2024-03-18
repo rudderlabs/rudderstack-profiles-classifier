@@ -50,27 +50,33 @@ class PythonWHT:
             self.cached_registry_table_name = sorted_material_registry_tables[0]
         return self.cached_registry_table_name
 
-    def get_latest_entity_var_table(self, entity_key: str) -> Tuple[str, str, str]:
-        model_hash, model_name = self._getPB().get_latest_material_hash(
-            entity_key,
-            self.site_config_path,
-            self.project_folder_path,
-        )
-        creation_ts = self.connector.get_creation_ts(
-            self.session,
-            self.get_registry_table_name(),
-            model_hash,
-            entity_key,
-        )
-        return model_hash, model_name, creation_ts
+    def get_latest_existing_entity_var_table_info(
+        self, entity_key: str
+    ) -> Tuple[str, str, str, str]:
+        def _get_latest_entity_var_table(self, entity_key: str) -> Tuple[str, str, str]:
+            model_hash, model_name = self._getPB().get_latest_material_hash(
+                entity_key,
+                self.site_config_path,
+                self.project_folder_path,
+            )
+            creation_ts = self.connector.get_creation_ts(
+                self.session,
+                self.get_registry_table_name(),
+                model_hash,
+                entity_key,
+            )
+            return model_hash, model_name, creation_ts
 
-    def latest_existing_entity_var_table_from_registry(
-        self, model_hash: str, feature_model_name: str
-    ) -> str:
-        seq_no = self.connector.get_latest_seq_no_from_registry(
-            self.session, self.get_registry_table_name(), model_hash, feature_model_name
+        model_hash, model_name, creation_ts = _get_latest_entity_var_table(
+            self, entity_key
         )
-        return self.compute_material_name(feature_model_name, model_hash, seq_no)
+        seq_no = self.connector.get_latest_seq_no_from_registry(
+            self.session, self.get_registry_table_name(), model_hash, model_name
+        )
+        latest_entity_var_table_name = self.compute_material_name(
+            model_name, model_hash, seq_no
+        )
+        return latest_entity_var_table_name, model_hash, model_name, creation_ts
 
     def _validate_historical_materials_hash(
         self,

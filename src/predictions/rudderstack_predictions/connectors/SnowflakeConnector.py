@@ -4,8 +4,7 @@ import json
 import shutil
 import pandas as pd
 
-from datetime import datetime
-from typing import Any, List, Tuple, Union, Optional, Sequence, Dict
+from typing import Any, Iterable, List, Union, Optional, Sequence, Dict
 
 import snowflake.snowpark
 import snowflake.snowpark.types as T
@@ -16,10 +15,8 @@ from snowflake.snowpark.session import Session
 
 from ..utils import utils
 from ..utils import constants
-from ..utils.constants import TrainTablesInfo
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
-from ..wht.pb import getPB
 
 local_folder = constants.SF_LOCAL_STORAGE_DIR
 
@@ -80,6 +77,12 @@ class SnowflakeConnector(Connector):
         session = kwargs.get("session", None)
         if session == None:
             raise Exception("Session object not found")
+        args = list(args)
+        feature_table_df = args.pop(
+            1
+        )  # Snowflake stored procedure for training requires feature_table_name saved on warehouse instead of feature_table_df
+        del feature_table_df
+
         return session.call(*args)
 
     def get_merged_table(self, base_table, incoming_table):
@@ -137,37 +140,25 @@ class SnowflakeConnector(Connector):
             return False
 
     def check_table_entry_in_material_registry(
-        self, session: snowflake.snowpark.Session, material_table_name: str
+        self,
+        session: snowflake.snowpark.Session,
+        registry_table_name: str,
+        material: dict,
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well
-
-        Args:
-            session: warehouse db session
-            material_table_name: Material table name
-
-        Returns:
-            bool: Wether the entry for given material table is exists or not in the material registry
         """
 
-        model_name, model_hash, seq_no = getPB().split_material_table(
-            material_table_name
-        )
-        if model_name is None or model_hash is None or seq_no is None:
-            return False
-
-        material_registry_table_name = getPB().get_material_registry_name(self, session)
-
-        material_registry_table = self.get_table(session, material_registry_table_name)
+        material_registry_table = self.get_table(session, registry_table_name)
         num_rows = (
             material_registry_table.withColumn(
                 "status", F.get_path("metadata", F.lit("complete.status"))
             )
             .filter(F.col("status") == 2)
-            .filter(col("model_name") == model_name)
-            .filter(col("model_hash") == model_hash)
-            .filter(col("seq_no") == seq_no)
+            .filter(col("model_name") == material["model_name"])
+            .filter(col("model_hash") == material["model_hash"])
+            .filter(col("seq_no") == material["seq_no"])
             .count()
         )
 
@@ -206,6 +197,12 @@ class SnowflakeConnector(Connector):
             table (pd.DataFrame): The table as a pandas Dataframe object
         """
         return self.get_table(session, table_name, **kwargs).toPandas()
+
+    def send_to_train_env(
+        self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
+    ) -> Any:
+        """Sends the given snowpark table to the training env(ie. snowflake warehouse in this case) with the name as given"""
+        self.write_table(table, table_name_remote, **kwargs)
 
     def write_table(
         self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
@@ -556,84 +553,49 @@ class SnowflakeConnector(Connector):
         ).distinct()
         return filtered_snowpark_df
 
-    def get_material_names_(
+    def join_feature_label_tables(
         self,
         session: snowflake.snowpark.Session,
-        material_table: str,
+        registry_table_name: str,
+        features_model_name: str,
+        model_hash: str,
         start_time: str,
         end_time: str,
-        features_profiles_model: str,
-        model_hash: str,
         prediction_horizon_days: int,
-        inputs: List[str],
-    ) -> List[TrainTablesInfo]:
-        """Generates material names as list containing feature table name and label table name required to create the training model and their corresponding training dates.
+    ) -> Iterable:
+        snowpark_df = self.get_material_registry_table(session, registry_table_name)
+        feature_snowpark_df = self.fetch_filtered_table(
+            snowpark_df,
+            features_model_name,
+            model_hash,
+            start_time,
+            end_time,
+            columns=["seq_no", "end_ts"],
+        )
+        label_snowpark_df = self.fetch_filtered_table(
+            snowpark_df,
+            features_model_name,
+            model_hash,
+            utils.date_add(start_time, prediction_horizon_days),
+            utils.date_add(end_time, prediction_horizon_days),
+            columns=["seq_no", "end_ts"],
+        )
 
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session for data warehouse access
-            material_table (str): Name of the material table(present in constants.py file)
-            start_time (str): train_start_dt
-            end_time (str): train_end_dt
-            features_profiles_model (str): Present in model_configs file
-            model_hash (str) : latest model hash
-            prediction_horizon_days (int): period of days
-            inputs (List[str]): list of input features
-
-        Returns:
-            List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
-        """
-        try:
-            materials = list()
-
-            snowpark_df = self.get_material_registry_table(session, material_table)
-
-            feature_snowpark_df = self.fetch_filtered_table(
-                snowpark_df,
-                features_profiles_model,
-                model_hash,
-                start_time,
-                end_time,
-                columns=["seq_no", "end_ts"],
-            )
-            label_snowpark_df = self.fetch_filtered_table(
-                snowpark_df,
-                features_profiles_model,
-                model_hash,
-                utils.date_add(start_time, prediction_horizon_days),
-                utils.date_add(end_time, prediction_horizon_days),
-                columns=["seq_no", "end_ts"],
-            )
-
-            feature_label_snowpark_df = feature_snowpark_df.join(
+        return (
+            feature_snowpark_df.join(
                 label_snowpark_df,
                 F.datediff("day", feature_snowpark_df.end_ts, label_snowpark_df.end_ts)
                 == prediction_horizon_days,
                 join_type="full",
-            ).select(
+            )
+            .select(
                 feature_snowpark_df.seq_no.alias("feature_seq_no"),
                 feature_snowpark_df.end_ts.alias("feature_end_ts"),
                 label_snowpark_df.seq_no.alias("label_seq_no"),
                 label_snowpark_df.end_ts.alias("label_end_ts"),
             )
-            for row in feature_label_snowpark_df.collect():
-                self._fetch_valid_historic_materials(
-                    session,
-                    row,
-                    features_profiles_model,
-                    model_hash,
-                    inputs,
-                    materials,
-                )
-                if (
-                    len(self._get_complete_sequences(materials))
-                    >= constants.TRAIN_MATERIALS_LIMIT
-                ):
-                    break
-            return materials
-        except Exception as e:
-            raise Exception(
-                f"Following exception occured while retrieving material names with hash {model_hash} for {features_profiles_model} between dates {start_time} and {end_time}: {e}"
-            )
+            .collect()
+        )
 
     def get_tables_by_prefix(self, session: snowflake.snowpark.Session, prefix: str):
         tables = list()
@@ -835,6 +797,67 @@ class SnowflakeConnector(Connector):
                     Required minimum {min_sample_for_training} user records."
             )
         return table
+
+    def check_for_classification_data_requirement(
+        self,
+        session: snowflake.snowpark.Session,
+        materials: List[constants.TrainTablesInfo],
+        label_column: str,
+        label_value: str,
+    ) -> bool:
+        label_materials = [m.label_table_name for m in materials]
+        label_table = None
+
+        for label_material in label_materials:
+            temp_table = self.get_table(session, label_material)
+            label_table = self.get_merged_table(label_table, temp_table)
+
+        total_samples = label_table.count()
+
+        total_negative_samples = label_table.filter(
+            F.col(label_column) != label_value
+        ).count()
+
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+        min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+        min_negative_label_count = min_label_proportion * total_samples
+
+        if (
+            total_samples < min_no_of_samples
+            or total_negative_samples < min_negative_label_count
+        ):
+            logger.debug(
+                "Total number of samples or number of negative samples are "
+                "not meeting the minimum training requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}, "
+                f"total negative samples - {total_negative_samples}, "
+                f"minimum negative samples portion required - {min_label_proportion}"
+            )
+            return False
+        return True
+
+    def check_for_regression_data_requirement(
+        self,
+        session: snowflake.snowpark.Session,
+        materials: List[constants.TrainTablesInfo],
+    ) -> bool:
+        feature_table = None
+        for material in materials:
+            feature_material = material.feature_table_name
+            temp_table = self.get_table(session, feature_material)
+            feature_table = self.get_merged_table(feature_table, temp_table)
+
+        total_samples = feature_table.count()
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+
+        if total_samples < min_no_of_samples:
+            logger.debug(
+                "Number training samples are not meeting the minimum requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}"
+            )
+            return False
+
+        return True
 
     def validate_columns_are_present(
         self, feature_table: snowflake.snowpark.Table, label_column: str

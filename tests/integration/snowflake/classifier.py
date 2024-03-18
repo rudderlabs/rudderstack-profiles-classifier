@@ -2,9 +2,9 @@ from train import *
 import shutil
 import time
 from predict import *
-from src.predictions.rudderstack_predictions.wht.pb import getPB
+from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
 import json
-import yaml
+from tests.integration.utils import create_site_config_file
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
 creds["schema"] = "PROFILES_INTEGRATION_TEST"
@@ -137,17 +137,8 @@ def validate_reports():
         raise Exception(f"{missing_files} not found in reports directory")
 
 
-def create_site_config_file(creds, siteconfig_path):
-    json_data = {
-        "connections": {"test": {"target": "test", "outputs": {"test": creds}}}
-    }
-    yaml_data = yaml.dump(json_data, default_flow_style=False)
-    with open(siteconfig_path, "w") as file:
-        file.write(yaml_data)
-
-
 def validate_predictions_df():
-    connector = SnowflakeConnector()
+    connector = ConnectorFactory.create("snowflake")
     session = connector.build_session(creds)
     required_columns = [
         "USER_MAIN_ID",
@@ -186,9 +177,8 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, _ = getPB().get_latest_material_hash(
+    latest_model_hash, _ = RudderPB().get_latest_material_hash(
         entity_key,
-        output_filename,
         siteconfig_path,
         project_path,
     )
@@ -196,6 +186,7 @@ def test_classification():
     train_inputs = [
         f"""SELECT * FROM {creds['schema']}.material_user_var_table_{latest_model_hash}_0""",
     ]
+    runtime_info = {"site_config_path": siteconfig_path}
 
     try:
         train(
@@ -205,6 +196,7 @@ def test_classification():
             train_config,
             siteconfig_path,
             project_path,
+            runtime_info,
         )
         validate_training_summary()
         validate_reports()
@@ -224,6 +216,7 @@ def test_classification():
             predict_inputs,
             p_output_tablename,
             predict_config,
+            runtime_info,
         )
         validate_predictions_df()
 

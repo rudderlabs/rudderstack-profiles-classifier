@@ -6,15 +6,13 @@ import pandas as pd
 from pathlib import Path
 from abc import abstractmethod
 from datetime import datetime, timedelta
-from typing import List, Any, Union, Optional, Sequence, Dict
+from typing import Iterable, List, Any, Union, Optional, Sequence, Dict
 
 from ..utils import utils
 from ..utils import constants
-from ..utils.constants import TrainTablesInfo
 from ..utils.logger import logger
 from .Connector import Connector
 from .wh.profiles_connector import ProfilesConnector
-from ..wht.pb import getPB
 
 local_folder = constants.LOCAL_STORAGE_DIR
 
@@ -53,8 +51,13 @@ class CommonWarehouseConnector(Connector):
         Returns:
             Results of the training function
         """
-        train_function = args[0]
-        args = args[1:]
+        args = list(args)
+        snowflake_relevent_feature_table_name = args.pop(
+            2
+        )  # feature_table_name of snowflake table store on warehouse. Thus, irrelevant for Redshift/BigQuery.
+        del snowflake_relevent_feature_table_name
+
+        train_function = args.pop(0)
         return train_function(*args, **kwargs)
 
     def get_merged_table(self, base_table, incoming_table):
@@ -108,37 +111,20 @@ class CommonWarehouseConnector(Connector):
             return False
 
     def check_table_entry_in_material_registry(
-        self, session, material_table_name: str
+        self, session, registry_table_name: str, material: dict
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well
-
-        Args:
-            session: warehouse db session
-            material_table_name: Material table name
-
-        Returns:
-            bool: Wether the entry for given material table is exists or not in the material registry
         """
-
-        model_name, model_hash, seq_no = getPB().split_material_table(
-            material_table_name
-        )
-        if model_name is None or model_hash is None or seq_no is None:
-            return False
-
-        material_registry_table_name = getPB().get_material_registry_name(self, session)
         material_registry_table = self.get_material_registry_table(
-            session, material_registry_table_name
+            session, registry_table_name
         )
-
         result = material_registry_table.loc[
-            (material_registry_table["model_name"] == model_name)
-            & (material_registry_table["model_hash"] == model_hash)
-            & (material_registry_table["seq_no"] == seq_no)
+            (material_registry_table["model_name"] == material["model_name"])
+            & (material_registry_table["model_hash"] == material["model_hash"])
+            & (material_registry_table["seq_no"] == material["seq_no"])
         ]
-
         row_count = result.shape[0]
         return row_count != 0
 
@@ -168,6 +154,11 @@ class CommonWarehouseConnector(Connector):
             json_data = json.load(file)
         utils.delete_file(file_path)
         return json_data
+
+    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
+        """Sends the given snowpark table to the training env(ie. local env) with the name as given.
+        Therefore, no usecase for this function in case of Redshift/BigQuery."""
+        pass
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
         """Writes the given pandas dataframe to the warehouse schema with the given name.
@@ -323,96 +314,61 @@ class CommonWarehouseConnector(Connector):
         )
         return filtered_df
 
-    def get_material_names_(
+    def join_feature_label_tables(
         self,
         session,
-        material_table: str,
+        registry_table_name: str,
+        features_model_name: str,
+        model_hash: str,
         start_time: str,
         end_time: str,
-        model_name: str,
-        model_hash: str,
         prediction_horizon_days: int,
-        inputs: List[str],
-    ) -> List[TrainTablesInfo]:
-        """Generates material names as list containing feature table name and label table name required to create the training model and their corresponding training dates.
+    ) -> Iterable:
+        df = self.get_material_registry_table(session, registry_table_name)
+        feature_df = self.fetch_filtered_table(
+            df,
+            features_model_name,
+            model_hash,
+            start_time,
+            end_time,
+            columns={"seq_no": "FEATURE_SEQ_NO", "end_ts": "FEATURE_END_TS"},
+        )
+        required_feature_cols = feature_df.columns.to_list()
+        feature_df["TEMP_LABEL_END_TS"] = feature_df["FEATURE_END_TS"] + timedelta(
+            days=prediction_horizon_days
+        )
 
-        Args:
-            session : connection session for warehouse access
-            material_table (str): Name of the material table(present in constants.py file)
-            start_time (str): train_start_dt
-            end_time (str): train_end_dt
-            model_name (str): Present in model_configs file
-            model_hash (str) : latest model hash
-            prediction_horizon_days (int): period of days
+        time_format = "%Y-%m-%d"
+        label_start_time = datetime.strptime(start_time, time_format) + timedelta(
+            days=prediction_horizon_days
+        )
+        label_end_time = datetime.strptime(end_time, time_format) + timedelta(
+            days=prediction_horizon_days
+        )
+        label_df = self.fetch_filtered_table(
+            df,
+            features_model_name,
+            model_hash,
+            label_start_time,
+            label_end_time,
+            columns={"seq_no": "LABEL_SEQ_NO", "end_ts": "LABEL_END_TS"},
+        )
+        required_label_cols = label_df.columns.to_list()
 
-        Returns:
-            List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
-        """
-        try:
-            materials = list()
-
-            df = self.get_material_registry_table(session, material_table)
-
-            feature_df = self.fetch_filtered_table(
-                df,
-                model_name,
-                model_hash,
-                start_time,
-                end_time,
-                columns={"seq_no": "FEATURE_SEQ_NO", "end_ts": "FEATURE_END_TS"},
-            )
-            required_feature_cols = feature_df.columns.to_list()
-            feature_df["TEMP_LABEL_END_TS"] = feature_df["FEATURE_END_TS"] + timedelta(
-                days=prediction_horizon_days
-            )
-
-            time_format = "%Y-%m-%d"
-            label_start_time = datetime.strptime(start_time, time_format) + timedelta(
-                days=prediction_horizon_days
-            )
-            label_end_time = datetime.strptime(end_time, time_format) + timedelta(
-                days=prediction_horizon_days
-            )
-            label_df = self.fetch_filtered_table(
-                df,
-                model_name,
-                model_hash,
-                label_start_time,
-                label_end_time,
-                columns={"seq_no": "LABEL_SEQ_NO", "end_ts": "LABEL_END_TS"},
-            )
-            required_label_cols = label_df.columns.to_list()
-
-            feature_label_df = pd.merge(
-                feature_df,
-                label_df,
-                left_on=feature_df["TEMP_LABEL_END_TS"].dt.date,
-                right_on=label_df["LABEL_END_TS"].dt.date,
-                how="outer",
-            ).replace({np.nan: None})
-            feature_label_df = feature_label_df[
-                utils.merge_lists_to_unique(required_feature_cols, required_label_cols)
-            ]
-
-            for _, row in feature_label_df.iterrows():
-                self._fetch_valid_historic_materials(
-                    session,
-                    row,
-                    model_name,
-                    model_hash,
-                    inputs,
-                    materials,
-                )
-                if (
-                    len(self._get_complete_sequences(materials))
-                    >= constants.TRAIN_MATERIALS_LIMIT
-                ):
-                    break
-            return materials
-        except Exception as e:
-            raise Exception(
-                f"Following exception occured while retrieving material names with hash {model_hash} for {model_name} between dates {start_time} and {end_time}: {e}"
-            )
+        feature_label_df = pd.merge(
+            feature_df,
+            label_df,
+            left_on=feature_df["TEMP_LABEL_END_TS"].dt.date,
+            right_on=label_df["LABEL_END_TS"].dt.date,
+            how="outer",
+        ).replace({np.nan: None})
+        feature_label_df_merged = feature_label_df[
+            utils.merge_lists_to_unique(required_feature_cols, required_label_cols)
+        ].iterrows()
+        result = []
+        for _, row in feature_label_df_merged:
+            result.append(row)
+        return result
 
     def get_creation_ts(
         self,
@@ -571,6 +527,77 @@ class CommonWarehouseConnector(Connector):
                 f"Insufficient data for training. Only {len(feature_table_filtered)} user records found. Required minimum {min_sample_for_training} user records."
             )
         return feature_table_filtered
+
+    def check_for_classification_data_requirement(
+        self,
+        session,
+        materials: List[constants.TrainTablesInfo],
+        label_column: str,
+        label_value: str,
+    ) -> bool:
+        total_negative_samples = 0
+        total_samples = 0
+        for material in materials:
+            label_material = material.label_table_name
+            query_str = f"""SELECT COUNT(*) as count
+                FROM {label_material}
+                WHERE {label_column} != {label_value}"""
+
+            result = self.run_query(session, query_str, response=True)
+
+            if len(result) != 0:
+                total_negative_samples += result[0][0]
+
+            query_str = f"""SELECT COUNT(*) as count
+                FROM {label_material}"""
+            result = self.run_query(session, query_str, response=True)
+
+            if len(result) != 0:
+                total_samples += result[0][0]
+
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+        min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+        min_negative_label_count = min_label_proportion * total_samples
+
+        if (
+            total_samples < min_no_of_samples
+            or total_negative_samples < min_negative_label_count
+        ):
+            logger.debug(
+                "Total number of samples or number of negative samples are "
+                "not meeting the minimum training requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}, "
+                f"total negative samples - {total_negative_samples}, "
+                f"minimum negative samples portion required - {min_label_proportion}"
+            )
+            return False
+        return True
+
+    def check_for_regression_data_requirement(
+        self,
+        session,
+        materials: List[constants.TrainTablesInfo],
+    ) -> bool:
+        total_samples = 0
+        for material in materials:
+            feature_material = material.feature_table_name
+            query_str = f"""SELECT COUNT(*) as count
+                FROM {feature_material}"""
+            result = self.run_query(session, query_str, response=True)
+
+            if len(result) != 0:
+                total_samples += result[0][0]
+
+        min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
+
+        if total_samples < min_no_of_samples:
+            logger.debug(
+                "Number training samples are not meeting the minimum requirement, "
+                f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}"
+            )
+            return False
+
+        return True
 
     def validate_columns_are_present(
         self,

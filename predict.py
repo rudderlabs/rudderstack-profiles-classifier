@@ -16,11 +16,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 import src.predictions.rudderstack_predictions.utils.utils as utils
 from src.predictions.rudderstack_predictions.utils import constants
-from src.predictions.rudderstack_predictions.connectors.SnowflakeConnector import (
-    SnowflakeConnector,
-)
 from src.predictions.rudderstack_predictions.processors.ProcessorFactory import (
     ProcessorFactory,
+)
+from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
+    ConnectorFactory,
 )
 from src.predictions.rudderstack_predictions.trainers.MLTrainer import (
     ClassificationTrainer,
@@ -29,13 +29,6 @@ from src.predictions.rudderstack_predictions.trainers.MLTrainer import (
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
-
-try:
-    from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
-        RedshiftConnector,
-    )
-except Exception as e:
-    logger.warning(f"Could not import RedshiftConnector")
 
 
 def predict(
@@ -101,12 +94,9 @@ def predict(
         f"Started Predicting for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
     )
 
-    if creds["type"] == "snowflake":
-        connector = SnowflakeConnector()
-        session = connector.build_session(creds)
-    elif creds["type"] == "redshift":
-        connector = RedshiftConnector(folder_path)
-        session = connector.build_session(creds)
+    warehouse = creds["type"]
+    connector = ConnectorFactory.create(warehouse, folder_path)
+    session = connector.build_session(creds)
 
     udf_name = connector.get_udf_name(model_path)
     connector.cleanup(session, udf_name=udf_name)
@@ -117,32 +107,12 @@ def predict(
     processor = ProcessorFactory.create(mode, trainer, connector, session)
     logger.debug(f"Using {mode} processor for predictions")
 
-    if site_config_path == "":
-        # TODO - Remove it post pb release
-        s3_config = {
-            "bucket": "ml-usecases-poc-srinivas",
-            "region": "us-east-1",
-            "path": "2b0AM2EcotEiuoa0GwkpCtzuQaa/cmu7ff9gtmi99j1fb330/cmu7ff9gtmi99j1fb33g",
-            "role_arn": "arn:aws:iam::454531037350:role/profiles-ml-s3",
-        }
-        site_config = {
-            "py_models": {
-                "credentials_presets": {
-                    "s3": s3_config,
-                    "kubernetes": {
-                        "namespace": "profiles-qa",
-                        "resources": {"limits_cpu": "2000m", "limits_memory": "2Gi"},
-                    },
-                }
-            }
-        }
+    site_config = utils.load_yaml(site_config_path)
+    presets = site_config["py_models"].get("credentials_presets")
+    if presets is None or presets.get("s3") is None:
+        s3_config = {}
     else:
-        site_config = utils.load_yaml(site_config_path)
-        presets = site_config["py_models"].get("credentials_presets")
-        if presets is None or presets.get("s3") is None:
-            s3_config = {}
-        else:
-            s3_config = presets["s3"]
+        s3_config = presets["s3"]
 
     if mode == constants.RUDDERSTACK_MODE:
         s3_creds = S3Utils.get_temporary_credentials(s3_config["role_arn"])

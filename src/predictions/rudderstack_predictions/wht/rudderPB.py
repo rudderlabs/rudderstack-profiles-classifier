@@ -1,3 +1,4 @@
+import json
 from typing import List, Tuple
 from ..utils import utils
 from ..utils.logger import logger
@@ -9,14 +10,11 @@ MATERIAL_PREFIX = "Material_"
 
 class RudderPB:
     def _compile(self, arg: dict):
-        project_folder = utils.get_project_folder(
-            arg["project_folder"], arg["output_filename"]
-        )
         pb_args = [
             PB_PATH,
             "compile",
             "-p",
-            project_folder,
+            arg["project_folder"],
             "--migrate_on_load=True",
             "-c",
             arg["site_config_path"],
@@ -42,14 +40,11 @@ class RudderPB:
             .replace(tzinfo=timezone.utc)
             .timestamp()
         )
-        project_folder_path = utils.get_project_folder(
-            arg["project_folder"], arg["output_path"]
-        )
         pb_args = [
             PB_PATH,
             "run",
             "-p",
-            project_folder_path,
+            arg["project_folder"],
             "-m",
             arg["feature_package_path"],
             "--migrate_on_load=True",
@@ -68,32 +63,64 @@ class RudderPB:
                 f"Error occurred while materialising data for date {arg['features_valid_time']} : {e}"
             )
 
-    def get_material_name(self, model_name: str, model_hash: str, seq_no: int) -> str:
-        return f"{MATERIAL_PREFIX}{model_name}_{model_hash}_{seq_no:.0f}"
+    def show_models(self, arg: dict) -> List[str]:
+        pb_args = [
+            PB_PATH,
+            "show",
+            "models",
+            "--json",
+            "--migrate_on_load=True",
+            "-p",
+            arg["project_folder"],
+            "-c",
+            arg["site_config_path"],
+        ]
+        logger.info(f"Fetching all models by running command: {' '.join(pb_args)}")
+
+        try:
+            pb_show_models_response = utils.subprocess_run(pb_args)
+            pb_show_models_response_output = (pb_show_models_response.stdout).lower()
+        except Exception as e:
+            raise Exception(f"Error occurred while fetching all models : {e}")
+
+        return self._extract_json_from_stdout(pb_show_models_response_output)
+
+    def _extract_json_from_stdout(self, stdout):
+        lines = stdout.splitlines()
+
+        start_index = next(
+            (i for i, line in enumerate(lines) if line.strip().startswith("{")), None
+        )
+        if start_index is None:
+            return None
+
+        # Parse JSON
+        json_string = "".join(lines[start_index:])
+        json_data = json.loads(json_string)
+
+        return json_data
 
     def get_latest_material_hash(
         self,
         entity_key: str,
-        output_filename: str,
         site_config_path: str = None,
         project_folder: str = None,
     ) -> Tuple[str, str]:
         args = {
             "project_folder": project_folder,
-            "output_filename": output_filename,
             "site_config_path": site_config_path,
         }
         pb_compile_output = self._compile(args)
-        features_profiles_model = None
+        model_name = None
         for var_table in ["_var_table", "_all_var_table"]:
             if entity_key + var_table in pb_compile_output:
-                features_profiles_model = entity_key + var_table
+                model_name = entity_key + var_table
                 break
-        if features_profiles_model is None:
+        if model_name is None:
             raise Exception(
                 f"Could not find any matching var table in the output of pb compile command"
             )
-        material_file_prefix = (MATERIAL_PREFIX + features_profiles_model + "_").lower()
+        material_file_prefix = (MATERIAL_PREFIX + model_name + "_").lower()
 
         try:
             model_hash = pb_compile_output[
@@ -104,54 +131,17 @@ class RudderPB:
             raise Exception(
                 f"Could not find material file prefix {material_file_prefix} in the output of pb compile command: {pb_compile_output}"
             )
-        return model_hash, features_profiles_model
+        return model_hash, model_name
 
-    def split_material_table(self, material_table_name: str) -> Tuple:
-        """
-        Splits given material table into model_name, model_hash and seq_no
-        Ex. Splits "Material_user_var_table_54ddc22a_383" into (user_var_table, 54ddc22a, 383)
-
-        Args:
-            material_table_name: material table name
-        Returns:
-            Tuple: returns ("model_name", "model_hash", seq_no)
-        """
-        mlower = material_table_name.lower()
-        if MATERIAL_PREFIX.lower() not in mlower:
-            logger.warning(
-                f"Couldn't split {material_table_name.lower()}, it does not contain table prefix '{MATERIAL_PREFIX.lower()}'"
-            )
-            return (None, None, None)
-
+    def get_latest_entity_var_table_name(
+        model_hash: str, entity_var_model: str, inputs: list
+    ) -> str:
         try:
-            if "`" in mlower:  # BigQuery case table name
-                table_name = mlower.split("`")[-2]
-            else:
-                table_name = mlower.split()[-1]
-            table_suffix = table_name.split(MATERIAL_PREFIX.lower())[-1]
-            split_parts = table_suffix.split("_")
-            seq_no = int(split_parts[-1])
-            model_hash = split_parts[-2]
-            model_name = "_".join(split_parts[0:-2])
-            return (model_name, model_hash, seq_no)
-        except (IndexError, ValueError):
-            logger.warning(
-                f"Couldn't split the material table {material_table_name} into model name, hash, and seq_no"
+            input = inputs[0]
+            seq_no = int(input.split("_")[-1])
+            return MATERIAL_PREFIX + entity_var_model + "_" + f"{seq_no:.0f}"
+        except IndexError:
+            raise Exception(
+                "Error while getting feature table name using model "
+                f"hash {model_hash}, feature profile model {entity_var_model} and input {inputs}"
             )
-            return (None, None, None)
-
-    def get_material_registry_name(self, connector, session) -> str:
-        material_registry_tables = connector.get_tables_by_prefix(
-            session, "MATERIAL_REGISTRY"
-        )
-
-        def split_key(item):
-            parts = item.split("_")
-            if len(parts) > 1 and parts[-1].isdigit():
-                return int(parts[-1])
-            return 0
-
-        sorted_material_registry_tables = sorted(
-            material_registry_tables, key=split_key, reverse=True
-        )
-        return sorted_material_registry_tables[0]

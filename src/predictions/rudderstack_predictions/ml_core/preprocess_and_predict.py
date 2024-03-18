@@ -11,14 +11,15 @@ from typing import Any
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 
+from ..wht.pythonWHT import PythonWHT
+
 from ..utils import utils
 from ..utils.logger import logger
 from ..utils import constants
 from ..utils.S3Utils import S3Utils
-from ..wht.pb import getPB
 
 from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
-from ..connectors.RedshiftConnector import RedshiftConnector
+from ..connectors.ConnectorFactory import ConnectorFactory
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -68,12 +69,19 @@ def preprocess_and_predict(
     except Exception as e:
         raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 
-    feature_table_name = getPB().get_material_name(input_model_name, model_hash, seq_no)
+    whtService = PythonWHT()
+    whtService.init(connector, session, "", "")
 
-    material_table = getPB().get_material_registry_name(connector, session)
+    feature_table_name = whtService.compute_material_name(
+        input_model_name, model_hash, seq_no
+    )
 
     end_ts = connector.get_end_ts(
-        session, material_table, input_model_name, model_hash, seq_no
+        session,
+        whtService.get_registry_table_name(),
+        input_model_name,
+        model_hash,
+        seq_no,
     )
     logger.debug(f"Pulling data from Feature table - {feature_table_name}")
 
@@ -159,7 +167,7 @@ def preprocess_and_predict(
             return predictions.round(4)
 
         prediction_udf = predict_scores
-    elif creds["type"] == "redshift":
+    elif creds["type"] in ("redshift", "bigquery"):
         local_folder = connector.get_local_dir()
 
         def predict_scores_rs(df: pd.DataFrame) -> pd.Series:
@@ -232,7 +240,8 @@ if __name__ == "__main__":
         trainer = RegressionTrainer(**args.merged_config)
 
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
-    connector = RedshiftConnector(output_dir)
+    warehouse = wh_creds["type"]
+    connector = ConnectorFactory.create(warehouse, output_dir)
     session = connector.build_session(wh_creds)
 
     model_path = os.path.join(output_dir, args.json_output_filename)

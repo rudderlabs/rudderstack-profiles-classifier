@@ -1,3 +1,4 @@
+from tests.integration.utils import create_site_config_file
 from train import *
 import shutil
 from predict import *
@@ -5,9 +6,9 @@ import time
 from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
     RedshiftConnector,
 )
-from src.predictions.rudderstack_predictions.wht.pb import getPB
+from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
 import json
-import yaml
+
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
 creds["schema"] = "rs_profiles_3"
@@ -138,16 +139,6 @@ def validate_reports():
         raise Exception(f"{missing_files} not found in reports directory")
 
 
-def create_site_config_file(creds, siteconfig_path):
-    json_data = {
-        "connections": {"test": {"target": "test", "outputs": {"test": creds}}},
-        "py_models": {"credentials_presets": None},
-    }
-    yaml_data = yaml.dump(json_data, default_flow_style=False)
-    with open(siteconfig_path, "w") as file:
-        file.write(yaml_data)
-
-
 def validate_predictions_df():
     connector = RedshiftConnector(folder_path_output_file)
 
@@ -193,9 +184,8 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, _ = getPB().get_latest_material_hash(
+    latest_model_hash, _ = RudderPB().get_latest_material_hash(
         entity_key,
-        output_filename,
         siteconfig_path,
         project_path,
     )

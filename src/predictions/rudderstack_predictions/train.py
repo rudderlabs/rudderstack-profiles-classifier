@@ -2,11 +2,12 @@
 # coding: utf-8
 import os
 import json
-import yaml
-import pandas as pd
 import sys
 import hashlib
 
+from .wht.pythonWHT import PythonWHT
+
+from functools import partial
 from .processors.ProcessorFactory import ProcessorFactory
 
 from .utils.logger import logger
@@ -25,13 +26,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from .utils import utils
 from .utils import constants
-from .wht.pb import getPB
 
-from .connectors.SnowflakeConnector import SnowflakeConnector
-from .trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
+from .connectors.ConnectorFactory import ConnectorFactory
+from .trainers.MLTrainer import ClassificationTrainer, MLTrainer, RegressionTrainer
 from .ml_core.preprocess_and_train import train_and_store_model_results
-from .connectors.RedshiftConnector import RedshiftConnector
-from .connectors.BigQueryConnector import BigQueryConnector
+from typing import List
 
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
@@ -49,6 +48,8 @@ def _train(
     site_config_path: str = None,
     project_folder: str = None,
     runtime_info: dict = None,
+    input_models: List[str] = [],
+    whtService: PythonWHT = None,
 ) -> None:
     """Trains the model and saves the model with given output_filename.
 
@@ -65,7 +66,6 @@ def _train(
     Returns:
         None: saves the model but returns nothing
     """
-    positive_boolean_flags = constants.POSITIVE_BOOLEAN_FLAGS
     is_rudder_backend = utils.fetch_key_from_dict(
         runtime_info, "is_rudder_backend", False
     )
@@ -125,7 +125,7 @@ def _train(
         ).hexdigest()
         stage_name = f"@rs_{run_id}"
         train_procedure = f"train_and_store_model_results_sf_{run_id}"
-        connector = SnowflakeConnector()
+        connector = ConnectorFactory.create(warehouse)
         session = connector.build_session(creds)
         connector.create_stage(session, stage_name)
         connector.cleanup(
@@ -279,28 +279,18 @@ def _train(
 
     elif warehouse in ("redshift", "bigquery"):
         train_procedure = train_and_store_model_results
-        connector = (
-            RedshiftConnector(folder_path)
-            if warehouse == "redshift"
-            else BigQueryConnector(folder_path)
-        )
+        connector = ConnectorFactory.create(warehouse, folder_path)
         session = connector.build_session(creds)
         connector.cleanup(delete_local_data=True)
         connector.make_local_dir()
 
-    material_table = getPB().get_material_registry_name(connector, session)
+    whtService.init(connector, session, site_config_path, project_folder)
 
-    model_hash, features_profiles_model = getPB().get_latest_material_hash(
-        trainer.entity_key,
-        output_filename,
-        site_config_path,
-        project_folder,
-    )
-
-    creation_ts = connector.get_creation_ts(
-        session,
-        material_table,
+    (
         model_hash,
+        features_model_name,
+        creation_ts,
+    ) = whtService.get_latest_entity_var_table(
         trainer.entity_key,
     )
 
@@ -311,37 +301,37 @@ def _train(
             creation_ts, trainer.prediction_horizon_days
         )
 
-    logger.info("Getting past data for training")
-    try:
-        # material_names, training_dates
-        train_table_pairs = connector.get_material_names(
-            session,
-            material_table,
-            start_date,
-            end_date,
-            features_profiles_model,
-            model_hash,
-            trainer.prediction_horizon_days,
-            output_filename,
-            site_config_path,
-            project_folder,
-            trainer.inputs,
-            inputs,
-        )
-    except TypeError:
-        raise Exception(
-            "Unable to fetch past material data. Ensure pb setup is correct and the profiles paths are setup correctly"
-        )
-
     if trainer.label_value is None and prediction_task == "classification":
-        sample_material_ = train_table_pairs[0]
         label_value = connector.get_default_label_value(
             session,
-            sample_material_.label_table_name,
+            features_model_name,
             trainer.label_column,
-            positive_boolean_flags,
+            constants.POSITIVE_BOOLEAN_FLAGS,
         )
         trainer.label_value = label_value
+
+    logger.info("Getting past data for training")
+    get_material_names_partial = partial(
+        whtService.get_material_names,
+        end_date=end_date,
+        features_model_name=features_model_name,
+        model_hash=model_hash,
+        prediction_horizon_days=trainer.prediction_horizon_days,
+        input_models=input_models,
+        inputs=inputs,
+    )
+    # material_names, training_dates
+    train_table_pairs = get_material_names_partial(start_date=start_date)
+    # Generate new materials for training data
+    try:
+        train_table_pairs = trainer.check_and_generate_more_materials(
+            get_material_names_partial,
+            train_table_pairs,
+            input_models,
+            whtService,
+        )
+    except Exception as e:
+        logger.error(f"Error while generating new materials, {str(e)}")
 
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
@@ -377,7 +367,7 @@ def _train(
             "material_names": material_names_,
             "material_hash": model_hash,
             **asdict(trainer),
-            "input_model_name": features_profiles_model,
+            "input_model_name": features_model_name,
         },
         "model_info": {
             "file_location": {

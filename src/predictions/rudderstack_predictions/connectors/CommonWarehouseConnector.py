@@ -52,11 +52,6 @@ class CommonWarehouseConnector(Connector):
             Results of the training function
         """
         args = list(args)
-        snowflake_relevent_feature_table_name = args.pop(
-            2
-        )  # feature_table_name of snowflake table store on warehouse. Thus, irrelevant for Redshift/BigQuery.
-        del snowflake_relevent_feature_table_name
-
         train_function = args.pop(0)
         return train_function(*args, **kwargs)
 
@@ -82,7 +77,7 @@ class CommonWarehouseConnector(Connector):
         )
         return mode
 
-    def get_udf_name(self, model_path: str) -> str:
+    def compute_udf_name(self, model_path: str) -> None:
         """Returns the udf name using info from the model_path
 
         Args:
@@ -91,7 +86,7 @@ class CommonWarehouseConnector(Connector):
         Returns:
             str: UDF name
         """
-        return None
+        return
 
     def is_valid_table(self, session, table_name: str) -> bool:
         """
@@ -155,7 +150,7 @@ class CommonWarehouseConnector(Connector):
         utils.delete_file(file_path)
         return json_data
 
-    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
+    def send_table_to_train_env(self, table, **kwargs) -> Any:
         """Sends the given snowpark table to the training env(ie. local env) with the name as given.
         Therefore, no usecase for this function in case of Redshift/BigQuery."""
         pass
@@ -223,6 +218,32 @@ class CommonWarehouseConnector(Connector):
         """Function needed only for Snowflake Connector, hence an empty function here."""
         pass
 
+    def get_non_stringtype_features(
+        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
+    ) -> List[str]:
+        """Extracts the names of Non-StringType(numeric) columns having 'integer' dtype"""
+        non_stringtype_features = feature_df.select_dtypes(
+            include=["number"]
+        ).columns.to_list()
+        return [
+            col
+            for col in non_stringtype_features
+            if col.lower() not in (label_column.lower(), entity_column.lower())
+        ]
+
+    def get_stringtype_features(
+        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
+    ) -> List[str]:
+        """Extracts the names of StringType(categorical) columns having non 'integer' dtype"""
+        stringtype_features = feature_df.select_dtypes(
+            exclude=["number"]
+        ).columns.to_list()
+        return [
+            col
+            for col in stringtype_features
+            if col.lower() not in (label_column.lower(), entity_column.lower())
+        ]
+
     def get_arraytype_columns_from_table(self, table: pd.DataFrame, **kwargs) -> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
@@ -242,10 +263,14 @@ class CommonWarehouseConnector(Connector):
         cardinal_feature_threshold,
     ) -> List[str]:
         high_cardinal_features = list()
+        non_stringtype_features = self.get_non_stringtype_features(
+            table, label_column, entity_column
+        )
+        lower_non_stringtype_features = [col.lower() for col in non_stringtype_features]
         for field in table.columns:
-            if (
-                table[field].dtype not in ("int64", "float64", "Int64", "Float64")
-            ) and (field.lower() not in (label_column.lower(), entity_column.lower())):
+            if (field.lower() not in lower_non_stringtype_features) and (
+                field.lower() not in (label_column.lower(), entity_column.lower())
+            ):
                 feature_data = table[field]
                 total_rows = len(feature_data)
                 top_10_freq_sum = sum(feature_data.value_counts().head(10))
@@ -755,7 +780,6 @@ class CommonWarehouseConnector(Connector):
         )
         return material_registry_table[material_registry_table["status"] == 2]
 
-    # TODO: checked this fn. Should be correct. Will make sure after BigQuery run.
     def generate_type_hint(self, df: pd.DataFrame, column_types: Dict[str, List[str]]):
         types = []
         cat_columns = [col.lower() for col in column_types["categorical_columns"]]
@@ -771,7 +795,6 @@ class CommonWarehouseConnector(Connector):
                 )
         return types
 
-    # TODO: checked this fn. Should be correct. Will make sure after BigQuery run.
     def call_prediction_udf(
         self,
         predict_data: pd.DataFrame,
@@ -868,7 +891,7 @@ class CommonWarehouseConnector(Connector):
         "Created a local directory to store temporary files"
         Path(self.local_dir).mkdir(parents=True, exist_ok=True)
 
-    def _delete_local_data_folder(self) -> None:
+    def delete_local_data_folder(self) -> None:
         """Deletes the local data folder."""
         try:
             shutil.rmtree(self.local_dir)
@@ -877,10 +900,11 @@ class CommonWarehouseConnector(Connector):
             logger.info("Local directory not present")
             pass
 
-    def cleanup(self, *args, **kwargs) -> None:
-        delete_local_data = kwargs.get("delete_local_data", None)
-        if delete_local_data:
-            self._delete_local_data_folder()
+    def pre_job_cleanup(self, session) -> None:
+        pass
+
+    def post_job_cleanup(self, session) -> None:
+        pass
 
     @abstractmethod
     def build_session(self, credentials: dict):
@@ -898,18 +922,6 @@ class CommonWarehouseConnector(Connector):
 
     @abstractmethod
     def get_tablenames_from_schema(self, session) -> pd.DataFrame:
-        pass
-
-    @abstractmethod
-    def get_non_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
         pass
 
     @abstractmethod

@@ -130,7 +130,7 @@ def preprocess_and_predict(
         df.columns = [x.upper() for x in df.columns]
 
         df = utils.transform_null(df, numeric_columns, categorical_columns)
-        
+
         if prediction_task == "classification":
             return trained_model.predict_proba(df)[:, 1]
         elif prediction_task == "regression":

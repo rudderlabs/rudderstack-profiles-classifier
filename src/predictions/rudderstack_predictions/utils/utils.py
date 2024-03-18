@@ -429,11 +429,11 @@ def transform_null(
         pd.DataFrame: The transformed DataFrame with pd.NA values replaced by np.nan in numeric columns and \
             None in categorical columns.
     """
-   # Replace pd.NA with mean in numeric columns
+    # Replace pd.NA with mean in numeric columns
     for col in numeric_columns:
         mean_value = df[col].mean()
         df[col] = df[col].fillna(mean_value)
-    
+
     # Replace pd.NA with mode in categorical columns
     for col in categorical_columns:
         mode_value = df[col].mode().iloc[0]

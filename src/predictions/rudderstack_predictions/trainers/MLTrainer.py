@@ -226,7 +226,7 @@ class MLTrainer(ABC):
         self, model_results: dict, model_timestamp: str
     ) -> dict:
         pass
-    
+
     @abstractmethod
     def prepare_data(
         self,
@@ -243,7 +243,6 @@ class MLTrainer(ABC):
         categorical_columns: List[str],
         numeric_columns: List[str],
     ):
-        
         train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(
             feature_df=feature_df,
             label_column=self.label_column,
@@ -744,7 +743,7 @@ class RegressionTrainer(MLTrainer):
             categorical_columns,
             numeric_columns,
         )
-    
+
     def build_model(
         self,
         X_train: pd.DataFrame,
@@ -839,6 +838,7 @@ class RegressionTrainer(MLTrainer):
             self.entity_column,
             None,
         )
+
     def train_model(
         self,
         feature_df: pd.DataFrame,
@@ -856,7 +856,7 @@ class RegressionTrainer(MLTrainer):
             regression_setup,
             regression_compare_models,
         )
-    
+
     def plot_diagnostics(
         self,
         connector: Connector,

@@ -1173,12 +1173,6 @@ class SnowflakeConnector(Connector):
             logger.info("All functions with the same name dropped")
             return True
 
-    def _delete_table_from_train_env(
-        self, session: snowflake.snowpark.Session, table_name: str, **kwargs
-    ):
-        """Deletes the table with the given name from the snowpark session"""
-        self.run_query(session, f"drop table if exists {table_name}")
-
     def get_file(
         self,
         session: snowflake.snowpark.Session,
@@ -1228,5 +1222,5 @@ class SnowflakeConnector(Connector):
     def post_job_cleanup(self, session: snowflake.snowpark.Session):
         self._job_cleanup(session)
         if self.feature_table_name:
-            self._delete_table_from_train_env(session, self.feature_table_name)
+            self.run_query(session, f"drop table if exists {self.feature_table_name}")
         session.close()

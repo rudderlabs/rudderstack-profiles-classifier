@@ -227,7 +227,6 @@ def preprocess_and_train(
     trainer.validate_data(connector, feature_table)
     logger.info("Data validation is completed")
 
-    # We are using the same 'run_id' as train script. This can help in debugging/tracing to correct stage and training_procedure.
     filtered_feature_table = connector.filter_feature_table(
         feature_table,
         trainer.entity_column,

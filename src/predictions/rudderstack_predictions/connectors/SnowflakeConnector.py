@@ -1,6 +1,7 @@
 import os
 import gzip
 import json
+import uuid
 import hashlib
 import shutil
 import pandas as pd
@@ -25,7 +26,9 @@ local_folder = constants.SF_LOCAL_STORAGE_DIR
 
 class SnowflakeConnector(Connector):
     def __init__(self) -> None:
-        self.run_id = hashlib.md5(f"{str(datetime.now())}".encode()).hexdigest()
+        self.run_id = hashlib.md5(
+            f"{str(datetime.now())}_{uuid.uuid4()}".encode()
+        ).hexdigest()
         current_dir = os.path.dirname(os.path.abspath(__file__))
         train_script_dir = os.path.dirname(current_dir)
 
@@ -1099,6 +1102,13 @@ class SnowflakeConnector(Connector):
         Returns:
             None: The function does not return any value.
         """
+        all_stages = self.run_query(
+            session, f"show stages like '{stage_name.replace('@', '')}'"
+        )
+        if len(all_stages) == 0:
+            logger.info(f"Stage {stage_name} does not exist. No files to delete.")
+            return
+
         import_files = [element.split("/")[-1] for element in import_paths]
         files = self.run_query(session, f"list {stage_name}")
         for row in files:

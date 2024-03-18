@@ -556,7 +556,12 @@ def datetime_to_date_string(datetime_str: str) -> str:
         str: Date in string format
     """
     try:
-        datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+        if "+" in datetime_str:
+            datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S%z")
+        elif " " in datetime_str:
+            datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
+        else:
+            datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d")
     except ValueError:
         # Value error will be raised if its not able
         # to match datetime string with given format
@@ -625,23 +630,6 @@ def fetch_key_from_dict(dictionary, key, default_value=None):
     if not dictionary:
         dictionary = dict()
     return dictionary.get(key, default_value)
-
-
-def get_project_folder(project_folder: str, output_path: str) -> str:
-    """Returns the project folder path
-
-    Args:
-        project_folder (str): project folder path to pb_project.yaml file
-        output_path (str): The path to the feature package.
-
-    Returns:
-        str: project folder path
-    """
-    if project_folder is None:
-        path_components = output_path.split(os.path.sep)
-        output_index = path_components.index("output")
-        project_folder = os.path.sep.join(path_components[:output_index])
-    return project_folder
 
 
 def get_feature_package_path(input_models: List[str]) -> str:

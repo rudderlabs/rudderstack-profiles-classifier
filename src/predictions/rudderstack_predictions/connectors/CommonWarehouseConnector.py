@@ -6,15 +6,13 @@ import pandas as pd
 from pathlib import Path
 from abc import abstractmethod
 from datetime import datetime, timedelta
-from typing import List, Any, Union, Optional, Sequence, Dict
+from typing import Iterable, List, Any, Union, Optional, Sequence, Dict
 
 from ..utils import utils
 from ..utils import constants
-from ..utils.constants import TrainTablesInfo
 from ..utils.logger import logger
 from .Connector import Connector
 from .wh.profiles_connector import ProfilesConnector
-from ..wht.pb import getPB
 
 local_folder = constants.LOCAL_STORAGE_DIR
 
@@ -114,37 +112,20 @@ class CommonWarehouseConnector(Connector):
             return False
 
     def check_table_entry_in_material_registry(
-        self, session, material_table_name: str
+        self, session, registry_table_name: str, material: dict
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well
-
-        Args:
-            session: warehouse db session
-            material_table_name: Material table name
-
-        Returns:
-            bool: Wether the entry for given material table is exists or not in the material registry
         """
-
-        model_name, model_hash, seq_no = getPB().split_material_table(
-            material_table_name
-        )
-        if model_name is None or model_hash is None or seq_no is None:
-            return False
-
-        material_registry_table_name = getPB().get_material_registry_name(self, session)
         material_registry_table = self.get_material_registry_table(
-            session, material_registry_table_name
+            session, registry_table_name
         )
-
         result = material_registry_table.loc[
-            (material_registry_table["model_name"] == model_name)
-            & (material_registry_table["model_hash"] == model_hash)
-            & (material_registry_table["seq_no"] == seq_no)
+            (material_registry_table["model_name"] == material["model_name"])
+            & (material_registry_table["model_hash"] == material["model_hash"])
+            & (material_registry_table["seq_no"] == material["seq_no"])
         ]
-
         row_count = result.shape[0]
         return row_count != 0
 
@@ -364,91 +345,61 @@ class CommonWarehouseConnector(Connector):
         )
         return filtered_df
 
-    def get_material_names_(
+    def join_feature_label_tables(
         self,
         session,
-        material_table: str,
+        registry_table_name: str,
+        features_model_name: str,
+        model_hash: str,
         start_time: str,
         end_time: str,
-        model_name: str,
-        model_hash: str,
         prediction_horizon_days: int,
-        inputs: List[str],
-    ) -> List[TrainTablesInfo]:
-        """Generates material names as list containing feature table name and label table name required to create the training model and their corresponding training dates.
+    ) -> Iterable:
+        df = self.get_material_registry_table(session, registry_table_name)
+        feature_df = self.fetch_filtered_table(
+            df,
+            features_model_name,
+            model_hash,
+            start_time,
+            end_time,
+            columns={"seq_no": "FEATURE_SEQ_NO", "end_ts": "FEATURE_END_TS"},
+        )
+        required_feature_cols = feature_df.columns.to_list()
+        feature_df["TEMP_LABEL_END_TS"] = feature_df["FEATURE_END_TS"] + timedelta(
+            days=prediction_horizon_days
+        )
 
-        Args:
-            session : connection session for warehouse access
-            material_table (str): Name of the material table(present in constants.py file)
-            start_time (str): train_start_dt
-            end_time (str): train_end_dt
-            model_name (str): Present in model_configs file
-            model_hash (str) : latest model hash
-            prediction_horizon_days (int): period of days
+        time_format = "%Y-%m-%d"
+        label_start_time = datetime.strptime(start_time, time_format) + timedelta(
+            days=prediction_horizon_days
+        )
+        label_end_time = datetime.strptime(end_time, time_format) + timedelta(
+            days=prediction_horizon_days
+        )
+        label_df = self.fetch_filtered_table(
+            df,
+            features_model_name,
+            model_hash,
+            label_start_time,
+            label_end_time,
+            columns={"seq_no": "LABEL_SEQ_NO", "end_ts": "LABEL_END_TS"},
+        )
+        required_label_cols = label_df.columns.to_list()
 
-        Returns:
-            List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
-        """
-        try:
-            materials = list()
-
-            df = self.get_material_registry_table(session, material_table)
-
-            feature_df = self.fetch_filtered_table(
-                df,
-                model_name,
-                model_hash,
-                start_time,
-                end_time,
-                columns={"seq_no": "FEATURE_SEQ_NO", "end_ts": "FEATURE_END_TS"},
-            )
-            required_feature_cols = feature_df.columns.to_list()
-            feature_df["TEMP_LABEL_END_TS"] = feature_df["FEATURE_END_TS"] + timedelta(
-                days=prediction_horizon_days
-            )
-
-            time_format = "%Y-%m-%d"
-            label_start_time = datetime.strptime(start_time, time_format) + timedelta(
-                days=prediction_horizon_days
-            )
-            label_end_time = datetime.strptime(end_time, time_format) + timedelta(
-                days=prediction_horizon_days
-            )
-            label_df = self.fetch_filtered_table(
-                df,
-                model_name,
-                model_hash,
-                label_start_time,
-                label_end_time,
-                columns={"seq_no": "LABEL_SEQ_NO", "end_ts": "LABEL_END_TS"},
-            )
-            required_label_cols = label_df.columns.to_list()
-
-            feature_label_df = pd.merge(
-                feature_df,
-                label_df,
-                left_on=feature_df["TEMP_LABEL_END_TS"].dt.date,
-                right_on=label_df["LABEL_END_TS"].dt.date,
-                how="outer",
-            ).replace({np.nan: None})
-            feature_label_df = feature_label_df[
-                utils.merge_lists_to_unique(required_feature_cols, required_label_cols)
-            ]
-
-            for _, row in feature_label_df.iterrows():
-                self._fetch_valid_historic_materials(
-                    session,
-                    row,
-                    model_name,
-                    model_hash,
-                    inputs,
-                    materials,
-                )
-            return materials
-        except Exception as e:
-            raise Exception(
-                f"Following exception occured while retrieving material names with hash {model_hash} for {model_name} between dates {start_time} and {end_time}: {e}"
-            )
+        feature_label_df = pd.merge(
+            feature_df,
+            label_df,
+            left_on=feature_df["TEMP_LABEL_END_TS"].dt.date,
+            right_on=label_df["LABEL_END_TS"].dt.date,
+            how="outer",
+        ).replace({np.nan: None})
+        feature_label_df_merged = feature_label_df[
+            utils.merge_lists_to_unique(required_feature_cols, required_label_cols)
+        ].iterrows()
+        result = []
+        for _, row in feature_label_df_merged:
+            result.append(row)
+        return result
 
     def get_creation_ts(
         self,

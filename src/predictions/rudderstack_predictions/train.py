@@ -282,7 +282,8 @@ def _train(
             model_hash, features_model_name
         )
     )
-    input_column_types = whtService.get_input_column_types(
+    input_column_types = connector.get_input_column_types(
+        session,
         trainer,
         latest_existing_entity_var_table_from_registry,
         trainer.label_column,

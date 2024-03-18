@@ -1,6 +1,8 @@
 import pandas as pd
 from abc import ABC, abstractmethod
-from typing import Any, Iterable, List, Union, Sequence, Optional
+from typing import Any, Iterable, List, Union, Sequence, Optional, Dict
+
+from ..utils import utils
 
 
 class Connector(ABC):
@@ -19,6 +21,41 @@ class Connector(ABC):
             if k != "type"
         }
         return new_creds
+
+    def get_input_column_types(
+        self,
+        session,
+        trainer_obj,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> Dict:
+        numeric_columns = utils.merge_lists_to_unique(
+            self.get_non_stringtype_features(
+                session, table_name, label_column, entity_column
+            ),
+            trainer_obj.prep.numeric_pipeline["numeric_columns"],
+        )
+        categorical_columns = utils.merge_lists_to_unique(
+            self.get_stringtype_features(
+                session, table_name, label_column, entity_column
+            ),
+            trainer_obj.prep.categorical_pipeline["categorical_columns"],
+        )
+        arraytype_columns = self.get_arraytype_columns(
+            session, table_name, label_column, entity_column
+        )
+        timestamp_columns = (
+            self.get_timestamp_columns(session, table_name, label_column, entity_column)
+            if len(trainer_obj.prep.timestamp_columns) == 0
+            else trainer_obj.prep.timestamp_columns
+        )
+        return {
+            "numeric": numeric_columns,
+            "categorical": categorical_columns,
+            "arraytype": arraytype_columns,
+            "timestamp": timestamp_columns,
+        }
 
     @abstractmethod
     def fetch_filtered_table(

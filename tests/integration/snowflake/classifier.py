@@ -145,7 +145,6 @@ def validate_predictions_df():
         "VALID_AT",
         pred_column,
         "MODEL_ID",
-        output_label,
         f"PERCENTILE_{pred_column}",
     ]
 

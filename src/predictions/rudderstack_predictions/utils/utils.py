@@ -436,8 +436,7 @@ def transform_null(
 
     # Replace pd.NA with mode in categorical columns
     for col in categorical_columns:
-        mode_value = df[col].mode().iloc[0]
-        df[col] = df[col].fillna(mode_value)
+        df[col] = df[col].fillna('unknown')
     return df
 
 

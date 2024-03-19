@@ -50,30 +50,19 @@ class PythonWHT:
             self.cached_registry_table_name = sorted_material_registry_tables[0]
         return self.cached_registry_table_name
 
-    def get_latest_existing_entity_var_table_info(
-        self, entity_key: str
-    ) -> Tuple[str, str, str, str]:
-        def _get_latest_entity_var_table(self, entity_key: str) -> Tuple[str, str, str]:
-            model_hash, model_name = self._getPB().get_latest_material_hash(
-                entity_key,
-                self.site_config_path,
-                self.project_folder_path,
-            )
-            creation_ts = self.connector.get_creation_ts(
-                self.session,
-                self.get_registry_table_name(),
-                model_hash,
-                entity_key,
-            )
-            return model_hash, model_name, creation_ts
-
-        model_hash, model_name, creation_ts = _get_latest_entity_var_table(
-            self, entity_key
+    def get_latest_entity_var_table(self, entity_key: str) -> Tuple[str, str, str]:
+        model_hash, model_name = self._getPB().get_latest_material_hash(
+            entity_key,
+            self.site_config_path,
+            self.project_folder_path,
         )
-        seq_no = self.connector.get_latest_seq_no_from_registry(
-            self.session, self.get_registry_table_name(), model_hash, model_name
+        creation_ts = self.connector.get_creation_ts(
+            self.session,
+            self.get_registry_table_name(),
+            model_hash,
+            entity_key,
         )
-        return model_hash, model_name, seq_no, creation_ts
+        return model_hash, model_name, creation_ts
 
     def _validate_historical_materials_hash(
         self,

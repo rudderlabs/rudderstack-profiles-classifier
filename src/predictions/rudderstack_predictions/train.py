@@ -248,11 +248,12 @@ def _train(
     (
         model_hash,
         features_model_name,
-        seq_no,
         creation_ts,
-    ) = whtService.get_latest_existing_entity_var_table_info(
+    ) = whtService.get_latest_entity_var_table(
         trainer.entity_key,
     )
+
+    latest_seq_no = utils.extract_seq_no_from_select_query(inputs[0])
 
     start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
 
@@ -273,7 +274,9 @@ def _train(
     input_column_types = connector.get_input_column_types(
         session,
         trainer,
-        whtService.compute_material_name(features_model_name, model_hash, seq_no),
+        whtService.compute_material_name(
+            features_model_name, model_hash, latest_seq_no
+        ),
         trainer.label_column,
         trainer.entity_column,
     )

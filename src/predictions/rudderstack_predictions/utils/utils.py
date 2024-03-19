@@ -365,17 +365,13 @@ def get_feature_table_column_types(
     )
 
     for col in feature_table.columns:
-        if (
-            col.upper() not in (label_column.upper(), entity_column.upper())
-            and col.upper() in upper_feature_table_numeric_cols
-        ):
+        if col.upper() in (label_column.upper(), entity_column.upper()):
+            continue
+        elif col.upper() in upper_feature_table_numeric_cols:
             feature_table_column_types["numeric"].append(col.upper())
-        elif col.upper() not in (
-            label_column.upper(),
-            entity_column.upper(),
-        ) and col.upper() in uppercase_columns(input_column_types["categorical"]):
+        elif col.upper() in uppercase_columns(input_column_types["categorical"]):
             feature_table_column_types["categorical"].append(col.upper())
-        elif col.upper() not in (label_column.upper(), entity_column.upper()):
+        else:
             raise Exception(
                 f"Column {col.upper()} in feature table is not numeric or categorical"
             )

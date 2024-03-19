@@ -206,6 +206,9 @@ def test_regressor():
         session, material_registry_table_name, latest_model_hash, entity_var_model_name
     )
 
+    # Closing the session immediately after use to avoid multiple open sessions conflict
+    session.close()
+
     train_inputs = [
         f"""SELECT * FROM {creds['schema']}.material_{entity_var_model_name}_{latest_model_hash}_{latest_seq_no}""",
     ]

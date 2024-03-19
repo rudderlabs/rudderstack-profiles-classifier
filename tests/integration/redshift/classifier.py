@@ -227,6 +227,9 @@ def test_classification():
         session, material_registry_table_name, latest_model_hash, entity_var_model_name
     )
 
+    # Closing the session immediately after use to avoid multiple open sessions conflict
+    session.close()
+
     train_inputs = [
         f"""SELECT * FROM {creds['schema']}.material_{entity_var_model_name}_{latest_model_hash}_{latest_seq_no}""",
     ]
@@ -269,7 +272,6 @@ def test_classification():
     finally:
         cleanup_pb_project(project_path, siteconfig_path)
         cleanup_reports(reports_folders)
-        session.close()
 
     et = time.time()
     # get the execution time

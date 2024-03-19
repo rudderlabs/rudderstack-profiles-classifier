@@ -200,16 +200,14 @@ def preprocess_and_train(
     trainer.validate_data(connector, feature_table)
     logger.info("Data validation is completed")
 
-    feature_table_name_remote = f"{trainer.output_profiles_ml_model}_features"
     filtered_feature_table = connector.filter_feature_table(
         feature_table,
         trainer.entity_column,
         trainer.max_row_count,
         min_sample_for_training,
     )
-    connector.send_to_train_env(
+    connector.send_table_to_train_env(
         filtered_feature_table,
-        feature_table_name_remote,
         write_mode="overwrite",
         if_exists="replace",
     )
@@ -219,7 +217,6 @@ def preprocess_and_train(
         train_results_json = connector.call_procedure(
             train_procedure,
             filtered_feature_table,
-            feature_table_name_remote,
             train_config,
             feature_table_column_types,
             session=session,
@@ -322,4 +319,4 @@ if __name__ == "__main__":
         )
 
         logger.debug(f"Deleting additional local directory from {args.mode} mode.")
-        connector.cleanup(delete_local_data=True)
+        connector.delete_local_data_folder()

@@ -106,7 +106,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
+    def send_table_to_train_env(self, table, **kwargs) -> Any:
         pass
 
     @abstractmethod
@@ -341,7 +341,15 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def cleanup(self, *args, **kwargs) -> None:
+    def compute_udf_name(self, model_path: str) -> None:
+        pass
+
+    @abstractmethod
+    def pre_job_cleanup(self, session) -> None:
+        pass
+
+    @abstractmethod
+    def post_job_cleanup(self, session) -> None:
         pass
 
     @abstractmethod

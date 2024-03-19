@@ -52,11 +52,6 @@ class CommonWarehouseConnector(Connector):
             Results of the training function
         """
         args = list(args)
-        snowflake_relevent_feature_table_name = args.pop(
-            2
-        )  # feature_table_name of snowflake table store on warehouse. Thus, irrelevant for Redshift/BigQuery.
-        del snowflake_relevent_feature_table_name
-
         train_function = args.pop(0)
         return train_function(*args, **kwargs)
 
@@ -82,7 +77,7 @@ class CommonWarehouseConnector(Connector):
         )
         return mode
 
-    def get_udf_name(self, model_path: str) -> str:
+    def compute_udf_name(self, model_path: str) -> None:
         """Returns the udf name using info from the model_path
 
         Args:
@@ -91,7 +86,7 @@ class CommonWarehouseConnector(Connector):
         Returns:
             str: UDF name
         """
-        return None
+        return
 
     def is_valid_table(self, session, table_name: str) -> bool:
         """
@@ -155,7 +150,7 @@ class CommonWarehouseConnector(Connector):
         utils.delete_file(file_path)
         return json_data
 
-    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
+    def send_table_to_train_env(self, table, **kwargs) -> Any:
         """Sends the given snowpark table to the training env(ie. local env) with the name as given.
         Therefore, no usecase for this function in case of Redshift/BigQuery."""
         pass
@@ -904,7 +899,7 @@ class CommonWarehouseConnector(Connector):
         "Created a local directory to store temporary files"
         Path(self.local_dir).mkdir(parents=True, exist_ok=True)
 
-    def _delete_local_data_folder(self) -> None:
+    def delete_local_data_folder(self) -> None:
         """Deletes the local data folder."""
         try:
             shutil.rmtree(self.local_dir)
@@ -913,10 +908,11 @@ class CommonWarehouseConnector(Connector):
             logger.info("Local directory not present")
             pass
 
-    def cleanup(self, *args, **kwargs) -> None:
-        delete_local_data = kwargs.get("delete_local_data", None)
-        if delete_local_data:
-            self._delete_local_data_folder()
+    def pre_job_cleanup(self, session) -> None:
+        pass
+
+    def post_job_cleanup(self, session) -> None:
+        pass
 
     @abstractmethod
     def build_session(self, credentials: dict):

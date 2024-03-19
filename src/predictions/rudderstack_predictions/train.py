@@ -3,7 +3,6 @@
 import os
 import json
 import sys
-import hashlib
 
 from .wht.pythonWHT import PythonWHT
 
@@ -72,7 +71,6 @@ def _train(
     stage_name = None
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
-    import_paths = [current_dir]
     config_path = os.path.join(
         current_dir,
         "config",
@@ -120,20 +118,14 @@ def _train(
     warehouse = creds["type"]
     logger.debug(f"Building session for {warehouse}")
     if warehouse == "snowflake":
-        run_id = hashlib.md5(
-            f"{str(datetime.now())}_{project_folder}".encode()
-        ).hexdigest()
-        stage_name = f"@rs_{run_id}"
-        train_procedure = f"train_and_store_model_results_sf_{run_id}"
         connector = ConnectorFactory.create(warehouse)
         session = connector.build_session(creds)
-        connector.create_stage(session, stage_name)
-        connector.cleanup(
-            session,
-            stage_name=stage_name,
-            stored_procedure_name=train_procedure,
-            delete_files=import_paths,
-        )
+        stage_name = connector.stage_name
+        train_procedure = connector.stored_procedure_name
+        import_paths = connector.delete_files
+
+        connector.create_stage(session)
+        connector.pre_job_cleanup(session)
 
         @sproc(
             name=train_procedure,
@@ -248,7 +240,7 @@ def _train(
         train_procedure = train_and_store_model_results
         connector = ConnectorFactory.create(warehouse, folder_path)
         session = connector.build_session(creds)
-        connector.cleanup(delete_local_data=True)
+        connector.delete_local_data_folder()
         connector.make_local_dir()
 
     whtService.init(connector, session, site_config_path, project_folder)
@@ -372,11 +364,5 @@ def _train(
             logger.warning(f"Could not fetch {figure_name}")
 
     logger.debug("Cleaning up the training session")
-    connector.cleanup(
-        session,
-        stored_procedure_name=train_procedure,
-        delete_files=import_paths,
-        stage_name=stage_name,
-        close_session=True,
-    )
+    connector.post_job_cleanup(session)
     logger.debug("Training completed")

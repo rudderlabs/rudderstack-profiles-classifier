@@ -95,14 +95,8 @@ def prepare_feature_table(
     timestamp_columns: List[str],
     **kwargs,
 ):
-    """This function creates a feature table as per the requirement of customer that is further used for training and prediction.
-
-    Args:
-        train_table_pair (constants.TrainTablesInfo): Named tuple containing feature_table_name, label_table_name and feature_table_date, label_table_date
-        timestamp_columns (List[str]): List of timestamp columns in the feature table
-    Returns:
-        Tuple of feature_table, arraytype_columns, timestamp_columns
-    """
+    """Combines Feature table and Label table pairs, while converting all timestamp cols
+    to numeric for creating a single table with user features and label."""
     session = kwargs.get("session", None)
     connector = kwargs.get("connector", None)
     trainer = kwargs.get("trainer", None)

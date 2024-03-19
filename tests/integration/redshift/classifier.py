@@ -35,6 +35,7 @@ output_label = "OUTPUT_LABEL"
 s3_config = {}
 p_output_tablename = "test_run_can_delete_2"
 entity_key = "user"
+material_registry_table_name = "material_registry_4"
 
 
 data = {
@@ -174,6 +175,9 @@ def validate_predictions_df():
 
 
 def test_classification():
+    connector = RedshiftConnector(folder_path_output_file)
+    session = connector.build_session(creds)
+
     st = time.time()
 
     create_site_config_file(creds, siteconfig_path)
@@ -186,14 +190,18 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, _ = RudderPB().get_latest_material_hash(
+    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
         entity_key,
         siteconfig_path,
         project_path,
     )
 
+    latest_seq_no = connector.get_latest_seq_no_from_registry(
+        session, material_registry_table_name, latest_model_hash, entity_var_model_name
+    )
+
     train_inputs = [
-        f"""SELECT * FROM {creds['schema']}.material_user_var_table_{latest_model_hash}_0""",
+        f"""SELECT * FROM {creds['schema']}.material_{entity_var_model_name}_{latest_model_hash}_{latest_seq_no}""",
     ]
     runtime_info = {"site_config_path": siteconfig_path}
 
@@ -233,6 +241,7 @@ def test_classification():
     finally:
         cleanup_pb_project(project_path, siteconfig_path)
         cleanup_reports(reports_folders)
+        session.close()
 
     et = time.time()
     # get the execution time

@@ -12,6 +12,28 @@ from .CommonWarehouseConnector import CommonWarehouseConnector
 
 
 class RedshiftConnector(CommonWarehouseConnector):
+    def __init__(self, folder_path: str) -> None:
+        data_type_mapping = {
+            "numeric": (
+                "integer",
+                "bigint",
+                "float",
+                "smallint",
+                "decimal",
+                "numeric",
+                "real",
+                "double precision",
+            ),
+            "categorical": ("character varying", "super"),
+            "timestamp": (
+                "timestamp without time zone",
+                "date",
+                "time without time zone",
+            ),
+            "arraytype": ("array",),
+        }
+        super().__init__(folder_path, data_type_mapping)
+
     def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
         """Builds the redshift connection session with given credentials (creds)
 
@@ -95,86 +117,6 @@ class RedshiftConnector(CommonWarehouseConnector):
         schemaFields = namedtuple("schemaFields", ["name", "field_type"])
         named_schema_list = [schemaFields(*row) for row in schema_list]
         return named_schema_list
-
-    def get_non_stringtype_features(
-        self,
-        session,
-        table_name: str,
-        label_column: str,
-        entity_column: str,
-    ) -> List[str]:
-        numeric_data_types = (
-            "integer",
-            "bigint",
-            "float",
-            "smallint",
-            "decimal",
-            "numeric",
-            "real",
-            "double precision",
-        )
-        return self.fetch_given_data_type_columns(
-            session, table_name, numeric_data_types, label_column, entity_column
-        )
-
-    def get_stringtype_features(
-        self,
-        session,
-        table_name: str,
-        label_column: str,
-        entity_column: str,
-    ) -> List[str]:
-        stringtype_data_types = ("character varying", "super")
-        return self.fetch_given_data_type_columns(
-            session, table_name, stringtype_data_types, label_column, entity_column
-        )
-
-    def get_timestamp_columns(
-        self,
-        session,
-        table_name: str,
-        label_column: str,
-        entity_column: str,
-    ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        timestamp_data_types = (
-            "timestamp without time zone",
-            "date",
-            "time without time zone",
-        )
-        return self.fetch_given_data_type_columns(
-            session, table_name, timestamp_data_types, label_column, entity_column
-        )
-
-    def get_arraytype_columns(
-        self,
-        session,
-        table_name: str,
-        label_column: str,
-        entity_column: str,
-    ) -> List[str]:
-        """Returns the list of features to be ignored from the feature table.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the table from which to retrieve the arraytype/super columns.
-
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
-        arraytype_data_types = "array"
-        return self.fetch_given_data_type_columns(
-            session, table_name, arraytype_data_types, label_column, entity_column
-        )
 
     def fetch_create_metrics_table_query(
         self, metrics_df: pd.DataFrame

@@ -11,6 +11,24 @@ from .CommonWarehouseConnector import CommonWarehouseConnector
 
 
 class BigQueryConnector(CommonWarehouseConnector):
+    def __init__(self, folder_path: str) -> None:
+        data_type_mapping = {
+            "numeric": (
+                "INT",
+                "SMALLINT",
+                "INTEGER",
+                "BIGINT",
+                "TINYINT",
+                "BYTEINT",
+                "DECIMAL",
+                "BIGDECIMAL",
+            ),
+            "categorical": ("STRING", "JSON"),
+            "timestamp": ("DATE", "TIME", "DATETIME", "TIMESTAMP", "INTERVAL"),
+            "arraytype": ("ARRAY",),
+        }
+        super().__init__(folder_path, data_type_mapping)
+
     def build_session(self, credentials: dict) -> google.cloud.bigquery.client.Client:
         """Builds the BigQuery connection session with given credentials (creds)
 
@@ -102,78 +120,6 @@ class BigQueryConnector(CommonWarehouseConnector):
             f"{self.project_id}.{self.schema}.{table_name}"
         ).schema
         return schema
-
-    def get_non_stringtype_features(
-        self, session, table_name: str, label_column: str, entity_column: str
-    ) -> List[str]:
-        numeric_data_types = (
-            "INT",
-            "SMALLINT",
-            "INTEGER",
-            "BIGINT",
-            "TINYINT",
-            "BYTEINT",
-            "DECIMAL",
-            "BIGDECIMAL",
-        )
-        return self.fetch_given_data_type_columns(
-            session, table_name, numeric_data_types, label_column, entity_column
-        )
-
-    def get_stringtype_features(
-        self,
-        session,
-        table_name: str,
-        label_column: str,
-        entity_column: str,
-    ) -> List[str]:
-        stringtype_data_types = ("STRING", "JSON")
-        return self.fetch_given_data_type_columns(
-            session, table_name, stringtype_data_types, label_column, entity_column
-        )
-
-    def get_timestamp_columns(
-        self,
-        session,
-        table_name: str,
-        label_column: str,
-        entity_column: str,
-    ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        timestamp_data_types = ("DATE", "TIME", "DATETIME", "TIMESTAMP", "INTERVAL")
-        return self.fetch_given_data_type_columns(
-            session, table_name, timestamp_data_types, label_column, entity_column
-        )
-
-    def get_arraytype_columns(
-        self,
-        session,
-        table_name: str,
-        label_column: str,
-        entity_column: str,
-    ) -> List[str]:
-        """Returns the list of features to be ignored from the feature table.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the table from which to retrieve the arraytype/super columns.
-
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
-        arraytype_data_types = "ARRAY"
-        return self.fetch_given_data_type_columns(
-            session, table_name, arraytype_data_types, label_column, entity_column
-        )
 
     def fetch_create_metrics_table_query(
         self, metrics_df: pd.DataFrame

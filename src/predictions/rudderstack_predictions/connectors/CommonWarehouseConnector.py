@@ -18,10 +18,11 @@ local_folder = constants.LOCAL_STORAGE_DIR
 
 
 class CommonWarehouseConnector(Connector):
-    def __init__(self, folder_path: str) -> None:
+    def __init__(self, folder_path: str, data_type_mapping: dict) -> None:
         self.local_dir = os.path.join(folder_path, local_folder)
         path = Path(self.local_dir)
         path.mkdir(parents=True, exist_ok=True)
+        self.data_type_mapping = data_type_mapping
         self.array_time_features = {}
         return
 
@@ -235,6 +236,60 @@ class CommonWarehouseConnector(Connector):
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
         ]
 
+    def get_non_stringtype_features(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        return self.fetch_given_data_type_columns(
+            session,
+            table_name,
+            self.data_type_mapping["numeric"],
+            label_column,
+            entity_column,
+        )
+
+    def get_stringtype_features(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        return self.fetch_given_data_type_columns(
+            session,
+            table_name,
+            self.data_type_mapping["categorical"],
+            label_column,
+            entity_column,
+        )
+
+    def get_arraytype_columns(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        """Returns the list of features to be ignored from the feature table.
+
+        Args:
+            session : connection session for warehouse access
+            table_name (str): Name of the table from which to retrieve the arraytype/super columns.
+
+        Returns:
+            list: The list of features to be ignored based column datatypes as ArrayType.
+        """
+        return self.fetch_given_data_type_columns(
+            session,
+            table_name,
+            self.data_type_mapping["arraytype"],
+            label_column,
+            entity_column,
+        )
+
     def get_arraytype_columns_from_table(self, table: pd.DataFrame, **kwargs) -> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
@@ -245,6 +300,47 @@ class CommonWarehouseConnector(Connector):
         self.get_array_time_features_from_file(**kwargs)
         arraytype_columns = self.array_time_features["arraytype_columns"]
         return arraytype_columns
+
+    def get_timestamp_columns(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        """
+        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+
+        Args:
+            session : connection session for warehouse access
+            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
+
+        Returns:
+            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+        """
+        return self.fetch_given_data_type_columns(
+            session,
+            table_name,
+            self.data_type_mapping["timestamp"],
+            label_column,
+            entity_column,
+        )
+
+    def get_timestamp_columns_from_table(
+        self, table: pd.DataFrame, **kwargs
+    ) -> List[str]:
+        """
+        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+
+        Args:
+            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
+
+        Returns:
+            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+        """
+        kwargs.get("features_path", None)
+        timestamp_columns = self.array_time_features["timestamp_columns"]
+        return timestamp_columns
 
     def get_high_cardinal_features(
         self,
@@ -266,22 +362,6 @@ class CommonWarehouseConnector(Connector):
                 if top_10_freq_sum < cardinal_feature_threshold * total_rows:
                     high_cardinal_features.append(field)
         return high_cardinal_features
-
-    def get_timestamp_columns_from_table(
-        self, table: pd.DataFrame, **kwargs
-    ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        kwargs.get("features_path", None)
-        timestamp_columns = self.array_time_features["timestamp_columns"]
-        return timestamp_columns
 
     def get_default_label_value(
         self, session, table_name: str, label_column: str, positive_boolean_flags: list
@@ -934,38 +1014,6 @@ class CommonWarehouseConnector(Connector):
 
     @abstractmethod
     def get_tablenames_from_schema(self, session) -> pd.DataFrame:
-        pass
-
-    @abstractmethod
-    def get_non_stringtype_features(
-        self, session, table_name: str, label_column: str, entity_column: str
-    ) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_stringtype_features(
-        self, session, table_name: str, label_column: str, entity_column: str
-    ) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_timestamp_columns(
-        self,
-        session,
-        table_name: str,
-        label_column: str,
-        entity_column: str,
-    ) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_arraytype_columns(
-        self,
-        session,
-        table_name: str,
-        label_column: str,
-        entity_column: str,
-    ) -> List[str]:
         pass
 
     @abstractmethod

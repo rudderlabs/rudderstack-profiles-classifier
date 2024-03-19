@@ -105,6 +105,33 @@ def validate_training_summary_regression():
                 ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
+def validate_column_names_in_output_json():
+    with open(output_filename, "r") as file:
+        results = json.load(file)
+
+    expected_keys = {
+        "input_column_types": {
+            "numeric": [],
+            "categorical": [],
+            "arraytype": [],
+            "timestamp": [],
+        },
+        "ignore_features": [],
+        "feature_table_column_types": {"numeric": [], "categorical": []},
+    }
+
+    for key, subkeys in expected_keys.items():
+        assert (
+            key in results["column_names"]
+        ), f"Missing key: {key} in output json file."
+
+        if subkeys:
+            for subkey in subkeys:
+                assert (
+                    subkey in results["column_names"][key]
+                ), f"Missing subkey {subkey} under key: {key} in output json file."
+
+
 def validate_reports_regression():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     reports_directory = os.path.join(current_dir, "output/train_reports")
@@ -203,6 +230,7 @@ def test_regressor():
         )
         validate_training_summary_regression()
         validate_reports_regression()
+        validate_column_names_in_output_json()
 
         with open(output_filename, "r") as f:
             results = json.load(f)

@@ -134,8 +134,8 @@ def preprocess_and_predict(
             df[col] = df[col].fillna(mean_value)
 
         for col in categorical_columns:
-            df[col] = df[col].fillna('unknown')
-      
+            df[col] = df[col].fillna("unknown")
+
         if prediction_task == "classification":
             return trained_model.predict_proba(df)[:, 1]
         elif prediction_task == "regression":

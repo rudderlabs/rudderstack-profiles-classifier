@@ -227,7 +227,7 @@ class CommonWarehouseConnector(Connector):
         entity_column: str,
     ) -> List:
         """Fetches the column names from the given schemaField based on the required data types (exclude label and entity columns)"""
-        schemaField = self.fetch_schema(session, table_name)
+        schemaField = self.fetch_table_metadata(session, table_name)
         return [
             field.name
             for field in schemaField
@@ -923,7 +923,7 @@ class CommonWarehouseConnector(Connector):
         pass
 
     @abstractmethod
-    def fetch_schema(self, session, table_name: str) -> List:
+    def fetch_table_metadata(self, session, table_name: str) -> List:
         pass
 
     @abstractmethod

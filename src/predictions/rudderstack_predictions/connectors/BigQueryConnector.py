@@ -85,7 +85,7 @@ class BigQueryConnector(CommonWarehouseConnector):
         query = f"SELECT DISTINCT table_name as tablename FROM `{self.project_id}.{self.schema}.INFORMATION_SCHEMA.TABLES`;"
         return session.query_and_wait(query).to_dataframe()
 
-    def fetch_schema(
+    def fetch_table_metadata(
         self, session: google.cloud.bigquery.client.Client, table_name: str
     ) -> List:
         """

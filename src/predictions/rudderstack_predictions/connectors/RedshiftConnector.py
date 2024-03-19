@@ -83,7 +83,7 @@ class RedshiftConnector(CommonWarehouseConnector):
         query = f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';"
         return session.execute(query).fetch_dataframe()
 
-    def fetch_schema(
+    def fetch_table_metadata(
         self, session: redshift_connector.cursor.Cursor, table_name: str
     ) -> List:
         """Fetches the (column_name, data_type) tuple of the given table."""

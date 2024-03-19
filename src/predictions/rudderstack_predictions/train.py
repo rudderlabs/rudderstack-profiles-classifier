@@ -246,9 +246,9 @@ def _train(
     whtService.init(connector, session, site_config_path, project_folder)
 
     (
-        latest_existing_entity_var_table_name,
         model_hash,
         features_model_name,
+        seq_no,
         creation_ts,
     ) = whtService.get_latest_existing_entity_var_table_info(
         trainer.entity_key,
@@ -273,7 +273,7 @@ def _train(
     input_column_types = connector.get_input_column_types(
         session,
         trainer,
-        latest_existing_entity_var_table_name,
+        whtService.compute_material_name(features_model_name, model_hash, seq_no),
         trainer.label_column,
         trainer.entity_column,
     )

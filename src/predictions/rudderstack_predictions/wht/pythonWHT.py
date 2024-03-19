@@ -73,10 +73,7 @@ class PythonWHT:
         seq_no = self.connector.get_latest_seq_no_from_registry(
             self.session, self.get_registry_table_name(), model_hash, model_name
         )
-        latest_entity_var_table_name = self.compute_material_name(
-            model_name, model_hash, seq_no
-        )
-        return latest_entity_var_table_name, model_hash, model_name, creation_ts
+        return model_hash, model_name, seq_no, creation_ts
 
     def _validate_historical_materials_hash(
         self,

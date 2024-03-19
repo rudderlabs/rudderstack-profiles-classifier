@@ -254,6 +254,9 @@ def _train(
     )
 
     latest_seq_no = utils.extract_seq_no_from_select_query(inputs[0])
+    latest_entity_var_table = whtService.compute_material_name(
+        features_model_name, model_hash, latest_seq_no
+    )
 
     start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
 
@@ -271,12 +274,11 @@ def _train(
         )
         trainer.label_value = label_value
 
+    logger.info(f"Getting input column types from table: {latest_entity_var_table}")
     input_column_types = connector.get_input_column_types(
         session,
         trainer,
-        whtService.compute_material_name(
-            features_model_name, model_hash, latest_seq_no
-        ),
+        latest_entity_var_table,
         trainer.label_column,
         trainer.entity_column,
     )

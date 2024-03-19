@@ -15,8 +15,6 @@ from ..utils.constants import TrainTablesInfo
 
 
 class K8sProcessor(Processor):
-    def __init__(self, trainer, connector, session, ml_core_path: str):
-        super().__init__(trainer, connector, session, ml_core_path)
 
     def _create_wh_creds_secret(
         self, job_name: str, namespace: str, wh_creds: dict, core_v1_api

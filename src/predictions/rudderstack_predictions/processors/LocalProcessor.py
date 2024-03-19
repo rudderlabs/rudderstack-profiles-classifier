@@ -9,8 +9,6 @@ from ..processors.Processor import Processor
 
 
 class LocalProcessor(Processor):
-    def __init__(self, trainer, connector, session, ml_core_path: str):
-        super().__init__(trainer, connector, session, ml_core_path)
 
     def train(
         self,

@@ -13,7 +13,7 @@ class ProcessorFactory:
 
             return K8sProcessor(trainer, connector, session, ml_core_path)
         elif mode == constants.WAREHOUSE_MODE:
-            return SnowflakeProcessor(trainer, connector, session)
+            return SnowflakeProcessor(trainer, connector, session, ml_core_path)
         elif mode == constants.LOCAL_MODE:
             return LocalProcessor(trainer, connector, session, ml_core_path)
         else:

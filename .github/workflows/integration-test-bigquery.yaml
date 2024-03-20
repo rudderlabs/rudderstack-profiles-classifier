@@ -1,4 +1,4 @@
-name: Integration Test - Redshift
+name: Integration Test - BigQuery
 
 on:
   pull_request:

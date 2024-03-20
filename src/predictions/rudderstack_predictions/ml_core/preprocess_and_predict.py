@@ -131,6 +131,11 @@ def preprocess_and_predict(
 
         for col in numeric_columns:
             mean_value = df[col].mean()
+            # If the mean value is NaN, replace it with 0
+            if pd.isna(mean_value):
+                mean_value = 0
+            
+            # Fill NaN values in the column with the mean value
             df[col] = df[col].fillna(mean_value)
 
         for col in categorical_columns:

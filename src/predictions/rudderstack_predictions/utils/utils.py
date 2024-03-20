@@ -275,6 +275,54 @@ class TrainerUtils:
 
         return metrics
 
+def split_train_test_pycaret(
+    preprocess_setup,
+    get_config,
+    feature_df: pd.DataFrame,
+    label_column: str,
+    entity_column: str,
+    train_size: float,
+    val_size: float,
+    test_size: float,
+    preprocess_config,
+) -> Tuple:
+    """Splits the data in train test and validation according to the their given partition factions.
+
+    Args:
+        feature_df (pd.DataFrame): feature table dataframe from the retrieved material_names tuple
+        label_column (str): name of label column from feature table
+        entity_column (str): name of entity column from feature table
+        output_profiles_ml_model (str): output ml model from model_configs file
+        train_size (float): partition fraction for train data
+        val_size (float): partition fraction for validation data
+        test_size (float): partition fraction for test data
+
+    Returns:
+        Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
+    """
+    feature_df.columns = feature_df.columns.str.upper()
+
+    preprocess_setup(data=feature_df, target=label_column.upper(), preprocess=True , train_size = train_size)
+
+    # Get the configurations
+    train_x = get_config('X_train_transformed')
+    train_y = get_config('y_train_transformed')
+    test_val_x = get_config('X_test_transformed')
+    test_val_y = get_config('y_test_transformed')
+
+    # Concatenate test_val_x and test_val_y into temp_data
+    temp_data = pd.concat([test_val_x, test_val_y], axis=1)
+
+    # Run a preprocessor setup on temp_data as per the val_size
+    preprocess_setup(data=temp_data, target=label_column.upper(), train_size= val_size / (val_size + test_size) , preprocess=True)
+
+    # Get the configurations for the preprocessed temp_data
+    val_x = get_config('X_train_transformed')
+    val_y = get_config('y_train_transformed')
+    test_x = get_config('X_test_transformed')
+    test_y = get_config('y_test_transformed')
+
+    return train_x, train_y, test_x, test_y, val_x, val_y
 
 def split_train_test(
     feature_df: pd.DataFrame,
@@ -431,8 +479,7 @@ def transform_null(
     """
     # Replace pd.NA with mean in numeric columns
     for col in numeric_columns:
-        mean_value = df[col].mean()
-        df[col] = df[col].fillna(mean_value)
+        df[col] = df[col].fillna(0)
 
     # Replace pd.NA with mode in categorical columns
     for col in categorical_columns:
@@ -689,17 +736,22 @@ def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
     """
     Plots y-actual vs y-predicted using deciles and saves it as a file.
     Args:
-        y_pred (pd.Series): Predicted labels.
-        y_true (pd.Series): Actual labels.
+        y_pred : Predicted labels.
+        y_true : Actual labels.
         deciles_file (str): File path to save the deciles plot.
         label_column (str): Name of the label column.
     Returns:
         None. The function only saves the deciles plot as a file.
     """
+
+    y_true = pd.Series(y_true)
+    y_pred = pd.Series(y_pred)
+
     deciles = pd.qcut(y_pred, q=10, labels=False, duplicates="drop")
     deciles_df = pd.DataFrame(
         {"Actual": y_true, "Predicted": y_pred, "Deciles": deciles}
     )
+
     deciles_agg = (
         deciles_df.groupby("Deciles")
         .agg({"Actual": "mean", "Predicted": "mean"})

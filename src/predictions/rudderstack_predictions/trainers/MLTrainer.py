@@ -37,11 +37,12 @@ from ..connectors.Connector import Connector
 from pycaret.classification import (
     setup as classification_setup,
     compare_models as classification_compare_models,
-    interpret_model as classification_interpret_model,
+    get_config as get_classification_config,
 )
 from pycaret.regression import (
     setup as regression_setup,
     compare_models as regression_compare_models,
+    get_config as get_regression_config,
 )
 
 trainer_utils = utils.TrainerUtils()
@@ -226,7 +227,7 @@ class MLTrainer(ABC):
         self, model_results: dict, model_timestamp: str
     ) -> dict:
         pass
-
+    
     @abstractmethod
     def prepare_data(
         self,
@@ -234,28 +235,36 @@ class MLTrainer(ABC):
         categorical_columns: List[str],
         numeric_columns: List[str],
     ):
+    
         pass
-
+       
     def prepare_data_(
         self,
         preprocess_setup,
+        get_config,
         feature_df: pd.DataFrame,
         categorical_columns: List[str],
         numeric_columns: List[str],
     ):
-        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(
+        preprocess_config = {
+        'numeric_imputation': 'median',
+        'categorical_imputation': 'mode',
+        'iterative_imputation_iters': 5,
+        'numeric_iterative_imputer': 'lightgbm',
+        'categorical_iterative_imputer': 'lightgbm'
+    }
+
+        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test_pycaret(
             feature_df=feature_df,
             label_column=self.label_column,
             entity_column=self.entity_column,
             train_size=self.prep.train_size,
             val_size=self.prep.val_size,
             test_size=self.prep.test_size,
-            isStratify=self.isStratify,
-        )
-
-        train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
-        test_x = utils.transform_null(test_x, numeric_columns, categorical_columns)
-        val_x = utils.transform_null(val_x, numeric_columns, categorical_columns)
+            preprocess_setup=preprocess_setup,
+            get_config=get_config,
+            preprocess_config=preprocess_config
+        )   
 
         train_data = pd.concat([train_x, train_y], axis=1)
         test_data = pd.concat([test_x, test_y], axis=1)
@@ -272,7 +281,7 @@ class MLTrainer(ABC):
             test_data,
             val_data,
         )
-
+    
     def train_model_(
         self,
         feature_df: pd.DataFrame,
@@ -488,19 +497,6 @@ class ClassificationTrainer(MLTrainer):
         }
         self.isStratify = True
 
-    def prepare_data(
-        self,
-        feature_df: pd.DataFrame,
-        categorical_columns: List[str],
-        numeric_columns: List[str],
-    ):
-        return self.prepare_data_(
-            classification_setup,
-            feature_df,
-            categorical_columns,
-            numeric_columns,
-        )
-
     def build_model(
         self,
         X_train: pd.DataFrame,
@@ -585,6 +581,15 @@ class ClassificationTrainer(MLTrainer):
 
         return final_clf
 
+    def prepare_data(self, feature_df: pd.DataFrame, categorical_columns, numeric_columns):
+        return self.prepare_data_(
+            classification_setup,
+            get_classification_config,
+            feature_df,
+            categorical_columns,
+            numeric_columns,
+        )
+
     def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         label_table = connector.label_table(
             session,
@@ -638,13 +643,13 @@ class ClassificationTrainer(MLTrainer):
             model (object): trained model
             stage_name (str): name of the stage
             x (pd.DataFrame): test data features
-            y (pd.DataFrame): test data labels
+            y (pd.Series): test data labels
             figure_names (dict): dict of figure names
             label_column (str): name of the label column
         """
         try:
             y_pred = model.predict_proba(x)[:, 1]
-            y_true = y[label_column.upper()].values
+            y_true = y.to_numpy()           
 
             roc_auc_file = connector.join_file_path(self.figure_names["roc-auc-curve"])
             utils.plot_roc_auc_curve(y_pred, y_true, roc_auc_file)
@@ -731,19 +736,6 @@ class RegressionTrainer(MLTrainer):
         }
         self.isStratify = False
 
-    def prepare_data(
-        self,
-        feature_df: pd.DataFrame,
-        categorical_columns: List[str],
-        numeric_columns: List[str],
-    ):
-        return self.prepare_data_(
-            regression_setup,
-            feature_df,
-            categorical_columns,
-            numeric_columns,
-        )
-
     def build_model(
         self,
         X_train: pd.DataFrame,
@@ -829,6 +821,15 @@ class RegressionTrainer(MLTrainer):
                     best_loss = min(trials.losses())
 
         return final_reg
+    
+    def prepare_data(self, feature_df: pd.DataFrame, categorical_columns, numeric_columns):
+        return self.prepare_data_(
+            regression_setup,
+            get_regression_config,
+            feature_df,
+            categorical_columns,
+            numeric_columns,
+        )
 
     def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         return connector.label_table(
@@ -869,11 +870,11 @@ class RegressionTrainer(MLTrainer):
     ):
         try:
             y_pred = model.predict(x)
+            y_true = y.to_numpy()
 
             residuals_file = connector.join_file_path(
                 self.figure_names["residuals-chart"]
-            )
-            y_true = y[label_column.upper()]
+            )           
             utils.plot_regression_residuals(y_pred, y_true, residuals_file)
             connector.save_file(session, residuals_file, stage_name, overwrite=True)
 
@@ -887,7 +888,7 @@ class RegressionTrainer(MLTrainer):
             # connector.save_file(session, regression_chart_file, stage_name, overwrite=True)
 
         except Exception as e:
-            logger.error(f"Could not generate plots. {e}")
+            logger.error(f"Could not generate regression plots. {e}")
 
     def get_metrics(
         self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config

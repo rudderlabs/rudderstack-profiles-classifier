@@ -9,7 +9,6 @@ from ..processors.Processor import Processor
 
 
 class LocalProcessor(Processor):
-
     def train(
         self,
         train_procedure,

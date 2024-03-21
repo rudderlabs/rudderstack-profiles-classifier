@@ -11,10 +11,11 @@ class ProcessorFactory:
             # Lazy load K8sProcessor since kubernetes might not be installed in all environments
             from .K8sProcessor import K8sProcessor
 
-            return K8sProcessor(trainer, connector, session, ml_core_path)
+            processor = K8sProcessor
         elif mode == constants.WAREHOUSE_MODE:
-            return SnowflakeProcessor(trainer, connector, session, ml_core_path)
+            processor = SnowflakeProcessor
         elif mode == constants.LOCAL_MODE:
-            return LocalProcessor(trainer, connector, session, ml_core_path)
+            processor = LocalProcessor
         else:
             raise Exception(f"Invalid processor mode {mode}")
+        return processor(trainer, connector, session, ml_core_path)

@@ -45,7 +45,7 @@ def preprocess_and_predict(
     trainer = kwargs.get("trainer", None)
 
     model_file_name = constants.MODEL_FILE_NAME
-    udf_name = connector.get_udf_name(model_path)
+    connector.compute_udf_name(model_path)
 
     with open(model_path, "r") as f:
         results = json.load(f)
@@ -55,10 +55,12 @@ def preprocess_and_predict(
     model_hash = results["config"]["material_hash"]
     input_model_name = results["config"]["input_model_name"]
 
-    numeric_columns = results["column_names"]["numeric_columns"]
-    categorical_columns = results["column_names"]["categorical_columns"]
-    arraytype_columns = results["column_names"]["arraytype_columns"]
-    timestamp_columns = results["column_names"]["timestamp_columns"]
+    numeric_columns = results["column_names"]["feature_table_column_types"]["numeric"]
+    categorical_columns = results["column_names"]["feature_table_column_types"][
+        "categorical"
+    ]
+    arraytype_columns = results["column_names"]["input_column_types"]["arraytype"]
+    timestamp_columns = results["column_names"]["input_column_types"]["timestamp"]
     ignore_features = results["column_names"]["ignore_features"]
 
     model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
@@ -96,7 +98,7 @@ def preprocess_and_predict(
     required_features_upper_case = set(
         [
             col.upper()
-            for cols in results["column_names"].values()
+            for cols in results["column_names"]["feature_table_column_types"].values()
             for col in cols
             if col not in ignore_features
         ]
@@ -104,7 +106,9 @@ def preprocess_and_predict(
     input_df = connector.select_relevant_columns(
         predict_data, required_features_upper_case
     )
-    types = connector.generate_type_hint(input_df, results["column_names"])
+    types = connector.generate_type_hint(
+        input_df, results["column_names"]["feature_table_column_types"]
+    )
 
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
         predict_data, trainer.index_timestamp, end_ts
@@ -149,6 +153,7 @@ def preprocess_and_predict(
     features = input_df.columns
 
     if creds["type"] == "snowflake":
+        udf_name = connector.udf_name
 
         @F.pandas_udf(
             session=session,
@@ -210,7 +215,8 @@ def preprocess_and_predict(
         s3_config=s3_config,
     )
     logger.debug("Closing the session")
-    connector.cleanup(session, udf_name=udf_name, close_session=True)
+
+    connector.post_job_cleanup(session)
     logger.debug("Finished Predict job")
 
 

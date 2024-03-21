@@ -6,7 +6,6 @@ from ..utils import utils
 
 from ..utils.constants import TrainTablesInfo
 from ..utils.logger import logger
-from ..utils import constants
 from ..connectors.Connector import Connector
 from .rudderPB import RudderPB
 from .mockPB import MockPB

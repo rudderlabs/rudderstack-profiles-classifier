@@ -98,8 +98,8 @@ def predict(
     connector = ConnectorFactory.create(warehouse, folder_path)
     session = connector.build_session(creds)
 
-    udf_name = connector.get_udf_name(model_path)
-    connector.cleanup(session, udf_name=udf_name)
+    connector.compute_udf_name(model_path)
+    connector.pre_job_cleanup(session)
 
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend

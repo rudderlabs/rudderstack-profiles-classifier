@@ -6,7 +6,7 @@ import pandas as pd
 from pathlib import Path
 from abc import abstractmethod
 from datetime import datetime, timedelta
-from typing import Iterable, List, Any, Union, Optional, Sequence, Dict
+from typing import Iterable, List, Tuple, Any, Union, Optional, Sequence, Dict
 
 from ..utils import utils
 from ..utils import constants
@@ -18,10 +18,11 @@ local_folder = constants.LOCAL_STORAGE_DIR
 
 
 class CommonWarehouseConnector(Connector):
-    def __init__(self, folder_path: str) -> None:
+    def __init__(self, folder_path: str, data_type_mapping: dict) -> None:
         self.local_dir = os.path.join(folder_path, local_folder)
         path = Path(self.local_dir)
         path.mkdir(parents=True, exist_ok=True)
+        self.data_type_mapping = data_type_mapping
         self.array_time_features = {}
         return
 
@@ -52,11 +53,6 @@ class CommonWarehouseConnector(Connector):
             Results of the training function
         """
         args = list(args)
-        snowflake_relevent_feature_table_name = args.pop(
-            2
-        )  # feature_table_name of snowflake table store on warehouse. Thus, irrelevant for Redshift/BigQuery.
-        del snowflake_relevent_feature_table_name
-
         train_function = args.pop(0)
         return train_function(*args, **kwargs)
 
@@ -82,7 +78,7 @@ class CommonWarehouseConnector(Connector):
         )
         return mode
 
-    def get_udf_name(self, model_path: str) -> str:
+    def compute_udf_name(self, model_path: str) -> None:
         """Returns the udf name using info from the model_path
 
         Args:
@@ -91,7 +87,7 @@ class CommonWarehouseConnector(Connector):
         Returns:
             str: UDF name
         """
-        return None
+        return
 
     def is_valid_table(self, session, table_name: str) -> bool:
         """
@@ -155,7 +151,7 @@ class CommonWarehouseConnector(Connector):
         utils.delete_file(file_path)
         return json_data
 
-    def send_to_train_env(self, table, table_name_remote: str, **kwargs) -> Any:
+    def send_table_to_train_env(self, table, **kwargs) -> Any:
         """Sends the given snowpark table to the training env(ie. local env) with the name as given.
         Therefore, no usecase for this function in case of Redshift/BigQuery."""
         pass
@@ -223,6 +219,77 @@ class CommonWarehouseConnector(Connector):
         """Function needed only for Snowflake Connector, hence an empty function here."""
         pass
 
+    def fetch_given_data_type_columns(
+        self,
+        session,
+        table_name: str,
+        required_data_types: Tuple,
+        label_column: str,
+        entity_column: str,
+    ) -> List:
+        """Fetches the column names from the given schemaField based on the required data types (exclude label and entity columns)"""
+        schemaField = self.fetch_table_metadata(session, table_name)
+        return [
+            field.name
+            for field in schemaField
+            if field.field_type in required_data_types
+            and field.name.lower() not in (label_column.lower(), entity_column.lower())
+        ]
+
+    def get_non_stringtype_features(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        return self.fetch_given_data_type_columns(
+            session,
+            table_name,
+            self.data_type_mapping["numeric"],
+            label_column,
+            entity_column,
+        )
+
+    def get_stringtype_features(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        return self.fetch_given_data_type_columns(
+            session,
+            table_name,
+            self.data_type_mapping["categorical"],
+            label_column,
+            entity_column,
+        )
+
+    def get_arraytype_columns(
+        self,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        """Returns the list of features to be ignored from the feature table.
+
+        Args:
+            session : connection session for warehouse access
+            table_name (str): Name of the table from which to retrieve the arraytype/super columns.
+
+        Returns:
+            list: The list of features to be ignored based column datatypes as ArrayType.
+        """
+        return self.fetch_given_data_type_columns(
+            session,
+            table_name,
+            self.data_type_mapping["arraytype"],
+            label_column,
+            entity_column,
+        )
+
     def get_arraytype_columns_from_table(self, table: pd.DataFrame, **kwargs) -> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
@@ -234,24 +301,30 @@ class CommonWarehouseConnector(Connector):
         arraytype_columns = self.array_time_features["arraytype_columns"]
         return arraytype_columns
 
-    def get_high_cardinal_features(
+    def get_timestamp_columns(
         self,
-        table: pd.DataFrame,
-        label_column,
-        entity_column,
-        cardinal_feature_threshold,
+        session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
-        high_cardinal_features = list()
-        for field in table.columns:
-            if (
-                table[field].dtype not in ("int64", "float64", "Int64", "Float64")
-            ) and (field.lower() not in (label_column.lower(), entity_column.lower())):
-                feature_data = table[field]
-                total_rows = len(feature_data)
-                top_10_freq_sum = sum(feature_data.value_counts().head(10))
-                if top_10_freq_sum < cardinal_feature_threshold * total_rows:
-                    high_cardinal_features.append(field)
-        return high_cardinal_features
+        """
+        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+
+        Args:
+            session : connection session for warehouse access
+            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
+
+        Returns:
+            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
+        """
+        return self.fetch_given_data_type_columns(
+            session,
+            table_name,
+            self.data_type_mapping["timestamp"],
+            label_column,
+            entity_column,
+        )
 
     def get_timestamp_columns_from_table(
         self, table: pd.DataFrame, **kwargs
@@ -268,6 +341,27 @@ class CommonWarehouseConnector(Connector):
         kwargs.get("features_path", None)
         timestamp_columns = self.array_time_features["timestamp_columns"]
         return timestamp_columns
+
+    def get_high_cardinal_features(
+        self,
+        table: pd.DataFrame,
+        categorical_columns: List[str],
+        label_column,
+        entity_column,
+        cardinal_feature_threshold,
+    ) -> List[str]:
+        high_cardinal_features = list()
+        lower_categorical_features = [col.lower() for col in categorical_columns]
+        for field in table.columns:
+            if (field.lower() in lower_categorical_features) and (
+                field.lower() not in (label_column.lower(), entity_column.lower())
+            ):
+                feature_data = table[field]
+                total_rows = len(feature_data)
+                top_10_freq_sum = sum(feature_data.value_counts().head(10))
+                if top_10_freq_sum < cardinal_feature_threshold * total_rows:
+                    high_cardinal_features.append(field)
+        return high_cardinal_features
 
     def get_default_label_value(
         self, session, table_name: str, label_column: str, positive_boolean_flags: list
@@ -404,6 +498,25 @@ class CommonWarehouseConnector(Connector):
                 f"Project is never materialzied with model hash {model_hash}."
             )
         return creation_ts.tz_localize(None)
+
+    def get_latest_seq_no_from_registry(
+        self, session, material_table: str, model_hash: str, model_name: str
+    ) -> int:
+        redshift_df = self.get_material_registry_table(session, material_table)
+        try:
+            temp_hash_vector = (
+                redshift_df.query(f'model_hash == "{model_hash}"')
+                .query(f'model_name == "{model_name}"')
+                .sort_values(by="creation_ts", ascending=False)
+                .reset_index(drop=True)[["seq_no"]]
+                .iloc[0]
+            )
+            seq_no = temp_hash_vector["seq_no"]
+        except:
+            raise Exception(
+                f"Error occured while fetching latest seq_no from registry table. Project is never materialzied with model hash {model_hash}."
+            )
+        return int(seq_no)
 
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
@@ -755,11 +868,10 @@ class CommonWarehouseConnector(Connector):
         )
         return material_registry_table[material_registry_table["status"] == 2]
 
-    # TODO: checked this fn. Should be correct. Will make sure after BigQuery run.
     def generate_type_hint(self, df: pd.DataFrame, column_types: Dict[str, List[str]]):
         types = []
-        cat_columns = [col.lower() for col in column_types["categorical_columns"]]
-        numeric_columns = [col.lower() for col in column_types["numeric_columns"]]
+        cat_columns = [col.lower() for col in column_types["categorical"]]
+        numeric_columns = [col.lower() for col in column_types["numeric"]]
         for col in df.columns:
             if col.lower() in cat_columns:
                 types.append(str)
@@ -771,7 +883,6 @@ class CommonWarehouseConnector(Connector):
                 )
         return types
 
-    # TODO: checked this fn. Should be correct. Will make sure after BigQuery run.
     def call_prediction_udf(
         self,
         predict_data: pd.DataFrame,
@@ -868,7 +979,7 @@ class CommonWarehouseConnector(Connector):
         "Created a local directory to store temporary files"
         Path(self.local_dir).mkdir(parents=True, exist_ok=True)
 
-    def _delete_local_data_folder(self) -> None:
+    def delete_local_data_folder(self) -> None:
         """Deletes the local data folder."""
         try:
             shutil.rmtree(self.local_dir)
@@ -877,10 +988,11 @@ class CommonWarehouseConnector(Connector):
             logger.info("Local directory not present")
             pass
 
-    def cleanup(self, *args, **kwargs) -> None:
-        delete_local_data = kwargs.get("delete_local_data", None)
-        if delete_local_data:
-            self._delete_local_data_folder()
+    def pre_job_cleanup(self, session) -> None:
+        pass
+
+    def post_job_cleanup(self, session) -> None:
+        pass
 
     @abstractmethod
     def build_session(self, credentials: dict):
@@ -891,6 +1003,10 @@ class CommonWarehouseConnector(Connector):
         pass
 
     @abstractmethod
+    def fetch_table_metadata(self, session, table_name: str) -> List:
+        pass
+
+    @abstractmethod
     def get_table_as_dataframe(
         self, session, table_name: str, **kwargs
     ) -> pd.DataFrame:
@@ -898,30 +1014,6 @@ class CommonWarehouseConnector(Connector):
 
     @abstractmethod
     def get_tablenames_from_schema(self, session) -> pd.DataFrame:
-        pass
-
-    @abstractmethod
-    def get_non_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_timestamp_columns(
-        self,
-        session,
-        table_name: str,
-    ) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
         pass
 
     @abstractmethod

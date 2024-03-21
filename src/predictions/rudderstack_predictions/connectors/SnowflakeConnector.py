@@ -1,8 +1,11 @@
 import os
 import gzip
 import json
+import uuid
+import hashlib
 import shutil
 import pandas as pd
+from datetime import datetime
 
 from typing import Any, Iterable, List, Union, Optional, Sequence, Dict
 
@@ -23,6 +26,17 @@ local_folder = constants.SF_LOCAL_STORAGE_DIR
 
 class SnowflakeConnector(Connector):
     def __init__(self) -> None:
+        self.run_id = hashlib.md5(
+            f"{str(datetime.now())}_{uuid.uuid4()}".encode()
+        ).hexdigest()
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        train_script_dir = os.path.dirname(current_dir)
+
+        self.stage_name = f"@rs_{self.run_id}"
+        self.stored_procedure_name = f"train_and_store_model_results_sf_{self.run_id}"
+        self.delete_files = [train_script_dir]
+        self.feature_table_name = f"features_{self.run_id}"
+        self.udf_name = None
         return
 
     def build_session(self, credentials: dict) -> snowflake.snowpark.Session:
@@ -78,6 +92,7 @@ class SnowflakeConnector(Connector):
         if session == None:
             raise Exception("Session object not found")
         args = list(args)
+        args.insert(2, self.feature_table_name)
         feature_table_df = args.pop(
             1
         )  # Snowflake stored procedure for training requires feature_table_name saved on warehouse instead of feature_table_df
@@ -106,7 +121,7 @@ class SnowflakeConnector(Connector):
     ) -> str:
         return constants.WAREHOUSE_MODE
 
-    def get_udf_name(self, model_path: str) -> str:
+    def compute_udf_name(self, model_path: str) -> None:
         """Returns the udf name using info from the model_path
 
         Args:
@@ -118,7 +133,7 @@ class SnowflakeConnector(Connector):
         with open(model_path, "r") as f:
             results = json.load(f)
         stage_name = results["model_info"]["file_location"]["stage"]
-        return f"prediction_score_{stage_name.replace('@','')}"
+        self.udf_name = f"prediction_score_{stage_name.replace('@','')}"
 
     def is_valid_table(
         self, session: snowflake.snowpark.Session, table_name: str
@@ -198,11 +213,9 @@ class SnowflakeConnector(Connector):
         """
         return self.get_table(session, table_name, **kwargs).toPandas()
 
-    def send_to_train_env(
-        self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
-    ) -> Any:
+    def send_table_to_train_env(self, table: snowflake.snowpark.Table, **kwargs) -> Any:
         """Sends the given snowpark table to the training env(ie. snowflake warehouse in this case) with the name as given"""
-        self.write_table(table, table_name_remote, **kwargs)
+        self.write_table(table, self.feature_table_name, **kwargs)
 
     def write_table(
         self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
@@ -305,7 +318,11 @@ class SnowflakeConnector(Connector):
         session.file.put(file_name, stage_name, overwrite=overwrite)
 
     def get_non_stringtype_features(
-        self, feature_table_name: str, label_column: str, entity_column: str, **kwargs
+        self,
+        session: snowflake.snowpark.Session,
+        feature_table_name: str,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         """
         Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
@@ -326,9 +343,6 @@ class SnowflakeConnector(Connector):
             entity_column = "entity"
             non_stringtype_features = connector.get_non_stringtype_features(feature_table, label_column, entity_column, session=your_session)
         """
-        session = kwargs.get("session", None)
-        if session == None:
-            raise Exception("Session object not found")
         feature_table = self.get_table(session, feature_table_name)
         non_stringtype_features = []
         for field in feature_table.schema.fields:
@@ -342,7 +356,11 @@ class SnowflakeConnector(Connector):
         return non_stringtype_features
 
     def get_stringtype_features(
-        self, feature_table_name: str, label_column: str, entity_column: str, **kwargs
+        self,
+        session: snowflake.snowpark.Session,
+        feature_table_name: str,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         """
         Extracts the names of StringType(categorical) columns from a given feature table schema.
@@ -363,9 +381,6 @@ class SnowflakeConnector(Connector):
             entity_column = "entity"
             stringtype_features = connector.get_stringtype_features(feature_table, label_column, entity_column, session=your_session)
         """
-        session = kwargs.get("session", None)
-        if session == None:
-            raise Exception("Session object not found")
         feature_table = self.get_table(session, feature_table_name)
         stringtype_features = []
         for field in feature_table.schema.fields:
@@ -377,7 +392,11 @@ class SnowflakeConnector(Connector):
         return stringtype_features
 
     def get_arraytype_columns(
-        self, session: snowflake.snowpark.Session, table_name: str
+        self,
+        session: snowflake.snowpark.Session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         """Returns the list of features to be ignored from the feature table.
 
@@ -411,6 +430,7 @@ class SnowflakeConnector(Connector):
     def get_high_cardinal_features(
         self,
         feature_table: snowflake.snowpark.Table,
+        categorical_columns: List[str],
         label_column: str,
         entity_column: str,
         cardinal_feature_threshold: float,
@@ -421,28 +441,26 @@ class SnowflakeConnector(Connector):
 
         Args:
             feature_table (snowflake.snowpark.Table): feature table.
+            categorical_columns (List[str]): The list of categorical columns in the feature table.
             label_column (str): The name of the label column in the feature table.
             entity_column (str): The name of the entity column in the feature table.
             cardinal_feature_threshold (float): The threshold value for the cardinality of the feature.
 
         Returns:
             List[str]: A list of strings representing the names of the high cardinality features in the feature table.
-
-        Example:
-            feature_table_name = snowflake.snowpark.Table(...)
-            label_column = "label"
-            entity_column = "entity"
-            cardinal_feature_threshold = 0.01
-            high_cardinal_features = get_high_cardinal_features(feature_table, label_column, entity_column, cardinal_feature_threshold)
-            print(high_cardinal_features)
         """
         high_cardinal_features = list()
+        lower_categorical_features = [col.lower() for col in categorical_columns]
         total_rows = feature_table.count()
         for field in feature_table.schema.fields:
             top_10_freq_sum = 0
-            if field.datatype == T.StringType() and field.name.lower() not in (
-                label_column.lower(),
-                entity_column.lower(),
+            if (
+                field.name.lower() in lower_categorical_features
+                and field.name.lower()
+                not in (
+                    label_column.lower(),
+                    entity_column.lower(),
+                )
             ):
                 feature_data = (
                     feature_table.filter(F.col(field.name) != "")
@@ -458,7 +476,11 @@ class SnowflakeConnector(Connector):
         return high_cardinal_features
 
     def get_timestamp_columns(
-        self, session: snowflake.snowpark.Session, table_name: str
+        self,
+        session: snowflake.snowpark.Session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
@@ -640,6 +662,25 @@ class SnowflakeConnector(Connector):
                 f"Project is never materialzied with model hash {model_hash}."
             )
         return creation_ts
+
+    def get_latest_seq_no_from_registry(
+        self, session, material_table: str, model_hash: str, model_name: str
+    ) -> int:
+        snowpark_df = self.get_material_registry_table(session, material_table)
+        try:
+            temp_hash_vector = (
+                snowpark_df.filter(col("model_hash") == model_hash)
+                .filter(col("model_name") == model_name)
+                .sort(col("creation_ts"), ascending=False)
+                .select(col("seq_no"))
+                .collect()[0]
+            )
+            seq_no = temp_hash_vector.SEQ_NO
+        except:
+            raise Exception(
+                f"Error occured while fetching latest seq_no from registry table. Project is never materialzied with model hash {model_hash}."
+            )
+        return int(seq_no)
 
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
@@ -997,9 +1038,9 @@ class SnowflakeConnector(Connector):
     ):
         types = []
         for col in df.columns:
-            if col in column_types["categorical_columns"]:
+            if col in column_types["categorical"]:
                 types.append(str)
-            elif col in column_types["numeric_columns"]:
+            elif col in column_types["numeric"]:
                 types.append(float)
             else:
                 raise Exception(
@@ -1056,7 +1097,7 @@ class SnowflakeConnector(Connector):
 
     """ The following functions are only specific to Snowflake Connector and not used by any other connector."""
 
-    def create_stage(self, session: snowflake.snowpark.Session, stage_name: str):
+    def create_stage(self, session: snowflake.snowpark.Session):
         """
         Creates a Snowflake stage with the given name if it does not exist.
 
@@ -1068,7 +1109,7 @@ class SnowflakeConnector(Connector):
             Nothing
         """
         self.run_query(
-            session, f"create stage if not exists {stage_name.replace('@', '')}"
+            session, f"create stage if not exists {self.stage_name.replace('@', '')}"
         )
 
     def _delete_import_files(
@@ -1088,6 +1129,13 @@ class SnowflakeConnector(Connector):
         Returns:
             None: The function does not return any value.
         """
+        all_stages = self.run_query(
+            session, f"show stages like '{stage_name.replace('@', '')}'"
+        )
+        if len(all_stages) == 0:
+            logger.info(f"Stage {stage_name} does not exist. No files to delete.")
+            return
+
         import_files = [element.split("/")[-1] for element in import_paths]
         files = self.run_query(session, f"list {stage_name}")
         for row in files:
@@ -1188,18 +1236,19 @@ class SnowflakeConnector(Connector):
         ]
         return table.select(*shortlisted_columns)
 
-    def cleanup(self, session: snowflake.snowpark.Session, **kwargs):
-        stored_procedure_name = kwargs.get("stored_procedure_name", None)
-        udf_name = kwargs.get("udf_name", None)
-        delete_files = kwargs.get("delete_files", None)
-        close_session = kwargs.get("close_session", False)
+    def _job_cleanup(self, session: snowflake.snowpark.Session):
+        if self.stored_procedure_name:
+            self._delete_procedures(session, self.stored_procedure_name)
+        if self.udf_name:
+            self._drop_fn_if_exists(session, self.udf_name)
+        if self.delete_files:
+            self._delete_import_files(session, self.stage_name, self.delete_files)
 
-        stage_name = kwargs.get("stage_name", None)
-        if stored_procedure_name:
-            self._delete_procedures(session, stored_procedure_name)
-        if udf_name:
-            self._drop_fn_if_exists(session, udf_name)
-        if delete_files:
-            self._delete_import_files(session, stage_name, delete_files)
-        if close_session:
-            session.close()
+    def pre_job_cleanup(self, session: snowflake.snowpark.Session):
+        self._job_cleanup(session)
+
+    def post_job_cleanup(self, session: snowflake.snowpark.Session):
+        self._job_cleanup(session)
+        if self.feature_table_name:
+            self.run_query(session, f"drop table if exists {self.feature_table_name}")
+        session.close()

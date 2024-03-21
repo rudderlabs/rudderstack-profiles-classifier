@@ -27,6 +27,7 @@ pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
 s3_config = {}
 p_output_tablename = "test_run_can_delete_2"
 entity_key = "user"
+material_registry_table_name = "MATERIAL_REGISTRY_4"
 
 
 data = {
@@ -100,6 +101,33 @@ def validate_training_summary_regression():
                 ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
+def validate_column_names_in_output_json():
+    with open(output_filename, "r") as file:
+        results = json.load(file)
+
+    expected_keys = {
+        "input_column_types": {
+            "numeric": [],
+            "categorical": [],
+            "arraytype": [],
+            "timestamp": [],
+        },
+        "ignore_features": [],
+        "feature_table_column_types": {"numeric": [], "categorical": []},
+    }
+
+    for key, subkeys in expected_keys.items():
+        assert (
+            key in results["column_names"]
+        ), f"Missing key: {key} in output json file."
+
+        if subkeys:
+            for subkey in subkeys:
+                assert (
+                    subkey in results["column_names"][key]
+                ), f"Missing subkey {subkey} under key: {key} in output json file."
+
+
 def validate_reports_regression():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     reports_directory = os.path.join(current_dir, "output/train_reports")
@@ -148,6 +176,9 @@ def validate_predictions_df():
 
 
 def test_regressor():
+    connector = ConnectorFactory.create("snowflake")
+    session = connector.build_session(creds)
+
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_path = os.path.join(current_dir, "sample_project")
     siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
@@ -165,14 +196,21 @@ def test_regressor():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, _ = RudderPB().get_latest_material_hash(
+    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
         entity_key,
         siteconfig_path,
         project_path,
     )
 
+    latest_seq_no = connector.get_latest_seq_no_from_registry(
+        session, material_registry_table_name, latest_model_hash, entity_var_model_name
+    )
+
+    # Closing the session immediately after use to avoid multiple open sessions conflict
+    session.close()
+
     train_inputs = [
-        f"""SELECT * FROM {creds['schema']}.material_user_var_table_{latest_model_hash}_0""",
+        f"""SELECT * FROM {creds['schema']}.material_{entity_var_model_name}_{latest_model_hash}_{latest_seq_no}""",
     ]
     runtime_info = {"site_config_path": siteconfig_path}
 
@@ -187,6 +225,7 @@ def test_regressor():
         )
         validate_training_summary_regression()
         validate_reports_regression()
+        validate_column_names_in_output_json()
 
         with open(output_filename, "r") as f:
             results = json.load(f)

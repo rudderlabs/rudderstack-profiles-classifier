@@ -11,6 +11,24 @@ from .CommonWarehouseConnector import CommonWarehouseConnector
 
 
 class BigQueryConnector(CommonWarehouseConnector):
+    def __init__(self, folder_path: str) -> None:
+        data_type_mapping = {
+            "numeric": (
+                "INT",
+                "SMALLINT",
+                "INTEGER",
+                "BIGINT",
+                "TINYINT",
+                "BYTEINT",
+                "DECIMAL",
+                "BIGDECIMAL",
+            ),
+            "categorical": ("STRING", "JSON"),
+            "timestamp": ("DATE", "TIME", "DATETIME", "TIMESTAMP", "INTERVAL"),
+            "arraytype": ("ARRAY",),
+        }
+        super().__init__(folder_path, data_type_mapping)
+
     def build_session(self, credentials: dict) -> google.cloud.bigquery.client.Client:
         """Builds the BigQuery connection session with given credentials (creds)
 
@@ -85,7 +103,7 @@ class BigQueryConnector(CommonWarehouseConnector):
         query = f"SELECT DISTINCT table_name as tablename FROM `{self.project_id}.{self.schema}.INFORMATION_SCHEMA.TABLES`;"
         return session.query_and_wait(query).to_dataframe()
 
-    def fetch_schema(
+    def fetch_table_metadata(
         self, session: google.cloud.bigquery.client.Client, table_name: str
     ) -> List:
         """
@@ -102,91 +120,6 @@ class BigQueryConnector(CommonWarehouseConnector):
             f"{self.project_id}.{self.schema}.{table_name}"
         ).schema
         return schema
-
-    def get_non_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        """
-        Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
-
-        Args:
-            feature_df (pd.DataFrame): A feature table dataframe
-            label_column (str): A string representing the name of the label column.
-            entity_column (str): A string representing the name of the entity column.
-
-        Returns:
-            List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
-        """
-        non_stringtype_features = feature_df.select_dtypes(
-            include=["number"]
-        ).columns.to_list()
-        return [
-            col
-            for col in non_stringtype_features
-            if col.lower() not in (label_column.lower(), entity_column.lower())
-        ]
-
-    def get_stringtype_features(
-        self, feature_df: pd.DataFrame, label_column: str, entity_column: str, **kwargs
-    ) -> List[str]:
-        """
-        Extracts the names of StringType(categorical) columns from a given feature table schema.
-
-        Args:
-            feature_df (pd.DataFrame): A feature table dataframe
-            label_column (str): The name of the label column.
-            entity_column (str): The name of the entity column.
-
-        Returns:
-            List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
-        """
-        stringtype_features = feature_df.select_dtypes(
-            include=["object", "category"]
-        ).columns.to_list()
-        return [
-            col
-            for col in stringtype_features
-            if col.lower() not in (label_column.lower(), entity_column.lower())
-        ]
-
-    def get_timestamp_columns(
-        self,
-        session,
-        table_name: str,
-    ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        schema = self.fetch_schema(session, table_name)
-        timestamp_columns = [
-            field.name
-            for field in schema
-            if field.field_type in ("DATE", "TIME", "DATETIME", "TIMESTAMP", "INTERVAL")
-        ]
-        return timestamp_columns
-
-    def get_arraytype_columns(self, session, table_name: str) -> List[str]:
-        """Returns the list of features to be ignored from the feature table.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the table from which to retrieve the arraytype/super columns.
-
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
-        schema = self.fetch_schema(session, table_name)
-        arraytype_columns = [
-            field.name for field in schema if field.field_type in ("ARRAY")
-        ]
-        return arraytype_columns
 
     def fetch_create_metrics_table_query(
         self, metrics_df: pd.DataFrame

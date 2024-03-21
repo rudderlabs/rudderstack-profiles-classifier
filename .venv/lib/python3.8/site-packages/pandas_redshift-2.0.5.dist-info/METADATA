@@ -1,0 +1,17 @@
+Metadata-Version: 2.1
+Name: pandas-redshift
+Version: 2.0.5
+Summary: Load data from redshift into a pandas DataFrame and vice versa.
+Home-page: UNKNOWN
+Author: Aidan Gawronski
+Author-email: aidangawronski@gmail.com
+License: UNKNOWN
+Platform: UNKNOWN
+Requires-Python: >=3
+Requires-Dist: boto3
+Requires-Dist: pandas
+Requires-Dist: psycopg2-binary
+
+UNKNOWN
+
+

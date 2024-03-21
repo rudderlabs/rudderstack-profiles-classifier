@@ -10,6 +10,8 @@ from ..connectors.Connector import Connector
 from .rudderPB import RudderPB
 from .mockPB import MockPB
 
+import json
+
 
 def split_key(item):
     parts = item.split("_")
@@ -37,6 +39,49 @@ class PythonWHT:
         if mock:
             return MockPB()
         return RudderPB()
+
+    def get_input_models(
+        self,
+        inputs: List[str],
+        train_summary_output_file_name: str,
+    ) -> List[str]:
+        """Find matches for input models in the JSON data. If no matches are found, an exception is raised.
+        Args:
+            inputs (List[str]): List of inputs
+            train_summary_output_file_name (str): output filename
+        Returns:
+            List[str]: List of input models - full paths in the profiles project for models that are required to generate the current model.
+        """
+        # original_input_models : List of input models - relative paths in the profiles project for models that are required to generate the current model.
+        original_input_models = [
+            self._split_material_name(input_)["model_name"] for input_ in inputs
+        ]
+
+        args = {
+            "site_config_path": self.site_config_path,
+            "project_folder": self.project_folder_path,
+        }
+
+        pb_show_models_response_output = self._getPB().show_models(args)
+
+        # Find matches for input models in the JSON data
+        new_input_models = []
+
+        if len(original_input_models) != 0:
+            for model in original_input_models:
+                model_key = model.split("/")[-1]
+                found_unique_match = False
+                for key in pb_show_models_response_output:
+                    if key.endswith(model_key):
+                        if found_unique_match:
+                            raise ValueError(
+                                f"Multiple unique occurrences found for {model_key}"
+                            )
+                        model_path = key.split("/", 1)[-1]
+                        new_input_models.append(model_path)
+                        found_unique_match = True
+
+        return new_input_models
 
     def get_registry_table_name(self):
         if self.cached_registry_table_name == "":
@@ -417,41 +462,3 @@ class PythonWHT:
         self, model_name: str, model_hash: str, seq_no: int
     ) -> str:
         return f"{MATERIAL_PREFIX}{model_name}_{model_hash}_{seq_no:.0f}"
-
-    def get_input_models(
-        self,
-        original_input_models: List[str],
-    ) -> List[str]:
-        """Find matches for input models in the JSON data. If no matches are found, an exception is raised.
-        Args:
-            original_input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model.
-            train_summary_output_file_name (str): output filename
-            project_folder (str): project folder path to pb_project.yaml file
-            site_config_path (str): path to the siteconfig.yaml file
-        Returns:
-            List[str]: List of input models - full paths in the profiles project for models that are required to generate the current model.
-        """
-        args = {
-            "site_config_path": self.site_config_path,
-            "project_folder": self.project_folder,
-        }
-
-        json_data = self._getPB().show_models(args)
-
-        # Find matches for input models in the JSON data
-        new_input_models = []
-
-        for model in original_input_models:
-            model_key = model.split("/")[-1]
-            found_unique_match = False
-            for key in json_data:
-                if key.endswith(model_key):
-                    if found_unique_match:
-                        raise ValueError(
-                            f"Multiple unique occurrences found for {model_key}"
-                        )
-                    model_path = key.split("/", 1)[-1]
-                    new_input_models.append(model_path)
-                    found_unique_match = True
-
-        return new_input_models

@@ -5,7 +5,7 @@ models:
       occurred_at_col: insert_ts
       entity_key: user
       validity_time: 0s # 1 day
-      py_repo_url: ../../../../
+      py_repo_url: ../../
       train:
         file_extension: .json
         file_validity: 0s # If the last trained model is older than this, then the model will be trained again,
@@ -27,7 +27,6 @@ models:
               feature_data_min_date_diff: 14 # Minimum number of days in the difference between new generated material and existing materials
               strategy: "auto" # Strategy for generating new materials
               max_no_of_dates: 3 # Upper limit on how many new materials that can be generated
-
           preprocessing: &model_prep_configs
             ignore_features:
               - user_email

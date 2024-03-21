@@ -496,8 +496,8 @@ class TestGenerateTypeHint(unittest.TestCase):
     def setUp(self) -> None:
         self.connector = RedshiftConnector("data")
         self.column_types = {
-            "categorical_columns": ["col2"],
-            "numeric_columns": ["col1"],
+            "categorical": ["col2"],
+            "numeric": ["col1"],
         }
         return super().setUp()
 

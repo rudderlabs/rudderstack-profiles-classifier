@@ -318,7 +318,11 @@ class SnowflakeConnector(Connector):
         session.file.put(file_name, stage_name, overwrite=overwrite)
 
     def get_non_stringtype_features(
-        self, feature_table_name: str, label_column: str, entity_column: str, **kwargs
+        self,
+        session: snowflake.snowpark.Session,
+        feature_table_name: str,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         """
         Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
@@ -339,9 +343,6 @@ class SnowflakeConnector(Connector):
             entity_column = "entity"
             non_stringtype_features = connector.get_non_stringtype_features(feature_table, label_column, entity_column, session=your_session)
         """
-        session = kwargs.get("session", None)
-        if session == None:
-            raise Exception("Session object not found")
         feature_table = self.get_table(session, feature_table_name)
         non_stringtype_features = []
         for field in feature_table.schema.fields:
@@ -355,7 +356,11 @@ class SnowflakeConnector(Connector):
         return non_stringtype_features
 
     def get_stringtype_features(
-        self, feature_table_name: str, label_column: str, entity_column: str, **kwargs
+        self,
+        session: snowflake.snowpark.Session,
+        feature_table_name: str,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         """
         Extracts the names of StringType(categorical) columns from a given feature table schema.
@@ -376,9 +381,6 @@ class SnowflakeConnector(Connector):
             entity_column = "entity"
             stringtype_features = connector.get_stringtype_features(feature_table, label_column, entity_column, session=your_session)
         """
-        session = kwargs.get("session", None)
-        if session == None:
-            raise Exception("Session object not found")
         feature_table = self.get_table(session, feature_table_name)
         stringtype_features = []
         for field in feature_table.schema.fields:
@@ -390,7 +392,11 @@ class SnowflakeConnector(Connector):
         return stringtype_features
 
     def get_arraytype_columns(
-        self, session: snowflake.snowpark.Session, table_name: str
+        self,
+        session: snowflake.snowpark.Session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         """Returns the list of features to be ignored from the feature table.
 
@@ -424,6 +430,7 @@ class SnowflakeConnector(Connector):
     def get_high_cardinal_features(
         self,
         feature_table: snowflake.snowpark.Table,
+        categorical_columns: List[str],
         label_column: str,
         entity_column: str,
         cardinal_feature_threshold: float,
@@ -434,28 +441,26 @@ class SnowflakeConnector(Connector):
 
         Args:
             feature_table (snowflake.snowpark.Table): feature table.
+            categorical_columns (List[str]): The list of categorical columns in the feature table.
             label_column (str): The name of the label column in the feature table.
             entity_column (str): The name of the entity column in the feature table.
             cardinal_feature_threshold (float): The threshold value for the cardinality of the feature.
 
         Returns:
             List[str]: A list of strings representing the names of the high cardinality features in the feature table.
-
-        Example:
-            feature_table_name = snowflake.snowpark.Table(...)
-            label_column = "label"
-            entity_column = "entity"
-            cardinal_feature_threshold = 0.01
-            high_cardinal_features = get_high_cardinal_features(feature_table, label_column, entity_column, cardinal_feature_threshold)
-            print(high_cardinal_features)
         """
         high_cardinal_features = list()
+        lower_categorical_features = [col.lower() for col in categorical_columns]
         total_rows = feature_table.count()
         for field in feature_table.schema.fields:
             top_10_freq_sum = 0
-            if field.datatype == T.StringType() and field.name.lower() not in (
-                label_column.lower(),
-                entity_column.lower(),
+            if (
+                field.name.lower() in lower_categorical_features
+                and field.name.lower()
+                not in (
+                    label_column.lower(),
+                    entity_column.lower(),
+                )
             ):
                 feature_data = (
                     feature_table.filter(F.col(field.name) != "")
@@ -471,7 +476,11 @@ class SnowflakeConnector(Connector):
         return high_cardinal_features
 
     def get_timestamp_columns(
-        self, session: snowflake.snowpark.Session, table_name: str
+        self,
+        session: snowflake.snowpark.Session,
+        table_name: str,
+        label_column: str,
+        entity_column: str,
     ) -> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
@@ -653,6 +662,25 @@ class SnowflakeConnector(Connector):
                 f"Project is never materialzied with model hash {model_hash}."
             )
         return creation_ts
+
+    def get_latest_seq_no_from_registry(
+        self, session, material_table: str, model_hash: str, model_name: str
+    ) -> int:
+        snowpark_df = self.get_material_registry_table(session, material_table)
+        try:
+            temp_hash_vector = (
+                snowpark_df.filter(col("model_hash") == model_hash)
+                .filter(col("model_name") == model_name)
+                .sort(col("creation_ts"), ascending=False)
+                .select(col("seq_no"))
+                .collect()[0]
+            )
+            seq_no = temp_hash_vector.SEQ_NO
+        except:
+            raise Exception(
+                f"Error occured while fetching latest seq_no from registry table. Project is never materialzied with model hash {model_hash}."
+            )
+        return int(seq_no)
 
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
@@ -1010,9 +1038,9 @@ class SnowflakeConnector(Connector):
     ):
         types = []
         for col in df.columns:
-            if col in column_types["categorical_columns"]:
+            if col in column_types["categorical"]:
                 types.append(str)
-            elif col in column_types["numeric_columns"]:
+            elif col in column_types["numeric"]:
                 types.append(float)
             else:
                 raise Exception(

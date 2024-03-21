@@ -55,10 +55,12 @@ def preprocess_and_predict(
     model_hash = results["config"]["material_hash"]
     input_model_name = results["config"]["input_model_name"]
 
-    numeric_columns = results["column_names"]["numeric_columns"]
-    categorical_columns = results["column_names"]["categorical_columns"]
-    arraytype_columns = results["column_names"]["arraytype_columns"]
-    timestamp_columns = results["column_names"]["timestamp_columns"]
+    numeric_columns = results["column_names"]["feature_table_column_types"]["numeric"]
+    categorical_columns = results["column_names"]["feature_table_column_types"][
+        "categorical"
+    ]
+    arraytype_columns = results["column_names"]["input_column_types"]["arraytype"]
+    timestamp_columns = results["column_names"]["input_column_types"]["timestamp"]
     ignore_features = results["column_names"]["ignore_features"]
 
     model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
@@ -96,7 +98,7 @@ def preprocess_and_predict(
     required_features_upper_case = set(
         [
             col.upper()
-            for cols in results["column_names"].values()
+            for cols in results["column_names"]["feature_table_column_types"].values()
             for col in cols
             if col not in ignore_features
         ]
@@ -104,7 +106,9 @@ def preprocess_and_predict(
     input_df = connector.select_relevant_columns(
         predict_data, required_features_upper_case
     )
-    types = connector.generate_type_hint(input_df, results["column_names"])
+    types = connector.generate_type_hint(
+        input_df, results["column_names"]["feature_table_column_types"]
+    )
 
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
         predict_data, trainer.index_timestamp, end_ts

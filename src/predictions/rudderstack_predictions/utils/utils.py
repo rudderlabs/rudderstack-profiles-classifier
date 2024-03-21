@@ -349,6 +349,55 @@ def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
     return merged_config
 
 
+def get_feature_table_column_types(
+    feature_table,
+    input_column_types: dict,
+    label_column: str,
+    entity_column: str,
+):
+    feature_table_column_types = {"numeric": [], "categorical": []}
+    uppercase_columns = lambda columns: [col.upper() for col in columns]
+
+    upper_numeric_input_cols = uppercase_columns(input_column_types["numeric"])
+    upper_timestamp_input_cols = uppercase_columns(input_column_types["timestamp"])
+    upper_feature_table_numeric_cols = merge_lists_to_unique(
+        upper_numeric_input_cols, upper_timestamp_input_cols
+    )
+
+    for col in feature_table.columns:
+        if col.upper() in (label_column.upper(), entity_column.upper()):
+            continue
+        elif col.upper() in upper_feature_table_numeric_cols:
+            feature_table_column_types["numeric"].append(col.upper())
+        elif col.upper() in uppercase_columns(input_column_types["categorical"]):
+            feature_table_column_types["categorical"].append(col.upper())
+        else:
+            raise Exception(
+                f"Column {col.upper()} in feature table is not numeric or categorical"
+            )
+    return feature_table_column_types
+
+
+def get_all_ignore_features(
+    feature_table, input_column_types, config_ignore_features, high_cardinal_features
+):
+    ignore_features_ = merge_lists_to_unique(
+        input_column_types["arraytype"], high_cardinal_features
+    )
+    ignore_features_ = merge_lists_to_unique(ignore_features_, config_ignore_features)
+
+    uppercase_list = lambda names: [name.upper() for name in names]
+    lowercase_list = lambda names: [name.lower() for name in names]
+
+    ignore_features = [
+        col
+        for col in feature_table.columns
+        if col in uppercase_list(ignore_features_)
+        or col in lowercase_list(ignore_features_)
+    ]
+    return ignore_features
+
+
 def parse_warehouse_creds(creds: dict, mode: str) -> dict:
     if mode == constants.K8S_MODE:
         wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
@@ -1211,3 +1260,14 @@ def replace_seq_no_in_query(query: str, seq_no: int) -> str:
         return replaced_query
     else:
         raise Exception(f"Couldn't find an integer seq_no in the input query: {query}")
+
+
+def extract_seq_no_from_select_query(select_query: str) -> int:
+    schema_table_name = select_query.split(" ")[-1]
+    table_name_wo_schema = schema_table_name.split(".")[-1]
+    if table_name_wo_schema.startswith("`") and table_name_wo_schema.endswith("`"):
+        table_name = table_name_wo_schema[1:-1]
+    else:
+        table_name = table_name_wo_schema
+    seq_no = int(table_name.split("_")[-1])
+    return seq_no

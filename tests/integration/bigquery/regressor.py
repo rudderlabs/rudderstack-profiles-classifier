@@ -182,7 +182,7 @@ def test_regressor():
     )
 
     train_inputs = [
-        f"""SELECT * FROM {creds['project_id']}.{creds['schema']}.material_user_var_table_{latest_model_hash}_0""",
+        f"""SELECT * FROM {creds['project_id']}.{creds['schema']}.material_user_var_table_{latest_model_hash}_27""",
     ]
     runtime_info = {"site_config_path": siteconfig_path}
 

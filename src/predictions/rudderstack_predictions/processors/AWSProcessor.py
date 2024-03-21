@@ -40,6 +40,7 @@ class AWSProcessor(Processor):
         train_procedure,
         materials: List[constants.TrainTablesInfo],
         merged_config: dict,
+        input_column_types: dict,
         prediction_task: str,
         wh_creds: dict,
         site_config: dict,
@@ -57,7 +58,7 @@ class AWSProcessor(Processor):
         commands = [
             f"cd {remote_dir}/rudderstack-profiles-classifier",
             f"pip install -r requirements.txt",
-            f"python3 -m src.ml_core.preprocess_and_train --s3_bucket {s3_bucket} --aws_region_name {aws_region_name} --s3_path {s3_path} --ec2_temp_output_json {ec2_temp_output_json} --material_names '{json.dumps(materials)}' --merged_config '{json.dumps(merged_config)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}' --mode {constants.RUDDERSTACK_MODE}",
+            f"python3 -m src.ml_core.preprocess_and_train --s3_bucket {s3_bucket} --aws_region_name {aws_region_name} --s3_path {s3_path} --ec2_temp_output_json {ec2_temp_output_json} --material_names '{json.dumps(materials)}' --merged_config '{json.dumps(merged_config)}' --input_column_types '{json.dumps(input_column_types)}' --prediction_task {prediction_task} --wh_creds '{json.dumps(wh_creds)}' --mode {constants.RUDDERSTACK_MODE}",
         ]
         self._execute(ssm_client, instance_id, commands, ssm_sleep_time)
 

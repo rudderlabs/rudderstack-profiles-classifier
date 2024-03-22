@@ -207,6 +207,7 @@ class CommonWarehouseConnector(Connector):
         Returns:
             label_table (pd.DataFrame): The labelled table as a pandas Dataframe object
         """
+
         def _replace_na(value):
             return np.nan if pd.isna(value) else value
 

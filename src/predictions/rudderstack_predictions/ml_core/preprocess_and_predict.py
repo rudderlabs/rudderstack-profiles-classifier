@@ -27,7 +27,9 @@ from ..connectors.ConnectorFactory import ConnectorFactory
 logging_path = os.path.join("..", "log")
 path = Path(logging_path)
 path.mkdir(parents=True, exist_ok=True)
-file_handler = logging.FileHandler(os.path.join(logging_path, "preprocess_and_predict.log"))
+file_handler = logging.FileHandler(
+    os.path.join(logging_path, "preprocess_and_predict.log")
+)
 formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 file_handler.setLevel(logging.INFO)
 file_handler.setFormatter(formatter)

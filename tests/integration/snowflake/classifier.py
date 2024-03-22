@@ -3,6 +3,9 @@ import shutil
 import time
 from predict import *
 from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
+from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
+    ConnectorFactory,
+)
 import json
 from tests.integration.utils import create_site_config_file
 

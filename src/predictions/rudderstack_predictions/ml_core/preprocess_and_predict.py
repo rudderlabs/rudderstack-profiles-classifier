@@ -12,7 +12,7 @@ from typing import Any
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 
-from ..wht.pythonWHT import PythonWHT
+from ..wht.pyNativeWHT import PyNativeWHT
 
 from ..utils import utils
 from ..utils.logger import logger
@@ -60,7 +60,6 @@ def preprocess_and_predict(
     categorical_columns = results["column_names"]["feature_table_column_types"][
         "categorical"
     ]
-    arraytype_columns = results["column_names"]["input_column_types"]["arraytype"]
     timestamp_columns = results["column_names"]["input_column_types"]["timestamp"]
     ignore_features = results["column_names"]["ignore_features"]
 
@@ -72,7 +71,7 @@ def preprocess_and_predict(
     except Exception as e:
         raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 
-    whtService = PythonWHT()
+    whtService = PyNativeWHT(None)
     whtService.init(connector, session, "", "")
 
     feature_table_name = whtService.compute_material_name(

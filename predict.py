@@ -1,35 +1,12 @@
-import os
 import sys
-import warnings
-import numpy as np
-import pandas as pd
+import os
 
-from src.predictions.rudderstack_predictions.utils.logger import logger
-from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
-from src.predictions.rudderstack_predictions.utils.S3Utils import S3Utils
-
-import snowflake.snowpark.types as T
-import snowflake.snowpark.functions as F
-
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
-import src.predictions.rudderstack_predictions.utils.utils as utils
-from src.predictions.rudderstack_predictions.utils import constants
-from src.predictions.rudderstack_predictions.processors.ProcessorFactory import (
-    ProcessorFactory,
-)
-from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
-    ConnectorFactory,
-)
-from src.predictions.rudderstack_predictions.trainers.MLTrainer import (
-    ClassificationTrainer,
-    RegressionTrainer,
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "src", "predictions"))
 )
 
-warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
-warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
-
+from rudderstack_predictions.predict import _predict
+from rudderstack_predictions.utils import constants
 
 def predict(
     creds: dict,
@@ -53,82 +30,12 @@ def predict(
     Returns:
         None: save the prediction results but returns nothing
     """
-    logger.debug("Starting Predict job")
-
-    is_rudder_backend = utils.fetch_key_from_dict(
-        runtime_info, "is_rudder_backend", False
-    )
-    site_config_path = utils.fetch_key_from_dict(runtime_info, "site_config_path", "")
-
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    folder_path = os.path.dirname(model_path)
-
-    default_config = utils.load_yaml(
-        os.path.join(
-            current_dir,
-            "src",
-            "predictions",
-            "rudderstack_predictions",
-            "config",
-            "model_configs.yaml",
-        )
-    )
-    _ = config["data"].pop(
-        "package_name", None
-    )  # For backward compatibility. Not using it anywhere else, hence deleting.
-    merged_config = utils.combine_config(default_config, config)
-
-    user_preference_order_infra = merged_config["data"].pop(
-        "user_preference_order_infra", None
-    )
-    prediction_task = merged_config["data"].pop(
-        "task", "classification"
-    )  # Assuming default as classification
-
-    if prediction_task == "classification":
-        trainer = ClassificationTrainer(**merged_config)
-    elif prediction_task == "regression":
-        trainer = RegressionTrainer(**merged_config)
-
-    logger.debug(
-        f"Started Predicting for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
-    )
-
-    warehouse = creds["type"]
-    connector = ConnectorFactory.create(warehouse, folder_path)
-    session = connector.build_session(creds)
-
-    connector.compute_udf_name(model_path)
-    connector.pre_job_cleanup(session)
-
-    mode = connector.fetch_processor_mode(
-        user_preference_order_infra, is_rudder_backend
-    )
-    processor = ProcessorFactory.create(
-        mode, trainer, connector, session, constants.ML_CORE_PYTHON_PATH
-    )
-    logger.debug(f"Using {mode} processor for predictions")
-
-    site_config = utils.load_yaml(site_config_path)
-    presets = site_config["py_models"].get("credentials_presets")
-    if presets is None or presets.get("s3") is None:
-        s3_config = {}
-    else:
-        s3_config = presets["s3"]
-
-    if mode == constants.RUDDERSTACK_MODE:
-        s3_creds = S3Utils.get_temporary_credentials(s3_config["role_arn"])
-        s3_config["access_key_id"] = s3_creds["access_key_id"]
-        s3_config["access_key_secret"] = s3_creds["access_key_secret"]
-        s3_config["aws_session_token"] = s3_creds["aws_session_token"]
-
-    _ = processor.predict(
+    _predict(
         creds,
-        s3_config,
         model_path,
         inputs,
         output_tablename,
-        merged_config,
-        prediction_task,
-        site_config,
+        config,
+        runtime_info,
+        constants.ML_CORE_PYTHON_PATH,
     )

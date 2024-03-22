@@ -619,13 +619,11 @@ class CommonWarehouseConnector(Connector):
                 .reset_index(drop=True)[["end_ts"]]
                 .iloc[0]
             )
-
-            end_ts = feature_table_info_df["end_ts"]
         except Exception as e:
             raise Exception(
-                f"Project is never materialzied with model hash {model_hash}. Error message: {e}"
+                f"No material found with name {model_name}, hash {model_hash} and seq no {seq_no}. Error message: {e}"
             )
-
+        end_ts = feature_table_info_df["end_ts"]
         return end_ts.tz_localize(None)
 
     def add_index_timestamp_colum_for_predict_data(

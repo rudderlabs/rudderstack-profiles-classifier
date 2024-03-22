@@ -8,6 +8,7 @@ sys.path.append(
 from rudderstack_predictions.predict import _predict
 from rudderstack_predictions.utils import constants
 
+
 def predict(
     creds: dict,
     _: dict,  # s3_config is not being populated for some reason. Using site_config to get its value

@@ -28,9 +28,9 @@ if __name__ == "__main__":
         "inputs": [
             "entity/user/is_churned_7_days",
         ],
-        "ml_config": {"data": {
-            'label_column': 'is_churned_7_days', 'prediction_horizon_days': 7
-        }},
+        "ml_config": {
+            "data": {"label_column": "is_churned_7_days", "prediction_horizon_days": 7}
+        },
     }
     homedir = os.path.expanduser("~")
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
@@ -39,7 +39,7 @@ if __name__ == "__main__":
     output_filename = "/Users/shashankshekhar/Documents/RudderStack/rudderstack-profiles-classifier/samples/py_native/output/redshift/seq_no/1093/Material_training_model_9b28e42b_training_file"
     site_config_path = os.getenv("SITE_CONFIG_PATH")
     project_folder = os.getenv("PROJECT_FOLDER")
-    runtime_info = { "site_config_path": site_config_path }
+    runtime_info = {"site_config_path": site_config_path}
     config = build_spec.get("ml_config", {})
     input_materials = ["Material_is_churned_7_days_d5df048c_1093"]  # To be configured
     training_material = Training()

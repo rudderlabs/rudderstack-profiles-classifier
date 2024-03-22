@@ -77,7 +77,7 @@ class PredictionRecipe(PyNativeRecipe):
 
     def prepare(self, this: WhtMaterial):
         this.de_ref(self.build_spec["training_model"])
-    
+
     def _get_train_output_filepath(self, this: WhtMaterial):
         # If training is skipped, this function will return incorrect path
         # Option 1: Implement the logic for testing file validity in this package
@@ -92,7 +92,9 @@ class PredictionRecipe(PyNativeRecipe):
         homedir = os.path.expanduser("~")
         with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
             creds = yaml.safe_load(f)["connections"]["test"]["outputs"]["redshift"]
-        runtime_info = { "site_config_path": os.path.join(homedir, ".pb/siteconfig.yaml") }
+        runtime_info = {
+            "site_config_path": os.path.join(homedir, ".pb/siteconfig.yaml")
+        }
         config = self.build_spec.get("ml_config", {})
         input_materials = []
         output_tablename = this.name()

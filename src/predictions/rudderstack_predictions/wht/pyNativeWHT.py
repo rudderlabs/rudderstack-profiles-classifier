@@ -59,6 +59,6 @@ class PyNativeWHT:
         self, model_name: str, model_hash: str, seq_no: int
     ) -> str:
         return self.pythonWHT.compute_material_name(model_name, model_hash, seq_no)
-    
+
     def get_registry_table_name(self) -> str:
         return self.pythonWHT.get_registry_table_name()

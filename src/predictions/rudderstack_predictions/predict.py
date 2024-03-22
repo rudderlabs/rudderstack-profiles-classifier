@@ -44,9 +44,7 @@ def _predict(
 
     folder_path = os.path.dirname(model_path)
 
-    default_config = utils.load_yaml(
-        utils.get_model_configs_file_path()
-    )
+    default_config = utils.load_yaml(utils.get_model_configs_file_path())
     _ = config["data"].pop(
         "package_name", None
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
@@ -78,9 +76,7 @@ def _predict(
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = ProcessorFactory.create(
-        mode, trainer, connector, session, ml_core_path
-    )
+    processor = ProcessorFactory.create(mode, trainer, connector, session, ml_core_path)
     logger.debug(f"Using {mode} processor for predictions")
 
     site_config = utils.load_yaml(site_config_path)

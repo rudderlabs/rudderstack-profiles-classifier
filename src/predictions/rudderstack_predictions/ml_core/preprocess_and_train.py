@@ -4,7 +4,6 @@ import json
 import logging
 import pandas as pd
 from typing import List
-from pathlib import Path
 
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -19,18 +18,6 @@ from ..utils.S3Utils import S3Utils
 
 from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
-
-
-logging_path = os.path.join("..", "log")
-path = Path(logging_path)
-path.mkdir(parents=True, exist_ok=True)
-file_handler = logging.FileHandler(
-    os.path.join(logging_path, "preprocess_and_train.log")
-)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
@@ -182,7 +169,6 @@ def preprocess_and_train(
         )
         break
 
-    logger.info(f"Identifying high cardinality features in the feature table.")
     high_cardinal_features = connector.get_high_cardinal_features(
         feature_table,
         input_column_types["categorical"],
@@ -190,20 +176,21 @@ def preprocess_and_train(
         trainer.entity_column,
         cardinal_feature_threshold,
     )
+    logger.debug(f"High cardinality features detected: {high_cardinal_features}")
 
-    logger.info(f"Identifying ignore features in the feature table.")
     ignore_features = utils.get_all_ignore_features(
         feature_table,
         input_column_types,
         trainer.prep.ignore_features,
         high_cardinal_features,
     )
+    logger.debug(f"Ignore features detected: {ignore_features}")
     feature_table = connector.drop_cols(feature_table, ignore_features)
 
-    logger.info(f"Identifying column types from the feature table.")
     feature_table_column_types = utils.get_feature_table_column_types(
         feature_table, input_column_types, trainer.label_column, trainer.entity_column
     )
+    logger.debug(f"Feature_table column types detected: {feature_table_column_types}")
 
     task_type = trainer.get_name()
     logger.info(f"Performing data validation for {task_type}")
@@ -285,6 +272,16 @@ if __name__ == "__main__":
         if args.mode == constants.LOCAL_MODE
         else os.path.dirname(os.path.abspath(__file__))
     )
+
+    file_handler = logging.FileHandler(
+        os.path.join(output_dir, "preprocess_and_train.log")
+    )
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
 
     warehouse = wh_creds["type"]
     train_procedure = train_and_store_model_results

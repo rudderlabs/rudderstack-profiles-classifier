@@ -8,7 +8,6 @@ import cachetools
 import numpy as np
 import pandas as pd
 from typing import Any
-from pathlib import Path
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
@@ -22,18 +21,6 @@ from ..utils.S3Utils import S3Utils
 
 from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
-
-
-logging_path = os.path.join("..", "log")
-path = Path(logging_path)
-path.mkdir(parents=True, exist_ok=True)
-file_handler = logging.FileHandler(
-    os.path.join(logging_path, "preprocess_and_predict.log")
-)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -251,6 +238,16 @@ if __name__ == "__main__":
         if args.mode == constants.LOCAL_MODE
         else os.path.join(current_dir, "output")
     )
+
+    file_handler = logging.FileHandler(
+        os.path.join(output_dir, "preprocess_and_predict.log")
+    )
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
 
     if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
         logger.debug(f"Downloading files from S3 in {args.mode} mode.")

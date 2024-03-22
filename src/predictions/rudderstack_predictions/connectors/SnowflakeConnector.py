@@ -1060,6 +1060,7 @@ class SnowflakeConnector(Connector):
         train_model_id: str,
         prob_th: Optional[float],
         input: snowflake.snowpark.Table,
+        pred_df_config : Dict
     ) -> pd.DataFrame:
         """Calls the given function for prediction
 
@@ -1077,18 +1078,18 @@ class SnowflakeConnector(Connector):
         Returns:
             Results of the predict function
         """
+        prediction_df = prediction_udf(*input)
+
         preds = predict_data.select(
             entity_column,
             index_timestamp,
-            prediction_udf(*input).alias(score_column_name),
         ).withColumn("model_id", F.lit(train_model_id))
-        if prob_th:
-            preds = preds.withColumn(
-                output_label_column,
-                F.when(F.col(score_column_name) >= prob_th, F.lit(True)).otherwise(
-                    F.lit(False)
-                ),
-            )
+
+        preds[score_column_name] = prediction_df[pred_df_config["label"]]
+
+        if "score" in pred_df_config:
+            preds[output_label_column] = prediction_df[pred_df_config["score"]]
+
         preds_with_percentile = preds.withColumn(
             percentile_column_name,
             F.percent_rank().over(Window.order_by(F.col(score_column_name))),

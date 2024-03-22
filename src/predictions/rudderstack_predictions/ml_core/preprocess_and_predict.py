@@ -121,6 +121,17 @@ def preprocess_and_predict(
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
         predict_data, trainer.index_timestamp, end_ts
     )
+
+    pred_df_config = {}
+    if prediction_task == "classification":
+        pred_df_config = {
+            "label" : "prediction_score",
+            "score" : "prediction_label"
+        }
+    elif prediction_task == "regression":
+        pred_df_config = {
+            "label" : "prediction_label",
+        }
         
     @cachetools.cached(cache={})
     def load_model(filename: str):
@@ -206,6 +217,7 @@ def preprocess_and_predict(
         train_model_id,
         prob_th,
         input_df,
+        pred_df_config
     )
     logger.debug("Writing predictions to warehouse")
     connector.write_table(

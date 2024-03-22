@@ -895,6 +895,7 @@ class CommonWarehouseConnector(Connector):
         train_model_id: str,
         prob_th: Optional[float],
         input: pd.DataFrame,
+        pred_df_config : Dict
     ) -> pd.DataFrame:
         """Calls the given function for prediction
 
@@ -912,13 +913,14 @@ class CommonWarehouseConnector(Connector):
         Returns:
             Results of the predict function
         """
+
         preds = predict_data[[entity_column, index_timestamp]]
         prediction_df = prediction_udf(input)
         
-        preds[score_column_name] = prediction_df['prediction_label']
+        preds[score_column_name] = prediction_df[pred_df_config["label"]]
 
-        if prob_th is not None:
-            preds[output_label_column] = prediction_df['score']
+        if "score" in pred_df_config:
+            preds[output_label_column] = prediction_df[pred_df_config["score"]]
 
         preds["model_id"] = train_model_id
      

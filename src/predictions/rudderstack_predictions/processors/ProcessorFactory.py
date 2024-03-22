@@ -5,7 +5,7 @@ from ..utils import constants
 
 
 class ProcessorFactory:
-    def create(mode: str, trainer, connector, session):
+    def create(mode: str, trainer, connector, session, ml_core_path: str):
         processor = None
         if mode == constants.RUDDERSTACK_MODE:
             # Lazy load K8sProcessor since kubernetes might not be installed in all environments
@@ -18,4 +18,4 @@ class ProcessorFactory:
             processor = LocalProcessor
         else:
             raise Exception(f"Invalid processor mode {mode}")
-        return processor(trainer, connector, session)
+        return processor(trainer, connector, session, ml_core_path)

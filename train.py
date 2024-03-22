@@ -7,6 +7,7 @@ sys.path.append(
 
 from rudderstack_predictions.train import _train
 from rudderstack_predictions.wht.pythonWHT import PythonWHT
+from rudderstack_predictions.utils import constants
 
 
 def train(
@@ -29,4 +30,5 @@ def train(
         runtime_info,
         input_models,
         PythonWHT(),
+        constants.ML_CORE_PYTHON_PATH,
     )

@@ -26,6 +26,14 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
+from pycaret.classification import (
+    load_model as classification_load_model,
+    predict_model as classification_predict_model,
+)
+from pycaret.regression import (
+    load_model as regression_load_model,
+    predict_model as regression_predict_model,
+)
 
 def preprocess_and_predict(
     creds,
@@ -113,7 +121,7 @@ def preprocess_and_predict(
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
         predict_data, trainer.index_timestamp, end_ts
     )
-
+        
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location"""
@@ -125,30 +133,22 @@ def preprocess_and_predict(
         else:
             filename = os.path.join(local_folder, filename)
 
-        with open(filename, "rb") as file:
-            m = joblib.load(file)
-            return m
+        
+        if prediction_task == "classification":
+            model = classification_load_model(filename)
+        elif prediction_task == "regression":
+            model = regression_load_model(filename)
+
+        return model
 
     def predict_helper(df, model_name: str, **kwargs) -> Any:
         trained_model = load_model(model_name)
         df.columns = [x.upper() for x in df.columns]
 
-        for col in numeric_columns:
-            mean_value = df[col].mean()
-            # If the mean value is NaN, replace it with 0
-            if pd.isna(mean_value):
-                mean_value = 0
-            
-            # Fill NaN values in the column with the mean value
-            df[col] = df[col].fillna(mean_value)
-
-        for col in categorical_columns:
-            df[col] = df[col].fillna("unknown")
-
         if prediction_task == "classification":
-            return trained_model.predict_proba(df)[:, 1]
+            return classification_predict_model(trained_model, df)
         elif prediction_task == "regression":
-            return trained_model.predict(df)
+            return regression_predict_model(trained_model, df)
 
     features = input_df.columns
 
@@ -162,7 +162,7 @@ def preprocess_and_predict(
             replace=True,
             stage_location=stage_name,
             name=udf_name,
-            imports=[f"{stage_name}/{model_name}"],
+            imports=[f"{stage_name}/{model_name}.pkl"],
             packages=[
                 "snowflake-snowpark-python==1.11.1",
                 "typing",
@@ -173,6 +173,7 @@ def preprocess_and_predict(
                 "joblib==1.2.0",
                 "cachetools==4.2.2",
                 "PyYAML==6.0.1",
+                "pycaret",
                 "simplejson",
             ],
         )
@@ -193,6 +194,7 @@ def preprocess_and_predict(
         prediction_udf = predict_scores_rs
 
     logger.debug("Creating predictions on the feature data")
+
     preds_with_percentile = connector.call_prediction_udf(
         predict_data,
         prediction_udf,
@@ -210,9 +212,6 @@ def preprocess_and_predict(
         preds_with_percentile,
         output_tablename,
         write_mode="overwrite",
-        local=False,
-        if_exists="replace",
-        s3_config=s3_config,
     )
     logger.debug("Closing the session")
 

@@ -203,6 +203,7 @@ def _train(
                 trainer.label_column,
             )
 
+            model_file = model_file + ".pkl"
             connector.save_file(session, model_file, stage_name, overwrite=True)
 
             try:

@@ -38,11 +38,13 @@ from pycaret.classification import (
     setup as classification_setup,
     compare_models as classification_compare_models,
     get_config as get_classification_config,
+    save_model as classification_save_model,
 )
 from pycaret.regression import (
     setup as regression_setup,
     compare_models as regression_compare_models,
     get_config as get_regression_config,
+    save_model as regression_save_model,
 )
 
 trainer_utils = utils.TrainerUtils()
@@ -291,6 +293,7 @@ class MLTrainer(ABC):
         model_file: str,
         model_setup,
         compare_models,
+        save_model
     ):
         """Creates and saves the trained model pipeline after performing preprocessing and classification
         and returns the various variables required for further processing by training procesudres/functions.
@@ -342,7 +345,7 @@ class MLTrainer(ABC):
         best_model = compare_models()
 
         # Save the final model
-        joblib.dump(best_model, model_file)
+        save_model(best_model, model_file)
 
         # Get metrics
         results = self.get_metrics(
@@ -623,6 +626,7 @@ class ClassificationTrainer(MLTrainer):
             model_file,
             classification_setup,
             classification_compare_models,
+            classification_save_model
         )
 
     def plot_diagnostics(
@@ -856,6 +860,7 @@ class RegressionTrainer(MLTrainer):
             model_file,
             regression_setup,
             regression_compare_models,
+            regression_save_model
         )
 
     def plot_diagnostics(

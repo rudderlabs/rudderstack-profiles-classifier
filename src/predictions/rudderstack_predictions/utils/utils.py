@@ -63,12 +63,10 @@ from pycaret.regression import predict_model as predict_regression
 
 from pycaret.classification import (
     predict_model as predict_classification,
-    interpret_model as classification_interpret_model,
 )
 
 from pycaret.regression import (
     predict_model as predict_regression,
-    interpret_model as regression_interpret_model,
 )
 
 
@@ -321,6 +319,10 @@ def split_train_test_pycaret(
     val_y = get_config('y_train_transformed')
     test_x = get_config('X_test_transformed')
     test_y = get_config('y_test_transformed')
+
+    train_x = train_x.drop([entity_column.upper()], axis=1)
+    val_x = val_x.drop([entity_column.upper()], axis=1)
+    test_x = test_x.drop([entity_column.upper()], axis=1)
 
     return train_x, train_y, test_x, test_y, val_x, val_y
 

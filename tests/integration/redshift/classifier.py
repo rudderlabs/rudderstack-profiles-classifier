@@ -33,7 +33,7 @@ pred_horizon_days = 7
 pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
 output_label = "OUTPUT_LABEL"
 s3_config = {}
-p_output_tablename = "test_run_can_delete_2"
+p_output_tablename = "classifier_integration_test_4"
 entity_key = "user"
 material_registry_table_name = "material_registry_4"
 

@@ -913,12 +913,15 @@ class CommonWarehouseConnector(Connector):
             Results of the predict function
         """
         preds = predict_data[[entity_column, index_timestamp]]
-        preds[score_column_name] = prediction_udf(input)
+        prediction_df = prediction_udf(input)
+        
+        preds[score_column_name] = prediction_df['prediction_label']
+
+        if prob_th is not None:
+            preds[output_label_column] = prediction_df['score']
+
         preds["model_id"] = train_model_id
-        if prob_th:
-            preds[output_label_column] = preds[score_column_name].apply(
-                lambda x: True if x >= prob_th else False
-            )
+     
         preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
         return preds
 

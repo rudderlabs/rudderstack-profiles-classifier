@@ -1,0 +1,5 @@
+macros:
+  - name: macro_datediff
+    inputs:
+      - column
+    value: "{% if !(end_time|isnil) %} datediff(day, date({{column}}), date('{{end_time.Format(\"2006-01-02 15:04:05\")}}')) {% else %} datediff(day, date({{column}}::timestamp), GETDATE()) {% endif %}"

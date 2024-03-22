@@ -104,7 +104,9 @@ def predict(
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = ProcessorFactory.create(mode, trainer, connector, session)
+    processor = ProcessorFactory.create(
+        mode, trainer, connector, session, constants.ML_CORE_PYTHON_PATH
+    )
     logger.debug(f"Using {mode} processor for predictions")
 
     site_config = utils.load_yaml(site_config_path)

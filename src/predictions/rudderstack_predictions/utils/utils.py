@@ -950,11 +950,9 @@ def plot_top_k_feature_importance(
             f"Exception occured while calculating shap values {e}, using KernelExplainer"
         )
 
-        return
-
-        # shap_values = shap.KernelExplainer(
-        #     pipe["model"].predict_proba., data=train_x_processed
-        # ).shap_values(train_x_processed)
+        shap_values = shap.DeepExplainer(
+            pipe["model"], data=train_x_processed
+        ).shap_values(train_x_processed)
 
     x_label = "Importance scores"
     if isinstance(shap_values, list):

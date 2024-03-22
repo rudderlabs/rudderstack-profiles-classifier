@@ -1,8 +1,10 @@
 import os
 import sys
 import json
+import logging
 import pandas as pd
 from typing import List
+from pathlib import Path
 
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -17,6 +19,16 @@ from ..utils.S3Utils import S3Utils
 
 from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
+
+
+logging_path = os.path.join("..", "log")
+path = Path(logging_path)
+path.mkdir(parents=True, exist_ok=True)
+file_handler = logging.FileHandler(os.path.join(logging_path, "preprocess_and_train.log"))
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
@@ -63,6 +75,7 @@ def train_and_store_model_results(
         feature_df, categorical_columns, numeric_columns, train_config, model_file
     )
 
+    logger.info(f"Generating plots and saving them to the output directory.")
     trainer.plot_diagnostics(
         connector, session, pipe, None, test_x, test_y, trainer.label_column
     )
@@ -176,6 +189,7 @@ def preprocess_and_train(
         cardinal_feature_threshold,
     )
 
+    logger.info(f"Identifying ignore features in the feature table.")
     ignore_features = utils.get_all_ignore_features(
         feature_table,
         input_column_types,
@@ -184,6 +198,7 @@ def preprocess_and_train(
     )
     feature_table = connector.drop_cols(feature_table, ignore_features)
 
+    logger.info(f"Identifying column types from the feature table.")
     feature_table_column_types = utils.get_feature_table_column_types(
         feature_table, input_column_types, trainer.label_column, trainer.entity_column
     )
@@ -224,6 +239,7 @@ def preprocess_and_train(
     if not isinstance(train_results_json, dict):
         train_results_json = json.loads(train_results_json)
 
+    logger.info(f"Saving column names info. to the output json.")
     train_results_json["column_names"] = {}
     train_results_json["column_names"]["input_column_types"] = input_column_types
     train_results_json["column_names"]["ignore_features"] = ignore_features

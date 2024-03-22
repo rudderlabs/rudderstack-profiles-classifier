@@ -2,11 +2,13 @@ import os
 import sys
 import json
 import joblib
+import logging
 import warnings
 import cachetools
 import numpy as np
 import pandas as pd
 from typing import Any
+from pathlib import Path
 
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
@@ -20,6 +22,16 @@ from ..utils.S3Utils import S3Utils
 
 from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
+
+
+logging_path = os.path.join("..", "log")
+path = Path(logging_path)
+path.mkdir(parents=True, exist_ok=True)
+file_handler = logging.FileHandler(os.path.join(logging_path, "preprocess_and_predict.log"))
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+file_handler.setLevel(logging.INFO)
+file_handler.setFormatter(formatter)
+logger.addHandler(file_handler)
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -85,11 +97,13 @@ def preprocess_and_predict(
         model_hash,
         seq_no,
     )
-    logger.debug(f"Pulling data from Feature table - {feature_table_name}")
 
+    logger.debug(f"Pulling data from Feature table - {feature_table_name}")
     raw_data = connector.get_table(
         session, feature_table_name, filter_condition=trainer.eligible_users
     )
+
+    logger.debug(f"Transforming timestamp columns.")
     for col in timestamp_columns:
         raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
 

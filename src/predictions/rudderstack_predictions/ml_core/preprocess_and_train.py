@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import logging
 import pandas as pd
 from typing import List
 
@@ -63,6 +64,7 @@ def train_and_store_model_results(
         feature_df, categorical_columns, numeric_columns, train_config, model_file
     )
 
+    logger.info(f"Generating plots and saving them to the output directory.")
     trainer.plot_diagnostics(
         connector, session, pipe, None, test_x, test_y, trainer.label_column
     )
@@ -167,7 +169,6 @@ def preprocess_and_train(
         )
         break
 
-    logger.info(f"Identifying high cardinality features in the feature table.")
     high_cardinal_features = connector.get_high_cardinal_features(
         feature_table,
         input_column_types["categorical"],
@@ -175,6 +176,7 @@ def preprocess_and_train(
         trainer.entity_column,
         cardinal_feature_threshold,
     )
+    logger.debug(f"High cardinality features detected: {high_cardinal_features}")
 
     ignore_features = utils.get_all_ignore_features(
         feature_table,
@@ -182,11 +184,13 @@ def preprocess_and_train(
         trainer.prep.ignore_features,
         high_cardinal_features,
     )
+    logger.debug(f"Ignore features detected: {ignore_features}")
     feature_table = connector.drop_cols(feature_table, ignore_features)
 
     feature_table_column_types = utils.get_feature_table_column_types(
         feature_table, input_column_types, trainer.label_column, trainer.entity_column
     )
+    logger.debug(f"Feature_table column types detected: {feature_table_column_types}")
 
     task_type = trainer.get_name()
     logger.info(f"Performing data validation for {task_type}")
@@ -224,6 +228,7 @@ def preprocess_and_train(
     if not isinstance(train_results_json, dict):
         train_results_json = json.loads(train_results_json)
 
+    logger.info(f"Saving column names info. to the output json.")
     train_results_json["column_names"] = {}
     train_results_json["column_names"]["input_column_types"] = input_column_types
     train_results_json["column_names"]["ignore_features"] = ignore_features
@@ -267,6 +272,16 @@ if __name__ == "__main__":
         if args.mode == constants.LOCAL_MODE
         else os.path.dirname(os.path.abspath(__file__))
     )
+
+    file_handler = logging.FileHandler(
+        os.path.join(output_dir, "preprocess_and_train.log")
+    )
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
 
     warehouse = wh_creds["type"]
     train_procedure = train_and_store_model_results

@@ -207,8 +207,13 @@ class CommonWarehouseConnector(Connector):
         Returns:
             label_table (pd.DataFrame): The labelled table as a pandas Dataframe object
         """
+
+        def _replace_na(value):
+            return np.nan if pd.isna(value) else value
+
         feature_table = self.get_table(session, label_table_name)
         if label_value is not None:
+            feature_table = feature_table.applymap(_replace_na)
             feature_table[label_column] = np.where(
                 feature_table[label_column] == label_value, 1, 0
             )
@@ -992,7 +997,7 @@ class CommonWarehouseConnector(Connector):
         pass
 
     def post_job_cleanup(self, session) -> None:
-        pass
+        session.close()
 
     @abstractmethod
     def build_session(self, credentials: dict):

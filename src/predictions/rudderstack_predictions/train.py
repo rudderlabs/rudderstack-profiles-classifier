@@ -290,6 +290,7 @@ def _train(
         trainer.label_column,
         trainer.entity_column,
     )
+    logger.debug(f"Input column types detected: {input_column_types}")
 
     logger.info("Getting past data for training")
     get_material_names_partial = partial(

@@ -4,6 +4,7 @@
 
 import pandas as pd
 from sqlalchemy import create_engine
+from google.oauth2 import service_account
 from ...utils.logger import logger
 from .connector_base import ConnectorBase
 
@@ -13,6 +14,9 @@ class BigqueryConnector(ConnectorBase):
         super().__init__(creds, db_config, **kwargs)
         self.engine = create_engine(
             "bigquery://", credentials_info=creds["credentials"]
+        )
+        self.bq_credentials = service_account.Credentials.from_service_account_info(
+            creds["credentials"]
         )
         self.connection = self.engine.connect()
         self.creds = creds
@@ -28,12 +32,13 @@ class BigqueryConnector(ConnectorBase):
         if "." in table_name:
             schema, table_name = table_name.split(".")
         try:
-            df.to_sql(
-                name=table_name.replace("`", ""),
-                con=self.engine,
-                schema=schema.replace("`", ""),
-                index=False,
-                if_exists=if_exists,
+            destination_table_path = f"""{self.db_config["project_id"]}.{schema.replace("`", "")}.{table_name.replace("`", "")}"""
+            pd.DataFrame.to_gbq(
+                df,
+                destination_table_path,
+                project_id=self.db_config["project_id"],
+                if_exists="replace",
+                credentials=self.bq_credentials,
             )
 
         except Exception as e:

@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import joblib
+import logging
 import warnings
 import cachetools
 import numpy as np
@@ -95,11 +96,13 @@ def preprocess_and_predict(
         model_hash,
         seq_no,
     )
-    logger.debug(f"Pulling data from Feature table - {feature_table_name}")
 
+    logger.debug(f"Pulling data from Feature table - {feature_table_name}")
     raw_data = connector.get_table(
         session, feature_table_name, filter_condition=trainer.eligible_users
     )
+
+    logger.debug(f"Transforming timestamp columns.")
     for col in timestamp_columns:
         raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
 
@@ -286,6 +289,16 @@ if __name__ == "__main__":
         if args.mode == constants.LOCAL_MODE
         else os.path.join(current_dir, "output")
     )
+
+    file_handler = logging.FileHandler(
+        os.path.join(output_dir, "preprocess_and_predict.log")
+    )
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
 
     if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
         logger.debug(f"Downloading files from S3 in {args.mode} mode.")

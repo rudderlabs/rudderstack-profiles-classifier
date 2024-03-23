@@ -44,11 +44,12 @@ def _train(
     inputs: str,
     output_filename: str,
     config: dict,
-    site_config_path: str = None,
-    project_folder: str = None,
-    runtime_info: dict = None,
-    input_models: List[str] = [],
-    whtService: PythonWHT = None,
+    site_config_path: str,
+    project_folder: str,
+    runtime_info: dict,
+    input_models: List[str],
+    whtService: PythonWHT,
+    ml_core_path: str,
 ) -> None:
     """Trains the model and saves the model with given output_filename.
 
@@ -284,6 +285,7 @@ def _train(
         trainer.label_column,
         trainer.entity_column,
     )
+    logger.debug(f"Input column types detected: {input_column_types}")
 
     logger.info("Getting past data for training")
     get_material_names_partial = partial(
@@ -304,6 +306,8 @@ def _train(
             train_table_pairs,
             input_models,
             whtService,
+            connector,
+            session,
         )
     except Exception as e:
         logger.error(f"Error while generating new materials, {str(e)}")
@@ -311,7 +315,7 @@ def _train(
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = ProcessorFactory.create(mode, trainer, connector, session)
+    processor = ProcessorFactory.create(mode, trainer, connector, session, ml_core_path)
     logger.debug(f"Using {mode} processor for training")
     train_results = processor.train(
         train_procedure,

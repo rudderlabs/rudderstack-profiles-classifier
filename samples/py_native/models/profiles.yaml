@@ -6,12 +6,11 @@ models:
       entity_key: user
       validity_time: 24h
       inputs:
-        - entity/user/first_seen
+        - entity/user/is_churned_7_days
       ml_config:
         data:
           label_column: is_churned_7_days
           prediction_horizon_days: 7
-
   # - name: prediction_model
   #   model_type: classifier_prediction
   #   model_spec:
@@ -24,7 +23,12 @@ var_groups:
     entity_key: user
     vars:
       - entity_var:
-          name: first_seen
-          select: min(timestamp::date)
-          from: inputs/rsTracks
-          is_feature: false
+            name: is_churned_7_days
+            select: case when {{user.Var("days_since_last_seen")}} > 100 then 1 else 0 end
+      - entity_var:
+            name: days_since_last_seen
+            select: "{{macro_datediff('{{user.Var(\"max_timestamp_bw_tracks_pages\")}}')}}"
+      - entity_var:
+            name: max_timestamp_bw_tracks_pages
+            select: max(timestamp)
+            from: inputs/rsTracks

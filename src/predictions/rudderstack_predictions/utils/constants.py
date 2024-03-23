@@ -34,7 +34,8 @@ K8S_TIMEOUT_IN_SEC = 120
 LOCAL_MODE = "local"
 WAREHOUSE_MODE = "native-warehouse"
 RUDDERSTACK_MODE = "rudderstack-infra"
-ML_CORE_PATH = "src.predictions.rudderstack_predictions.ml_core"
+ML_CORE_PYTHON_PATH = "src.predictions.rudderstack_predictions.ml_core"
+ML_CORE_PYNATIVE_PATH = "rudderstack_predictions.ml_core"
 
 # Smart data preparation
 

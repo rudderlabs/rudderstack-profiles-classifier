@@ -83,9 +83,9 @@ class RudderPB:
         except Exception as e:
             raise Exception(f"Error occurred while fetching all models : {e}")
 
-        return self._extract_json_from_stdout(pb_show_models_response_output)
+        return pb_show_models_response_output 
 
-    def _extract_json_from_stdout(self, stdout):
+    def extract_json_from_stdout(self, stdout):
         start_index = stdout.find("printing models")
         if start_index == -1:
             return None

@@ -89,12 +89,13 @@ def _train(
     _ = config["data"].pop(
         "features_profiles_model", None
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
+    _ = config["data"].pop(
+        "inputs", None
+    )  # For backward compatibility. Not using it anywhere else, hence deleting.
 
     merged_config = utils.combine_config(default_config, config)
 
-    _ = merged_config["data"].pop(
-        "inputs", None
-    )  # For backward compatibility. Not using it anywhere else, hence deleting.
+   
 
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None
@@ -280,7 +281,7 @@ def _train(
         )
         trainer.label_value = label_value
 
-    new_input_models = whtService.get_input_models(inputs, output_filename)
+    new_input_models = whtService.get_input_models(inputs)
 
     logger.info(f"Getting input column types from table: {latest_entity_var_table}")
     input_column_types = connector.get_input_column_types(

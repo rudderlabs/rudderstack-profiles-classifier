@@ -43,7 +43,6 @@ class PythonWHT:
     def get_input_models(
         self,
         inputs: List[str],
-        train_summary_output_file_name: str,
     ) -> List[str]:
         """Find matches for input models in the JSON data. If no matches are found, an exception is raised.
         Args:
@@ -52,34 +51,27 @@ class PythonWHT:
         Returns:
             List[str]: List of input models - full paths in the profiles project for models that are required to generate the current model.
         """
-        # original_input_models : List of input models - relative paths in the profiles project for models that are required to generate the current model.
-        original_input_models = [
-            self._split_material_name(input_)["model_name"] for input_ in inputs
-        ]
+        original_input_models = [self.split_material_name(input_)["model_name"] for input_ in inputs]
 
         args = {
             "site_config_path": self.site_config_path,
             "project_folder": self.project_folder_path,
         }
 
+        # Fetch models information from the project
         pb_show_models_response_output = self._getPB().show_models(args)
+        models_info = self._getPB().extract_json_from_stdout(pb_show_models_response_output)
 
-        # Find matches for input models in the JSON data
+        # Find matching models in the project
         new_input_models = []
 
-        if len(original_input_models) != 0:
-            for model in original_input_models:
-                model_key = model.split("/")[-1]
-                found_unique_match = False
-                for key in pb_show_models_response_output:
-                    if key.endswith(model_key):
-                        if found_unique_match:
-                            raise ValueError(
-                                f"Multiple unique occurrences found for {model_key}"
-                            )
-                        model_path = key.split("/", 1)[-1]
-                        new_input_models.append(model_path)
-                        found_unique_match = True
+        for model_name in original_input_models:
+            matching_models = [key.split("/", 1)[-1] for key in models_info if key.endswith(model_name)]
+            
+            if len(matching_models) == 1:
+                new_input_models.append(matching_models[0])
+            elif len(matching_models) > 1:
+                raise ValueError(f"Multiple models with name {model_name} are found. Please ensure the models added in inputs are named uniquely and retry")
 
         return new_input_models
 

@@ -273,6 +273,7 @@ class TrainerUtils:
 
         return metrics
 
+
 def split_train_test_pycaret(
     preprocess_setup,
     get_config,
@@ -300,31 +301,42 @@ def split_train_test_pycaret(
     """
     feature_df.columns = feature_df.columns.str.upper()
 
-    preprocess_setup(data=feature_df, target=label_column.upper(), preprocess=True , train_size = train_size)
+    preprocess_setup(
+        data=feature_df,
+        target=label_column.upper(),
+        preprocess=True,
+        train_size=train_size,
+    )
 
     # Get the configurations
-    train_x = get_config('X_train_transformed')
-    train_y = get_config('y_train_transformed')
-    test_val_x = get_config('X_test_transformed')
-    test_val_y = get_config('y_test_transformed')
+    train_x = get_config("X_train_transformed")
+    train_y = get_config("y_train_transformed")
+    test_val_x = get_config("X_test_transformed")
+    test_val_y = get_config("y_test_transformed")
 
     # Concatenate test_val_x and test_val_y into temp_data
     temp_data = pd.concat([test_val_x, test_val_y], axis=1)
 
     # Run a preprocessor setup on temp_data as per the val_size
-    preprocess_setup(data=temp_data, target=label_column.upper(), train_size= val_size / (val_size + test_size) , preprocess=True)
+    preprocess_setup(
+        data=temp_data,
+        target=label_column.upper(),
+        train_size=val_size / (val_size + test_size),
+        preprocess=True,
+    )
 
     # Get the configurations for the preprocessed temp_data
-    val_x = get_config('X_train_transformed')
-    val_y = get_config('y_train_transformed')
-    test_x = get_config('X_test_transformed')
-    test_y = get_config('y_test_transformed')
+    val_x = get_config("X_train_transformed")
+    val_y = get_config("y_train_transformed")
+    test_x = get_config("X_test_transformed")
+    test_y = get_config("y_test_transformed")
 
     train_x = train_x.drop([entity_column.upper()], axis=1)
     val_x = val_x.drop([entity_column.upper()], axis=1)
     test_x = test_x.drop([entity_column.upper()], axis=1)
 
     return train_x, train_y, test_x, test_y, val_x, val_y
+
 
 def split_train_test(
     feature_df: pd.DataFrame,

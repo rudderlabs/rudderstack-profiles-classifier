@@ -229,7 +229,7 @@ class MLTrainer(ABC):
         self, model_results: dict, model_timestamp: str
     ) -> dict:
         pass
-    
+
     @abstractmethod
     def prepare_data(
         self,
@@ -237,9 +237,8 @@ class MLTrainer(ABC):
         categorical_columns: List[str],
         numeric_columns: List[str],
     ):
-    
         pass
-       
+
     def prepare_data_(
         self,
         preprocess_setup,
@@ -249,12 +248,12 @@ class MLTrainer(ABC):
         numeric_columns: List[str],
     ):
         preprocess_config = {
-        'numeric_imputation': 'median',
-        'categorical_imputation': 'mode',
-        'iterative_imputation_iters': 5,
-        'numeric_iterative_imputer': 'lightgbm',
-        'categorical_iterative_imputer': 'lightgbm'
-    }
+            "numeric_imputation": "median",
+            "categorical_imputation": "mode",
+            "iterative_imputation_iters": 5,
+            "numeric_iterative_imputer": "lightgbm",
+            "categorical_iterative_imputer": "lightgbm",
+        }
 
         train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test_pycaret(
             feature_df=feature_df,
@@ -265,8 +264,8 @@ class MLTrainer(ABC):
             test_size=self.prep.test_size,
             preprocess_setup=preprocess_setup,
             get_config=get_config,
-            preprocess_config=preprocess_config
-        )   
+            preprocess_config=preprocess_config,
+        )
 
         train_data = pd.concat([train_x, train_y], axis=1)
         test_data = pd.concat([test_x, test_y], axis=1)
@@ -283,7 +282,7 @@ class MLTrainer(ABC):
             test_data,
             val_data,
         )
-    
+
     def train_model_(
         self,
         feature_df: pd.DataFrame,
@@ -293,7 +292,7 @@ class MLTrainer(ABC):
         model_file: str,
         model_setup,
         compare_models,
-        save_model
+        save_model,
     ):
         """Creates and saves the trained model pipeline after performing preprocessing and classification
         and returns the various variables required for further processing by training procesudres/functions.
@@ -584,7 +583,9 @@ class ClassificationTrainer(MLTrainer):
 
         return final_clf
 
-    def prepare_data(self, feature_df: pd.DataFrame, categorical_columns, numeric_columns):
+    def prepare_data(
+        self, feature_df: pd.DataFrame, categorical_columns, numeric_columns
+    ):
         return self.prepare_data_(
             classification_setup,
             get_classification_config,
@@ -626,7 +627,7 @@ class ClassificationTrainer(MLTrainer):
             model_file,
             classification_setup,
             classification_compare_models,
-            classification_save_model
+            classification_save_model,
         )
 
     def plot_diagnostics(
@@ -653,7 +654,7 @@ class ClassificationTrainer(MLTrainer):
         """
         try:
             y_pred = model.predict_proba(x)[:, 1]
-            y_true = y.to_numpy()           
+            y_true = y.to_numpy()
 
             roc_auc_file = connector.join_file_path(self.figure_names["roc-auc-curve"])
             utils.plot_roc_auc_curve(y_pred, y_true, roc_auc_file)
@@ -825,8 +826,10 @@ class RegressionTrainer(MLTrainer):
                     best_loss = min(trials.losses())
 
         return final_reg
-    
-    def prepare_data(self, feature_df: pd.DataFrame, categorical_columns, numeric_columns):
+
+    def prepare_data(
+        self, feature_df: pd.DataFrame, categorical_columns, numeric_columns
+    ):
         return self.prepare_data_(
             regression_setup,
             get_regression_config,
@@ -860,7 +863,7 @@ class RegressionTrainer(MLTrainer):
             model_file,
             regression_setup,
             regression_compare_models,
-            regression_save_model
+            regression_save_model,
         )
 
     def plot_diagnostics(
@@ -879,7 +882,7 @@ class RegressionTrainer(MLTrainer):
 
             residuals_file = connector.join_file_path(
                 self.figure_names["residuals-chart"]
-            )           
+            )
             utils.plot_regression_residuals(y_pred, y_true, residuals_file)
             connector.save_file(session, residuals_file, stage_name, overwrite=True)
 

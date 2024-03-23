@@ -185,7 +185,6 @@ def validate_predictions_df():
     try:
         df = connector.get_table_as_dataframe(session, p_output_tablename)
         columns_in_file = df.columns.tolist()
-        print(columns_in_file)
     except Exception as e:
         raise e
 

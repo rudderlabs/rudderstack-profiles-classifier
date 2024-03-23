@@ -1039,14 +1039,15 @@ class SnowflakeConnector(Connector):
         types = []
         for col in df.columns:
             if col in column_types["categorical"]:
-                types.append(str)
+                types.append(T.StringType())
             elif col in column_types["numeric"]:
-                types.append(float)
+                types.append(T.DecimalType())
             else:
                 raise Exception(
                     f"Column {col} not found in the training data config either as categorical or numeric column"
                 )
-        return T.PandasDataFrame[tuple(types)]
+
+        return types
 
     def call_prediction_udf(
         self,
@@ -1060,7 +1061,7 @@ class SnowflakeConnector(Connector):
         train_model_id: str,
         prob_th: Optional[float],
         input: snowflake.snowpark.Table,
-        pred_df_config : Dict
+        pred_df_config: Dict,
     ) -> pd.DataFrame:
         """Calls the given function for prediction
 
@@ -1078,22 +1079,47 @@ class SnowflakeConnector(Connector):
         Returns:
             Results of the predict function
         """
-        prediction_df = prediction_udf(*input)
+
+        pycaret_score_column_name = pred_df_config["score"].upper()
+        pycaret_label_column_name = pred_df_config.get(
+            "label", "prediction_score"
+        ).upper()
 
         preds = predict_data.select(
-            entity_column,
-            index_timestamp,
-        ).withColumn("model_id", F.lit(train_model_id))
+            entity_column, index_timestamp, F.lit(train_model_id).alias("model_id")
+        )
 
-        preds[score_column_name] = prediction_df[pred_df_config["label"]]
+        # # Get the predictions
+        # column_names = input.columns
+        # prediction_df= input.select(prediction_udf(*column_names).over(partition_by=[column_names[0]]))
+        # extracted_df = prediction_df.select(pycaret_score_column_name, pycaret_label_column_name)
 
-        if "score" in pred_df_config:
-            preds[output_label_column] = prediction_df[pred_df_config["score"]]
+        # Apply prediction_udf and select columns
+        prediction_df = input.select(
+            prediction_udf(*input.columns).over(partition_by=[input.columns[0]])
+        )
+        extracted_df = prediction_df.select(
+            F.col(pycaret_score_column_name).alias(score_column_name),
+            F.col(pycaret_label_column_name).alias(output_label_column),
+        )
+
+        # Join dfs using monotonically_increasing_id
+        w = Window.orderBy(F.monotonically_increasing_id())
+        preds = preds.withColumn("columnindex", F.row_number().over(w))
+        extracted_df = extracted_df.withColumn("columnindex", F.row_number().over(w))
+        preds = preds.join(
+            extracted_df, preds.columnindex == extracted_df.columnindex, "inner"
+        ).drop("columnindex")
+
+        # Remove the dummy label column in case of Regression
+        if "label" not in pred_df_config:
+            preds.drop(output_label_column)
 
         preds_with_percentile = preds.withColumn(
             percentile_column_name,
-            F.percent_rank().over(Window.order_by(F.col(score_column_name))),
+            F.percent_rank().over(Window.orderBy(F.col(score_column_name))),
         )
+
         return preds_with_percentile
 
     """ The following functions are only specific to Snowflake Connector and not used by any other connector."""

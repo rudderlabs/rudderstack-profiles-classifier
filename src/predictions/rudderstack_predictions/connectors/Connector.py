@@ -333,7 +333,7 @@ class Connector(ABC):
         train_model_id: str,
         prob_th: float,
         input: Any,
-        pred_df_config : Dict
+        pred_df_config: Dict,
     ) -> pd.DataFrame:
         pass
 

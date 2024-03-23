@@ -9,6 +9,7 @@ import pandas as pd
 from typing import Any
 
 import snowflake.snowpark.types as T
+from snowflake.snowpark.types import *
 import snowflake.snowpark.functions as F
 
 from ..wht.pythonWHT import PythonWHT
@@ -34,6 +35,7 @@ from pycaret.regression import (
     load_model as regression_load_model,
     predict_model as regression_predict_model,
 )
+
 
 def preprocess_and_predict(
     creds,
@@ -122,17 +124,22 @@ def preprocess_and_predict(
         predict_data, trainer.index_timestamp, end_ts
     )
 
+    # For pycaret predictions,
+    #   In case of classification, there are two labels : prediction_label and prediction_score
+    #   In case of regression, there is only one label : prediction_label
+
+    # In our context,
+    #  For classification we had the scores as score_column_name and then compute the output_label_column based on the threshold. So the mapping.
+    #  For regression, we had the score column only , thus mapped the score to pycaret's prediction_label
+
     pred_df_config = {}
     if prediction_task == "classification":
-        pred_df_config = {
-            "label" : "prediction_score",
-            "score" : "prediction_label"
-        }
+        pred_df_config = {"label": "prediction_label", "score": "prediction_score"}
     elif prediction_task == "regression":
         pred_df_config = {
-            "label" : "prediction_label",
+            "score": "prediction_label",
         }
-        
+
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location"""
@@ -144,7 +151,6 @@ def preprocess_and_predict(
         else:
             filename = os.path.join(local_folder, filename)
 
-        
         if prediction_task == "classification":
             model = classification_load_model(filename)
         elif prediction_task == "regression":
@@ -166,13 +172,22 @@ def preprocess_and_predict(
     if creds["type"] == "snowflake":
         udf_name = connector.udf_name
 
-        @F.pandas_udf(
+        pycaret_score_column = pred_df_config["score"]
+        pycaret_label_column = pred_df_config.get(
+            "label", "prediction_score"
+        )  # To make up for the missing column in case of regression
+
+        @F.pandas_udtf(
             session=session,
-            max_batch_size=10000,
+            name=udf_name,
+            stage_location=stage_name,
             is_permanent=True,
             replace=True,
-            stage_location=stage_name,
-            name=udf_name,
+            output_schema=PandasDataFrameType(
+                [FloatType(), FloatType()], [pycaret_score_column, pycaret_label_column]
+            ),
+            input_types=[PandasDataFrameType(types)],
+            input_names=features,
             imports=[f"{stage_name}/{model_name}.pkl"],
             packages=[
                 "snowflake-snowpark-python==1.11.1",
@@ -188,16 +203,31 @@ def preprocess_and_predict(
                 "simplejson",
             ],
         )
-        def predict_scores(df: types) -> T.PandasSeries[float]:
-            df.columns = features
-            predictions = predict_helper(df, model_name)
-            return predictions.round(4)
+        class predict_scores:
+            def end_partition(self, df):
+                df.columns = features
+                predictions = predict_helper(df, model_name)
+
+                # Create a new DataFrame with the extracted column names
+                prediction_df = pd.DataFrame()
+                prediction_df[pycaret_score_column] = predictions[pycaret_score_column]
+
+                # Check if 'label' is present in pred_df_config
+                # Had to add a dummy label column in case of regression to the output dataframe as the UDTF expects the two columns in output
+                if "label" in pred_df_config:
+                    prediction_df[pycaret_label_column] = predictions[
+                        pycaret_label_column
+                    ]
+                else:
+                    prediction_df[pycaret_label_column] = np.nan
+
+                yield prediction_df
 
         prediction_udf = predict_scores
     elif creds["type"] in ("redshift", "bigquery"):
         local_folder = connector.get_local_dir()
 
-        def predict_scores_rs(df: pd.DataFrame) -> pd.Series:
+        def predict_scores_rs(df: pd.DataFrame) -> pd.DataFrame:
             df.columns = features
             predictions = predict_helper(df, model_name)
             return predictions.round(4)
@@ -217,7 +247,7 @@ def preprocess_and_predict(
         train_model_id,
         prob_th,
         input_df,
-        pred_df_config
+        pred_df_config,
     )
     logger.debug("Writing predictions to warehouse")
     connector.write_table(

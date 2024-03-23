@@ -51,7 +51,9 @@ class PythonWHT:
         Returns:
             List[str]: List of input models - full paths in the profiles project for models that are required to generate the current model.
         """
-        original_input_models = [self.split_material_name(input_)["model_name"] for input_ in inputs]
+        original_input_models = [
+            self.split_material_name(input_)["model_name"] for input_ in inputs
+        ]
 
         args = {
             "site_config_path": self.site_config_path,
@@ -60,18 +62,24 @@ class PythonWHT:
 
         # Fetch models information from the project
         pb_show_models_response_output = self._getPB().show_models(args)
-        models_info = self._getPB().extract_json_from_stdout(pb_show_models_response_output)
+        models_info = self._getPB().extract_json_from_stdout(
+            pb_show_models_response_output
+        )
 
         # Find matching models in the project
         new_input_models = []
 
         for model_name in original_input_models:
-            matching_models = [key.split("/", 1)[-1] for key in models_info if key.endswith(model_name)]
-            
+            matching_models = [
+                key.split("/", 1)[-1] for key in models_info if key.endswith(model_name)
+            ]
+
             if len(matching_models) == 1:
                 new_input_models.append(matching_models[0])
             elif len(matching_models) > 1:
-                raise ValueError(f"Multiple models with name {model_name} are found. Please ensure the models added in inputs are named uniquely and retry")
+                raise ValueError(
+                    f"Multiple models with name {model_name} are found. Please ensure the models added in inputs are named uniquely and retry"
+                )
 
         return new_input_models
 

@@ -6,19 +6,25 @@ from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import 
 from src.predictions.rudderstack_predictions.utils import utils
 from src.predictions.rudderstack_predictions.wht.pythonWHT import PythonWHT
 
+
 class TestGetInputModels(unittest.TestCase):
     def setUp(self) -> None:
         self.pythonWHT = PythonWHT()
 
     @patch("src.predictions.rudderstack_predictions.wht.rudderPB.RudderPB.show_models")
     def test_get_input_models(self, mock_rudderpb_show_models):
-        original_input_models = ["Material_user_var_table1_54ddc22a_383", "Material_user_var_table2_54ddc22a_383"]
+        original_input_models = [
+            "Material_user_var_table1_54ddc22a_383",
+            "Material_user_var_table2_54ddc22a_383",
+        ]
 
-        self.pythonWHT.init(connector=None,
-        session=None,
-        site_config_path = "site_config",
-        project_folder_path= "project_folder")
-        
+        self.pythonWHT.init(
+            connector=None,
+            session=None,
+            site_config_path="site_config",
+            project_folder_path="project_folder",
+        )
+
         stdout = """Some text before 
                     dummy entity.var{ }
                     printing models
@@ -40,7 +46,7 @@ class TestGetInputModels(unittest.TestCase):
                                 "enable_status": "enabled"
                         }
                     }
-                    Some text after"""             
+                    Some text after"""
 
         # Mocking necessary dependencies
         mock_rudderpb_show_models.return_value = stdout

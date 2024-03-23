@@ -95,8 +95,6 @@ def _train(
 
     merged_config = utils.combine_config(default_config, config)
 
-   
-
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None
     )

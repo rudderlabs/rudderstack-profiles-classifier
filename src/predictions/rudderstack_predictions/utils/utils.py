@@ -382,9 +382,10 @@ def get_feature_table_column_types(
 
 
 def transform_arraytype_features(feature_table, arraytype_features):
-
     transformed_feature_table = feature_table
-    group_by_cols = [col for col in feature_table.columns if col.lower() not in arraytype_features]
+    group_by_cols = [
+        col for col in feature_table.columns if col.lower() not in arraytype_features
+    ]
 
     transformed_dfs = []
 

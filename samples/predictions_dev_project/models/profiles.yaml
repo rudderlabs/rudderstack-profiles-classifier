@@ -48,13 +48,6 @@ models:
             select: count(distinct context_session_id)
             where: context_session_id is not null
             description: Total individual sessions created till date.
-        - entity_var:
-            name: test_array_feature
-            default: ['p1','p2','']
-            from: models/rsTracksUnionPages
-            select: count(distinct context_session_id)
-            where: context_session_id is not null
-            description: Total individual sessions created till date.
 
       features:
         - days_since_last_seen

@@ -381,13 +381,15 @@ def get_feature_table_column_types(
     return feature_table_column_types
 
 
-def transform_arraytype_features(df, arraytype_features):
-    group_by_cols = [col for col in df.columns if col.lower() not in arraytype_features]
+def transform_arraytype_features(feature_table, arraytype_features):
+
+    transformed_feature_table = feature_table
+    group_by_cols = [col for col in feature_table.columns if col.lower() not in arraytype_features]
 
     transformed_dfs = []
 
     for array_col_name in arraytype_features:
-        exploded_df = df.select(
+        exploded_df = feature_table.select(
             *group_by_cols, F.explode(array_col_name).alias("ARRAY_VALUE")
         )
         grouped_df = exploded_df.groupBy(*exploded_df.columns).count()
@@ -418,11 +420,12 @@ def transform_arraytype_features(df, arraytype_features):
 
     if transformed_dfs:
         # Apply reduce to join DataFrames
-        final_df = reduce(
+        transformed_feature_table = reduce(
             lambda df1, df2: df1.join(df2, on=group_by_cols, how="inner"),
             transformed_dfs,
         )
-    return final_df
+
+    return transformed_feature_table
 
 
 def get_all_ignore_features(

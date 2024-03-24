@@ -1,3 +1,4 @@
+from functools import reduce
 import math
 import re
 import warnings
@@ -355,7 +356,7 @@ def get_feature_table_column_types(
     label_column: str,
     entity_column: str,
 ):
-    feature_table_column_types = {"numeric": [], "categorical": []}
+    feature_table_column_types = {"numeric": [], "categorical": [], "arraytype": []}
     uppercase_columns = lambda columns: [col.upper() for col in columns]
 
     upper_numeric_input_cols = uppercase_columns(input_column_types["numeric"])
@@ -371,20 +372,59 @@ def get_feature_table_column_types(
             feature_table_column_types["numeric"].append(col.upper())
         elif col.upper() in uppercase_columns(input_column_types["categorical"]):
             feature_table_column_types["categorical"].append(col.upper())
+        elif col.upper() in uppercase_columns(input_column_types["arraytype"]):
+            feature_table_column_types["arraytype"].append(col.upper())
         else:
             raise Exception(
                 f"Column {col.upper()} in feature table is not numeric or categorical"
             )
     return feature_table_column_types
 
+def transform_arraytype_features(df, arraytype_features):
+    group_by_cols = [col for col in df.columns if col.lower() not in arraytype_features]
+
+    transformed_dfs = []
+
+    for array_col_name in arraytype_features:
+        exploded_df = df.select(
+            *group_by_cols, F.explode(array_col_name).alias("ARRAY_VALUE")
+        )
+        grouped_df = exploded_df.groupBy(*exploded_df.columns).count()
+
+        unique_values = [
+            row["ARRAY_VALUE"].strip('"')
+            for row in grouped_df.select("ARRAY_VALUE").distinct().collect()
+        ]
+        new_array_feature_col_names = [
+            f"{array_col_name}_{value}" for value in unique_values
+        ]
+
+        columns_to_remove = ["COUNT", "ARRAY_VALUE"]
+        grouped_df_cols = [
+            col for col in grouped_df.columns if col not in columns_to_remove
+        ]
+        pivoted_df = (
+            grouped_df.groupBy(grouped_df_cols)
+            .pivot("ARRAY_VALUE", unique_values)
+            .sum("COUNT")
+            .na.fill(0)
+        )
+
+        for old_name, new_name in zip(unique_values, new_array_feature_col_names):
+            pivoted_df = pivoted_df.withColumnRenamed(f"'{old_name}'", new_name)
+
+        transformed_dfs.append(pivoted_df)
+
+    final_df = reduce(
+        lambda df1, df2: df1.join(df2, on=group_by_cols, how="inner"), transformed_dfs
+    )
+
+    return final_df
 
 def get_all_ignore_features(
     feature_table, input_column_types, config_ignore_features, high_cardinal_features
 ):
-    ignore_features_ = merge_lists_to_unique(
-        input_column_types["arraytype"], high_cardinal_features
-    )
-    ignore_features_ = merge_lists_to_unique(ignore_features_, config_ignore_features)
+    ignore_features_ = merge_lists_to_unique(high_cardinal_features, config_ignore_features)
 
     uppercase_list = lambda names: [name.upper() for name in names]
     lowercase_list = lambda names: [name.lower() for name in names]

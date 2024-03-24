@@ -380,6 +380,7 @@ def get_feature_table_column_types(
             )
     return feature_table_column_types
 
+
 def transform_arraytype_features(df, arraytype_features):
     group_by_cols = [col for col in df.columns if col.lower() not in arraytype_features]
 
@@ -415,16 +416,21 @@ def transform_arraytype_features(df, arraytype_features):
 
         transformed_dfs.append(pivoted_df)
 
-    final_df = reduce(
-        lambda df1, df2: df1.join(df2, on=group_by_cols, how="inner"), transformed_dfs
-    )
-
+    if transformed_dfs:
+        # Apply reduce to join DataFrames
+        final_df = reduce(
+            lambda df1, df2: df1.join(df2, on=group_by_cols, how="inner"),
+            transformed_dfs,
+        )
     return final_df
+
 
 def get_all_ignore_features(
     feature_table, input_column_types, config_ignore_features, high_cardinal_features
 ):
-    ignore_features_ = merge_lists_to_unique(high_cardinal_features, config_ignore_features)
+    ignore_features_ = merge_lists_to_unique(
+        high_cardinal_features, config_ignore_features
+    )
 
     uppercase_list = lambda names: [name.upper() for name in names]
     lowercase_list = lambda names: [name.lower() for name in names]

@@ -187,18 +187,11 @@ def preprocess_and_train(
     logger.debug(f"Ignore features detected: {ignore_features}")
     feature_table = connector.drop_cols(feature_table, ignore_features)
 
-    connector.write_table(
-        feature_table, "feature_table_before_array_transformation_1", overwrite=True
-    )
-
     logger.debug(f"Transforming arraytype features")
     transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
         feature_table, input_column_types["arraytype"]
     )
 
-    connector.write_table(
-        feature_table, "feature_table_after_array_transformation_1", overwrite=True
-    )
     # Add the trannsformed array type cols to numeric cols
     for col in transformed_arraytype_cols:
         input_column_types["numeric"].append(col)

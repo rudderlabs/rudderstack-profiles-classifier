@@ -528,9 +528,7 @@ class SnowflakeConnector(Connector):
 
         # Identify columns to group by
         group_by_cols = [
-            col
-            for col in feature_table.columns
-            if col.lower() not in arraytype_features
+            col for col in feature_table.columns if col not in arraytype_features
         ]
 
         # Loop through each array type feature

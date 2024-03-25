@@ -59,20 +59,24 @@ class CommonWarehouseConnector(Connector):
 
     def transform_arraytype_features_pandas(
         feature_df: pd.DataFrame, arraytype_features: list
-    )-> Union[list, pd.DataFrame]:
-        
+    ) -> Union[list, pd.DataFrame]:
         transformed_dfs = []
         transformed_feature_df = feature_df.copy()
 
         # Group by columns excluding arraytype features
-        group_by_cols = [col for col in feature_df.columns if col not in arraytype_features]
+        group_by_cols = [
+            col for col in feature_df.columns if col not in arraytype_features
+        ]
 
         for array_col_name in arraytype_features:
-
             # Explode arraytype column
             exploded_df = feature_df.explode(array_col_name)
             # Group by and count occurrences
-            grouped_df = exploded_df.groupby(exploded_df.columns.tolist()).size().reset_index(name='COUNT')
+            grouped_df = (
+                exploded_df.groupby(exploded_df.columns.tolist())
+                .size()
+                .reset_index(name="COUNT")
+            )
             # Extract unique values
             unique_values = grouped_df[array_col_name].unique()
 
@@ -86,22 +90,28 @@ class CommonWarehouseConnector(Connector):
                 index=group_by_cols,
                 columns=array_col_name,
                 values=array_col_name,
-                aggfunc='sum',
-                fill_value=0
+                aggfunc="sum",
+                fill_value=0,
             ).reset_index()
             pivoted_df.columns.name = None
 
-            rename_dict = {old_name: new_name for old_name, new_name in zip(unique_values, transformed_array_col_names)}
+            rename_dict = {
+                old_name: new_name
+                for old_name, new_name in zip(
+                    unique_values, transformed_array_col_names
+                )
+            }
             pivoted_df = pivoted_df.rename(columns=rename_dict)
             transformed_dfs.append(pivoted_df)
-
 
         if transformed_dfs:
             # Merge DataFrames
             transformed_feature_df = reduce(
-            lambda left, right: pd.merge(left, right, on=group_by_cols, how="inner"),
-            transformed_dfs
-        )
+                lambda left, right: pd.merge(
+                    left, right, on=group_by_cols, how="inner"
+                ),
+                transformed_dfs,
+            )
 
         return transformed_array_col_names, transformed_feature_df
 

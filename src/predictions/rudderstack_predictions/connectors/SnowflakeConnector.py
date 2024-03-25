@@ -515,11 +515,10 @@ class SnowflakeConnector(Connector):
             if isinstance(field.datatype, (T.TimestampType, T.DateType, T.TimeType)):
                 timestamp_columns.append(field.name)
         return timestamp_columns
-    
-    def transform_arraytype_features(
-            self, feature_table :snowflake.snowpark.Table, arraytype_features: list
-    ) -> Union[list, snowflake.snowpark.Table]:
 
+    def transform_arraytype_features(
+        self, feature_table: snowflake.snowpark.Table, arraytype_features: list
+    ) -> Union[list, snowflake.snowpark.Table]:
         # Initialize lists to store transformed column names and DataFrames
         transformed_column_names = []
         transformed_tables = []
@@ -529,16 +528,19 @@ class SnowflakeConnector(Connector):
 
         # Identify columns to group by
         group_by_cols = [
-            col for col in feature_table.columns if col.lower() not in arraytype_features
+            col
+            for col in feature_table.columns
+            if col.lower() not in arraytype_features
         ]
 
         # Loop through each array type feature
         for array_column in arraytype_features:
-
             # Identify rows with empty or null arrays
             empty_array_rows = feature_table.filter(F.col(array_column) == [])
             null_array_value_rows = feature_table.filter(F.col(array_column).isNull())
-            merged_empty_rows = empty_array_rows.join(null_array_value_rows, on=group_by_cols, how="full").select(*group_by_cols)
+            merged_empty_rows = empty_array_rows.join(
+                null_array_value_rows, on=group_by_cols, how="full"
+            ).select(*group_by_cols)
 
             # Skip to the next array type feature if all rows have empty or null arrays
             if merged_empty_rows.count() == feature_table.count():
@@ -574,7 +576,9 @@ class SnowflakeConnector(Connector):
             )
 
             # Join with rows having empty or null arrays, and fill NaN values with 0
-            joined_df = pivoted_df.join(merged_empty_rows, on=group_by_cols, how="full").fillna(0)
+            joined_df = pivoted_df.join(
+                merged_empty_rows, on=group_by_cols, how="full"
+            ).fillna(0)
 
             # Rename columns with unique values
             for old_name, new_name in zip(unique_values, new_array_column_names):
@@ -592,9 +596,11 @@ class SnowflakeConnector(Connector):
             )
 
         # Drop the original array type features from the transformed table
-        transformed_feature_table = self.drop_cols(transformed_feature_table, arraytype_features)
+        transformed_feature_table = self.drop_cols(
+            transformed_feature_table, arraytype_features
+        )
         return transformed_column_names, transformed_feature_table
-    
+
     def get_default_label_value(
         self, session, table_name: str, label_column: str, positive_boolean_flags: list
     ):

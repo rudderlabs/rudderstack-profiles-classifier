@@ -376,8 +376,9 @@ def get_feature_table_column_types(
             raise Exception(
                 f"Column {col.upper()} in feature table is not numeric or categorical"
             )
-        
+
     return feature_table_column_types
+
 
 def get_all_ignore_features(
     feature_table, input_column_types, config_ignore_features, high_cardinal_features

@@ -68,6 +68,10 @@ class Connector(ABC):
         columns,
     ):
         pass
+    
+    @abstractmethod
+    def transform_arraytype_features(self, feature_table, input_column_types):
+        pass
 
     @abstractmethod
     def build_session(self, credentials: dict):

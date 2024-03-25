@@ -1,3 +1,4 @@
+from functools import reduce
 import os
 import json
 import shutil
@@ -55,6 +56,54 @@ class CommonWarehouseConnector(Connector):
         args = list(args)
         train_function = args.pop(0)
         return train_function(*args, **kwargs)
+
+    def transform_arraytype_features_pandas(
+        feature_df: pd.DataFrame, arraytype_features: list
+    )-> Union[list, pd.DataFrame]:
+        
+        transformed_dfs = []
+        transformed_feature_df = feature_df.copy()
+
+        # Group by columns excluding arraytype features
+        group_by_cols = [col for col in feature_df.columns if col not in arraytype_features]
+
+        for array_col_name in arraytype_features:
+
+            # Explode arraytype column
+            exploded_df = feature_df.explode(array_col_name)
+            # Group by and count occurrences
+            grouped_df = exploded_df.groupby(exploded_df.columns.tolist()).size().reset_index(name='COUNT')
+            # Extract unique values
+            unique_values = grouped_df[array_col_name].unique()
+
+            # Create new column names based on unique values
+            transformed_array_col_names = [
+                f"{array_col_name}_{value}" for value in unique_values
+            ]
+
+            # Pivot the DataFrame
+            pivoted_df = grouped_df.pivot_table(
+                index=group_by_cols,
+                columns=array_col_name,
+                values=array_col_name,
+                aggfunc='sum',
+                fill_value=0
+            ).reset_index()
+            pivoted_df.columns.name = None
+
+            rename_dict = {old_name: new_name for old_name, new_name in zip(unique_values, transformed_array_col_names)}
+            pivoted_df = pivoted_df.rename(columns=rename_dict)
+            transformed_dfs.append(pivoted_df)
+
+
+        if transformed_dfs:
+            # Merge DataFrames
+            transformed_feature_df = reduce(
+            lambda left, right: pd.merge(left, right, on=group_by_cols, how="inner"),
+            transformed_dfs
+        )
+
+        return transformed_array_col_names, transformed_feature_df
 
     def get_merged_table(self, base_table, incoming_table):
         """Returns the merged table.

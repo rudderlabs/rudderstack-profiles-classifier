@@ -10,7 +10,7 @@ from functools import partial
 from .processors.ProcessorFactory import ProcessorFactory
 
 from .utils.logger import logger
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import asdict
 
 import snowflake.snowpark
@@ -359,7 +359,7 @@ def _train(
     }
     json.dump(results, open(output_filename, "w"))
 
-    model_timestamp = datetime.utcfromtimestamp(int(model_id)).strftime(
+    model_timestamp = datetime.fromtimestamp(int(model_id), tz=timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
     summary = trainer.prepare_training_summary(train_results, model_timestamp)

@@ -25,9 +25,7 @@ from sklearn.metrics import (
     r2_score,
 )
 
-from ..utils.constants import (
-    TrainTablesInfo,
-)
+from ..utils.constants import TrainTablesInfo, MATERIAL_DATE_FORMAT
 from ..wht.pythonWHT import PythonWHT
 
 from ..utils import utils
@@ -350,7 +348,7 @@ class MLTrainer(ABC):
                 logger.info(f"training_dates : {training_dates}")
                 training_dates = sorted(
                     training_dates,
-                    key=lambda x: datetime.strptime(x, "%Y-%m-%d"),
+                    key=lambda x: datetime.strptime(x, MATERIAL_DATE_FORMAT),
                     reverse=True,
                 )
 

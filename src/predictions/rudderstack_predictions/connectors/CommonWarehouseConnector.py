@@ -57,11 +57,12 @@ class CommonWarehouseConnector(Connector):
         train_function = args.pop(0)
         return train_function(*args, **kwargs)
 
-    def transform_arraytype_features_pandas(
+    def transform_arraytype_features(
         feature_df: pd.DataFrame, arraytype_features: list
     ) -> Union[list, pd.DataFrame]:
         transformed_dfs = []
         transformed_feature_df = feature_df.copy()
+        transformed_array_col_names = []
 
         # Group by columns excluding arraytype features
         group_by_cols = [
@@ -69,47 +70,57 @@ class CommonWarehouseConnector(Connector):
         ]
 
         for array_col_name in arraytype_features:
+            # Get rows with empty or null arrays
+            empty_list_rows = feature_df[
+                feature_df[array_col_name].apply(lambda x: x in ([], None))
+            ]
+
             # Explode arraytype column
-            exploded_df = feature_df.explode(array_col_name)
+            exploded_df = (
+                feature_df[[*group_by_cols, array_col_name]]
+                .explode(array_col_name)
+                .rename(columns={array_col_name: "ARRAY_VALUE"})
+            )
+
             # Group by and count occurrences
             grouped_df = (
-                exploded_df.groupby(exploded_df.columns.tolist())
+                exploded_df.groupby(group_by_cols + ["ARRAY_VALUE"])
                 .size()
                 .reset_index(name="COUNT")
             )
-            # Extract unique values
-            unique_values = grouped_df[array_col_name].unique()
 
-            # Create new column names based on unique values
-            transformed_array_col_names = [
-                f"{array_col_name}_{value}" for value in unique_values
+            unique_values = exploded_df["ARRAY_VALUE"].dropna().unique()
+            new_array_column_names = [
+                f"{array_col_name}_{value}".upper() for value in unique_values
             ]
+            transformed_array_col_names.extend(new_array_column_names)
 
-            # Pivot the DataFrame
-            pivoted_df = grouped_df.pivot_table(
+            # Pivot the DataFrame to create new columns for each unique value
+            pivoted_df = pd.pivot_table(
+                grouped_df,
                 index=group_by_cols,
-                columns=array_col_name,
-                values=array_col_name,
-                aggfunc="sum",
+                columns="ARRAY_VALUE",
+                values="COUNT",
                 fill_value=0,
             ).reset_index()
             pivoted_df.columns.name = None
 
+            # Join with rows having empty or null arrays, and fill NaN values with 0
+            joined_df = empty_list_rows.merge(
+                pivoted_df, on=group_by_cols, how="outer"
+            ).fillna(0)
+            joined_df.drop(columns=arraytype_features, inplace=True)
+
             rename_dict = {
                 old_name: new_name
-                for old_name, new_name in zip(
-                    unique_values, transformed_array_col_names
-                )
+                for old_name, new_name in zip(unique_values, new_array_column_names)
             }
-            pivoted_df = pivoted_df.rename(columns=rename_dict)
-            transformed_dfs.append(pivoted_df)
+            joined_df = joined_df.rename(columns=rename_dict)
+            transformed_dfs.append(joined_df)
 
         if transformed_dfs:
-            # Merge DataFrames
             transformed_feature_df = reduce(
-                lambda left, right: pd.merge(
-                    left, right, on=group_by_cols, how="inner"
-                ),
+                lambda left, right: pd.merge(left, right, on=group_by_cols),
                 transformed_dfs,
             )
 

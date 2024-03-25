@@ -579,6 +579,7 @@ class SnowflakeConnector(Connector):
             joined_df = pivoted_df.join(
                 merged_empty_rows, on=group_by_cols, how="full"
             ).fillna(0)
+            joined_df = self.drop_cols(joined_df, arraytype_features)
 
             # Rename columns with unique values
             for old_name, new_name in zip(unique_values, new_array_column_names):

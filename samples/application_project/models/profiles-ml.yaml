@@ -22,7 +22,6 @@ models:
             output_profiles_ml_model: *model_name # Name of output model based on current model to dinstinguish between multiple models
             eligible_users: 1=1
             task: classification
-            inputs: *inputs
             new_materialisations_config: # Configuration for generating new materials
               feature_data_min_date_diff: 14 # Minimum number of days in the difference between new generated material and existing materials
               strategy: "auto" # Strategy for generating new materials

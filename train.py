@@ -19,7 +19,7 @@ def train(
     project_folder: str = None,
     runtime_info: dict = None,
 ) -> None:
-    input_models = config["data"]["inputs"]
+    input_models = None
     _train(
         creds,
         inputs,

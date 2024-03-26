@@ -30,4 +30,4 @@ scripts/local_simulator.py
 *.egg-info
 **/build/*
 *siteconfig*
-.venv
+.venv/

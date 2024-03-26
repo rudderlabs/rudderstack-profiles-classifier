@@ -39,12 +39,14 @@ from pycaret.classification import (
     compare_models as classification_compare_models,
     get_config as get_classification_config,
     save_model as classification_save_model,
+    pull as classification_results_pull,
 )
 from pycaret.regression import (
     setup as regression_setup,
     compare_models as regression_compare_models,
     get_config as get_regression_config,
     save_model as regression_save_model,
+    pull as regression_results_pull,
 )
 
 trainer_utils = utils.TrainerUtils()
@@ -197,9 +199,6 @@ class MLTrainer(ABC):
     def get_name(self):
         pass
 
-    @abstractmethod
-    def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
-        pass
 
     @abstractmethod
     def prepare_label_table(self, connector: Connector, session, label_table_name: str):
@@ -220,7 +219,7 @@ class MLTrainer(ABC):
 
     @abstractmethod
     def get_metrics(
-        self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
+        self
     ):
         pass
 
@@ -237,7 +236,8 @@ class MLTrainer(ABC):
         categorical_columns: List[str],
         numeric_columns: List[str],
     ):
-        pass
+        pass    
+
 
     def prepare_data_(
         self,
@@ -255,7 +255,7 @@ class MLTrainer(ABC):
             "categorical_iterative_imputer": "lightgbm",
         }
 
-        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(
+        train_x, train_y, test_x, test_y = utils.split_train_test(
             feature_df=feature_df,
             label_column=self.label_column,
             entity_column=self.entity_column,
@@ -269,18 +269,14 @@ class MLTrainer(ABC):
 
         train_data = pd.concat([train_x, train_y], axis=1)
         test_data = pd.concat([test_x, test_y], axis=1)
-        val_data = pd.concat([val_x, val_y], axis=1)
 
         return (
             train_x,
             train_y,
             test_x,
             test_y,
-            val_x,
-            val_y,
             train_data,
             test_data,
-            val_data,
         )
 
     def train_model_(
@@ -324,11 +320,8 @@ class MLTrainer(ABC):
             train_y,
             test_x,
             test_y,
-            val_x,
-            val_y,
             train_data,
             test_data,
-            val_data,
         ) = self.prepare_data(feature_df, categorical_columns, numeric_columns)
 
         # Initialize PyCaret setup for the model with train and test data
@@ -342,14 +335,14 @@ class MLTrainer(ABC):
 
         # Compare different models and select the best one
         best_model = compare_models()
-
+    
         # Save the final model
         save_model(best_model, model_file)
 
         # Get metrics
-        results = self.get_metrics(
-            best_model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
-        )
+        results = self.get_metrics()
+        print(results)
+
         results["model_id"] = model_id
         metrics_df = pd.DataFrame(
             {
@@ -557,34 +550,6 @@ class ClassificationTrainer(MLTrainer):
     def get_name(self):
         return "classification"
 
-    def select_best_model(self, models, train_x, train_y, val_x, val_y):
-        """
-        Selects the best classifier model based on the given list of models and their configurations.
-
-        Args:
-            models (list): A list of dictionaries representing the models to be trained.
-            train_x (pd.DataFrame): The training data features.
-            train_y (pd.DataFrame): The training data labels.
-            val_x (pd.DataFrame): The validation data features.
-            val_y (pd.DataFrame): The validation data labels.
-        Returns:
-            final_clf (object): The selected classifier model with the best hyperparameters.
-        """
-        best_acc = 0
-        for model_config in models:
-            name = model_config["name"]
-
-            if name in self.models_map.keys():
-                clf, trials = self.build_model(
-                    train_x, train_y, val_x, val_y, self.models_map[name], model_config
-                )
-
-                if best_acc < max([-1 * loss for loss in trials.losses()]):
-                    final_clf = clf
-                    best_acc = max([-1 * loss for loss in trials.losses()])
-
-        return final_clf
-
     def prepare_data(
         self, feature_df: pd.DataFrame, categorical_columns, numeric_columns
     ):
@@ -632,6 +597,17 @@ class ClassificationTrainer(MLTrainer):
             classification_save_model,
         )
 
+    def get_metrics(
+        self
+    ) -> dict:
+
+        model_metrics = classification_results_pull().iloc[0].to_dict()
+        result_dict = {
+            "output_model_name": self.output_profiles_ml_model,
+            "metrics": model_metrics,
+        }
+        return result_dict
+    
     def plot_diagnostics(
         self,
         connector: Connector,
@@ -673,28 +649,6 @@ class ClassificationTrainer(MLTrainer):
             logger.error(f"Could not generate plots. {e}")
         pass
 
-    def get_metrics(
-        self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
-    ) -> dict:
-        model_metrics, _, prob_th = trainer_utils.get_metrics_classifier(
-            model,
-            train_x,
-            train_y,
-            test_x,
-            test_y,
-            val_x,
-            val_y,
-            train_config,
-            self.recall_to_precision_importance,
-        )
-        model_metrics["prob_th"] = prob_th
-        result_dict = {
-            "output_model_name": self.output_profiles_ml_model,
-            "prob_th": prob_th,
-            "metrics": model_metrics,
-        }
-        return result_dict
-
     def prepare_training_summary(
         self, model_results: dict, model_timestamp: str
     ) -> dict:
@@ -702,7 +656,6 @@ class ClassificationTrainer(MLTrainer):
             "timestamp": model_timestamp,
             "data": {
                 "metrics": model_results["metrics"],
-                "threshold": model_results["prob_th"],
             },
         }
         return training_summary
@@ -800,34 +753,6 @@ class RegressionTrainer(MLTrainer):
     def get_name(self):
         return "regression"
 
-    def select_best_model(self, models, train_x, train_y, val_x, val_y):
-        """
-        Selects the best regressor model based on the given list of models and their configurations.
-
-        Args:
-            models (list): A list of dictionaries representing the models to be trained.
-            train_x (pd.DataFrame): The training data features.
-            train_y (pd.DataFrame): The training data labels.
-            val_x (pd.DataFrame): The validation data features.
-            val_y (pd.DataFrame): The validation data labels.
-
-        Returns:
-            final_reg (object): The selected regressor model with the best hyperparameters.
-        """
-        best_loss = float("inf")
-
-        for model_config in models:
-            name = model_config["name"]
-            if name in self.models_map.keys():
-                reg, trials = self.build_model(
-                    train_x, train_y, val_x, val_y, self.models_map[name], model_config
-                )
-
-                if best_loss > min(trials.losses()):
-                    final_reg = reg
-                    best_loss = min(trials.losses())
-
-        return final_reg
 
     def prepare_data(
         self, feature_df: pd.DataFrame, categorical_columns, numeric_columns
@@ -901,16 +826,16 @@ class RegressionTrainer(MLTrainer):
             logger.error(f"Could not generate regression plots. {e}")
 
     def get_metrics(
-        self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
+        self
     ) -> dict:
-        model_metrics = trainer_utils.get_metrics_regressor(
-            model, train_x, train_y, test_x, test_y, val_x, val_y
-        )
+
+        model_metrics = regression_results_pull().iloc[0].to_dict()
+
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
-            "prob_th": None,
             "metrics": model_metrics,
         }
+
         return result_dict
 
     def prepare_training_summary(

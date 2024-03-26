@@ -355,7 +355,6 @@ def _train(
                 "file_name": f"{trainer.output_profiles_ml_model}_{model_file_name}",
             },
             "model_id": model_id,
-            "threshold": train_results["prob_th"],
         },
         "column_names": train_results["column_names"],
     }

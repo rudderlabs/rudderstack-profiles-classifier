@@ -898,7 +898,6 @@ class CommonWarehouseConnector(Connector):
         percentile_column_name: str,
         output_label_column: str,
         train_model_id: str,
-        prob_th: Optional[float],
         input: pd.DataFrame,
         pred_df_config: Dict,
     ) -> pd.DataFrame:
@@ -913,7 +912,6 @@ class CommonWarehouseConnector(Connector):
             percentile_column_name (str): Name of the percentile column
             output_label_column (str): Name of the output label column
             train_model_id (str): Model id
-            prob_th (float): Probability threshold
             input (pd.DataFrame): Input dataframe
         Returns:
             Results of the predict function

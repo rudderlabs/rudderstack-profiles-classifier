@@ -44,12 +44,12 @@ class TestClassificationTrainer(unittest.TestCase):
         timestamp = "2023-11-08"
         threshold = 0.62
         result = trainer.prepare_training_summary(
-            {"metrics": metrics, "prob_th": threshold}, timestamp
+            {"metrics": metrics}, timestamp
         )
         self.assertEqual(
             result,
             {
-                "data": {"metrics": metrics, "threshold": threshold},
+                "data": {"metrics": metrics},
                 "timestamp": timestamp,
             },
         )

@@ -331,7 +331,6 @@ class Connector(ABC):
         percentile_column_name: str,
         output_label_column: str,
         train_model_id: str,
-        prob_th: float,
         input: Any,
         pred_df_config: Dict,
     ) -> pd.DataFrame:

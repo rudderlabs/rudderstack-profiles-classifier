@@ -507,13 +507,12 @@ class CommonWarehouseConnector(Connector):
             days=prediction_horizon_days
         )
 
-        time_format = "%Y-%m-%d"
-        label_start_time = datetime.strptime(start_time, time_format) + timedelta(
-            days=prediction_horizon_days
-        )
-        label_end_time = datetime.strptime(end_time, time_format) + timedelta(
-            days=prediction_horizon_days
-        )
+        label_start_time = datetime.strptime(
+            start_time, constants.MATERIAL_DATE_FORMAT
+        ) + timedelta(days=prediction_horizon_days)
+        label_end_time = datetime.strptime(
+            end_time, constants.MATERIAL_DATE_FORMAT
+        ) + timedelta(days=prediction_horizon_days)
         label_df = self.fetch_filtered_table(
             df,
             features_model_name,

@@ -238,7 +238,7 @@ def preprocess_and_train(
     if not isinstance(train_results_json, dict):
         train_results_json = json.loads(train_results_json)
 
-    logger.info(f"Saving column names info. to the output json.")
+    logger.info("Saving column names info. to the output json.")
     train_results_json["column_names"] = {}
     train_results_json["column_names"]["input_column_types"] = input_column_types
     train_results_json["column_names"]["ignore_features"] = ignore_features

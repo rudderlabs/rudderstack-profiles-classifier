@@ -44,6 +44,9 @@ ML_CORE_PYNATIVE_PATH = "rudderstack_predictions.ml_core"
 # For regression its minimum number of samples
 MIN_NUM_OF_SAMPLES = 3
 
+# Material date format
+MATERIAL_DATE_FORMAT = "%Y-%m-%d"
+
 from typing import NamedTuple
 
 

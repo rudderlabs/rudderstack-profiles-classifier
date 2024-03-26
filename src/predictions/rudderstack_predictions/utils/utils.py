@@ -415,8 +415,8 @@ def convert_ts_str_to_dt_str(timestamp_str: str) -> str:
         elif " " in timestamp_str:
             timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
         else:
-            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d")
-        string_date = timestamp.strftime("%Y-%m-%d")
+            timestamp = datetime.strptime(timestamp_str, constants.MATERIAL_DATE_FORMAT)
+        string_date = timestamp.strftime(constants.MATERIAL_DATE_FORMAT)
         return string_date
     except Exception as e:
         logger.error(f"Error occurred while converting timestamp to date string: {e}")
@@ -556,10 +556,10 @@ def date_add(reference_date: str, add_days: int) -> str:
     Returns:
         str: The new date is returned as a string in the format "YYYY-MM-DD".
     """
-    new_timestamp = datetime.strptime(reference_date, "%Y-%m-%d") + timedelta(
-        days=add_days
-    )
-    new_date = new_timestamp.strftime("%Y-%m-%d")
+    new_timestamp = datetime.strptime(
+        reference_date, constants.MATERIAL_DATE_FORMAT
+    ) + timedelta(days=add_days)
+    new_date = new_timestamp.strftime(constants.MATERIAL_DATE_FORMAT)
     return new_date
 
 
@@ -572,8 +572,8 @@ def get_abs_date_diff(ref_date1: str, ref_date2: str) -> int:
     Returns:
         int: Difference in number of dates
     """
-    d1 = datetime.strptime(ref_date1, "%Y-%m-%d")
-    d2 = datetime.strptime(ref_date2, "%Y-%m-%d")
+    d1 = datetime.strptime(ref_date1, constants.MATERIAL_DATE_FORMAT)
+    d2 = datetime.strptime(ref_date2, constants.MATERIAL_DATE_FORMAT)
     diff = d2 - d1
     return abs(diff.days)
 
@@ -611,7 +611,9 @@ def datetime_to_date_string(datetime_str: str) -> str:
         elif " " in datetime_str:
             datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
         else:
-            datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d")
+            datetime_obj = datetime.strptime(
+                datetime_str, constants.MATERIAL_DATE_FORMAT
+            )
     except ValueError:
         # Value error will be raised if its not able
         # to match datetime string with given format
@@ -950,8 +952,9 @@ def plot_top_k_feature_importance(
         logger.warning(
             f"Exception occured while calculating shap values {e}, using KernelExplainer"
         )
-        shap_values = shap.KernelExplainer(
-            pipe["model"].predict_proba, data=train_x_processed
+
+        shap_values = shap.DeepExplainer(
+            pipe["model"], data=train_x_processed
         ).shap_values(train_x_processed)
 
     x_label = "Importance scores"

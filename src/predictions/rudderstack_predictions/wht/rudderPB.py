@@ -1,6 +1,7 @@
 import json
 from typing import List, Tuple
 from ..utils import utils
+from ..utils.constants import MATERIAL_DATE_FORMAT
 from ..utils.logger import logger
 from datetime import datetime, timezone
 
@@ -36,7 +37,7 @@ class RudderPB:
             project_folder (str): project folder path to pb_project.yaml file
         """
         features_valid_time_unix = int(
-            datetime.strptime(arg["features_valid_time"], "%Y-%m-%d")
+            datetime.strptime(arg["features_valid_time"], MATERIAL_DATE_FORMAT)
             .replace(tzinfo=timezone.utc)
             .timestamp()
         )

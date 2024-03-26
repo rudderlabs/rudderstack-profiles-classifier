@@ -623,7 +623,9 @@ class RegressionTrainer(MLTrainer):
 
     models_map = {
         model.__name__: model
-        for model in [XGBRegressor, RandomForestRegressor, MLPRegressor]
+        # Removing MLPRegressor from the list of models as it is taking too much time to
+        # calculate shap values for MLPRegressor
+        for model in [XGBRegressor, RandomForestRegressor]
     }
 
     def __init__(self, **kwargs):

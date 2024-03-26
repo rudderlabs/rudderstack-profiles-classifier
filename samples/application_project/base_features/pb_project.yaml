@@ -1,7 +1,7 @@
 # Project name
 name: base_features
 # Project's yaml schema version
-schema_version: 44
+schema_version: 53
 # WH Connection Profile to use.
 connection: default
 # Whether to allow inputs having no timestamps,

@@ -25,9 +25,7 @@ from sklearn.metrics import (
     r2_score,
 )
 
-from ..utils.constants import (
-    TrainTablesInfo,
-)
+from ..utils.constants import TrainTablesInfo, MATERIAL_DATE_FORMAT
 from ..wht.pythonWHT import PythonWHT
 
 from ..utils import utils
@@ -424,7 +422,7 @@ class MLTrainer(ABC):
                 logger.info(f"training_dates : {training_dates}")
                 training_dates = sorted(
                     training_dates,
-                    key=lambda x: datetime.strptime(x, "%Y-%m-%d"),
+                    key=lambda x: datetime.strptime(x, MATERIAL_DATE_FORMAT),
                     reverse=True,
                 )
 
@@ -729,7 +727,9 @@ class RegressionTrainer(MLTrainer):
 
     models_map = {
         model.__name__: model
-        for model in [XGBRegressor, RandomForestRegressor, MLPRegressor]
+        # Removing MLPRegressor from the list of models as it is taking too much time to
+        # calculate shap values for MLPRegressor
+        for model in [XGBRegressor, RandomForestRegressor]
     }
 
     def __init__(self, **kwargs):

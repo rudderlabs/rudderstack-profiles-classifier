@@ -102,9 +102,12 @@ def preprocess_and_predict(
         session, feature_table_name, filter_condition=trainer.eligible_users
     )
 
-    logger.debug(f"Transforming timestamp columns.")
+    logger.debug("Transforming timestamp columns.")
     for col in timestamp_columns:
         raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
+
+    logger.debug(f"Transforming arraytype columns.")
+    _, raw_data = connector.transform_arraytype_features(raw_data, arraytype_columns)
 
     predict_data = connector.drop_cols(raw_data, ignore_features)
 

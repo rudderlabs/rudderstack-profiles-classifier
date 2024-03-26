@@ -1,3 +1,4 @@
+from functools import reduce
 import os
 import json
 import shutil
@@ -55,6 +56,75 @@ class CommonWarehouseConnector(Connector):
         args = list(args)
         train_function = args.pop(0)
         return train_function(*args, **kwargs)
+
+    def transform_arraytype_features(
+        self, feature_df: pd.DataFrame, arraytype_features: List[str]
+    ) -> Union[List[str], pd.DataFrame]:
+        transformed_dfs = []
+        transformed_feature_df = feature_df.copy()
+        transformed_array_col_names = []
+
+        # Group by columns excluding arraytype features
+        group_by_cols = [
+            col for col in feature_df.columns if col not in arraytype_features
+        ]
+
+        for array_col_name in arraytype_features:
+            # Get rows with empty or null arrays
+            empty_list_rows = feature_df[
+                feature_df[array_col_name].apply(lambda x: x in ([], None))
+            ]
+
+            # Explode arraytype column
+            exploded_df = (
+                feature_df[[*group_by_cols, array_col_name]]
+                .explode(array_col_name)
+                .rename(columns={array_col_name: "ARRAY_VALUE"})
+            )
+
+            # Group by and count occurrences
+            grouped_df = (
+                exploded_df.groupby(group_by_cols + ["ARRAY_VALUE"])
+                .size()
+                .reset_index(name="COUNT")
+            )
+
+            unique_values = exploded_df["ARRAY_VALUE"].dropna().unique()
+            new_array_column_names = [
+                f"{array_col_name}_{value}".upper() for value in unique_values
+            ]
+            transformed_array_col_names.extend(new_array_column_names)
+
+            # Pivot the DataFrame to create new columns for each unique value
+            pivoted_df = pd.pivot_table(
+                grouped_df,
+                index=group_by_cols,
+                columns="ARRAY_VALUE",
+                values="COUNT",
+                fill_value=0,
+            ).reset_index()
+            pivoted_df.columns.name = None
+
+            # Join with rows having empty or null arrays, and fill NaN values with 0
+            joined_df = empty_list_rows.merge(
+                pivoted_df, on=group_by_cols, how="outer"
+            ).fillna(0)
+            joined_df.drop(columns=arraytype_features, inplace=True)
+
+            rename_dict = {
+                old_name: new_name
+                for old_name, new_name in zip(unique_values, new_array_column_names)
+            }
+            joined_df = joined_df.rename(columns=rename_dict)
+            transformed_dfs.append(joined_df)
+
+        if transformed_dfs:
+            transformed_feature_df = reduce(
+                lambda left, right: pd.merge(left, right, on=group_by_cols),
+                transformed_dfs,
+            )
+
+        return transformed_array_col_names, transformed_feature_df
 
     def get_merged_table(self, base_table, incoming_table):
         """Returns the merged table.
@@ -437,13 +507,12 @@ class CommonWarehouseConnector(Connector):
             days=prediction_horizon_days
         )
 
-        time_format = "%Y-%m-%d"
-        label_start_time = datetime.strptime(start_time, time_format) + timedelta(
-            days=prediction_horizon_days
-        )
-        label_end_time = datetime.strptime(end_time, time_format) + timedelta(
-            days=prediction_horizon_days
-        )
+        label_start_time = datetime.strptime(
+            start_time, constants.MATERIAL_DATE_FORMAT
+        ) + timedelta(days=prediction_horizon_days)
+        label_end_time = datetime.strptime(
+            end_time, constants.MATERIAL_DATE_FORMAT
+        ) + timedelta(days=prediction_horizon_days)
         label_df = self.fetch_filtered_table(
             df,
             features_model_name,

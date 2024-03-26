@@ -1,3 +1,4 @@
+from functools import reduce
 import math
 import re
 import warnings
@@ -392,9 +393,14 @@ def get_feature_table_column_types(
     input_column_types: dict,
     label_column: str,
     entity_column: str,
+    transformed_arraytype_cols: List[str],
 ):
     feature_table_column_types = {"numeric": [], "categorical": []}
     uppercase_columns = lambda columns: [col.upper() for col in columns]
+
+    # Add the trannsformed array type cols to numeric cols
+    for col in transformed_arraytype_cols:
+        input_column_types["numeric"].append(col)
 
     upper_numeric_input_cols = uppercase_columns(input_column_types["numeric"])
     upper_timestamp_input_cols = uppercase_columns(input_column_types["timestamp"])
@@ -413,16 +419,16 @@ def get_feature_table_column_types(
             raise Exception(
                 f"Column {col.upper()} in feature table is not numeric or categorical"
             )
+
     return feature_table_column_types
 
 
 def get_all_ignore_features(
-    feature_table, input_column_types, config_ignore_features, high_cardinal_features
+    feature_table, config_ignore_features, high_cardinal_features
 ):
     ignore_features_ = merge_lists_to_unique(
-        input_column_types["arraytype"], high_cardinal_features
+        high_cardinal_features, config_ignore_features
     )
-    ignore_features_ = merge_lists_to_unique(ignore_features_, config_ignore_features)
 
     uppercase_list = lambda names: [name.upper() for name in names]
     lowercase_list = lambda names: [name.lower() for name in names]
@@ -452,8 +458,8 @@ def convert_ts_str_to_dt_str(timestamp_str: str) -> str:
         elif " " in timestamp_str:
             timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
         else:
-            timestamp = datetime.strptime(timestamp_str, "%Y-%m-%d")
-        string_date = timestamp.strftime("%Y-%m-%d")
+            timestamp = datetime.strptime(timestamp_str, constants.MATERIAL_DATE_FORMAT)
+        string_date = timestamp.strftime(constants.MATERIAL_DATE_FORMAT)
         return string_date
     except Exception as e:
         logger.error(f"Error occurred while converting timestamp to date string: {e}")
@@ -598,10 +604,10 @@ def date_add(reference_date: str, add_days: int) -> str:
     Returns:
         str: The new date is returned as a string in the format "YYYY-MM-DD".
     """
-    new_timestamp = datetime.strptime(reference_date, "%Y-%m-%d") + timedelta(
-        days=add_days
-    )
-    new_date = new_timestamp.strftime("%Y-%m-%d")
+    new_timestamp = datetime.strptime(
+        reference_date, constants.MATERIAL_DATE_FORMAT
+    ) + timedelta(days=add_days)
+    new_date = new_timestamp.strftime(constants.MATERIAL_DATE_FORMAT)
     return new_date
 
 
@@ -614,8 +620,8 @@ def get_abs_date_diff(ref_date1: str, ref_date2: str) -> int:
     Returns:
         int: Difference in number of dates
     """
-    d1 = datetime.strptime(ref_date1, "%Y-%m-%d")
-    d2 = datetime.strptime(ref_date2, "%Y-%m-%d")
+    d1 = datetime.strptime(ref_date1, constants.MATERIAL_DATE_FORMAT)
+    d2 = datetime.strptime(ref_date2, constants.MATERIAL_DATE_FORMAT)
     diff = d2 - d1
     return abs(diff.days)
 
@@ -653,7 +659,9 @@ def datetime_to_date_string(datetime_str: str) -> str:
         elif " " in datetime_str:
             datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S")
         else:
-            datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d")
+            datetime_obj = datetime.strptime(
+                datetime_str, constants.MATERIAL_DATE_FORMAT
+            )
     except ValueError:
         # Value error will be raised if its not able
         # to match datetime string with given format

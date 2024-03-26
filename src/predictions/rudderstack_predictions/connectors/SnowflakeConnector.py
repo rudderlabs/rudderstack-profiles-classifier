@@ -1,3 +1,4 @@
+from functools import reduce
 import os
 import gzip
 import json
@@ -514,6 +515,90 @@ class SnowflakeConnector(Connector):
             if isinstance(field.datatype, (T.TimestampType, T.DateType, T.TimeType)):
                 timestamp_columns.append(field.name)
         return timestamp_columns
+
+    def transform_arraytype_features(
+        self, feature_table: snowflake.snowpark.Table, arraytype_features: List[str]
+    ) -> Union[List[str], snowflake.snowpark.Table]:
+        # Initialize lists to store transformed column names and DataFrames
+        transformed_column_names = []
+        transformed_tables = []
+
+        # Initialize a variable to store the original feature table
+        transformed_feature_table = feature_table
+
+        # Identify columns to group by
+        group_by_cols = [
+            col for col in feature_table.columns if col not in arraytype_features
+        ]
+
+        # Loop through each array type feature
+        for array_column in arraytype_features:
+            # Identify rows with empty or null arrays
+            empty_array_rows = feature_table.filter(F.col(array_column) == [])
+            null_array_value_rows = feature_table.filter(F.col(array_column).isNull())
+            merged_empty_rows = empty_array_rows.join(
+                null_array_value_rows, on=group_by_cols, how="full"
+            ).select(*group_by_cols)
+
+            # Skip to the next array type feature if all rows have empty or null arrays
+            if merged_empty_rows.count() == feature_table.count():
+                continue
+
+            # Explode the array and group by columns
+            exploded_df = feature_table.select(
+                *group_by_cols, F.explode(array_column).alias("ARRAY_VALUE")
+            )
+            grouped_df = exploded_df.groupBy(*exploded_df.columns).count()
+
+            # Extract unique values from the array
+            unique_values = [
+                row["ARRAY_VALUE"].strip('"')
+                for row in grouped_df.select("ARRAY_VALUE").distinct().collect()
+            ]
+            new_array_column_names = [
+                f"{array_column}_{value}".upper() for value in unique_values
+            ]
+
+            # Define columns to remove
+            columns_to_remove = ["COUNT", "ARRAY_VALUE"]
+            grouped_df_cols = [
+                col for col in grouped_df.columns if col not in columns_to_remove
+            ]
+
+            # Pivot the DataFrame to create new columns for each unique value
+            pivoted_df = (
+                grouped_df.groupBy(grouped_df_cols)
+                .pivot("ARRAY_VALUE", unique_values)
+                .sum("COUNT")
+                .na.fill(0)
+            )
+
+            # Join with rows having empty or null arrays, and fill NaN values with 0
+            joined_df = pivoted_df.join(
+                merged_empty_rows, on=group_by_cols, how="full"
+            ).fillna(0)
+            joined_df = self.drop_cols(joined_df, arraytype_features)
+
+            # Rename columns with unique values
+            for old_name, new_name in zip(unique_values, new_array_column_names):
+                transformed_column_names.append(new_name)
+                joined_df = joined_df.withColumnRenamed(f"'{old_name}'", new_name)
+
+            # Append the transformed DataFrame to the list
+            transformed_tables.append(joined_df)
+
+        # If there are transformed DataFrames, join them together
+        if transformed_tables:
+            transformed_feature_table = reduce(
+                lambda df1, df2: df1.join(df2, on=group_by_cols, how="left").fillna(0),
+                transformed_tables,
+            )
+
+        # Drop the original array type features from the transformed table
+        transformed_feature_table = self.drop_cols(
+            transformed_feature_table, arraytype_features
+        )
+        return transformed_column_names, transformed_feature_table
 
     def get_default_label_value(
         self, session, table_name: str, label_column: str, positive_boolean_flags: list

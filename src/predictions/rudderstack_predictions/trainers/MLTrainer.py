@@ -411,7 +411,7 @@ class ClassificationTrainer(MLTrainer):
     }
     models_map = {
         model.__name__: model
-        # Removing MPLClassifier from the list of models as it is not supported by TreeExplainer while 
+        # Removing MPLClassifier from the list of models as it is not supported by TreeExplainer while
         # calculating shap values.
         for model in [XGBClassifier, RandomForestClassifier]
     }

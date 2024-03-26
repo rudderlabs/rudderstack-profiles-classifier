@@ -337,6 +337,7 @@ def split_train_test(
 
     return train_x, train_y, test_x, test_y, val_x, val_y
 
+
 def load_yaml(file_path: str) -> dict:
     """Loads the yaml file for any given filename
 

@@ -151,6 +151,7 @@ def _train(
                 "matplotlib==3.7.1",
                 "seaborn==0.12.0",
                 "scikit-plot==0.3.7",
+                "pycaret",
             ],
         )
         def train_and_store_model_results_sf(
@@ -207,6 +208,7 @@ def _train(
                 trainer.label_column,
             )
 
+            model_file = model_file + ".pkl"
             connector.save_file(session, model_file, stage_name, overwrite=True)
 
             try:

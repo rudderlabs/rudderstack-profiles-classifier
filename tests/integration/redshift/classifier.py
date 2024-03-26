@@ -33,7 +33,7 @@ pred_horizon_days = 7
 pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
 output_label = "OUTPUT_LABEL"
 s3_config = {}
-p_output_tablename = "test_run_can_delete_2"
+p_output_tablename = "classifier_integration_test_4"
 entity_key = "user"
 material_registry_table_name = "material_registry_4"
 
@@ -100,10 +100,8 @@ def validate_training_summary():
         metrics = json_data["data"]["metrics"]
         prob_th = metrics["prob_th"]
         assert 0 <= prob_th <= 1, f"Invalid prob_th - {prob_th}"
-        assert prob_th, "prob_th is empty"
         threshold = json_data["data"]["threshold"]
         assert 0 <= threshold <= 1, f"Invalid threshold - {threshold}"
-        assert threshold, "threshold is empty"
         keys = ["test", "train", "val"]
         for key in keys:
             innerKeys = [
@@ -179,7 +177,6 @@ def validate_predictions_df():
         "VALID_AT",
         pred_column,
         "MODEL_ID",
-        output_label,
         f"PERCENTILE_{pred_column}",
     ]
 
@@ -188,7 +185,6 @@ def validate_predictions_df():
     try:
         df = connector.get_table_as_dataframe(session, p_output_tablename)
         columns_in_file = df.columns.tolist()
-        print(columns_in_file)
     except Exception as e:
         raise e
 

@@ -10,6 +10,7 @@ import pandas as pd
 from typing import Any
 
 import snowflake.snowpark.types as T
+from snowflake.snowpark.types import *
 import snowflake.snowpark.functions as F
 
 from ..wht.pythonWHT import PythonWHT
@@ -26,6 +27,15 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
+
+from pycaret.classification import (
+    load_model as classification_load_model,
+    predict_model as classification_predict_model,
+)
+from pycaret.regression import (
+    load_model as regression_load_model,
+    predict_model as regression_predict_model,
+)
 
 
 def preprocess_and_predict(
@@ -120,6 +130,22 @@ def preprocess_and_predict(
         predict_data, trainer.index_timestamp, end_ts
     )
 
+    # For pycaret predictions,
+    #   In case of classification, there are two labels : prediction_label and prediction_score
+    #   In case of regression, there is only one label : prediction_label
+
+    # In our context,
+    #  For classification we had the scores as score_column_name and then compute the output_label_column based on the threshold. So the mapping.
+    #  For regression, we had the score column only , thus mapped the score to pycaret's prediction_label
+
+    pred_df_config = {}
+    if prediction_task == "classification":
+        pred_df_config = {"label": "prediction_label", "score": "prediction_score"}
+    elif prediction_task == "regression":
+        pred_df_config = {
+            "score": "prediction_label",
+        }
+
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location"""
@@ -131,34 +157,44 @@ def preprocess_and_predict(
         else:
             filename = os.path.join(local_folder, filename)
 
-        with open(filename, "rb") as file:
-            m = joblib.load(file)
-            return m
+        if prediction_task == "classification":
+            model = classification_load_model(filename)
+        elif prediction_task == "regression":
+            model = regression_load_model(filename)
+
+        return model
 
     def predict_helper(df, model_name: str, **kwargs) -> Any:
         trained_model = load_model(model_name)
         df.columns = [x.upper() for x in df.columns]
 
-        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
         if prediction_task == "classification":
-            return trained_model.predict_proba(df)[:, 1]
+            return classification_predict_model(trained_model, df)
         elif prediction_task == "regression":
-            return trained_model.predict(df)
+            return regression_predict_model(trained_model, df)
 
     features = input_df.columns
 
     if creds["type"] == "snowflake":
         udf_name = connector.udf_name
 
-        @F.pandas_udf(
+        pycaret_score_column = pred_df_config["score"]
+        pycaret_label_column = pred_df_config.get(
+            "label", "prediction_score"
+        )  # To make up for the missing column in case of regression
+
+        @F.pandas_udtf(
             session=session,
-            max_batch_size=10000,
+            name=udf_name,
+            stage_location=stage_name,
             is_permanent=True,
             replace=True,
-            stage_location=stage_name,
-            name=udf_name,
-            imports=[f"{stage_name}/{model_name}"],
+            output_schema=PandasDataFrameType(
+                [FloatType(), FloatType()], [pycaret_score_column, pycaret_label_column]
+            ),
+            input_types=[PandasDataFrameType(types)],
+            input_names=features,
+            imports=[f"{stage_name}/{model_name}.pkl"],
             packages=[
                 "snowflake-snowpark-python==1.11.1",
                 "typing",
@@ -169,19 +205,35 @@ def preprocess_and_predict(
                 "joblib==1.2.0",
                 "cachetools==4.2.2",
                 "PyYAML==6.0.1",
+                "pycaret",
                 "simplejson",
             ],
         )
-        def predict_scores(df: types) -> T.PandasSeries[float]:
-            df.columns = features
-            predictions = predict_helper(df, model_name)
-            return predictions.round(4)
+        class predict_scores:
+            def end_partition(self, df):
+                df.columns = features
+                predictions = predict_helper(df, model_name)
+
+                # Create a new DataFrame with the extracted column names
+                prediction_df = pd.DataFrame()
+                prediction_df[pycaret_score_column] = predictions[pycaret_score_column]
+
+                # Check if 'label' is present in pred_df_config
+                # Had to add a dummy label column in case of regression to the output dataframe as the UDTF expects the two columns in output
+                if "label" in pred_df_config:
+                    prediction_df[pycaret_label_column] = predictions[
+                        pycaret_label_column
+                    ]
+                else:
+                    prediction_df[pycaret_label_column] = np.nan
+
+                yield prediction_df
 
         prediction_udf = predict_scores
     elif creds["type"] in ("redshift", "bigquery"):
         local_folder = connector.get_local_dir()
 
-        def predict_scores_rs(df: pd.DataFrame) -> pd.Series:
+        def predict_scores_rs(df: pd.DataFrame) -> pd.DataFrame:
             df.columns = features
             predictions = predict_helper(df, model_name)
             return predictions.round(4)
@@ -189,6 +241,7 @@ def preprocess_and_predict(
         prediction_udf = predict_scores_rs
 
     logger.debug("Creating predictions on the feature data")
+
     preds_with_percentile = connector.call_prediction_udf(
         predict_data,
         prediction_udf,
@@ -200,15 +253,13 @@ def preprocess_and_predict(
         train_model_id,
         prob_th,
         input_df,
+        pred_df_config,
     )
     logger.debug("Writing predictions to warehouse")
     connector.write_table(
         preds_with_percentile,
         output_tablename,
         write_mode="overwrite",
-        local=False,
-        if_exists="replace",
-        s3_config=s3_config,
     )
     logger.debug("Closing the session")
 

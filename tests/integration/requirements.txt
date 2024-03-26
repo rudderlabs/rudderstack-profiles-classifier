@@ -24,3 +24,4 @@ sqlalchemy-bigquery>=1.9.0
 pandas-gbq>=0.22.0
 db-dtypes>=1.2.0
 tensorflow>=2.13.1
+pycaret==3.3.0

@@ -9,3 +9,6 @@ class MockPB:
 
     def run(self, *args):
         return RudderPB().run(*args)
+
+    def show_models(self, *args):
+        return RudderPB().show_models(*args)

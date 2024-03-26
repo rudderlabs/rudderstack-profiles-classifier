@@ -969,6 +969,7 @@ class CommonWarehouseConnector(Connector):
         train_model_id: str,
         prob_th: Optional[float],
         input: pd.DataFrame,
+        pred_df_config: Dict,
     ) -> pd.DataFrame:
         """Calls the given function for prediction
 
@@ -986,13 +987,17 @@ class CommonWarehouseConnector(Connector):
         Returns:
             Results of the predict function
         """
+
         preds = predict_data[[entity_column, index_timestamp]]
-        preds[score_column_name] = prediction_udf(input)
+        prediction_df = prediction_udf(input)
+
+        preds[score_column_name] = prediction_df[pred_df_config["score"]]
+
+        if "label" in pred_df_config:
+            preds[output_label_column] = prediction_df[pred_df_config["label"]]
+
         preds["model_id"] = train_model_id
-        if prob_th:
-            preds[output_label_column] = preds[score_column_name].apply(
-                lambda x: True if x >= prob_th else False
-            )
+
         preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
         return preds
 

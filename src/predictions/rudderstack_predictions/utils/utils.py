@@ -59,6 +59,17 @@ import subprocess
 from dataclasses import dataclass
 from ..utils.logger import logger
 
+from pycaret.classification import predict_model as predict_classification
+from pycaret.regression import predict_model as predict_regression
+
+from pycaret.classification import (
+    predict_model as predict_classification,
+)
+
+from pycaret.regression import (
+    predict_model as predict_regression,
+)
+
 
 @dataclass
 class PreprocessorConfig:
@@ -91,15 +102,14 @@ class TrainerUtils:
     def get_classification_metrics(
         self,
         y_true: pd.DataFrame,
-        y_pred_proba: np.array,
-        th: float = 0.5,
+        y_pred: pd.DataFrame,
         recall_to_precision_importance: float = 1.0,
     ) -> dict:
         """Generates classification metrics
 
         Args:
             y_true (pd.DataFrame): Array of 1s and 0s. True labels
-            y_pred_proba (np.array): Array of predicted probabilities
+            y_pred_proba (np.array): Array of predictions
             th (float, optional): thresold for classification. Defaults to 0.5.
             recall_to_precision_importance (float, optional): Importance of recall to precision. Defaults to 1.0
 
@@ -108,14 +118,14 @@ class TrainerUtils:
         """
         precision, recall, f1, _ = precision_recall_fscore_support(
             y_true,
-            np.where(y_pred_proba > th, 1, 0),
+            y_pred,
             beta=recall_to_precision_importance,
         )
         precision = precision[1]
         recall = recall[1]
         f1 = f1[1]
-        roc_auc = roc_auc_score(y_true, y_pred_proba)
-        pr_auc = average_precision_score(y_true, y_pred_proba)
+        roc_auc = roc_auc_score(y_true, y_pred)
+        pr_auc = average_precision_score(y_true, y_pred)
         user_count = y_true.shape[0]
         metrics = {
             "precision": precision,
@@ -198,26 +208,35 @@ class TrainerUtils:
             Tuple: Returns the classification metrics and predictions for train, \
                 validation and test data along with the best probability thresold.
         """
-        train_preds = clf.predict_proba(X_train)[:, 1]
-        metric_to_optimize = train_config["model_params"]["validation_on"]
-        train_metrics, prob_threshold = self.get_best_th(
-            y_train, train_preds, metric_to_optimize, recall_to_precision_importance
+
+        train_predictions = predict_classification(clf, data=X_train)
+        filtered_train_predictions = train_predictions["prediction_label"]
+        train_metrics = self.get_classification_metrics(
+            y_train, filtered_train_predictions, recall_to_precision_importance
         )
 
-        test_preds = clf.predict_proba(X_test)[:, 1]
+        test_predictions = predict_classification(clf, data=X_test)
+        filtered_test_predictions = test_predictions["prediction_label"]
         test_metrics = self.get_classification_metrics(
-            y_test, test_preds, prob_threshold, recall_to_precision_importance
+            y_test, filtered_test_predictions, recall_to_precision_importance
         )
 
-        val_preds = clf.predict_proba(X_val)[:, 1]
+        val_predictions = predict_classification(clf, data=X_val)
+        filtered_val_predictions = val_predictions["prediction_label"]
         val_metrics = self.get_classification_metrics(
-            y_val, val_preds, prob_threshold, recall_to_precision_importance
+            y_val, filtered_val_predictions, recall_to_precision_importance
         )
 
         metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
-        predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
+        predictions = {
+            "train": train_predictions,
+            "val": val_predictions,
+            "test": test_predictions,
+        }
 
-        return metrics, predictions, round(prob_threshold, 2)
+        # ToDO: This is for compatibility with UI and should be safely removed once the param is removed on UI
+        prob_th = 0.0
+        return metrics, predictions, round(prob_th, 2)
 
     def get_metrics_regressor(
         self, model, train_x, train_y, test_x, test_y, val_x, val_y
@@ -238,9 +257,9 @@ class TrainerUtils:
         Returns:
             result_dict (dict): Dictionary containing regression metrics.
         """
-        train_pred = model.predict(train_x)
-        test_pred = model.predict(test_x)
-        val_pred = model.predict(val_x)
+        train_pred = predict_regression(model, data=train_x)["prediction_label"]
+        test_pred = predict_regression(model, data=test_x)["prediction_label"]
+        val_pred = predict_regression(model, data=val_x)["prediction_label"]
 
         train_metrics = {}
         test_metrics = {}
@@ -257,13 +276,15 @@ class TrainerUtils:
 
 
 def split_train_test(
+    preprocess_setup,
+    get_config,
     feature_df: pd.DataFrame,
     label_column: str,
     entity_column: str,
     train_size: float,
     val_size: float,
     test_size: float,
-    isStratify: bool,
+    preprocess_config,
 ) -> Tuple:
     """Splits the data in train test and validation according to the their given partition factions.
 
@@ -280,24 +301,41 @@ def split_train_test(
         Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
     """
     feature_df.columns = feature_df.columns.str.upper()
-    X_train, X_temp = train_test_split(
-        feature_df,
+
+    preprocess_setup(
+        data=feature_df,
+        target=label_column.upper(),
+        preprocess=True,
         train_size=train_size,
-        random_state=42,
-        stratify=feature_df[label_column.upper()].values if isStratify else None,
     )
-    X_val, X_test = train_test_split(
-        X_temp,
+
+    # Get the configurations
+    train_x = get_config("X_train_transformed")
+    train_y = get_config("y_train_transformed")
+    test_val_x = get_config("X_test_transformed")
+    test_val_y = get_config("y_test_transformed")
+
+    # Concatenate test_val_x and test_val_y into temp_data
+    temp_data = pd.concat([test_val_x, test_val_y], axis=1)
+
+    # Run a preprocessor setup on temp_data as per the val_size
+    preprocess_setup(
+        data=temp_data,
+        target=label_column.upper(),
         train_size=val_size / (val_size + test_size),
-        random_state=42,
-        stratify=X_temp[label_column.upper()].values if isStratify else None,
+        preprocess=True,
     )
-    train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
-    train_y = X_train[[label_column.upper()]]
-    val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
-    val_y = X_val[[label_column.upper()]]
-    test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
-    test_y = X_test[[label_column.upper()]]
+
+    # Get the configurations for the preprocessed temp_data
+    val_x = get_config("X_train_transformed")
+    val_y = get_config("y_train_transformed")
+    test_x = get_config("X_test_transformed")
+    test_y = get_config("y_test_transformed")
+
+    train_x = train_x.drop([entity_column.upper()], axis=1)
+    val_x = val_x.drop([entity_column.upper()], axis=1)
+    test_x = test_x.drop([entity_column.upper()], axis=1)
+
     return train_x, train_y, test_x, test_y, val_x, val_y
 
 
@@ -463,8 +501,13 @@ def transform_null(
         pd.DataFrame: The transformed DataFrame with pd.NA values replaced by np.nan in numeric columns and \
             None in categorical columns.
     """
-    df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-    df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+    # Replace pd.NA with mean in numeric columns
+    for col in numeric_columns:
+        df[col] = df[col].fillna(0)
+
+    # Replace pd.NA with mode in categorical columns
+    for col in categorical_columns:
+        df[col] = df[col].fillna("unknown")
     return df
 
 
@@ -719,17 +762,22 @@ def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
     """
     Plots y-actual vs y-predicted using deciles and saves it as a file.
     Args:
-        y_pred (pd.Series): Predicted labels.
-        y_true (pd.Series): Actual labels.
+        y_pred : Predicted labels.
+        y_true : Actual labels.
         deciles_file (str): File path to save the deciles plot.
         label_column (str): Name of the label column.
     Returns:
         None. The function only saves the deciles plot as a file.
     """
+
+    y_true = pd.Series(y_true)
+    y_pred = pd.Series(y_pred)
+
     deciles = pd.qcut(y_pred, q=10, labels=False, duplicates="drop")
     deciles_df = pd.DataFrame(
         {"Actual": y_true, "Predicted": y_pred, "Deciles": deciles}
     )
+
     deciles_agg = (
         deciles_df.groupby("Deciles")
         .agg({"Actual": "mean", "Predicted": "mean"})
@@ -946,71 +994,92 @@ def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
 
 
 def plot_top_k_feature_importance(
-    pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5
+    model, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5
 ) -> pd.DataFrame:
-    train_x_processed = pipe["preprocessor"].transform(train_x)
-    train_x_processed = train_x_processed.astype(np.int_)
+    """
+    Generates a bar chart to visualize the top k important features in a machine learning model.
 
+    Args:
+        session (object): The session object used for writing the feature importance values and saving the chart image.
+        model (object): The trained model object.
+        stage_name (str): The name of the stage where the chart image will be saved.
+        train_x (array-like): The input data used for calculating the feature importance values.
+        numeric_columns (list): The list of column names for numeric features.
+        categorical_columns (list): The list of column names for categorical features.
+        chart_name (str): The name of the chart image file.
+        top_k_features (int, optional): The number of top important features to display in the chart. Default is 5.
+
+    Returns:
+        None. The function generates a bar chart and writes the feature importance values to a table in the session.
+    """
     try:
-        shap_values = shap.TreeExplainer(pipe["model"]).shap_values(train_x_processed)
+        if len(train_x) < 100:
+            sample_data = train_x
+        else:
+            sample_data = train_x.sample(100, random_state=42)
+        model_class = model.__class__.__name__
+
+        # Select the appropriate explainer based on the model class name
+        explainer_map = {
+            "RidgeClassifier": shap.LinearExplainer,
+            "AdaBoostClassifier": shap.KernelExplainer,
+            "ExtraTreesClassifier": shap.TreeExplainer,
+            "RandomForestClassifier": shap.TreeExplainer,
+            "LogisticRegression": shap.LinearExplainer,
+            "GaussianNB": shap.KernelExplainer,
+            "KNeighborsClassifier": shap.KernelExplainer,
+            "DecisionTreeClassifier": shap.TreeExplainer,
+            "GradientBoostingClassifier": shap.TreeExplainer,
+            "LinearDiscriminantAnalysis": shap.LinearExplainer,
+            "LGBMClassifier": shap.TreeExplainer,
+            "DummyClassifier": shap.KernelExplainer,
+            "SVC": shap.KernelExplainer,
+            "QuadraticDiscriminantAnalysis": shap.KernelExplainer,
+            "XGBClassifier": shap.TreeExplainer,
+            "LinearRegression": shap.LinearExplainer,
+            "Ridge": shap.LinearExplainer,
+            "BayesianRidge": shap.LinearExplainer,
+            "Lasso": shap.LinearExplainer,
+            "LeastAngleRegression": shap.LinearExplainer,
+            "LassoLeastAngleRegression": shap.LinearExplainer,
+            "LightGBM": shap.TreeExplainer,
+            "GradientBoostingRegressor": shap.TreeExplainer,
+            "HuberRegressor": shap.LinearExplainer,
+            "RandomForestRegressor": shap.TreeExplainer,
+            "DecisionTreeRegressor": shap.TreeExplainer,
+            "ExtraTreesRegressor": shap.TreeExplainer,
+            "XGBRegressor": shap.TreeExplainer,
+            "AdaBoostRegressor": shap.TreeExplainer,
+            "ElasticNet": shap.LinearExplainer,
+            "OrthogonalMatchingPursuit": shap.LinearExplainer,
+            "KNeighborsRegressor": shap.KernelExplainer,
+            "DummyRegressor": shap.KernelExplainer,
+            "PassiveAggressiveRegressor": shap.LinearExplainer,
+        }
+
+        explainer_class = explainer_map[model_class]
+
+        explainer = explainer_class(model, sample_data)
+
+        shap_values = explainer(sample_data)
+        if len(shap_values.shape) == 3:
+            shap_values = shap_values[:, :, 1]
+
+        shap.plots.beeswarm(shap_values, max_display=20, show=False)
+        plt.savefig(figure_file)
+
+        vals = np.abs(shap_values.values).mean(0)
+        feature_names = sample_data.columns
+
+        feature_importance = pd.DataFrame(
+            list(zip(feature_names, vals)),
+            columns=["col_name", "feature_importance_vals"],
+        )
+
+        return feature_importance
+
     except Exception as e:
-        logger.warning(
-            f"Exception occured while calculating shap values {e}, using KernelExplainer"
-        )
-
-        shap_values = shap.DeepExplainer(
-            pipe["model"], data=train_x_processed
-        ).shap_values(train_x_processed)
-
-    x_label = "Importance scores"
-    if isinstance(shap_values, list):
-        logger.debug(
-            "Got List output, suggesting that the model is a multi-output model. \
-                Using the second output for plotting feature importance"
-        )
-        x_label = "Importance scores of positive label"
-        shap_values = shap_values[1]
-    elif (
-        isinstance(shap_values, np.ndarray)
-        and len(shap_values.shape) == 3
-        and shap_values.shape[2] == 2
-    ):
-        logger.debug(
-            "Got 3D numpy array with last dimension having depth of 2. Taking the second output for plotting feature importance"
-        )
-        shap_values = shap_values[:, :, 1]
-    onehot_encoder_columns = get_column_names(
-        dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"],
-        categorical_columns,
-    )
-    col_names_ = (
-        numeric_columns
-        + onehot_encoder_columns
-        + [
-            col
-            for col in list(train_x)
-            if col not in numeric_columns and col not in categorical_columns
-        ]
-    )
-    shap_df = pd.DataFrame(shap_values, columns=col_names_)
-    vals = np.abs(shap_df.values).mean(0)
-    feature_names = shap_df.columns
-    shap_importance = pd.DataFrame(
-        data=vals, index=feature_names, columns=["feature_importance_vals"]
-    )
-    shap_importance.sort_values(
-        by=["feature_importance_vals"], ascending=False, inplace=True
-    )
-
-    ax = shap_importance[:top_k_features][::-1].plot(
-        kind="barh", figsize=(8, 6), color="#86bf91", width=0.3
-    )
-    ax.set_xlabel(x_label)
-    ax.set_ylabel("Feature Name")
-    plt.title(f"Top {top_k_features} Important Features")
-    plt.savefig(figure_file, bbox_inches="tight")
-    plt.clf()
-    return shap_importance
+        logger.warning(f"Exception occured while plotting feature importance {e}")
 
 
 def fetch_staged_file(

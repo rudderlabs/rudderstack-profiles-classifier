@@ -279,7 +279,7 @@ def _train(
         )
         trainer.label_value = label_value
 
-    new_input_models = whtService.get_input_models(inputs)
+    absolute_input_models = whtService.get_input_models(inputs)
 
     logger.info(f"Getting input column types from table: {latest_entity_var_table}")
     input_column_types = connector.get_input_column_types(
@@ -298,7 +298,7 @@ def _train(
         features_model_name=features_model_name,
         model_hash=model_hash,
         prediction_horizon_days=trainer.prediction_horizon_days,
-        input_models=new_input_models,
+        input_models=absolute_input_models,
         inputs=inputs,
     )
     # material_names, training_dates

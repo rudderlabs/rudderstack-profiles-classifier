@@ -4,7 +4,7 @@ from .rudderPB import MATERIAL_PREFIX
 
 from ..utils import utils
 
-from ..utils.constants import TrainTablesInfo
+from ..utils.constants import TrainTablesInfo, MATERIAL_DATE_FORMAT
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
 from .rudderPB import RudderPB
@@ -206,9 +206,11 @@ class PythonWHT:
         if validation_flag:
             train_table_info = TrainTablesInfo(
                 feature_table_name=feature_material_name,
-                feature_table_date=str(table_row.FEATURE_END_TS),
+                feature_table_date=table_row.FEATURE_END_TS.strftime(
+                    MATERIAL_DATE_FORMAT
+                ),
                 label_table_name=label_material_name,
-                label_table_date=str(table_row.LABEL_END_TS),
+                label_table_date=table_row.LABEL_END_TS.strftime(MATERIAL_DATE_FORMAT),
             )
             materials.append(train_table_info)
 

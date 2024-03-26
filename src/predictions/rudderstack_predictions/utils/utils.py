@@ -355,9 +355,14 @@ def get_feature_table_column_types(
     input_column_types: dict,
     label_column: str,
     entity_column: str,
+    transformed_arraytype_cols: List[str],
 ):
     feature_table_column_types = {"numeric": [], "categorical": []}
     uppercase_columns = lambda columns: [col.upper() for col in columns]
+
+    # Add the trannsformed array type cols to numeric cols
+    for col in transformed_arraytype_cols:
+        input_column_types["numeric"].append(col)
 
     upper_numeric_input_cols = uppercase_columns(input_column_types["numeric"])
     upper_timestamp_input_cols = uppercase_columns(input_column_types["timestamp"])
@@ -381,7 +386,7 @@ def get_feature_table_column_types(
 
 
 def get_all_ignore_features(
-    feature_table, input_column_types, config_ignore_features, high_cardinal_features
+    feature_table, config_ignore_features, high_cardinal_features
 ):
     ignore_features_ = merge_lists_to_unique(
         high_cardinal_features, config_ignore_features

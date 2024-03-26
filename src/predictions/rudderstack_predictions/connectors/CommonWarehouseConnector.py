@@ -58,8 +58,8 @@ class CommonWarehouseConnector(Connector):
         return train_function(*args, **kwargs)
 
     def transform_arraytype_features(
-        self, feature_df: pd.DataFrame, arraytype_features: list
-    ) -> Union[list, pd.DataFrame]:
+        self, feature_df: pd.DataFrame, arraytype_features: List[str]
+    ) -> Union[List[str], pd.DataFrame]:
         transformed_dfs = []
         transformed_feature_df = feature_df.copy()
         transformed_array_col_names = []

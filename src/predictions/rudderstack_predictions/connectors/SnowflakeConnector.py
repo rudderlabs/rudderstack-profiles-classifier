@@ -231,7 +231,7 @@ class SnowflakeConnector(Connector):
         Returns:
             Nothing
         """
-        write_mode = kwargs.get("write_mode", "overwrite")
+        write_mode = kwargs.get("write_mode", "append")
         table.write.mode(write_mode).save_as_table(table_name_remote)
 
     def write_pandas(self, df: pd.DataFrame, table_name: str, **kwargs):
@@ -517,8 +517,8 @@ class SnowflakeConnector(Connector):
         return timestamp_columns
 
     def transform_arraytype_features(
-        self, feature_table: snowflake.snowpark.Table, arraytype_features: list
-    ) -> Union[list, snowflake.snowpark.Table]:
+        self, feature_table: snowflake.snowpark.Table, arraytype_features: List[str]
+    ) -> Union[List[str], snowflake.snowpark.Table]:
         # Initialize lists to store transformed column names and DataFrames
         transformed_column_names = []
         transformed_tables = []

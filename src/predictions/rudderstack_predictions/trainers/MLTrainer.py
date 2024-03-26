@@ -255,7 +255,7 @@ class MLTrainer(ABC):
             "categorical_iterative_imputer": "lightgbm",
         }
 
-        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test_pycaret(
+        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(
             feature_df=feature_df,
             label_column=self.label_column,
             entity_column=self.entity_column,

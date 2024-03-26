@@ -274,7 +274,7 @@ class TrainerUtils:
         return metrics
 
 
-def split_train_test_pycaret(
+def split_train_test(
     preprocess_setup,
     get_config,
     feature_df: pd.DataFrame,
@@ -336,52 +336,6 @@ def split_train_test_pycaret(
     test_x = test_x.drop([entity_column.upper()], axis=1)
 
     return train_x, train_y, test_x, test_y, val_x, val_y
-
-
-def split_train_test(
-    feature_df: pd.DataFrame,
-    label_column: str,
-    entity_column: str,
-    train_size: float,
-    val_size: float,
-    test_size: float,
-    isStratify: bool,
-) -> Tuple:
-    """Splits the data in train test and validation according to the their given partition factions.
-
-    Args:
-        feature_df (pd.DataFrame): feature table dataframe from the retrieved material_names tuple
-        label_column (str): name of label column from feature table
-        entity_column (str): name of entity column from feature table
-        output_profiles_ml_model (str): output ml model from model_configs file
-        train_size (float): partition fraction for train data
-        val_size (float): partition fraction for validation data
-        test_size (float): partition fraction for test data
-
-    Returns:
-        Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
-    """
-    feature_df.columns = feature_df.columns.str.upper()
-    X_train, X_temp = train_test_split(
-        feature_df,
-        train_size=train_size,
-        random_state=42,
-        stratify=feature_df[label_column.upper()].values if isStratify else None,
-    )
-    X_val, X_test = train_test_split(
-        X_temp,
-        train_size=val_size / (val_size + test_size),
-        random_state=42,
-        stratify=X_temp[label_column.upper()].values if isStratify else None,
-    )
-    train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
-    train_y = X_train[[label_column.upper()]]
-    val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
-    val_y = X_val[[label_column.upper()]]
-    test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
-    test_y = X_test[[label_column.upper()]]
-    return train_x, train_y, test_x, test_y, val_x, val_y
-
 
 def load_yaml(file_path: str) -> dict:
     """Loads the yaml file for any given filename

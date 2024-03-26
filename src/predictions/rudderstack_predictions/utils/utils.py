@@ -1,3 +1,4 @@
+from functools import reduce
 import math
 import re
 import warnings
@@ -354,9 +355,14 @@ def get_feature_table_column_types(
     input_column_types: dict,
     label_column: str,
     entity_column: str,
+    transformed_arraytype_cols: List[str],
 ):
     feature_table_column_types = {"numeric": [], "categorical": []}
     uppercase_columns = lambda columns: [col.upper() for col in columns]
+
+    # Add the trannsformed array type cols to numeric cols
+    for col in transformed_arraytype_cols:
+        input_column_types["numeric"].append(col)
 
     upper_numeric_input_cols = uppercase_columns(input_column_types["numeric"])
     upper_timestamp_input_cols = uppercase_columns(input_column_types["timestamp"])
@@ -375,16 +381,16 @@ def get_feature_table_column_types(
             raise Exception(
                 f"Column {col.upper()} in feature table is not numeric or categorical"
             )
+
     return feature_table_column_types
 
 
 def get_all_ignore_features(
-    feature_table, input_column_types, config_ignore_features, high_cardinal_features
+    feature_table, config_ignore_features, high_cardinal_features
 ):
     ignore_features_ = merge_lists_to_unique(
-        input_column_types["arraytype"], high_cardinal_features
+        high_cardinal_features, config_ignore_features
     )
-    ignore_features_ = merge_lists_to_unique(ignore_features_, config_ignore_features)
 
     uppercase_list = lambda names: [name.upper() for name in names]
     lowercase_list = lambda names: [name.lower() for name in names]

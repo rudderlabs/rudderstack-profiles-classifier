@@ -296,31 +296,27 @@ class CommonWarehouseConnector(Connector):
 
     def fetch_given_data_type_columns(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         required_data_types: Tuple,
         label_column: str,
         entity_column: str,
     ) -> List:
         """Fetches the column names from the given schemaField based on the required data types (exclude label and entity columns)"""
-        schemaField = self.fetch_table_metadata(session, table_name)
         return [
             field.name
-            for field in schemaField
+            for field in schema_fields
             if field.field_type in required_data_types
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
         ]
 
     def get_non_stringtype_features(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
         return self.fetch_given_data_type_columns(
-            session,
-            table_name,
+            schema_fields,
             self.data_type_mapping["numeric"],
             label_column,
             entity_column,
@@ -328,14 +324,12 @@ class CommonWarehouseConnector(Connector):
 
     def get_stringtype_features(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
         return self.fetch_given_data_type_columns(
-            session,
-            table_name,
+            schema_fields,
             self.data_type_mapping["categorical"],
             label_column,
             entity_column,
@@ -343,8 +337,7 @@ class CommonWarehouseConnector(Connector):
 
     def get_arraytype_columns(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
@@ -358,8 +351,7 @@ class CommonWarehouseConnector(Connector):
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
         return self.fetch_given_data_type_columns(
-            session,
-            table_name,
+            schema_fields,
             self.data_type_mapping["arraytype"],
             label_column,
             entity_column,
@@ -378,8 +370,7 @@ class CommonWarehouseConnector(Connector):
 
     def get_timestamp_columns(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
@@ -394,8 +385,7 @@ class CommonWarehouseConnector(Connector):
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
         return self.fetch_given_data_type_columns(
-            session,
-            table_name,
+            schema_fields,
             self.data_type_mapping["timestamp"],
             label_column,
             entity_column,

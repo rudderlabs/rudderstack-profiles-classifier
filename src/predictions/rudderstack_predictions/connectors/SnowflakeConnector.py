@@ -318,10 +318,25 @@ class SnowflakeConnector(Connector):
         """
         session.file.put(file_name, stage_name, overwrite=overwrite)
 
+    def fetch_table_metadata(
+        self, session: snowflake.snowpark.Session, table_name: str
+    ) -> List:
+        """
+        Fetches the schema of the given table from the Snowflake schema.
+
+        Args:
+            session (snowflake.snowpark.Session): Snowflake connection session for warehouse access
+            table_name (str): Name of the table to be fetched from the Snowflake schema
+
+        Returns:
+            List: A list containing the schema of the given table from the Snowflake schema.
+        """
+        table = self.get_table(session, table_name)
+        return table.schema.fields
+
     def get_non_stringtype_features(
         self,
-        session: snowflake.snowpark.Session,
-        feature_table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
@@ -336,17 +351,9 @@ class SnowflakeConnector(Connector):
 
         Returns:
             List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
-
-        Example:
-            Make the call as follows:
-            feature_table = snowflake.snowpark.Table(...)
-            label_column = "label"
-            entity_column = "entity"
-            non_stringtype_features = connector.get_non_stringtype_features(feature_table, label_column, entity_column, session=your_session)
         """
-        feature_table = self.get_table(session, feature_table_name)
         non_stringtype_features = []
-        for field in feature_table.schema.fields:
+        for field in schema_fields:
             if not isinstance(
                 field.datatype, T.StringType
             ) and field.name.lower() not in (
@@ -358,8 +365,7 @@ class SnowflakeConnector(Connector):
 
     def get_stringtype_features(
         self,
-        session: snowflake.snowpark.Session,
-        feature_table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
@@ -374,17 +380,9 @@ class SnowflakeConnector(Connector):
 
         Returns:
             List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
-
-        Example:
-            Make the call as follows:
-            feature_table = snowflake.snowpark.Table(...)
-            label_column = "label"
-            entity_column = "entity"
-            stringtype_features = connector.get_stringtype_features(feature_table, label_column, entity_column, session=your_session)
         """
-        feature_table = self.get_table(session, feature_table_name)
         stringtype_features = []
-        for field in feature_table.schema.fields:
+        for field in schema_fields:
             if isinstance(field.datatype, T.StringType) and field.name.lower() not in (
                 label_column.lower(),
                 entity_column.lower(),
@@ -394,8 +392,7 @@ class SnowflakeConnector(Connector):
 
     def get_arraytype_columns(
         self,
-        session: snowflake.snowpark.Session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
@@ -408,13 +405,10 @@ class SnowflakeConnector(Connector):
         Returns:
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
-        table = self.get_table(session, table_name)
-        arraytype_columns = self.get_arraytype_columns_from_table(table)
+        arraytype_columns = self.get_arraytype_columns_from_table(schema_fields)
         return arraytype_columns
 
-    def get_arraytype_columns_from_table(
-        self, table: snowflake.snowpark.Table, **kwargs
-    ) -> list:
+    def get_arraytype_columns_from_table(self, schema_fields: List, **kwargs) -> list:
         """Returns the list of features to be ignored from the feature table.
         Args:
             table (snowflake.snowpark.Table): snowpark table.
@@ -422,9 +416,7 @@ class SnowflakeConnector(Connector):
             list: The list of features to be ignored based column datatypes as ArrayType.
         """
         arraytype_columns = [
-            row.name
-            for row in table.schema.fields
-            if isinstance(row.datatype, T.ArrayType)
+            row.name for row in schema_fields if isinstance(row.datatype, T.ArrayType)
         ]
         return arraytype_columns
 
@@ -478,8 +470,7 @@ class SnowflakeConnector(Connector):
 
     def get_timestamp_columns(
         self,
-        session: snowflake.snowpark.Session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
@@ -493,12 +484,11 @@ class SnowflakeConnector(Connector):
         Returns:
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
-        table = self.get_table(session, table_name)
-        timestamp_columns = self.get_timestamp_columns_from_table(table)
+        timestamp_columns = self.get_timestamp_columns_from_table(schema_fields)
         return timestamp_columns
 
     def get_timestamp_columns_from_table(
-        self, table: snowflake.snowpark.Table, **kwargs
+        self, schema_fields: List, **kwargs
     ) -> List[str]:
         """
         Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
@@ -511,7 +501,7 @@ class SnowflakeConnector(Connector):
             List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
         """
         timestamp_columns = []
-        for field in table.schema.fields:
+        for field in schema_fields:
             if isinstance(field.datatype, (T.TimestampType, T.DateType, T.TimeType)):
                 timestamp_columns.append(field.name)
         return timestamp_columns

@@ -30,23 +30,23 @@ class Connector(ABC):
         label_column: str,
         entity_column: str,
     ) -> Dict:
+        schema_fields = self.fetch_table_metadata(session, table_name)
+
         numeric_columns = utils.merge_lists_to_unique(
             self.get_non_stringtype_features(
-                session, table_name, label_column, entity_column
+                schema_fields, label_column, entity_column
             ),
             trainer_obj.prep.numeric_pipeline["numeric_columns"],
         )
         categorical_columns = utils.merge_lists_to_unique(
-            self.get_stringtype_features(
-                session, table_name, label_column, entity_column
-            ),
+            self.get_stringtype_features(schema_fields, label_column, entity_column),
             trainer_obj.prep.categorical_pipeline["categorical_columns"],
         )
         arraytype_columns = self.get_arraytype_columns(
-            session, table_name, label_column, entity_column
+            schema_fields, label_column, entity_column
         )
         timestamp_columns = (
-            self.get_timestamp_columns(session, table_name, label_column, entity_column)
+            self.get_timestamp_columns(schema_fields, label_column, entity_column)
             if len(trainer_obj.prep.timestamp_columns) == 0
             else trainer_obj.prep.timestamp_columns
         )
@@ -155,10 +155,13 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def fetch_table_metadata(self, session, table_name: str) -> List:
+        pass
+
+    @abstractmethod
     def get_non_stringtype_features(
         self,
-        session,
-        feature_table,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
@@ -167,8 +170,7 @@ class Connector(ABC):
     @abstractmethod
     def get_stringtype_features(
         self,
-        session,
-        feature_table,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
@@ -177,15 +179,14 @@ class Connector(ABC):
     @abstractmethod
     def get_arraytype_columns(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
         pass
 
     @abstractmethod
-    def get_arraytype_columns_from_table(self, table: Any, **kwargs) -> list:
+    def get_arraytype_columns_from_table(self, schema_fields: List, **kwargs) -> list:
         pass
 
     @abstractmethod
@@ -202,8 +203,7 @@ class Connector(ABC):
     @abstractmethod
     def get_timestamp_columns(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:

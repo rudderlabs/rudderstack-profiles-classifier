@@ -31,28 +31,10 @@ class CommonWarehouseConnector(Connector):
         return self.local_dir
 
     def join_file_path(self, file_name: str) -> str:
-        """
-        Joins the given file name to the local data folder path.
-
-        Args:
-            file_name (str): The name of the file to be joined to the path.
-
-        Returns:
-            The joined file path as a string.
-        """
+        """Joins the given file name to the local data folder path."""
         return os.path.join(self.local_dir, file_name)
 
     def call_procedure(self, *args, **kwargs):
-        """Calls the given function for training
-
-        Args:
-            session : connection session for warehouse access
-            args (list): List of arguments to be passed to the training function
-            kwargs (dict): Dictionary of keyword arguments to be passed to the training function
-
-        Returns:
-            Results of the training function
-        """
         args = list(args)
         train_function = args.pop(0)
         return train_function(*args, **kwargs)
@@ -60,6 +42,7 @@ class CommonWarehouseConnector(Connector):
     def transform_arraytype_features(
         self, feature_df: pd.DataFrame, arraytype_features: List[str]
     ) -> Union[List[str], pd.DataFrame]:
+        """Transforms arraytype features in a pandas DataFrame by expanding the arraytype features as {feature_name}_{unique_value} columns and perform 0-1 encoding in those cols."""
         transformed_dfs = []
         transformed_feature_df = feature_df.copy()
         transformed_array_col_names = []
@@ -127,15 +110,6 @@ class CommonWarehouseConnector(Connector):
         return transformed_array_col_names, transformed_feature_df
 
     def get_merged_table(self, base_table, incoming_table):
-        """Returns the merged table.
-
-        Args:
-            base_table (pd.DataFrame): 1st DataFrame
-            incoming_table (pd.DataFrame): 2nd DataFrame
-
-        Returns:
-            pd.DataFrame: Merged table
-        """
         return pd.concat([base_table, incoming_table], axis=0, ignore_index=True)
 
     def fetch_processor_mode(
@@ -149,27 +123,9 @@ class CommonWarehouseConnector(Connector):
         return mode
 
     def compute_udf_name(self, model_path: str) -> None:
-        """Returns the udf name using info from the model_path
-
-        Args:
-            model_path (str): Path of the model
-
-        Returns:
-            str: UDF name
-        """
         return
 
     def is_valid_table(self, session, table_name: str) -> bool:
-        """
-        Checks whether a table exists in the data warehouse.
-
-        Args:
-            session : A session for data warehouse access.
-            table_name (str): The name of the table to be checked.
-
-        Returns:
-            bool: True if the table exists, False otherwise.
-        """
         try:
             self.run_query(session, f"select * from {table_name} limit 1")
             return True
@@ -195,15 +151,7 @@ class CommonWarehouseConnector(Connector):
         return row_count != 0
 
     def get_table(self, session, table_name: str, **kwargs) -> pd.DataFrame:
-        """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the table to be fetched from the schema
-
-        Returns:
-            table (pd.DataFrame): The table as a pandas Dataframe object
-        """
+        """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object."""
         return self.get_table_as_dataframe(session, table_name, **kwargs)
 
     def _create_get_table_query(self, table_name, **kwargs):
@@ -228,28 +176,13 @@ class CommonWarehouseConnector(Connector):
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
         """Writes the given pandas dataframe to the warehouse schema with the given name.
-
-        Args:
-            df (pd.DataFrame): Pandas dataframe to be written to the warehouse schema
-            table_name (str): Name with which the dataframe is to be written
-        Returns:
-            Nothing
+        Also, giving 'local' as False (default value is True) will not write the table locally.
         """
         if kwargs.pop("local", True):
             self.write_table_locally(df, table_name)
         self.write_pandas(df, table_name, **kwargs)
 
     def write_pandas(self, df: pd.DataFrame, table_name_remote: str, **kwargs) -> None:
-        """Writes the given pandas dataframe to the Warehouse schema with the given name
-
-        Args:
-            df (pd.DataFrame): Pandas dataframe to be written
-            table_name (str): Name with which the dataframe is to be written
-            [From kwargs]
-                if_exists (str): How to write the dataframe to the warehouse schema | Defaults to "append"
-        Returns:
-            Nothing
-        """
         rs_conn = ProfilesConnector(self.creds, **kwargs)
         if_exists = kwargs.get("if_exists", "append")
         rs_conn.write_to_table(
@@ -264,19 +197,7 @@ class CommonWarehouseConnector(Connector):
         entity_column: str,
         label_value: Union[str, int, float],
     ) -> pd.DataFrame:
-        """
-        Labels the given label_columns in the table as '1' or '0' if the value matches the label_value or not respectively.
-
-        Args:
-            session : connection session for warehouse access
-            label_table_name (str): Name of the table to be labelled
-            label_column (str): Name of the column to be labelled
-            entity_column (str): Name of the entity column
-            label_value (Union[str,int,float]): Value to be labelled as '1'
-
-        Returns:
-            label_table (pd.DataFrame): The labelled table as a pandas Dataframe object
-        """
+        """Labels the given label_columns in the table as '1' or '0' if the value matches the label_value or not respectively."""
 
         def _replace_na(value):
             return np.nan if pd.isna(value) else value
@@ -302,7 +223,7 @@ class CommonWarehouseConnector(Connector):
         label_column: str,
         entity_column: str,
     ) -> List:
-        """Fetches the column names from the given schemaField based on the required data types (exclude label and entity columns)"""
+        """Fetches the column names from the given schema_fields based on the required data types (exclude label and entity columns)"""
         schemaField = self.fetch_table_metadata(session, table_name)
         return [
             field.name
@@ -348,15 +269,6 @@ class CommonWarehouseConnector(Connector):
         label_column: str,
         entity_column: str,
     ) -> List[str]:
-        """Returns the list of features to be ignored from the feature table.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the table from which to retrieve the arraytype/super columns.
-
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
         return self.fetch_given_data_type_columns(
             session,
             table_name,
@@ -366,12 +278,6 @@ class CommonWarehouseConnector(Connector):
         )
 
     def get_arraytype_columns_from_table(self, table: pd.DataFrame, **kwargs) -> list:
-        """Returns the list of features to be ignored from the feature table.
-        Args:
-            table (pd.DataFrame): warehouse table.
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
         self.get_array_time_features_from_file(**kwargs)
         arraytype_columns = self.array_time_features["arraytype_columns"]
         return arraytype_columns
@@ -383,16 +289,6 @@ class CommonWarehouseConnector(Connector):
         label_column: str,
         entity_column: str,
     ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
         return self.fetch_given_data_type_columns(
             session,
             table_name,
@@ -404,15 +300,6 @@ class CommonWarehouseConnector(Connector):
     def get_timestamp_columns_from_table(
         self, table: pd.DataFrame, **kwargs
     ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
         kwargs.get("features_path", None)
         timestamp_columns = self.array_time_features["timestamp_columns"]
         return timestamp_columns
@@ -545,17 +432,7 @@ class CommonWarehouseConnector(Connector):
         model_hash: str,
         entity_key: str,
     ):
-        """This function will return the model hash that is latest for given model name in material table
-
-        Args:
-            session : connection session for warehouse access
-            material_table (str): name of material registry table
-            model_hash (str): latest model hash
-            entity_key (str): entity key
-
-        Returns:
-            (): it's latest creation timestamp
-        """
+        """Retrieves the latest creation timestamp for a specific model hash, and entity key."""
         redshift_df = self.get_material_registry_table(session, material_table)
         try:
             temp_hash_vector = (
@@ -595,18 +472,7 @@ class CommonWarehouseConnector(Connector):
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
-        """This function will return the end_ts with given model hash and model name
-
-        Args:
-            session : connection session for warehouse access
-            material_table (str): name of material registry table
-            model_name (str): model_name to be searched in material registry table
-            model_hash (str): latest model hash
-            seq_no (int): latest seq_no
-
-        Returns:
-            str: end_ts for given model hash and model name
-        """
+        """This function will return the end_ts with given model, model name and seq_no."""
         df = self.get_material_registry_table(session, material_table)
 
         try:
@@ -629,16 +495,6 @@ class CommonWarehouseConnector(Connector):
     def add_index_timestamp_colum_for_predict_data(
         self, predict_data: pd.DataFrame, index_timestamp: str, end_ts: str
     ) -> pd.DataFrame:
-        """This function will add index timestamp column to predict data
-
-        Args:
-            predict_data (pd.DataFrame): Dataframe to be predicted
-            index_timestamp (str): Name of the index timestamp column
-            end_ts (str): end timestamp value to calculate the difference.
-
-        Returns:
-            pd.DataFrame: Dataframe with index timestamp column
-        """
         predict_data[index_timestamp] = pd.to_datetime(end_ts)
         return predict_data
 
@@ -649,32 +505,11 @@ class CommonWarehouseConnector(Connector):
         file_name: str,
         target_folder: str,
     ) -> None:
-        """Fetches the given file from the given stage and saves it to the given target folder.
-
-        Args:
-            session : connection session for warehouse access
-            stage_name (str): Name of the stage from which to fetch the file.
-            file_name (str): Name of the file to be fetched.
-            target_folder (str): Path to the folder where the fetched file is to be saved.
-
-        Returns:
-            Nothing
-        """
         source_path = self.join_file_path(file_name)
         target_path = os.path.join(target_folder, file_name)
         shutil.move(source_path, target_path)
 
     def drop_cols(self, table: pd.DataFrame, col_list: list) -> pd.DataFrame:
-        """
-        Drops the columns in the given list from the given table.
-
-        Args:
-            table (pd.DataFrame): The table to be filtered.
-            col_list (list): The list of columns to be dropped.
-
-        Returns:
-            The table after the columns have been dropped as a Pandas DataFrame object.
-        """
         ignore_features_upper = [col.upper() for col in col_list]
         ignore_features_lower = [col.lower() for col in col_list]
         ignore_features_ = [
@@ -691,16 +526,6 @@ class CommonWarehouseConnector(Connector):
         max_row_count: int,
         min_sample_for_training: int,
     ) -> pd.DataFrame:
-        """
-        Sorts the given feature table based on the given entity column and index timestamp.
-
-        Args:
-            feature_table (pd.DataFrame): The table to be filtered.
-            entity_column (str): The name of the entity column to be used for sorting.
-
-        Returns:
-            The sorted feature table as a Pandas DataFrame object.
-        """
         feature_table["row_num"] = feature_table.groupby(entity_column).cumcount() + 1
         feature_table = feature_table[feature_table["row_num"] == 1]
         feature_table = feature_table.sort_values(
@@ -839,18 +664,7 @@ class CommonWarehouseConnector(Connector):
     def add_days_diff(
         self, table: pd.DataFrame, new_col: str, time_col: str, end_ts: str
     ) -> pd.DataFrame:
-        """
-        Adds a new column to the given table containing the difference in days between the given timestamp columns.
-
-        Args:
-            table (pd.DataFrame): The table to be filtered.
-            new_col (str): The name of the new column to be added.
-            time_col (str): The name of the first timestamp column.
-            end_ts (str): end timestamp value to calculate the difference.
-
-        Returns:
-            The table with the new column added as a Pandas DataFrame object.
-        """
+        """Adds a new column to the given table containing the difference in days between the given timestamp columns."""
         table["temp_1"] = pd.to_datetime(table[time_col]).dt.tz_localize(None)
         table["temp_2"] = pd.to_datetime(end_ts)
         table[new_col] = (table["temp_2"] - table["temp_1"]).dt.days
@@ -880,15 +694,6 @@ class CommonWarehouseConnector(Connector):
     def get_distinct_values_in_column(
         self, table: pd.DataFrame, column_name: str
     ) -> List:
-        """Returns the distinct values in the given column of the given table.
-
-        Args:
-            table (pd.DataFrame): The dataframe from which the distinct values are to be extracted.
-            column_name (str): The name of the column from which the distinct values are to be extracted.
-
-        Returns:
-            List: The list of distinct values in the given column of the given table.
-        """
         return table[column_name].unique()
 
     def get_tables_by_prefix(self, session, prefix: str):
@@ -910,13 +715,6 @@ class CommonWarehouseConnector(Connector):
     ) -> pd.DataFrame:
         """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
         Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
-
-        Args:
-            session : connection session for warehouse access
-            material_registry_table_name (str): The material registry table name.
-
-        Returns:
-            pd.DataFrame: The filtered material registry table containing only the successfully materialized data.
         """
         material_registry_table = self.get_table(session, material_registry_table_name)
 
@@ -968,22 +766,7 @@ class CommonWarehouseConnector(Connector):
         prob_th: Optional[float],
         input: pd.DataFrame,
     ) -> pd.DataFrame:
-        """Calls the given function for prediction
-
-        Args:
-            predict_data (pd.DataFrame): Dataframe to be predicted
-            prediction_udf (Any): Function for prediction
-            entity_column (str): Name of the entity column
-            index_timestamp (str): Name of the index timestamp column
-            score_column_name (str): Name of the score column
-            percentile_column_name (str): Name of the percentile column
-            output_label_column (str): Name of the output label column
-            train_model_id (str): Model id
-            prob_th (float): Probability threshold
-            input (pd.DataFrame): Input dataframe
-        Returns:
-            Results of the predict function
-        """
+        """Calls the given function for prediction and returns results of the predict function."""
         preds = predict_data[[entity_column, index_timestamp]]
         preds[score_column_name] = prediction_udf(input)
         preds["model_id"] = train_model_id
@@ -997,15 +780,7 @@ class CommonWarehouseConnector(Connector):
     """ The following functions are only specific to Redshift Connector and BigQuery Connector and not used by any other connector."""
 
     def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:
-        """Writes the given pandas dataframe to the local storage with the given name.
-
-        Args:
-            df (pd.DataFrame): Pandas dataframe to be written to the local storage
-            table_name (str): Name with which the dataframe is to be written to the local storage
-
-        Returns:
-            Nothing
-        """
+        """Writes the given pandas dataframe to the local storage with the given name."""
         table_path = os.path.join(self.local_dir, f"{table_name}.parquet.gzip")
         df.to_parquet(table_path, compression="gzip")
 
@@ -1048,11 +823,9 @@ class CommonWarehouseConnector(Connector):
         return table.filter(matching_columns)
 
     def make_local_dir(self) -> None:
-        "Created a local directory to store temporary files"
         Path(self.local_dir).mkdir(parents=True, exist_ok=True)
 
     def delete_local_data_folder(self) -> None:
-        """Deletes the local data folder."""
         try:
             shutil.rmtree(self.local_dir)
             logger.info("Local directory removed successfully")

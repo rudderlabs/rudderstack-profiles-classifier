@@ -29,13 +29,6 @@ class RudderPB:
         return pb_compile_output
 
     def run(self, arg: dict):
-        """
-        Args:
-            features_valid_time (str): The date for which the past data needs to be materialized.
-            feature_package_path (str): The path to the feature package.
-            site_config_path (str): path to the siteconfig.yaml file
-            project_folder (str): project folder path to pb_project.yaml file
-        """
         features_valid_time_unix = int(
             datetime.strptime(arg["features_valid_time"], MATERIAL_DATE_FORMAT)
             .replace(tzinfo=timezone.utc)

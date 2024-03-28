@@ -434,18 +434,6 @@ class SnowflakeConnector(Connector):
             entity_column,
         )
 
-    def get_arraytype_columns_from_table(self, schema_fields: List, **kwargs) -> list:
-        """Returns the list of features to be ignored from the feature table.
-        Args:
-            table (snowflake.snowpark.Table): snowpark table.
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
-        arraytype_columns = [
-            row.name for row in schema_fields if isinstance(row.datatype, T.ArrayType)
-        ]
-        return arraytype_columns
-
     def get_high_cardinal_features(
         self,
         feature_table: snowflake.snowpark.Table,
@@ -516,25 +504,6 @@ class SnowflakeConnector(Connector):
             label_column,
             entity_column,
         )
-
-    def get_timestamp_columns_from_table(
-        self, schema_fields: List, **kwargs
-    ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        timestamp_columns = []
-        for field in schema_fields:
-            if isinstance(field.datatype, (T.TimestampType, T.DateType, T.TimeType)):
-                timestamp_columns.append(field.name)
-        return timestamp_columns
 
     def transform_arraytype_features(
         self, feature_table: snowflake.snowpark.Table, arraytype_features: List[str]

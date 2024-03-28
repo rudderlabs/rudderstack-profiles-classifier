@@ -186,10 +186,6 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_arraytype_columns_from_table(self, schema_fields: List, **kwargs) -> list:
-        pass
-
-    @abstractmethod
     def get_high_cardinal_features(
         self,
         feature_table,
@@ -206,12 +202,6 @@ class Connector(ABC):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
-        pass
-
-    @abstractmethod
-    def get_timestamp_columns_from_table(
-        self, session, table_name: str, **kwargs
     ) -> List[str]:
         pass
 

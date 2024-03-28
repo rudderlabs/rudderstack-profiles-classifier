@@ -36,6 +36,7 @@ WAREHOUSE_MODE = "native-warehouse"
 RUDDERSTACK_MODE = "rudderstack-infra"
 ML_CORE_PYTHON_PATH = "src.predictions.rudderstack_predictions.ml_core"
 ML_CORE_PYNATIVE_PATH = "rudderstack_predictions.ml_core"
+MIN_PB_VERSION = 53
 
 # Smart data preparation
 

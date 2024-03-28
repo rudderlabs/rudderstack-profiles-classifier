@@ -71,12 +71,7 @@ def _train(
     )
     stage_name = None
 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(
-        current_dir,
-        "config",
-        "model_configs.yaml",
-    )
+    config_path = utils.get_model_configs_file_path()
     folder_path = os.path.dirname(output_filename)
     target_path = utils.get_output_directory(folder_path)
 

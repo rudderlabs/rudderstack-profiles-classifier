@@ -1,12 +1,5 @@
-import sys
-import os
-
-sys.path.append(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "src", "predictions"))
-)
-
-from rudderstack_predictions.predict import _predict
-from rudderstack_predictions.utils import constants
+from src.predictions.rudderstack_predictions.predict import _predict
+from src.predictions.rudderstack_predictions.utils import constants
 
 
 def predict(

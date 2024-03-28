@@ -642,7 +642,7 @@ class SnowflakeConnector(Connector):
     def fetch_filtered_table(
         self,
         df,
-        features_profiles_model,
+        entity_var_model_name,
         model_hash,
         start_time,
         end_time,
@@ -650,7 +650,7 @@ class SnowflakeConnector(Connector):
     ):
         """Fetches the filtered table based on the given parameters."""
         filtered_snowpark_df = (
-            df.filter(col("model_name") == features_profiles_model)
+            df.filter(col("model_name") == entity_var_model_name)
             .filter(col("model_hash") == model_hash)
             .filter(
                 (to_date(col("end_ts")) >= start_time)
@@ -664,7 +664,7 @@ class SnowflakeConnector(Connector):
         self,
         session: snowflake.snowpark.Session,
         registry_table_name: str,
-        features_model_name: str,
+        entity_var_model_name: str,
         model_hash: str,
         start_time: str,
         end_time: str,
@@ -673,7 +673,7 @@ class SnowflakeConnector(Connector):
         snowpark_df = self.get_material_registry_table(session, registry_table_name)
         feature_snowpark_df = self.fetch_filtered_table(
             snowpark_df,
-            features_model_name,
+            entity_var_model_name,
             model_hash,
             start_time,
             end_time,
@@ -681,7 +681,7 @@ class SnowflakeConnector(Connector):
         )
         label_snowpark_df = self.fetch_filtered_table(
             snowpark_df,
-            features_model_name,
+            entity_var_model_name,
             model_hash,
             utils.date_add(start_time, prediction_horizon_days),
             utils.date_add(end_time, prediction_horizon_days),

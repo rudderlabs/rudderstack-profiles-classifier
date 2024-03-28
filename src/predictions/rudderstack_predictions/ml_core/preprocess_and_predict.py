@@ -12,7 +12,7 @@ from typing import Any
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 
-from ..wht.pythonWHT import PythonWHT
+from ..wht.pyNativeWHT import PyNativeWHT
 
 from ..utils import utils
 from ..utils.logger import logger
@@ -72,7 +72,7 @@ def preprocess_and_predict(
     except Exception as e:
         raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 
-    whtService = PythonWHT()
+    whtService = PyNativeWHT(None)
     whtService.init(connector, session, "", "")
 
     feature_table_name = whtService.compute_material_name(

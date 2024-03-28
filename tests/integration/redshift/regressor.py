@@ -7,6 +7,7 @@ from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import
 from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
 import json
 from tests.integration.utils import create_site_config_file
+import os
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
 creds["schema"] = "rs_profiles_3"

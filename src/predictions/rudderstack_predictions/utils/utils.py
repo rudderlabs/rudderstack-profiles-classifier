@@ -1277,3 +1277,12 @@ def extract_seq_no_from_select_query(select_query: str) -> int:
         table_name = table_name_wo_schema
     seq_no = int(table_name.split("_")[-1])
     return seq_no
+
+
+def get_model_configs_file_path() -> str:
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    return os.path.join(
+        os.path.dirname(current_dir),
+        "config",
+        "model_configs.yaml",
+    )

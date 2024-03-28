@@ -60,6 +60,7 @@ def preprocess_and_predict(
     categorical_columns = results["column_names"]["feature_table_column_types"][
         "categorical"
     ]
+    arraytype_columns = results["column_names"]["input_column_types"]["arraytype"]
     timestamp_columns = results["column_names"]["input_column_types"]["timestamp"]
     ignore_features = results["column_names"]["ignore_features"]
 

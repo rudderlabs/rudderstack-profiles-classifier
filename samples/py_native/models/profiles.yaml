@@ -1,6 +1,6 @@
 models:
   - name: training_model
-    model_type: classifier_training
+    model_type: training_model
     model_spec:
       occurred_at_col: insert_ts
       entity_key: user
@@ -11,12 +11,19 @@ models:
         data:
           label_column: is_churned_7_days
           prediction_horizon_days: 7
-  # - name: prediction_model
-  #   model_type: classifier_prediction
-  #   model_spec:
-  #     occurred_at_col: insert_ts
-  #     entity_key: user
-  #     validity_time: 24h
+  - name: prediction_model
+    model_type: prediction_model
+    model_spec:
+      occurred_at_col: insert_ts
+      entity_key: user
+      validity_time: 24h
+      inputs:
+        - entity/user/is_churned_7_days
+      training_model: models/training_model
+      ml_config:
+        data:
+          label_column: is_churned_7_days
+          prediction_horizon_days: 7
 
 var_groups:
   - name: default_vars

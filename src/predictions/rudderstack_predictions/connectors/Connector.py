@@ -7,14 +7,7 @@ from ..utils import utils
 
 class Connector(ABC):
     def remap_credentials(self, credentials: dict) -> dict:
-        """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses
-
-        Args:
-            credentials (dict): Data warehouse credentials from profiles siteconfig
-
-        Returns:
-            dict: Data warehouse creadentials remapped in format that is required to create a connection to warehouse
-        """
+        """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses"""
         new_creds = {
             k if k != "dbname" else "database": v
             for k, v in credentials.items()
@@ -30,6 +23,7 @@ class Connector(ABC):
         label_column: str,
         entity_column: str,
     ) -> Dict:
+        """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp) for a given table."""
         numeric_columns = utils.merge_lists_to_unique(
             self.get_non_stringtype_features(
                 session, table_name, label_column, entity_column

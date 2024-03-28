@@ -1,6 +1,13 @@
-from src.predictions.rudderstack_predictions.train import _train
-from src.predictions.rudderstack_predictions.wht.pythonWHT import PythonWHT
-from src.predictions.rudderstack_predictions.utils import constants
+import sys
+import os
+
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "src", "predictions"))
+)
+
+from rudderstack_predictions.train import _train
+from rudderstack_predictions.wht.pythonWHT import PythonWHT
+from rudderstack_predictions.utils import constants
 
 
 def train(

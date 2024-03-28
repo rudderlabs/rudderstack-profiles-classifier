@@ -5,6 +5,7 @@ sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), "src", "predictions"))
 )
 
+# If path starts with the "src" directory, Snowflake throws an error: No module named 'src'
 from rudderstack_predictions.predict import _predict
 from rudderstack_predictions.utils import constants
 

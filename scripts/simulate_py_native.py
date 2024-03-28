@@ -36,7 +36,7 @@ if __name__ == "__main__":
     with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
         creds = yaml.safe_load(f)["connections"]["test"]["outputs"]["redshift"]
     input_model_refs = build_spec.get("inputs", [])
-    output_filename = "/Users/shashankshekhar/Documents/RudderStack/rudderstack-profiles-classifier/samples/py_native/output/redshift/seq_no/1093/Material_training_model_9b28e42b_training_file"
+    output_filename = os.path.join(os.getcwd(), "training_file")
     site_config_path = os.getenv("SITE_CONFIG_PATH")
     project_folder = os.getenv("PROJECT_FOLDER")
     runtime_info = {"site_config_path": site_config_path}

@@ -351,7 +351,7 @@ class Connector(ABC):
         self,
         session,
         registry_table_name: str,
-        features_model_name: str,
+        entity_var_model_name: str,
         model_hash: str,
         start_time: str,
         end_time: str,

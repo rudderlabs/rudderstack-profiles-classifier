@@ -75,7 +75,7 @@ def preprocess_and_predict(
     whtService = PyNativeWHT(None)
     whtService.init(connector, session, "", "")
 
-    feature_table_name = whtService.compute_material_name(
+    entity_var_table_name = whtService.compute_material_name(
         input_model_name, model_hash, seq_no
     )
 
@@ -87,9 +87,9 @@ def preprocess_and_predict(
         seq_no,
     )
 
-    logger.debug(f"Pulling data from Feature table - {feature_table_name}")
+    logger.debug(f"Pulling data from Entity-Var table - {entity_var_table_name}")
     raw_data = connector.get_table(
-        session, feature_table_name, filter_condition=trainer.eligible_users
+        session, entity_var_table_name, filter_condition=trainer.eligible_users
     )
 
     logger.debug("Transforming timestamp columns.")

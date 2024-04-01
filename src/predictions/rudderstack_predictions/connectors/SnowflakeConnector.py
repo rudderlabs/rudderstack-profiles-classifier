@@ -1025,9 +1025,11 @@ class SnowflakeConnector(Connector):
         ]
 
         if len(no_invalid_rows) > 0:
+            error_msg = ""
+            for row in result_table:
+                error_msg += f"\t{row[label_column]} - user count:  {row['COUNT']} ({100*row['NORMALIZED_COUNT']:.2f}%)\n"
             raise Exception(
-                f"Label column {label_column} has invalid proportions. {no_invalid_rows} \
-                    Please check if the label column has valid labels."
+                f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}."
             )
         return True
 

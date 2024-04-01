@@ -115,16 +115,16 @@ class RudderPB:
             "site_config_path": site_config_path,
         }
         pb_compile_output = self._compile(args)
-        model_name = None
+        entity_var_model_name = None
         for var_table in ["_var_table", "_all_var_table"]:
             if entity_key + var_table in pb_compile_output:
-                model_name = entity_key + var_table
+                entity_var_model_name = entity_key + var_table
                 break
-        if model_name is None:
+        if entity_var_model_name is None:
             raise Exception(
                 f"Could not find any matching var table in the output of pb compile command"
             )
-        material_file_prefix = (MATERIAL_PREFIX + model_name + "_").lower()
+        material_file_prefix = (MATERIAL_PREFIX + entity_var_model_name + "_").lower()
 
         try:
             model_hash = pb_compile_output[
@@ -135,7 +135,7 @@ class RudderPB:
             raise Exception(
                 f"Could not find material file prefix {material_file_prefix} in the output of pb compile command: {pb_compile_output}"
             )
-        return model_hash, model_name
+        return model_hash, entity_var_model_name
 
     def get_latest_entity_var_table_name(
         model_hash: str, entity_var_model: str, inputs: list

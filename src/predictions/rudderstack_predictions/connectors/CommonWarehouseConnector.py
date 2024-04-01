@@ -351,7 +351,7 @@ class CommonWarehouseConnector(Connector):
     def fetch_filtered_table(
         self,
         df,
-        features_profiles_model,
+        entity_var_model_name,
         model_hash,
         start_time,
         end_time,
@@ -359,7 +359,7 @@ class CommonWarehouseConnector(Connector):
     ):
         filtered_df = (
             df.loc[
-                (df["model_name"] == features_profiles_model)
+                (df["model_name"] == entity_var_model_name)
                 & (df["model_hash"] == model_hash)
                 & (df["end_ts"].dt.date >= pd.to_datetime(start_time).date())
                 & (df["end_ts"].dt.date <= pd.to_datetime(end_time).date()),
@@ -374,7 +374,7 @@ class CommonWarehouseConnector(Connector):
         self,
         session,
         registry_table_name: str,
-        features_model_name: str,
+        entity_var_model_name: str,
         model_hash: str,
         start_time: str,
         end_time: str,
@@ -383,7 +383,7 @@ class CommonWarehouseConnector(Connector):
         df = self.get_material_registry_table(session, registry_table_name)
         feature_df = self.fetch_filtered_table(
             df,
-            features_model_name,
+            entity_var_model_name,
             model_hash,
             start_time,
             end_time,
@@ -402,7 +402,7 @@ class CommonWarehouseConnector(Connector):
         ) + timedelta(days=prediction_horizon_days)
         label_df = self.fetch_filtered_table(
             df,
-            features_model_name,
+            entity_var_model_name,
             model_hash,
             label_start_time,
             label_end_time,

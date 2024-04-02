@@ -272,7 +272,7 @@ class SnowflakeConnector(Connector):
     ) -> List[str]:
         """
         Identify high cardinality features in the feature table based on condition that
-                the sum of frequency of ten most popular categories is less than 1% of the total row count.
+        the sum of frequency of ten most popular categories is less than cardinal_feature_threshold fraction(0.01) of the total row count.
         """
         high_cardinal_features = list()
         lower_categorical_features = [col.lower() for col in categorical_columns]
@@ -323,6 +323,9 @@ class SnowflakeConnector(Connector):
     def transform_arraytype_features(
         self, feature_table: snowflake.snowpark.Table, arraytype_features: List[str]
     ) -> Union[List[str], snowflake.snowpark.Table]:
+        """Transforms arraytype features in a snowflake.snowpark.Table by expanding the arraytype features
+        as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
+        """
         # Initialize lists to store transformed column names and DataFrames
         transformed_column_names = []
         transformed_tables = []

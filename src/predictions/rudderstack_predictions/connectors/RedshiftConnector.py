@@ -79,8 +79,8 @@ class RedshiftConnector(CommonWarehouseConnector):
                     where table_schema='{self.schema}'
                         and table_name='{table_name.lower()}';"""
         schema_list = self.run_query(session, query)
-        schemaFields = namedtuple("schemaFields", ["name", "field_type"])
-        named_schema_list = [schemaFields(*row) for row in schema_list]
+        schema_fields = namedtuple("schema_field", ["name", "field_type"])
+        named_schema_list = [schema_fields(*row) for row in schema_list]
         return named_schema_list
 
     def fetch_create_metrics_table_query(

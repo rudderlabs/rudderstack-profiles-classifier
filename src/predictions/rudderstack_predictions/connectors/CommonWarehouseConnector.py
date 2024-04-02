@@ -42,7 +42,9 @@ class CommonWarehouseConnector(Connector):
     def transform_arraytype_features(
         self, feature_df: pd.DataFrame, arraytype_features: List[str]
     ) -> Union[List[str], pd.DataFrame]:
-        """Transforms arraytype features in a pandas DataFrame by expanding the arraytype features as {feature_name}_{unique_value} columns and perform 0-1 encoding in those cols."""
+        """Transforms arraytype features in a pandas DataFrame by expanding the arraytype features
+        as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
+        """
         transformed_dfs = []
         transformed_feature_df = feature_df.copy()
         transformed_array_col_names = []
@@ -151,7 +153,7 @@ class CommonWarehouseConnector(Connector):
         return row_count != 0
 
     def get_table(self, session, table_name: str, **kwargs) -> pd.DataFrame:
-        """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object."""
+        """Fetches the table with the given name from the schema as a pandas Dataframe object."""
         return self.get_table_as_dataframe(session, table_name, **kwargs)
 
     def _create_get_table_query(self, table_name, **kwargs):
@@ -224,10 +226,10 @@ class CommonWarehouseConnector(Connector):
         entity_column: str,
     ) -> List:
         """Fetches the column names from the given schema_fields based on the required data types (exclude label and entity columns)"""
-        schemaField = self.fetch_table_metadata(session, table_name)
+        schema_fields = self.fetch_table_metadata(session, table_name)
         return [
             field.name
-            for field in schemaField
+            for field in schema_fields
             if field.field_type in required_data_types
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
         ]

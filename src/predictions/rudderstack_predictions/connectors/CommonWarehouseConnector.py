@@ -639,9 +639,11 @@ class CommonWarehouseConnector(Connector):
             | (label_proportion > max_label_proportion)
         ).any()
         if found_invalid_rows:
+            error_msg = ""
+            for row in label_proportion.reset_index().values:
+                error_msg += f"\tLabel: {row[0]:.0f} - users :({100*row[1]:.2f}%)\n"
             raise Exception(
-                f"Label column {label_column} has invalid proportions. \
-                        Please check if the label column has valid labels."
+                f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}."
             )
         return True
 

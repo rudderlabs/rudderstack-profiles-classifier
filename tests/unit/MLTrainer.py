@@ -103,7 +103,7 @@ class TestClassificationTrainer(unittest.TestCase):
             "'feature_data_min_date_diff' not found in input config",
             str(context.exception),
         )
-
+        
     def test_validate_data(self):
         config = build_trainer_config()
         trainer = ClassificationTrainer(**config)

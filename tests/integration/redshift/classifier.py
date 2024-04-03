@@ -8,6 +8,7 @@ from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import
 )
 from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
 import json
+import os
 
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])

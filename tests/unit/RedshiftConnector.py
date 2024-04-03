@@ -545,15 +545,24 @@ class TestValidations(unittest.TestCase):
         )
 
     # Checks if no:of columns in the feature table is less than 3, then it raises an exception.
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
+        new=1.0,
+    )
+    @patch(
+        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MAX_LABEL_PROPORTION",
+        new=0.0,
+    )
     def test_expects_error_if_label_ratios_are_bad_classification(self):
-        label_column = "COL1"
+        label_column = "COL2"
         with self.assertRaises(Exception) as context:
             self.connector.validate_class_proportions(
                 self.table[["COL1", "COL2", "COL3"]],
                 label_column,
             )
+        error_msg = "Label: 1 - users :(50.00%)\n\tLabel: 2 - users :(50.00%)"
         self.assertIn(
-            f"Label column {label_column} has invalid proportions.",
+            error_msg,
             str(context.exception),
             [],
         )
@@ -879,7 +888,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         ]
 
         # Call the function
-        self.trainer.check_min_data_requirement = Mock(side_effect=[False, True])
+        self.trainer.check_min_data_requirement = Mock(side_effect=[False, True, True])
         result = self.trainer.check_and_generate_more_materials(
             mock_get_material_func,
             materials=self.materials,

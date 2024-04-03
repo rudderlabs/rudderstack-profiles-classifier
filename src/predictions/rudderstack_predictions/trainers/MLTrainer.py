@@ -77,34 +77,23 @@ class MLTrainer(ABC):
             "",
         ], "materialisation strategy can only be 'auto', 'manual', or ''."
         if self.materialisation_strategy == "manual":
-            self.materialisation_dates = materialisation_config["dates"]
-            assert (
-                len(self.materialisation_dates) > 0
-            ), "materialisation dates are required for manual strategy."
-            if "max_no_of_dates" in materialisation_config:
-                logger.warning(
-                    "max_no_of_dates is not required for manual materialisation strategy. It gets ignored."
-                )
-            if "feature_data_min_date_diff" in materialisation_config:
-                logger.warning(
-                    "feature_data_min_date_diff is not required for manual materialisation strategy. It gets ignored."
+            try:
+                self.materialisation_dates = materialisation_config["dates"]
+            except KeyError:
+                raise KeyError(
+                    "materialisation dates are required for manual strategy in the input config."
                 )
         elif self.materialisation_strategy == "auto":
-            self.materialisation_max_no_dates = int(
-                materialisation_config["max_no_of_dates"]
-            )
-            self.feature_data_min_date_diff = int(
-                materialisation_config["feature_data_min_date_diff"]
-            )
-            assert (
-                "max_no_of_dates" in materialisation_config
-            ), "max_no_of_dates is required for auto materialisation strategy."
-            assert (
-                "feature_data_min_date_diff" in materialisation_config
-            ), "feature_data_min_date_diff is required for auto materialisation strategy."
-            if "dates" in materialisation_config:
-                logger.warning(
-                    "dates are not required for auto materialisation strategy. It gets ignored."
+            try:
+                self.materialisation_max_no_dates = int(
+                    materialisation_config["max_no_of_dates"]
+                )
+                self.feature_data_min_date_diff = int(
+                    materialisation_config["feature_data_min_date_diff"]
+                )
+            except KeyError as e:
+                raise KeyError(
+                    f"max_no_of_dates and feature_data_min_date_diff required for auto materialisation strategy. {e} not found in input config"
                 )
         elif self.materialisation_strategy == "":
             logger.info(

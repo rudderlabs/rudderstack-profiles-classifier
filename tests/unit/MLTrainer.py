@@ -81,6 +81,29 @@ class TestClassificationTrainer(unittest.TestCase):
         with self.assertRaises(AttributeError):
             getattr(trainer, "materialisation_max_no_dates")
 
+    def test_materialisation_config_throws_exception_on_invalid_params(self):
+        config = build_trainer_config()
+        config["data"]["new_materialisations_config"] = {
+            "strategy": "manual",
+            "max_no_of_dates": 3,
+        }
+        with self.assertRaises(Exception) as context:
+            ClassificationTrainer(**config)
+        self.assertIn(
+            "materialisation dates are required for manual strategy in the input config.",
+            str(context.exception),
+        )
+        config["data"]["new_materialisations_config"] = {
+            "strategy": "auto",
+            "max_no_of_dates": 3,
+        }
+        with self.assertRaises(Exception) as context:
+            ClassificationTrainer(**config)
+        self.assertIn(
+            "'feature_data_min_date_diff' not found in input config",
+            str(context.exception),
+        )
+
     def test_validate_data(self):
         config = build_trainer_config()
         trainer = ClassificationTrainer(**config)

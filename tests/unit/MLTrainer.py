@@ -20,7 +20,6 @@ def build_trainer_config():
     config["data"]["max_row_count"] = None
     config["data"]["prep"] = None
     config["data"]["recall_to_precision_importance"] = 0.0
-
     config["preprocessing"]["timestamp_columns"] = None
     config["preprocessing"]["ignore_features"] = None
     config["preprocessing"]["numeric_pipeline"] = None
@@ -29,7 +28,6 @@ def build_trainer_config():
     config["preprocessing"]["train_size"] = None
     config["preprocessing"]["test_size"] = None
     config["preprocessing"]["val_size"] = None
-
     config["outputs"]["column_names"] = None
     config["outputs"]["feature_meta_data"] = None
 
@@ -103,7 +101,7 @@ class TestClassificationTrainer(unittest.TestCase):
             "'feature_data_min_date_diff' not found in input config",
             str(context.exception),
         )
-        
+
     def test_validate_data(self):
         config = build_trainer_config()
         trainer = ClassificationTrainer(**config)

@@ -95,17 +95,7 @@ class TrainerUtils:
         th: float = 0.5,
         recall_to_precision_importance: float = 1.0,
     ) -> dict:
-        """Generates classification metrics
-
-        Args:
-            y_true (pd.DataFrame): Array of 1s and 0s. True labels
-            y_pred_proba (np.array): Array of predicted probabilities
-            th (float, optional): thresold for classification. Defaults to 0.5.
-            recall_to_precision_importance (float, optional): Importance of recall to precision. Defaults to 1.0
-
-        Returns:
-            dict: Returns classification metrics in form of a dict for the given thresold
-        """
+        """Returns classification metrics in form of a dict for the given thresold."""
         precision, recall, f1, _ = precision_recall_fscore_support(
             y_true,
             np.where(y_pred_proba > th, 1, 0),
@@ -135,17 +125,7 @@ class TrainerUtils:
         recall_to_precision_importance: float = 1.0,
     ) -> Tuple:
         """This function calculates the thresold that maximizes f1 score based on y_true and y_pred_proba
-        and classication metrics on basis of that.
-
-        Args:
-            y_true (pd.DataFrame): Array of 1s and 0s. True labels
-            y_pred_proba (np.array): Array of predicted probabilities
-            recall_to_precision_importance (float, optional): Importance of recall to precision.
-
-        Returns:
-            Tuple: Returns the metrics at the threshold and that threshold that maximizes f1 score
-                based on y_true and y_pred_proba
-        """
+        and classication metrics on basis of that."""
 
         metric_functions = {
             "f1_score": f1_score,
@@ -181,22 +161,8 @@ class TrainerUtils:
         train_config: dict,
         recall_to_precision_importance: float = 1.0,
     ) -> Tuple:
-        """Generates classification metrics and predictions for train, \
-            validation and test data along with the best probability thresold
-
-        Args:
-            clf (_type_): classifier to calculate the classification metrics
-            X_train (pd.DataFrame): X_train dataframe
-            y_train (pd.DataFrame): y_train dataframe
-            X_test (pd.DataFrame): X_test dataframe
-            y_test (pd.DataFrame): y_test dataframe
-            X_val (pd.DataFrame): X_val dataframe
-            y_val (pd.DataFrame): y_val dataframe
-            recall_to_precision_importance (float, optional): Importance of recall to precision. Defaults to 1.0
-
-        Returns:
-            Tuple: Returns the classification metrics and predictions for train, \
-                validation and test data along with the best probability thresold.
+        """Generates classification metrics and predictions for train,
+        validation and test data along with the best probability thresold.
         """
         train_preds = clf.predict_proba(X_train)[:, 1]
         metric_to_optimize = train_config["model_params"]["validation_on"]
@@ -222,22 +188,7 @@ class TrainerUtils:
     def get_metrics_regressor(
         self, model, train_x, train_y, test_x, test_y, val_x, val_y
     ):
-        """
-        Calculate and return regression metrics for the trained model.
-
-        Args:
-            model: The trained regression model.
-            train_x (pd.DataFrame): Training data features.
-            train_y (pd.DataFrame): Training data labels.
-            test_x (pd.DataFrame): Test data features.
-            test_y (pd.DataFrame): Test data labels.
-            val_x (pd.DataFrame): Validation data features.
-            val_y (pd.DataFrame): Validation data labels.
-            train_config (dict): Configuration for training.
-
-        Returns:
-            result_dict (dict): Dictionary containing regression metrics.
-        """
+        """Calculate and return regression metrics for the trained model."""
         train_pred = model.predict(train_x)
         test_pred = model.predict(test_x)
         val_pred = model.predict(val_x)
@@ -265,20 +216,7 @@ def split_train_test(
     test_size: float,
     isStratify: bool,
 ) -> Tuple:
-    """Splits the data in train test and validation according to the their given partition factions.
-
-    Args:
-        feature_df (pd.DataFrame): feature table dataframe from the retrieved material_names tuple
-        label_column (str): name of label column from feature table
-        entity_column (str): name of entity column from feature table
-        output_profiles_ml_model (str): output ml model from model_configs file
-        train_size (float): partition fraction for train data
-        val_size (float): partition fraction for validation data
-        test_size (float): partition fraction for test data
-
-    Returns:
-        Tuple: returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame
-    """
+    """Returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame"""
     feature_df.columns = feature_df.columns.str.upper()
     X_train, X_temp = train_test_split(
         feature_df,
@@ -302,29 +240,13 @@ def split_train_test(
 
 
 def load_yaml(file_path: str) -> dict:
-    """Loads the yaml file for any given filename
-
-    Args:
-        file_path (str): Path of the .yaml file that is to be read
-
-    Returns:
-        dict: dictionary as key-value pairs from given .yaml file
-    """
     with open(file_path, "r") as f:
         data = yaml.safe_load(f)
     return data
 
 
 def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
-    """Combine the configs after overwriting values of profiles.yaml in model_configs.yaml
-
-    Args:
-        default_config (dict): configs from model_configs.yaml file
-        profiles_config (dict, optional): configs from profiles.yaml file that should overwrite corresponding values from notebook_config. Defaults to None.
-
-    Returns:
-        dict: final merged config
-    """
+    """Combine the configs after overwriting values of profiles.yaml in model_configs.yaml"""
     if not isinstance(profiles_config, dict):
         return default_config
 
@@ -431,15 +353,8 @@ def convert_ts_str_to_dt_str(timestamp_str: str) -> str:
 
 
 def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> List[str]:
-    """Assigning new column names for the one-hot encoded columns.
-
-    Args:
-        onehot_encoder (OneHotEncoder): OneHotEncoder object.
-        col_names (List[str]): List of categorical column names before applying onehot transformation
-
-    Returns:
-        List[str]: List of categorical column names of the output dataframe \
-            including categories after applying onehot transformation.
+    """Returns List of categorical column names of the output dataframe
+    including categories after applying onehot transformation.
     """
     category_names = []
     for col_id, col in enumerate(col_names):
@@ -451,32 +366,13 @@ def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> Lis
 def transform_null(
     df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str]
 ) -> pd.DataFrame:
-    """
-    Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively.
-
-    Args:
-        df (pd.DataFrame): The pandas DataFrame.
-        numeric_columns (List[str]): A list of column names that contain numeric values.
-        categorical_columns (List[str]): A list of column names that contain categorical values.
-
-    Returns:
-        pd.DataFrame: The transformed DataFrame with pd.NA values replaced by np.nan in numeric columns and \
-            None in categorical columns.
-    """
+    """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
     df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
     return df
 
 
 def get_output_directory(folder_path: str) -> str:
-    """This function will return the output directory path
-
-    Args:
-        folder_path (str): path of the folder where output directory will be created
-
-    Returns:
-        str: output directory path
-    """
     file_list = [file for file in os.listdir(folder_path) if file.endswith(".py")]
     if file_list == []:
         latest_filename = "train"
@@ -493,9 +389,6 @@ def get_output_directory(folder_path: str) -> str:
 
 
 def delete_file(file_path: str) -> None:
-    """
-    Delete a file.
-    """
     try:
         os.remove(file_path)
         logger.info(f"File '{file_path}' deleted successfully from local.")
@@ -508,19 +401,6 @@ def delete_file(file_path: str) -> None:
 
 
 def delete_folder(folder_path: str) -> None:
-    """
-    Delete a folder and its contents recursively.
-    Parameters:
-        folder_path (str): The path of the folder to be deleted.
-    Returns:
-        None: The function does not return any value.
-    Raises:
-        FileNotFoundError: If the specified folder does not exist.
-        PermissionError: If there are permission issues while deleting the folder.
-        OSError: If an error occurs during the deletion process.
-    Example:
-        delete_folder("path/to/your/folder")
-    """
     try:
         shutil.rmtree(folder_path)
         logger.info(f"Folder '{folder_path}' deleted successfully from local.")
@@ -533,15 +413,6 @@ def delete_folder(folder_path: str) -> None:
 
 
 def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple:
-    """This function will return the start_date and end_date on basis of latest hash
-
-    Args:
-        end_date (datetime): creation timestamp of latest hash
-        prediction_horizon_days (int): period of days
-
-    Returns:
-        Tuple: start_date and end_date on basis of latest hash and period of days
-    """
     start_date = creation_ts - timedelta(days=2 * prediction_horizon_days)
     end_date = creation_ts - timedelta(days=prediction_horizon_days)
     if isinstance(start_date, datetime):
@@ -552,14 +423,8 @@ def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple
 
 def date_add(reference_date: str, add_days: int) -> str:
     """
-    Adds the horizon days to the reference date and returns the new date as a string.
-
-    Args:
-        reference_date (str): The Reference date in the format "YYYY-MM-DD".
-        add_days (int): The number of days to add to the reference date.
-
-    Returns:
-        str: The new date is returned as a string in the format "YYYY-MM-DD".
+    Adds the horizon days to the reference date (in the format "YYYY-MM-DD") and
+    returns the new date (in the format "YYYY-MM-DD") as a string.
     """
     new_timestamp = datetime.strptime(
         reference_date, constants.MATERIAL_DATE_FORMAT
@@ -570,12 +435,7 @@ def date_add(reference_date: str, add_days: int) -> str:
 
 def get_abs_date_diff(ref_date1: str, ref_date2: str) -> int:
     """
-    For given two dates in string format, it will retrun the difference in days
-    Args:
-        ref_date1: Reference date1
-        ref_date2: Reference date2
-    Returns:
-        int: Difference in number of dates
+    For given two dates (in the format "YYYY-MM-DD") in string format, it will retrun the difference in days
     """
     d1 = datetime.strptime(ref_date1, constants.MATERIAL_DATE_FORMAT)
     d2 = datetime.strptime(ref_date2, constants.MATERIAL_DATE_FORMAT)
@@ -586,14 +446,7 @@ def get_abs_date_diff(ref_date1: str, ref_date2: str) -> int:
 def dates_proximity_check(reference_date: str, dates: list, distance: int) -> bool:
     """
     For given reference date and list of training dates, it will check
-    whether a given date(reference_date) is farther from every date in the dates list, by minimum "distance" days
-
-    Args:
-        reference_date: Given reference date
-        dates: List of dates to be checked with
-        distance: Difference distance
-    Returns:
-        bool: Wether given date is passing the proximity check
+    whether a given date(reference_date) is farther from every date in the dates list, by minimum "distance" days.
     """
     for d in dates:
         if get_abs_date_diff(reference_date, d) < distance:
@@ -602,14 +455,6 @@ def dates_proximity_check(reference_date: str, dates: list, distance: int) -> bo
 
 
 def datetime_to_date_string(datetime_str: str) -> str:
-    """
-    Converts datetime sting to date string
-
-    Args:
-        datetime_str: Datetime in string format
-    Returns:
-        str: Date in string format
-    """
     try:
         if "+" in datetime_str:
             datetime_obj = datetime.strptime(datetime_str, "%Y-%m-%d %H:%M:%S%z")
@@ -671,15 +516,6 @@ def generate_new_training_dates(
 
 
 def merge_lists_to_unique(l1: list, l2: list) -> list:
-    """Merges two lists and returns a unique list of elements.
-
-    Args:
-        l1 (list): The first list.
-        l2 (list): The second list.
-
-    Returns:
-        list: A unique list of elements from both the lists.
-    """
     return list(set(l1 + l2))
 
 
@@ -690,14 +526,6 @@ def fetch_key_from_dict(dictionary, key, default_value=None):
 
 
 def get_feature_package_path(input_models: List[str]) -> str:
-    """Returns the feature package path
-
-    Args:
-        input_models (List[str]): list of input models
-
-    Returns:
-        str: feature package path
-    """
     assert (
         len(input_models) > 0
     ), "No input models provided in the config. Path to profiles input models (ex: models/<entity_var_name>) must be specified in the train data config."
@@ -716,16 +544,6 @@ def subprocess_run(args):
 
 
 def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
-    """
-    Plots y-actual vs y-predicted using deciles and saves it as a file.
-    Args:
-        y_pred (pd.Series): Predicted labels.
-        y_true (pd.Series): Actual labels.
-        deciles_file (str): File path to save the deciles plot.
-        label_column (str): Name of the label column.
-    Returns:
-        None. The function only saves the deciles plot as a file.
-    """
     deciles = pd.qcut(y_pred, q=10, labels=False, duplicates="drop")
     deciles_df = pd.DataFrame(
         {"Actual": y_true, "Predicted": y_pred, "Deciles": deciles}
@@ -756,17 +574,6 @@ def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
 
 
 def plot_regression_residuals(y_pred, y_true, residuals_file):
-    """
-    Plots regression residuals and saves it as a file.
-
-    Args:
-        y_true (array-like): The test data true values.
-        y_pred (array-like): The predicted data values.
-        chart_name (str): The name of the plot file.
-
-    Returns:
-        None. The function only saves the residuals plot as a file.
-    """
     residuals = y_true - y_pred
     sns.set(style="ticks", context="notebook")
     plt.figure(figsize=(8, 6))
@@ -782,18 +589,7 @@ def plot_regression_residuals(y_pred, y_true, residuals_file):
 
 
 def regression_evaluation_plot(y_pred, y_true, regression_chart_file, num_bins=10):
-    """
-    Create a plot between the percentage of targeted data and the percentage of actual labels covered.
-
-    Parameters:
-    - y_pred (array-like): Predicted values.
-    - y_true (array-like): True values.
-    - regression_chart_file (str): The file path to save the regression chart.
-    - num_bins (int, optional): Number of bins for dividing the continuous labels. Default is 10.
-
-    Returns:
-    - None
-    """
+    """Create a plot between the percentage of targeted data and the percentage of actual labels covered."""
     # Calculate deciles for y_true
     deciles = np.percentile(y_true, np.arange(0, 100, 100 / num_bins))
 
@@ -829,18 +625,6 @@ def regression_evaluation_plot(y_pred, y_true, regression_chart_file, num_bins=1
 
 
 def plot_roc_auc_curve(y_pred, y_true, roc_auc_file) -> None:
-    """
-    Plots the ROC curve and calculates the Area Under the Curve (AUC) for a given classifier model.
-
-    Parameters:
-    y_true (array-like): The test data true labels.
-    y_pred (array-like): The predicted data labels.
-    chart_name (str): The name of the plot file.
-
-    Returns:
-    None. The function does not return any value. The generated ROC curve plot is \
-        saved as an image file and uploaded to the session's file storage.
-    """
     fpr, tpr, _ = roc_curve(y_true, y_pred)
     roc_auc = auc(fpr, tpr)
     sns.set(style="ticks", context="notebook")
@@ -858,17 +642,6 @@ def plot_roc_auc_curve(y_pred, y_true, roc_auc_file) -> None:
 
 
 def plot_pr_auc_curve(y_pred, y_true, pr_auc_file) -> None:
-    """
-    Plots a precision-recall curve and saves it as a file.
-
-    Args:
-        y_true (array-like): The test data true labels.
-        y_pred (array-like): The predicted data labels.
-        chart_name (str): The name of the plot file.
-
-    Returns:
-        None. The function only saves the precision-recall curve plot as a file.
-    """
     precision, recall, _ = precision_recall_curve(y_true, y_pred)
     pr_auc = auc(recall, precision)
     sns.set(style="ticks", context="notebook")
@@ -887,18 +660,7 @@ def plot_pr_auc_curve(y_pred, y_true, pr_auc_file) -> None:
 
 
 def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
-    """
-    Generates a lift chart for a binary classification model.
-
-    Args:
-        y_true (array-like): The test data true labels.
-        y_pred (array-like): The predicted data labels.
-        chart_name (str): The name of the plot file.
-
-    Returns:
-        None. The function does not return any value, but it saves the lift chart as an image file \
-            in the specified location.
-    """
+    """Generates a lift chart for a binary classification model."""
     data = pd.DataFrame()
     data["label"] = y_true
     data["pred"] = y_pred
@@ -1016,18 +778,6 @@ def fetch_staged_file(
     file_name: str,
     target_folder: str,
 ) -> None:
-    """
-    Fetches a file from a Snowflake stage and saves it to a local target folder.
-
-    Args:
-        session (snowflake.snowpark.Session): The Snowflake session object used to connect to the Snowflake account.
-        stage_name (str): The name of the Snowflake stage where the file is located.
-        file_name (str): The name of the file to fetch from the stage.
-        target_folder (str): The local folder where the fetched file will be saved.
-
-    Returns:
-        None
-    """
     file_stage_path = f"{stage_name}/{file_name}"
     _ = session.file.get(file_stage_path, target_folder)
     input_file_path = os.path.join(target_folder, f"{file_name}.gz")
@@ -1046,15 +796,7 @@ def load_stage_file_from_local(
     target_folder: str,
     filetype: str,
 ):
-    """
-    Fetches a file from a Snowflake stage to local, loads it into memory and delete that file from local.
-
-    Args:
-        session (snowflake.snowpark.Session): The Snowflake session object used to connect to the Snowflake account.
-        stage_name (str): The name of the Snowflake stage where the file is located.
-        file_name (str): The name of the file to fetch from the stage.
-        target_folder (str): The local folder where the fetched file will be saved.
-        filetype (str): The type of the file to load ('json' or 'joblib').
+    """Fetches a file from a Snowflake stage to local, loads it into memory and delete that file from local.
 
     Returns:
         The loaded file object, either as a JSON object or a joblib object, depending on the `filetype`.
@@ -1071,14 +813,6 @@ def load_stage_file_from_local(
 
 #### Kept here for explain_prediction function ####
 def remap_credentials(credentials: dict) -> dict:
-    """Remaps credentials from profiles siteconfig to the expected format from snowflake session
-
-    Args:
-        credentials (dict): Data warehouse credentials from profiles siteconfig
-
-    Returns:
-        dict: Data warehouse creadentials remapped in format that is required to create a snowpark session
-    """
     new_creds = {
         k if k != "dbname" else "database": v
         for k, v in credentials.items()
@@ -1088,14 +822,6 @@ def remap_credentials(credentials: dict) -> dict:
 
 
 def get_timestamp_columns(table: snowflake.snowpark.Table) -> List[str]:
-    """
-    Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-    Args:
-        session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
-        feature_table (snowflake.snowpark.Table): The feature table from which to retrieve the timestamp columns.
-    Returns:
-        List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-    """
     timestamp_columns = []
     for field in table.schema.fields:
         if field.datatype in [T.TimestampType(), T.DateType(), T.TimeType()]:

@@ -19,10 +19,14 @@ data:
     - native-warehouse
   max_row_count: 500000
   recall_to_precision_importance: 1.0 # Importance of recall to precision. If 1.0, then recall and precision are equally important.
-  # sample_data: 1. # Keep 1 if all data during train_start_dt, train_end_dt and eligible_users should be selected; Else, give the percent as the number between 0 and 1; Ex, 0.25 indicates 25% data gets sampled
-
-  # top_k: 5
-  # bottom_k: 5
+  new_materialisations_config:
+    strategy: "auto" # (auto|manual) Strategy for generating new materials
+    feature_data_min_date_diff: 14 # Required for auto strategy only. Ignored for manual strategy if given. Minimum number of days in the difference between new generated material and existing materials
+    max_no_of_dates: 3 # Required for auto strategy only. Ignored for manual strategy if given. Upper limit on how many new materials that can be generated.
+    dates: # Required for manual strategy only. Ignored for auto strategy if given
+      - '2024-01-01,2024-01-07' # (feature_date, label_date)
+      - '2024-01-02,2024-01-08'
+      - '2024-01-03,2024-01-09'
   
 preprocessing:
   # Related to various preprocessing steps of the data

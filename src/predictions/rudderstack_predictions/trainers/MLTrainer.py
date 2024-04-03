@@ -118,12 +118,6 @@ class MLTrainer(ABC):
     ):
         """Returns a preprocessing pipeline for given numeric and categorical columns and pipeline config
 
-        Args:
-            numeric_columns (list): name of the columns that are numeric in nature
-            categorical_columns (list): name of the columns that are categorical in nature
-            numerical_pipeline_config (list): configs for numeric pipeline from model_configs file
-            categorical_pipeline_config (list): configs for categorical pipeline from model_configs file
-
         Raises:
             ValueError: If num_params_name is invalid for numeric pipeline
             ValueError: If cat_params_name is invalid for catagorical pipeline
@@ -184,14 +178,7 @@ class MLTrainer(ABC):
         return pipe
 
     def generate_hyperparameter_space(self, hyperopts: List[dict]) -> dict:
-        """Returns a dict of hyper-parameters expression map
-
-        Args:
-            hyperopts (List[dict]): list of all the hyper-parameter that are needed to be optimized
-
-        Returns:
-            dict: hyper-parameters expression map
-        """
+        """Returns a dict of hyper-parameters expression map."""
         space = {}
         for expression in hyperopts:
             expression_ = expression.copy()
@@ -474,19 +461,7 @@ class ClassificationTrainer(MLTrainer):
         model_class: Union[XGBClassifier, RandomForestClassifier, MLPClassifier],
         model_config: Dict,
     ) -> Tuple:
-        """Returns the classifier with best hyper-parameters after performing hyper-parameter tuning.
-
-        Args:
-            X_train (pd.DataFrame): X_train dataframe
-            y_train (pd.DataFrame): y_train dataframe
-            X_val (pd.DataFrame): X_val dataframe
-            y_val (pd.DataFrame): y_val dataframe
-            model_class (Union[XGBClassifier, RandomForestClassifier, MLPClassifier]): classifier to build model
-            model_config (dict): configurations for the given model
-
-        Returns:
-            Tuple: classifier with best hyper-parameters found out using val_data along with trials info
-        """
+        """Returns the classifier with best hyper-parameters after performing hyper-parameter tuning along with trials info."""
         hyperopt_space = self.generate_hyperparameter_space(model_config["hyperopts"])
 
         # We can set evaluation set for xgboost model which we cannot directly configure from configuration file
@@ -523,16 +498,7 @@ class ClassificationTrainer(MLTrainer):
 
     def select_best_model(self, models, train_x, train_y, val_x, val_y):
         """
-        Selects the best classifier model based on the given list of models and their configurations.
-
-        Args:
-            models (list): A list of dictionaries representing the models to be trained.
-            train_x (pd.DataFrame): The training data features.
-            train_y (pd.DataFrame): The training data labels.
-            val_x (pd.DataFrame): The validation data features.
-            val_y (pd.DataFrame): The validation data labels.
-        Returns:
-            final_clf (object): The selected classifier model with the best hyperparameters.
+        Returns the best classifier model with the best hyperparameters based on the given list of models and their configurations.
         """
         best_acc = 0
         for model_config in models:
@@ -576,18 +542,6 @@ class ClassificationTrainer(MLTrainer):
         y: pd.DataFrame,
         label_column: str,
     ) -> None:
-        """Plots the diagnostics for the given model
-
-        Args:
-            Connector (Connector): Connector instance to access data warehouse
-            session: valid snowpark session or redshift cursor to access data warehouse
-            model (object): trained model
-            stage_name (str): name of the stage
-            x (pd.DataFrame): test data features
-            y (pd.DataFrame): test data labels
-            figure_names (dict): dict of figure names
-            label_column (str): name of the label column
-        """
         try:
             y_pred = model.predict_proba(x)[:, 1]
             y_true = y[label_column.upper()].values
@@ -688,20 +642,7 @@ class RegressionTrainer(MLTrainer):
         model_class: Union[XGBRegressor, RandomForestRegressor, MLPRegressor],
         model_config: Dict,
     ) -> Tuple:
-        """
-        Returns the regressor with best hyper-parameters after performing hyper-parameter tuning.
-
-        Args:
-            X_train (pd.DataFrame): X_train dataframe
-            y_train (pd.DataFrame): y_train dataframe
-            X_val (pd.DataFrame): X_val dataframe
-            y_val (pd.DataFrame): y_val dataframe
-            model_class: Regressor class to build the model
-            model_config (dict): configurations for the given model
-
-        Returns:
-            Tuple: regressor with best hyper-parameters found out using val_data along with trials info
-        """
+        """Returns the regressor with best hyper-parameters after performing hyper-parameter tuning along with trials info."""
         hyperopt_space = self.generate_hyperparameter_space(model_config["hyperopts"])
 
         # We can set evaluation set for XGB Regressor model which we cannot directly configure from the configuration file
@@ -738,17 +679,7 @@ class RegressionTrainer(MLTrainer):
 
     def select_best_model(self, models, train_x, train_y, val_x, val_y):
         """
-        Selects the best regressor model based on the given list of models and their configurations.
-
-        Args:
-            models (list): A list of dictionaries representing the models to be trained.
-            train_x (pd.DataFrame): The training data features.
-            train_y (pd.DataFrame): The training data labels.
-            val_x (pd.DataFrame): The validation data features.
-            val_y (pd.DataFrame): The validation data labels.
-
-        Returns:
-            final_reg (object): The selected regressor model with the best hyperparameters.
+        Returns the best regressor model with the best hyperparameters based on the given list of models and their configurations.
         """
         best_loss = float("inf")
 

@@ -118,9 +118,5 @@ class TrainingRecipe(PyNativeRecipe):
             input_model_refs,
             PyNativeWHT(this),
             constants.ML_CORE_PYNATIVE_PATH,
+            this.name(),
         )
-        # pb expects every model to create a material. The output material of training model is a file which is currently not supported
-        # So until file type support is added, create a dummy table in the database
-        data = {"dummy_column": ["dummy_value"]}
-        df = pd.DataFrame(data)
-        this.write_output(df)

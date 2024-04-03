@@ -19,7 +19,6 @@ from ..utils.S3Utils import S3Utils
 from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
 
-metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
 
@@ -27,6 +26,7 @@ def train_and_store_model_results(
     feature_df: pd.DataFrame,
     train_config: dict,
     feature_table_column_types: dict,
+    metrics_table: str,
     **kwargs,
 ) -> dict:
     """Creates and saves the trained model pipeline after performing preprocessing and classification and
@@ -83,7 +83,8 @@ def train_and_store_model_results(
     )
     connector.write_pandas(shap_importance, "FEATURE_IMPORTANCE", if_exists="replace")
     metrics_df, create_metrics_table_query = connector.fetch_create_metrics_table_query(
-        metrics_df
+        metrics_df,
+        metrics_table,
     )
     connector.run_query(
         session,
@@ -145,6 +146,7 @@ def preprocess_and_train(
     train_table_pairs: List[constants.TrainTablesInfo],
     merged_config: dict,
     input_column_types: dict,
+    metrics_table: str,
     **kwargs,
 ):
     session = kwargs.get("session", None)
@@ -228,6 +230,7 @@ def preprocess_and_train(
             filtered_feature_table,
             train_config,
             feature_table_column_types,
+            metrics_table,
             session=session,
             connector=connector,
             trainer=trainer,
@@ -266,6 +269,7 @@ if __name__ == "__main__":
     parser.add_argument("--wh_creds", type=json.loads)
     parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
+    parser.add_argument("--metrics_table", type=str)
     args = parser.parse_args()
 
     if args.mode == constants.CI_MODE:
@@ -312,6 +316,7 @@ if __name__ == "__main__":
         material_info,
         args.merged_config,
         args.input_column_types,
+        args.metrics_table,
         session=session,
         connector=connector,
         trainer=trainer,

@@ -179,6 +179,7 @@ class K8sProcessor(Processor):
         materials: List[TrainTablesInfo],
         merged_config: dict,
         input_column_types: dict,
+        metrics_table: str,
         prediction_task: str,
         wh_creds: dict,
         site_config: dict,
@@ -209,6 +210,8 @@ class K8sProcessor(Processor):
             json.dumps(input_column_types),
             "--prediction_task",
             prediction_task,
+            "--metrics_table",
+            metrics_table,
         ]
         job_name = "ml-training-" + str(uuid.uuid4())
         self._execute(

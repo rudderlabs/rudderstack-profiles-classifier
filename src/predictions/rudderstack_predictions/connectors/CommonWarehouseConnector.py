@@ -827,5 +827,5 @@ class CommonWarehouseConnector(Connector):
         pass
 
     @abstractmethod
-    def fetch_create_metrics_table_query(self, metrics_df):
+    def fetch_create_metrics_table_query(self, metrics_df, table_name: str):
         pass

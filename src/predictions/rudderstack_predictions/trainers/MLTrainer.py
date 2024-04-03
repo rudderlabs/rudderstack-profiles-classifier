@@ -88,12 +88,17 @@ class MLTrainer(ABC):
                 self.materialisation_max_no_dates = int(
                     materialisation_config["max_no_of_dates"]
                 )
+            except KeyError as e:
+                raise KeyError(
+                    f"max_no_of_dates required for auto materialisation strategy. {e} not found in input config"
+                )
+            try:
                 self.feature_data_min_date_diff = int(
                     materialisation_config["feature_data_min_date_diff"]
                 )
             except KeyError as e:
                 raise KeyError(
-                    f"max_no_of_dates and feature_data_min_date_diff required for auto materialisation strategy. {e} not found in input config"
+                    f"feature_data_min_date_diff required for auto materialisation strategy. {e} not found in input config"
                 )
         elif self.materialisation_strategy == "":
             logger.info(

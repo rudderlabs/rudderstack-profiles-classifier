@@ -8,7 +8,7 @@ import shutil
 import pandas as pd
 from datetime import datetime
 
-from typing import Any, Iterable, List, Union, Optional, Sequence, Dict
+from typing import Any, Iterable, List, Tuple, Union, Optional, Sequence, Dict
 
 import snowflake.snowpark
 import snowflake.snowpark.types as T
@@ -27,6 +27,19 @@ local_folder = constants.SF_LOCAL_STORAGE_DIR
 
 class SnowflakeConnector(Connector):
     def __init__(self) -> None:
+        self.data_type_mapping = {
+            "numeric": (
+                T.DecimalType,
+                T.IntegerType,
+                T.LongType,
+                T.ShortType,
+                T.FloatType,
+                T.DoubleType,
+            ),
+            "categorical": (T.StringType, T.VariantType),
+            "timestamp": (T.TimestampType, T.DateType, T.TimeType),
+            "arraytype": (T.ArrayType),
+        }
         self.run_id = hashlib.md5(
             f"{str(datetime.now())}_{uuid.uuid4()}".encode()
         ).hexdigest()
@@ -205,62 +218,66 @@ class SnowflakeConnector(Connector):
     ):
         session.file.put(file_name, stage_name, overwrite=overwrite)
 
-    def get_non_stringtype_features(
+    def fetch_table_metadata(
+        self, session: snowflake.snowpark.Session, table_name: str
+    ) -> List:
+        """Fetches a list containing the schema of the given table from the Snowflake schema."""
+        table = self.get_table(session, table_name)
+        return table.schema.fields
+
+    def fetch_given_data_type_columns(
         self,
-        session: snowflake.snowpark.Session,
-        feature_table_name: str,
+        schema_fields: List,
+        required_data_types: Tuple,
+        label_column: str,
+        entity_column: str,
+    ) -> List:
+        """Fetches the column names from the given schema_fields based on the required data types (exclude label and entity columns)"""
+        return [
+            field.name
+            for field in schema_fields
+            if isinstance(field.datatype, required_data_types)
+            and field.name.lower() not in (label_column.lower(), entity_column.lower())
+        ]
+
+    def get_numeric_features(
+        self,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
-        feature_table = self.get_table(session, feature_table_name)
-        non_stringtype_features = []
-        for field in feature_table.schema.fields:
-            if not isinstance(
-                field.datatype, T.StringType
-            ) and field.name.lower() not in (
-                label_column.lower(),
-                entity_column.lower(),
-            ):
-                non_stringtype_features.append(field.name)
-        return non_stringtype_features
+        return self.fetch_given_data_type_columns(
+            schema_fields,
+            self.data_type_mapping["numeric"],
+            label_column,
+            entity_column,
+        )
 
     def get_stringtype_features(
         self,
-        session: snowflake.snowpark.Session,
-        feature_table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
-        feature_table = self.get_table(session, feature_table_name)
-        stringtype_features = []
-        for field in feature_table.schema.fields:
-            if isinstance(field.datatype, T.StringType) and field.name.lower() not in (
-                label_column.lower(),
-                entity_column.lower(),
-            ):
-                stringtype_features.append(field.name)
-        return stringtype_features
+        return self.fetch_given_data_type_columns(
+            schema_fields,
+            self.data_type_mapping["categorical"],
+            label_column,
+            entity_column,
+        )
 
     def get_arraytype_columns(
         self,
-        session: snowflake.snowpark.Session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
-        table = self.get_table(session, table_name)
-        arraytype_columns = self.get_arraytype_columns_from_table(table)
-        return arraytype_columns
-
-    def get_arraytype_columns_from_table(
-        self, table: snowflake.snowpark.Table, **kwargs
-    ) -> list:
-        arraytype_columns = [
-            row.name
-            for row in table.schema.fields
-            if isinstance(row.datatype, T.ArrayType)
-        ]
-        return arraytype_columns
+        return self.fetch_given_data_type_columns(
+            schema_fields,
+            self.data_type_mapping["arraytype"],
+            label_column,
+            entity_column,
+        )
 
     def get_high_cardinal_features(
         self,
@@ -302,23 +319,16 @@ class SnowflakeConnector(Connector):
 
     def get_timestamp_columns(
         self,
-        session: snowflake.snowpark.Session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
-        table = self.get_table(session, table_name)
-        timestamp_columns = self.get_timestamp_columns_from_table(table)
-        return timestamp_columns
-
-    def get_timestamp_columns_from_table(
-        self, table: snowflake.snowpark.Table, **kwargs
-    ) -> List[str]:
-        timestamp_columns = []
-        for field in table.schema.fields:
-            if isinstance(field.datatype, (T.TimestampType, T.DateType, T.TimeType)):
-                timestamp_columns.append(field.name)
-        return timestamp_columns
+        return self.fetch_given_data_type_columns(
+            schema_fields,
+            self.data_type_mapping["timestamp"],
+            label_column,
+            entity_column,
+        )
 
     def transform_arraytype_features(
         self, feature_table: snowflake.snowpark.Table, arraytype_features: List[str]

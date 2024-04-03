@@ -92,17 +92,17 @@ if __name__ == "__main__":
         "entity_key": entity_key,
         "output_profiles_ml_model": output_model_name,
         "package_name": package_name,
+        "new_materialisations_config": {
+            "feature_data_min_date_diff": 14,
+            "strategy": "auto",
+            "max_no_of_dates": 3,
+        },
     }
 
     preprocessing = {"ignore_features": ["user_email", "first_name", "last_name"]}
     train_config = {
         "data": data,
         "preprocessing": preprocessing,
-        "new_materialisations_config": {
-            "feature_data_min_date_diff": 14,
-            "strategy": "auto",
-            "max_no_of_dates": 3,
-        },
     }
 
     predict_config = {

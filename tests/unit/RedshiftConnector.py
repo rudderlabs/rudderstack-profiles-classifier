@@ -888,7 +888,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         ]
 
         # Call the function
-        self.trainer.check_min_data_requirement = Mock(side_effect=[False, True])
+        self.trainer.check_min_data_requirement = Mock(side_effect=[False, True, True])
         result = self.trainer.check_and_generate_more_materials(
             mock_get_material_func,
             materials=self.materials,

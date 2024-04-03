@@ -20,7 +20,6 @@ models:
             output_profiles_ml_model: *amt_spent_model_name # Name of output model based on current model to dinstinguish between multiple models
             eligible_users: days_since_last_seen<=90
             task: 'regression'
-            inputs: *inputs_amt_spent
             new_materialisations_config: # Configuration for generating new materials
               feature_data_min_date_diff: 14 # Minimum number of days in the difference between new generated material and existing materials
               strategy: "auto" # (auto|manual) Strategy for generating new materials

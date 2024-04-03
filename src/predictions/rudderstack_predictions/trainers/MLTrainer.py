@@ -58,22 +58,58 @@ class MLTrainer(ABC):
         self.prep = utils.PreprocessorConfig(**kwargs["preprocessing"])
         self.outputs = utils.OutputsConfig(**kwargs["outputs"])
         self.isStratify = None
-
-        new_materialisations_config = kwargs.get("new_materialisations_config", {})
-        self.materialisation_strategy = new_materialisations_config.get(
-            "strategy", ""
-        ).lower()
-        self.materialisation_dates = new_materialisations_config.get("dates", [])
-        self.materialisation_max_no_dates = int(
-            new_materialisations_config.get("max_no_of_dates", 0)
+        new_materialisations_config = kwargs["data"].get(
+            "new_materialisations_config", {}
         )
-        self.feature_data_min_date_diff = int(
-            new_materialisations_config.get("feature_data_min_date_diff", 0)
-        )
+        self.load_materialisation_config(new_materialisations_config)
 
     hyperopts_expressions_map = {
         exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]
     }
+
+    def load_materialisation_config(self, materialisation_config: dict):
+        self.materialisation_strategy = materialisation_config.get(
+            "strategy", ""
+        ).lower()
+        assert self.materialisation_strategy in [
+            "auto",
+            "manual",
+            "",
+        ], "materialisation strategy can only be 'auto', 'manual', or ''."
+        if self.materialisation_strategy == "manual":
+            self.materialisation_dates = materialisation_config["dates"]
+            assert (
+                len(self.materialisation_dates) > 0
+            ), "materialisation dates are required for manual strategy."
+            if "max_no_of_dates" in materialisation_config:
+                logger.warning(
+                    "max_no_of_dates is not required for manual materialisation strategy. It gets ignored."
+                )
+            if "feature_data_min_date_diff" in materialisation_config:
+                logger.warning(
+                    "feature_data_min_date_diff is not required for manual materialisation strategy. It gets ignored."
+                )
+        elif self.materialisation_strategy == "auto":
+            self.materialisation_max_no_dates = int(
+                materialisation_config["max_no_of_dates"]
+            )
+            self.feature_data_min_date_diff = int(
+                materialisation_config["feature_data_min_date_diff"]
+            )
+            assert (
+                "max_no_of_dates" in materialisation_config
+            ), "max_no_of_dates is required for auto materialisation strategy."
+            assert (
+                "feature_data_min_date_diff" in materialisation_config
+            ), "feature_data_min_date_diff is required for auto materialisation strategy."
+            if "dates" in materialisation_config:
+                logger.warning(
+                    "dates are not required for auto materialisation strategy. It gets ignored."
+                )
+        elif self.materialisation_strategy == "":
+            logger.info(
+                "No past materialisation strategy given. The training will be done on the existing eligible past materialised data only."
+            )
 
     def get_preprocessing_pipeline(
         self,
@@ -381,12 +417,16 @@ class MLTrainer(ABC):
                 f"new feature tables: {[m.feature_table_name for m in materials]}"
             )
             logger.debug(f"new label tables: {[m.label_table_name for m in materials]}")
-            met_data_requirement = self.check_min_data_requirement(
-                connector, session, materials
-            )
-
-            if met_data_requirement:
+            if (
+                self.materialisation_strategy == "auto"
+                and self.check_min_data_requirement(connector, session, materials)
+            ):
+                logger.info("Minimum data requirement satisfied.")
                 break
+        if not self.check_min_data_requirement(connector, session, materials):
+            logger.warning(
+                "Minimum data requirement not satisfied. Model performance may suffer. Try adding more datapoints by including more dates or increasing max_no_of_dates in the config."
+            )
 
         return materials
 

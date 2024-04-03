@@ -20,7 +20,6 @@ def build_trainer_config():
     config["data"]["max_row_count"] = None
     config["data"]["prep"] = None
     config["data"]["recall_to_precision_importance"] = 0.0
-
     config["preprocessing"]["timestamp_columns"] = None
     config["preprocessing"]["ignore_features"] = None
     config["preprocessing"]["numeric_pipeline"] = None
@@ -29,7 +28,6 @@ def build_trainer_config():
     config["preprocessing"]["train_size"] = None
     config["preprocessing"]["test_size"] = None
     config["preprocessing"]["val_size"] = None
-
     config["outputs"]["column_names"] = None
     config["outputs"]["feature_meta_data"] = None
 
@@ -80,6 +78,29 @@ class TestClassificationTrainer(unittest.TestCase):
         )
         with self.assertRaises(AttributeError):
             getattr(trainer, "materialisation_max_no_dates")
+
+    def test_materialisation_config_throws_exception_on_invalid_params(self):
+        config = build_trainer_config()
+        config["data"]["new_materialisations_config"] = {
+            "strategy": "manual",
+            "max_no_of_dates": 3,
+        }
+        with self.assertRaises(Exception) as context:
+            ClassificationTrainer(**config)
+        self.assertIn(
+            "materialisation dates are required for manual strategy in the input config.",
+            str(context.exception),
+        )
+        config["data"]["new_materialisations_config"] = {
+            "strategy": "auto",
+            "max_no_of_dates": 3,
+        }
+        with self.assertRaises(Exception) as context:
+            ClassificationTrainer(**config)
+        self.assertIn(
+            "'feature_data_min_date_diff' not found in input config",
+            str(context.exception),
+        )
 
     def test_validate_data(self):
         config = build_trainer_config()

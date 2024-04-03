@@ -33,9 +33,7 @@ class Connector(ABC):
         schema_fields = self.fetch_table_metadata(session, table_name)
 
         numeric_columns = utils.merge_lists_to_unique(
-            self.get_non_stringtype_features(
-                schema_fields, label_column, entity_column
-            ),
+            self.get_numeric_features(schema_fields, label_column, entity_column),
             trainer_obj.prep.numeric_pipeline["numeric_columns"],
         )
         categorical_columns = utils.merge_lists_to_unique(
@@ -159,7 +157,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_non_stringtype_features(
+    def get_numeric_features(
         self,
         schema_fields: List,
         label_column: str,

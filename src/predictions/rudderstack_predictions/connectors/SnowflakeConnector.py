@@ -362,7 +362,7 @@ class SnowflakeConnector(Connector):
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
         ]
 
-    def get_non_stringtype_features(
+    def get_numeric_features(
         self,
         schema_fields: List,
         label_column: str,

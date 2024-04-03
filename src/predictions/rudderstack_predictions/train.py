@@ -153,6 +153,7 @@ def _train(
             feature_table_name: str,
             train_config: dict,
             feature_table_column_types: dict,
+            metrics_table: str,
         ) -> dict:
             """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
 

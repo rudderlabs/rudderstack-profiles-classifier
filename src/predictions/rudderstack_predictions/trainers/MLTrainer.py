@@ -58,7 +58,9 @@ class MLTrainer(ABC):
         self.prep = utils.PreprocessorConfig(**kwargs["preprocessing"])
         self.outputs = utils.OutputsConfig(**kwargs["outputs"])
         self.isStratify = None
-        new_materialisations_config = kwargs.get("new_materialisations_config", {})
+        new_materialisations_config = kwargs["data"].get(
+            "new_materialisations_config", {}
+        )
         self.load_materialisation_config(new_materialisations_config)
 
     hyperopts_expressions_map = {
@@ -92,7 +94,7 @@ class MLTrainer(ABC):
                 materialisation_config["max_no_of_dates"]
             )
             self.feature_data_min_date_diff = int(
-                materialisation_config["feature_data_min_date_diff"], 0
+                materialisation_config["feature_data_min_date_diff"]
             )
             assert (
                 "max_no_of_dates" in materialisation_config

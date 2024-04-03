@@ -54,6 +54,33 @@ class TestClassificationTrainer(unittest.TestCase):
             },
         )
 
+    def test_materialisation_config_is_loaded_correctly(self):
+        config = build_trainer_config()
+        trainer = ClassificationTrainer(**config)
+        self.assertEqual(trainer.materialisation_strategy, "")
+        config["data"]["new_materialisations_config"] = {
+            "strategy": "auto",
+            "feature_data_min_date_diff": 7,
+            "max_no_of_dates": 3,
+        }
+        trainer = ClassificationTrainer(**config)
+        self.assertEqual(trainer.materialisation_strategy, "auto")
+        self.assertEqual(trainer.materialisation_max_no_dates, 3)
+        self.assertEqual(trainer.feature_data_min_date_diff, 7)
+        config["data"]["new_materialisations_config"] = {
+            "strategy": "manual",
+            "dates": ["2022-01-01,2022-03-01", "2022-05-01,2022-07-01"],
+            "max_no_of_dates": 3,
+        }
+        trainer = ClassificationTrainer(**config)
+        self.assertEqual(trainer.materialisation_strategy, "manual")
+        self.assertEqual(
+            trainer.materialisation_dates,
+            ["2022-01-01,2022-03-01", "2022-05-01,2022-07-01"],
+        )
+        with self.assertRaises(AttributeError):
+            getattr(trainer, "materialisation_max_no_dates")
+
     def test_validate_data(self):
         config = build_trainer_config()
         trainer = ClassificationTrainer(**config)

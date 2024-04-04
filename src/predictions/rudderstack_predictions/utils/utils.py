@@ -59,17 +59,6 @@ import subprocess
 from dataclasses import dataclass
 from ..utils.logger import logger
 
-from pycaret.classification import predict_model as predict_classification
-from pycaret.regression import predict_model as predict_regression
-
-from pycaret.classification import (
-    predict_model as predict_classification,
-)
-
-from pycaret.regression import (
-    predict_model as predict_regression,
-)
-
 
 @dataclass
 class PreprocessorConfig:
@@ -321,11 +310,9 @@ def transform_null(
     df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str]
 ) -> pd.DataFrame:
     """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
-    # Replace pd.NA with mean in numeric columns
     for col in numeric_columns:
         df[col] = df[col].fillna(0)
 
-    # Replace pd.NA with mode in categorical columns
     for col in categorical_columns:
         df[col] = df[col].fillna("unknown")
     return df

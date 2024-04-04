@@ -318,7 +318,7 @@ class Connector(ABC):
         output_label_column: str,
         train_model_id: str,
         input: Any,
-        pred_df_config: Dict,
+        pred_output_df_columns: Dict,
     ) -> pd.DataFrame:
         pass
 

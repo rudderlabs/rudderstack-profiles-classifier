@@ -256,7 +256,7 @@ class MLTrainer(ABC):
     ):
         pass
 
-    def prepare_data_(
+    def _prepare_data(
         self,
         preprocess_setup,
         get_config,
@@ -563,7 +563,7 @@ class ClassificationTrainer(MLTrainer):
     def prepare_data(
         self, feature_df: pd.DataFrame, categorical_columns, numeric_columns
     ):
-        return self.prepare_data_(
+        return self._prepare_data(
             classification_setup,
             get_classification_config,
             feature_df,
@@ -759,7 +759,7 @@ class RegressionTrainer(MLTrainer):
     def prepare_data(
         self, feature_df: pd.DataFrame, categorical_columns, numeric_columns
     ):
-        return self.prepare_data_(
+        return self._prepare_data(
             regression_setup,
             get_regression_config,
             feature_df,

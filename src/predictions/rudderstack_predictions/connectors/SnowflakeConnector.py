@@ -831,12 +831,12 @@ class SnowflakeConnector(Connector):
         output_label_column: str,
         train_model_id: str,
         input: snowflake.snowpark.Table,
-        pred_df_config: Dict,
+        pred_output_df_columns: Dict,
     ) -> pd.DataFrame:
         """Calls the given function for prediction and returns results of the predict function."""
 
-        pycaret_score_column_name = pred_df_config["score"].upper()
-        pycaret_label_column_name = pred_df_config.get(
+        pycaret_score_column_name = pred_output_df_columns["score"].upper()
+        pycaret_label_column_name = pred_output_df_columns.get(
             "label", "prediction_score"
         ).upper()
 
@@ -867,7 +867,7 @@ class SnowflakeConnector(Connector):
         ).drop("columnindex")
 
         # Remove the dummy label column in case of Regression
-        if "label" not in pred_df_config:
+        if "label" not in pred_output_df_columns:
             preds.drop(output_label_column)
 
         preds_with_percentile = preds.withColumn(

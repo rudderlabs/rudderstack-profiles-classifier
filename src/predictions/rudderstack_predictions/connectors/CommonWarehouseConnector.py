@@ -745,16 +745,16 @@ class CommonWarehouseConnector(Connector):
         output_label_column: str,
         train_model_id: str,
         input: pd.DataFrame,
-        pred_df_config: Dict,
+        pred_output_df_columns: Dict,
     ) -> pd.DataFrame:
         """Calls the given function for prediction and returns results of the predict function."""
         preds = predict_data[[entity_column, index_timestamp]]
         prediction_df = prediction_udf(input)
 
-        preds[score_column_name] = prediction_df[pred_df_config["score"]]
+        preds[score_column_name] = prediction_df[pred_output_df_columns["score"]]
 
-        if "label" in pred_df_config:
-            preds[output_label_column] = prediction_df[pred_df_config["label"]]
+        if "label" in pred_output_df_columns:
+            preds[output_label_column] = prediction_df[pred_output_df_columns["label"]]
 
         preds["model_id"] = train_model_id
 

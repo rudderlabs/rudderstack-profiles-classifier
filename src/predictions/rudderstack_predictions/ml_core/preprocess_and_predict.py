@@ -137,11 +137,11 @@ def preprocess_and_predict(
     #  For classification we had the scores as score_column_name and then compute the output_label_column based on the threshold. So the mapping.
     #  For regression, we had the score column only , thus mapped the score to pycaret's prediction_label
 
-    pred_df_config = {}
+    pred_output_df_columns = {}
     if prediction_task == "classification":
-        pred_df_config = {"label": "prediction_label", "score": "prediction_score"}
+        pred_output_df_columns = {"label": "prediction_label", "score": "prediction_score"}
     elif prediction_task == "regression":
-        pred_df_config = {
+        pred_output_df_columns = {
             "score": "prediction_label",
         }
 
@@ -177,8 +177,8 @@ def preprocess_and_predict(
     if creds["type"] == "snowflake":
         udf_name = connector.udf_name
 
-        pycaret_score_column = pred_df_config["score"]
-        pycaret_label_column = pred_df_config.get(
+        pycaret_score_column = pred_output_df_columns["score"]
+        pycaret_label_column = pred_output_df_columns.get(
             "label", "prediction_score"
         )  # To make up for the missing column in case of regression
 
@@ -217,9 +217,9 @@ def preprocess_and_predict(
                 prediction_df = pd.DataFrame()
                 prediction_df[pycaret_score_column] = predictions[pycaret_score_column]
 
-                # Check if 'label' is present in pred_df_config
+                # Check if 'label' is present in pred_output_df_columns
                 # Had to add a dummy label column in case of regression to the output dataframe as the UDTF expects the two columns in output
-                if "label" in pred_df_config:
+                if "label" in pred_output_df_columns:
                     prediction_df[pycaret_label_column] = predictions[
                         pycaret_label_column
                     ]
@@ -251,7 +251,7 @@ def preprocess_and_predict(
         trainer.outputs.column_names.get("output_label_column"),
         train_model_id,
         input_df,
-        pred_df_config,
+        pred_output_df_columns,
     )
     logger.debug("Writing predictions to warehouse")
     connector.write_table(

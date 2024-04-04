@@ -139,7 +139,10 @@ def preprocess_and_predict(
 
     pred_output_df_columns = {}
     if prediction_task == "classification":
-        pred_output_df_columns = {"label": "prediction_label", "score": "prediction_score"}
+        pred_output_df_columns = {
+            "label": "prediction_label",
+            "score": "prediction_score",
+        }
     elif prediction_task == "regression":
         pred_output_df_columns = {
             "score": "prediction_label",

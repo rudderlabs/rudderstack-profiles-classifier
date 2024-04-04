@@ -1,18 +1,16 @@
-from tests.integration.utils import create_site_config_file
+import os
 from train import *
 import shutil
 from predict import *
-import time
-from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
-    RedshiftConnector,
+from src.predictions.rudderstack_predictions.connectors.BigQueryConnector import (
+    BigQueryConnector,
 )
 from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
 import json
-import os
+from tests.integration.utils import create_site_config_file
 
-
-creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
-creds["schema"] = "rs_profiles_3"
+creds = json.loads(os.environ["BIGQUERY_SITE_CONFIG"])
+creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(current_dir, "sample_project")
@@ -24,29 +22,29 @@ folder_path_output_file = os.path.dirname(output_filename)
 os.makedirs(output_folder, exist_ok=True)
 
 package_name = "feature_table"
-feature_table_name = "shopify_user_features"
-eligible_users = "1=1"
+feature_table_name = "predictions_dev_features"
+eligible_users = "days_since_last_seen IS NOT NULL"
 package_name = "feature_table"
-label_column = "is_churned_7_days"
+label_column = "days_since_last_seen"
 inputs = [f"packages/{package_name}/models/{feature_table_name}"]
-output_model_name = "ltv_classification_integration_test"
+output_model_name = "days_last_seen_regression_integration_test"
 pred_horizon_days = 7
 pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
-output_label = "OUTPUT_LABEL"
 s3_config = {}
-p_output_tablename = "classifier_integration_test_4"
+p_output_tablename = "test_run_can_delete_0"
 entity_key = "user"
-material_registry_table_name = "material_registry_4"
 
 
 data = {
     "prediction_horizon_days": pred_horizon_days,
     "features_profiles_model": feature_table_name,
     "inputs": inputs,
-    "eligible_users": "1=1",
+    "eligible_users": eligible_users,
     "label_column": label_column,
-    "task": "classification",
+    "task": "regression",
     "output_profiles_ml_model": output_model_name,
+    "train_start_dt": "2024-03-06",
+    "train_end_dt": "2024-03-13",
 }
 
 train_config = {"data": data}
@@ -88,7 +86,7 @@ def cleanup_reports(reports_folders):
         shutil.rmtree(folder_path)
 
 
-def validate_training_summary():
+def validate_training_summary_regression():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     file_path = os.path.join(
         current_dir, "output/train_reports", "training_summary.json"
@@ -99,57 +97,22 @@ def validate_training_summary():
         assert isinstance(timestamp, str), f"Invalid timestamp - {timestamp}"
         assert timestamp, "Timestamp is empty"
         metrics = json_data["data"]["metrics"]
-        # keys = ["test", "train", "val"]
-        # for key in keys:
-        #     innerKeys = [
-        #         "f1_score",
-        #         "pr_auc",
-        #         "precision",
-        #         "recall",
-        #         "roc_auc",
-        #         "users",
-        #     ]
-        #     for innerKey in innerKeys:
-        #         assert metrics[key][
-        #             innerKey
-        #         ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+        keys = ["test", "train", "val"]
+        for key in keys:
+            innerKeys = ["mean_absolute_error", "mean_squared_error", "r2_score"]
+            for innerKey in innerKeys:
+                assert metrics[key][
+                    innerKey
+                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
-def validate_column_names_in_output_json():
-    with open(output_filename, "r") as file:
-        results = json.load(file)
-
-    expected_keys = {
-        "input_column_types": {
-            "numeric": [],
-            "categorical": [],
-            "arraytype": [],
-            "timestamp": [],
-        },
-        "ignore_features": [],
-        "feature_table_column_types": {"numeric": [], "categorical": []},
-    }
-
-    for key, subkeys in expected_keys.items():
-        assert (
-            key in results["column_names"]
-        ), f"Missing key: {key} in output json file."
-
-        if subkeys:
-            for subkey in subkeys:
-                assert (
-                    subkey in results["column_names"][key]
-                ), f"Missing subkey {subkey} under key: {key} in output json file."
-
-
-def validate_reports():
+def validate_reports_regression():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     reports_directory = os.path.join(current_dir, "output/train_reports")
     expected_files = [
         "01-feature-importance-chart",
-        "02-test-lift-chart",
-        "03-test-pr-auc",
-        "04-test-roc-auc",
+        "02-residuals-chart",
+        "03-deciles-plot",
     ]
     files = os.listdir(reports_directory)
     missing_files = []
@@ -165,8 +128,7 @@ def validate_reports():
 
 
 def validate_predictions_df():
-    connector = RedshiftConnector(folder_path_output_file)
-
+    connector = BigQueryConnector(folder_path_output_file)
     session = connector.build_session(creds)
 
     required_columns = [
@@ -182,6 +144,7 @@ def validate_predictions_df():
     try:
         df = connector.get_table_as_dataframe(session, p_output_tablename)
         columns_in_file = df.columns.tolist()
+        print(columns_in_file)
     except Exception as e:
         raise e
 
@@ -194,15 +157,17 @@ def validate_predictions_df():
     return True
 
 
-def test_classification():
-    connector = RedshiftConnector(folder_path_output_file)
-    session = connector.build_session(creds)
+def test_regressor():
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_path = os.path.join(current_dir, "sample_project")
+    siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
+    output_filename = os.path.join(current_dir, "output/output.json")
+    output_folder = os.path.join(current_dir, "output")
 
-    st = time.time()
+    os.makedirs(output_folder, exist_ok=True)
 
     create_site_config_file(creds, siteconfig_path)
 
-    # Use os.path.join to get the full path for the output folder
     folders = [
         os.path.join(output_folder, folder)
         for folder in os.listdir(output_folder)
@@ -210,21 +175,14 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
+    latest_model_hash, _ = RudderPB().get_latest_material_hash(
         entity_key,
         siteconfig_path,
         project_path,
     )
 
-    latest_seq_no = connector.get_latest_seq_no_from_registry(
-        session, material_registry_table_name, latest_model_hash, entity_var_model_name
-    )
-
-    # Closing the session immediately after use to avoid multiple open sessions conflict
-    session.close()
-
     train_inputs = [
-        f"""SELECT * FROM {creds['schema']}.material_{entity_var_model_name}_{latest_model_hash}_{latest_seq_no}""",
+        f"""SELECT * FROM {creds['project_id']}.{creds['schema']}.material_user_var_table_{latest_model_hash}_27""",
     ]
     runtime_info = {"site_config_path": siteconfig_path}
 
@@ -237,16 +195,15 @@ def test_classification():
             siteconfig_path,
             project_path,
         )
-        validate_training_summary()
-        validate_reports()
-        validate_column_names_in_output_json()
+        validate_training_summary_regression()
+        validate_reports_regression()
 
         with open(output_filename, "r") as f:
             results = json.load(f)
 
         material_table_name = results["config"]["material_names"][0][-1]
         predict_inputs = [
-            f"SELECT * FROM {creds['schema']}.{material_table_name}",
+            f"SELECT * FROM {creds['project_id']}.{creds['schema']}.{material_table_name}",
         ]
 
         predict(
@@ -266,10 +223,5 @@ def test_classification():
         cleanup_pb_project(project_path, siteconfig_path)
         cleanup_reports(reports_folders)
 
-    et = time.time()
-    # get the execution time
-    elapsed_time = et - st
-    print("Execution time:", elapsed_time, "seconds")
 
-
-test_classification()
+test_regressor()

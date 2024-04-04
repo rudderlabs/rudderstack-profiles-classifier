@@ -1,3 +1,4 @@
+from functools import reduce
 import os
 import json
 import shutil
@@ -23,49 +24,93 @@ class CommonWarehouseConnector(Connector):
         path = Path(self.local_dir)
         path.mkdir(parents=True, exist_ok=True)
         self.data_type_mapping = data_type_mapping
-        self.array_time_features = {}
         return
 
     def get_local_dir(self) -> str:
         return self.local_dir
 
     def join_file_path(self, file_name: str) -> str:
-        """
-        Joins the given file name to the local data folder path.
-
-        Args:
-            file_name (str): The name of the file to be joined to the path.
-
-        Returns:
-            The joined file path as a string.
-        """
+        """Joins the given file name to the local data folder path."""
         return os.path.join(self.local_dir, file_name)
 
     def call_procedure(self, *args, **kwargs):
-        """Calls the given function for training
-
-        Args:
-            session : connection session for warehouse access
-            args (list): List of arguments to be passed to the training function
-            kwargs (dict): Dictionary of keyword arguments to be passed to the training function
-
-        Returns:
-            Results of the training function
-        """
         args = list(args)
         train_function = args.pop(0)
         return train_function(*args, **kwargs)
 
-    def get_merged_table(self, base_table, incoming_table):
-        """Returns the merged table.
-
-        Args:
-            base_table (pd.DataFrame): 1st DataFrame
-            incoming_table (pd.DataFrame): 2nd DataFrame
-
-        Returns:
-            pd.DataFrame: Merged table
+    def transform_arraytype_features(
+        self, feature_df: pd.DataFrame, arraytype_features: List[str]
+    ) -> Union[List[str], pd.DataFrame]:
+        """Transforms arraytype features in a pandas DataFrame by expanding the arraytype features
+        as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
         """
+        transformed_dfs = []
+        transformed_feature_df = feature_df.copy()
+        transformed_array_col_names = []
+
+        # Group by columns excluding arraytype features
+        group_by_cols = [
+            col for col in feature_df.columns if col not in arraytype_features
+        ]
+
+        for array_col_name in arraytype_features:
+            # Get rows with empty or null arrays
+            empty_list_rows = feature_df[
+                feature_df[array_col_name].apply(lambda x: x in ([], None))
+            ]
+
+            # Explode arraytype column
+            exploded_df = (
+                feature_df[[*group_by_cols, array_col_name]]
+                .explode(array_col_name)
+                .rename(columns={array_col_name: "ARRAY_VALUE"})
+            )
+
+            # Group by and count occurrences
+            grouped_df = (
+                exploded_df.groupby(group_by_cols + ["ARRAY_VALUE"])
+                .size()
+                .reset_index(name="COUNT")
+            )
+
+            unique_values = exploded_df["ARRAY_VALUE"].dropna().unique()
+            new_array_column_names = [
+                f"{array_col_name}_{value}".upper() for value in unique_values
+            ]
+            transformed_array_col_names.extend(new_array_column_names)
+
+            # Pivot the DataFrame to create new columns for each unique value
+            pivoted_df = pd.pivot_table(
+                grouped_df,
+                index=group_by_cols,
+                columns="ARRAY_VALUE",
+                values="COUNT",
+                fill_value=0,
+            ).reset_index()
+            pivoted_df.columns.name = None
+
+            # Join with rows having empty or null arrays, and fill NaN values with 0
+            joined_df = empty_list_rows.merge(
+                pivoted_df, on=group_by_cols, how="outer"
+            ).fillna(0)
+            joined_df.drop(columns=arraytype_features, inplace=True)
+
+            rename_dict = {
+                old_name: new_name
+                for old_name, new_name in zip(unique_values, new_array_column_names)
+            }
+            joined_df = joined_df.rename(columns=rename_dict)
+            transformed_dfs.append(joined_df)
+
+        if transformed_dfs:
+            transformed_feature_df = reduce(
+                lambda left, right: pd.merge(left, right, on=group_by_cols),
+                transformed_dfs,
+            )
+
+        return transformed_array_col_names, transformed_feature_df
+
+    def get_merged_table(self, base_table, incoming_table):
         return pd.concat([base_table, incoming_table], axis=0, ignore_index=True)
 
     def fetch_processor_mode(
@@ -79,27 +124,9 @@ class CommonWarehouseConnector(Connector):
         return mode
 
     def compute_udf_name(self, model_path: str) -> None:
-        """Returns the udf name using info from the model_path
-
-        Args:
-            model_path (str): Path of the model
-
-        Returns:
-            str: UDF name
-        """
         return
 
     def is_valid_table(self, session, table_name: str) -> bool:
-        """
-        Checks whether a table exists in the data warehouse.
-
-        Args:
-            session : A session for data warehouse access.
-            table_name (str): The name of the table to be checked.
-
-        Returns:
-            bool: True if the table exists, False otherwise.
-        """
         try:
             self.run_query(session, f"select * from {table_name} limit 1")
             return True
@@ -125,15 +152,7 @@ class CommonWarehouseConnector(Connector):
         return row_count != 0
 
     def get_table(self, session, table_name: str, **kwargs) -> pd.DataFrame:
-        """Fetches the table with the given name from the Redshift schema as a pandas Dataframe object
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the table to be fetched from the schema
-
-        Returns:
-            table (pd.DataFrame): The table as a pandas Dataframe object
-        """
+        """Fetches the table with the given name from the schema as a pandas Dataframe object."""
         return self.get_table_as_dataframe(session, table_name, **kwargs)
 
     def _create_get_table_query(self, table_name, **kwargs):
@@ -158,28 +177,13 @@ class CommonWarehouseConnector(Connector):
 
     def write_table(self, df: pd.DataFrame, table_name: str, **kwargs) -> None:
         """Writes the given pandas dataframe to the warehouse schema with the given name.
-
-        Args:
-            df (pd.DataFrame): Pandas dataframe to be written to the warehouse schema
-            table_name (str): Name with which the dataframe is to be written
-        Returns:
-            Nothing
+        Also, giving 'local' as False (default value is True) will not write the table locally.
         """
         if kwargs.pop("local", True):
             self.write_table_locally(df, table_name)
         self.write_pandas(df, table_name, **kwargs)
 
     def write_pandas(self, df: pd.DataFrame, table_name_remote: str, **kwargs) -> None:
-        """Writes the given pandas dataframe to the Warehouse schema with the given name
-
-        Args:
-            df (pd.DataFrame): Pandas dataframe to be written
-            table_name (str): Name with which the dataframe is to be written
-            [From kwargs]
-                if_exists (str): How to write the dataframe to the warehouse schema | Defaults to "append"
-        Returns:
-            Nothing
-        """
         rs_conn = ProfilesConnector(self.creds, **kwargs)
         if_exists = kwargs.get("if_exists", "append")
         rs_conn.write_to_table(
@@ -194,19 +198,7 @@ class CommonWarehouseConnector(Connector):
         entity_column: str,
         label_value: Union[str, int, float],
     ) -> pd.DataFrame:
-        """
-        Labels the given label_columns in the table as '1' or '0' if the value matches the label_value or not respectively.
-
-        Args:
-            session : connection session for warehouse access
-            label_table_name (str): Name of the table to be labelled
-            label_column (str): Name of the column to be labelled
-            entity_column (str): Name of the entity column
-            label_value (Union[str,int,float]): Value to be labelled as '1'
-
-        Returns:
-            label_table (pd.DataFrame): The labelled table as a pandas Dataframe object
-        """
+        """Labels the given label_columns in the table as '1' or '0' if the value matches the label_value or not respectively."""
 
         def _replace_na(value):
             return np.nan if pd.isna(value) else value
@@ -226,31 +218,27 @@ class CommonWarehouseConnector(Connector):
 
     def fetch_given_data_type_columns(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         required_data_types: Tuple,
         label_column: str,
         entity_column: str,
     ) -> List:
-        """Fetches the column names from the given schemaField based on the required data types (exclude label and entity columns)"""
-        schemaField = self.fetch_table_metadata(session, table_name)
+        """Fetches the column names from the given schema_fields based on the required data types (exclude label and entity columns)"""
         return [
             field.name
-            for field in schemaField
+            for field in schema_fields
             if field.field_type in required_data_types
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
         ]
 
-    def get_non_stringtype_features(
+    def get_numeric_features(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
         return self.fetch_given_data_type_columns(
-            session,
-            table_name,
+            schema_fields,
             self.data_type_mapping["numeric"],
             label_column,
             entity_column,
@@ -258,14 +246,12 @@ class CommonWarehouseConnector(Connector):
 
     def get_stringtype_features(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
         return self.fetch_given_data_type_columns(
-            session,
-            table_name,
+            schema_fields,
             self.data_type_mapping["categorical"],
             label_column,
             entity_column,
@@ -273,79 +259,29 @@ class CommonWarehouseConnector(Connector):
 
     def get_arraytype_columns(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
-        """Returns the list of features to be ignored from the feature table.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the table from which to retrieve the arraytype/super columns.
-
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
         return self.fetch_given_data_type_columns(
-            session,
-            table_name,
+            schema_fields,
             self.data_type_mapping["arraytype"],
             label_column,
             entity_column,
         )
 
-    def get_arraytype_columns_from_table(self, table: pd.DataFrame, **kwargs) -> list:
-        """Returns the list of features to be ignored from the feature table.
-        Args:
-            table (pd.DataFrame): warehouse table.
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
-        self.get_array_time_features_from_file(**kwargs)
-        arraytype_columns = self.array_time_features["arraytype_columns"]
-        return arraytype_columns
-
     def get_timestamp_columns(
         self,
-        session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            session : connection session for warehouse access
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
         return self.fetch_given_data_type_columns(
-            session,
-            table_name,
+            schema_fields,
             self.data_type_mapping["timestamp"],
             label_column,
             entity_column,
         )
-
-    def get_timestamp_columns_from_table(
-        self, table: pd.DataFrame, **kwargs
-    ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
-
-        Args:
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
-
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        kwargs.get("features_path", None)
-        timestamp_columns = self.array_time_features["timestamp_columns"]
-        return timestamp_columns
 
     def get_high_cardinal_features(
         self,
@@ -394,7 +330,7 @@ class CommonWarehouseConnector(Connector):
     def fetch_filtered_table(
         self,
         df,
-        features_profiles_model,
+        entity_var_model_name,
         model_hash,
         start_time,
         end_time,
@@ -402,7 +338,7 @@ class CommonWarehouseConnector(Connector):
     ):
         filtered_df = (
             df.loc[
-                (df["model_name"] == features_profiles_model)
+                (df["model_name"] == entity_var_model_name)
                 & (df["model_hash"] == model_hash)
                 & (df["end_ts"].dt.date >= pd.to_datetime(start_time).date())
                 & (df["end_ts"].dt.date <= pd.to_datetime(end_time).date()),
@@ -417,7 +353,7 @@ class CommonWarehouseConnector(Connector):
         self,
         session,
         registry_table_name: str,
-        features_model_name: str,
+        entity_var_model_name: str,
         model_hash: str,
         start_time: str,
         end_time: str,
@@ -426,7 +362,7 @@ class CommonWarehouseConnector(Connector):
         df = self.get_material_registry_table(session, registry_table_name)
         feature_df = self.fetch_filtered_table(
             df,
-            features_model_name,
+            entity_var_model_name,
             model_hash,
             start_time,
             end_time,
@@ -437,16 +373,15 @@ class CommonWarehouseConnector(Connector):
             days=prediction_horizon_days
         )
 
-        time_format = "%Y-%m-%d"
-        label_start_time = datetime.strptime(start_time, time_format) + timedelta(
-            days=prediction_horizon_days
-        )
-        label_end_time = datetime.strptime(end_time, time_format) + timedelta(
-            days=prediction_horizon_days
-        )
+        label_start_time = datetime.strptime(
+            start_time, constants.MATERIAL_DATE_FORMAT
+        ) + timedelta(days=prediction_horizon_days)
+        label_end_time = datetime.strptime(
+            end_time, constants.MATERIAL_DATE_FORMAT
+        ) + timedelta(days=prediction_horizon_days)
         label_df = self.fetch_filtered_table(
             df,
-            features_model_name,
+            entity_var_model_name,
             model_hash,
             label_start_time,
             label_end_time,
@@ -476,17 +411,7 @@ class CommonWarehouseConnector(Connector):
         model_hash: str,
         entity_key: str,
     ):
-        """This function will return the model hash that is latest for given model name in material table
-
-        Args:
-            session : connection session for warehouse access
-            material_table (str): name of material registry table
-            model_hash (str): latest model hash
-            entity_key (str): entity key
-
-        Returns:
-            (): it's latest creation timestamp
-        """
+        """Retrieves the latest creation timestamp for a specific model hash, and entity key."""
         redshift_df = self.get_material_registry_table(session, material_table)
         try:
             temp_hash_vector = (
@@ -526,18 +451,7 @@ class CommonWarehouseConnector(Connector):
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
-        """This function will return the end_ts with given model hash and model name
-
-        Args:
-            session : connection session for warehouse access
-            material_table (str): name of material registry table
-            model_name (str): model_name to be searched in material registry table
-            model_hash (str): latest model hash
-            seq_no (int): latest seq_no
-
-        Returns:
-            str: end_ts for given model hash and model name
-        """
+        """This function will return the end_ts with given model, model name and seq_no."""
         df = self.get_material_registry_table(session, material_table)
 
         try:
@@ -550,28 +464,16 @@ class CommonWarehouseConnector(Connector):
                 .reset_index(drop=True)[["end_ts"]]
                 .iloc[0]
             )
-
-            end_ts = feature_table_info_df["end_ts"]
         except Exception as e:
             raise Exception(
-                f"Project is never materialzied with model hash {model_hash}. Error message: {e}"
+                f"No material found with name {model_name}, hash {model_hash} and seq no {seq_no}. Error message: {e}"
             )
-
+        end_ts = feature_table_info_df["end_ts"]
         return end_ts.tz_localize(None)
 
     def add_index_timestamp_colum_for_predict_data(
         self, predict_data: pd.DataFrame, index_timestamp: str, end_ts: str
     ) -> pd.DataFrame:
-        """This function will add index timestamp column to predict data
-
-        Args:
-            predict_data (pd.DataFrame): Dataframe to be predicted
-            index_timestamp (str): Name of the index timestamp column
-            end_ts (str): end timestamp value to calculate the difference.
-
-        Returns:
-            pd.DataFrame: Dataframe with index timestamp column
-        """
         predict_data[index_timestamp] = pd.to_datetime(end_ts)
         return predict_data
 
@@ -582,32 +484,11 @@ class CommonWarehouseConnector(Connector):
         file_name: str,
         target_folder: str,
     ) -> None:
-        """Fetches the given file from the given stage and saves it to the given target folder.
-
-        Args:
-            session : connection session for warehouse access
-            stage_name (str): Name of the stage from which to fetch the file.
-            file_name (str): Name of the file to be fetched.
-            target_folder (str): Path to the folder where the fetched file is to be saved.
-
-        Returns:
-            Nothing
-        """
         source_path = self.join_file_path(file_name)
         target_path = os.path.join(target_folder, file_name)
         shutil.move(source_path, target_path)
 
     def drop_cols(self, table: pd.DataFrame, col_list: list) -> pd.DataFrame:
-        """
-        Drops the columns in the given list from the given table.
-
-        Args:
-            table (pd.DataFrame): The table to be filtered.
-            col_list (list): The list of columns to be dropped.
-
-        Returns:
-            The table after the columns have been dropped as a Pandas DataFrame object.
-        """
         ignore_features_upper = [col.upper() for col in col_list]
         ignore_features_lower = [col.lower() for col in col_list]
         ignore_features_ = [
@@ -624,16 +505,6 @@ class CommonWarehouseConnector(Connector):
         max_row_count: int,
         min_sample_for_training: int,
     ) -> pd.DataFrame:
-        """
-        Sorts the given feature table based on the given entity column and index timestamp.
-
-        Args:
-            feature_table (pd.DataFrame): The table to be filtered.
-            entity_column (str): The name of the entity column to be used for sorting.
-
-        Returns:
-            The sorted feature table as a Pandas DataFrame object.
-        """
         feature_table["row_num"] = feature_table.groupby(entity_column).cumcount() + 1
         feature_table = feature_table[feature_table["row_num"] == 1]
         feature_table = feature_table.sort_values(
@@ -747,9 +618,11 @@ class CommonWarehouseConnector(Connector):
             | (label_proportion > max_label_proportion)
         ).any()
         if found_invalid_rows:
+            error_msg = ""
+            for row in label_proportion.reset_index().values:
+                error_msg += f"\tLabel: {row[0]:.0f} - users :({100*row[1]:.2f}%)\n"
             raise Exception(
-                f"Label column {label_column} has invalid proportions. \
-                        Please check if the label column has valid labels."
+                f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}."
             )
         return True
 
@@ -772,18 +645,7 @@ class CommonWarehouseConnector(Connector):
     def add_days_diff(
         self, table: pd.DataFrame, new_col: str, time_col: str, end_ts: str
     ) -> pd.DataFrame:
-        """
-        Adds a new column to the given table containing the difference in days between the given timestamp columns.
-
-        Args:
-            table (pd.DataFrame): The table to be filtered.
-            new_col (str): The name of the new column to be added.
-            time_col (str): The name of the first timestamp column.
-            end_ts (str): end timestamp value to calculate the difference.
-
-        Returns:
-            The table with the new column added as a Pandas DataFrame object.
-        """
+        """Adds a new column to the given table containing the difference in days between the given timestamp columns."""
         table["temp_1"] = pd.to_datetime(table[time_col]).dt.tz_localize(None)
         table["temp_2"] = pd.to_datetime(end_ts)
         table[new_col] = (table["temp_2"] - table["temp_1"]).dt.days
@@ -813,15 +675,6 @@ class CommonWarehouseConnector(Connector):
     def get_distinct_values_in_column(
         self, table: pd.DataFrame, column_name: str
     ) -> List:
-        """Returns the distinct values in the given column of the given table.
-
-        Args:
-            table (pd.DataFrame): The dataframe from which the distinct values are to be extracted.
-            column_name (str): The name of the column from which the distinct values are to be extracted.
-
-        Returns:
-            List: The list of distinct values in the given column of the given table.
-        """
         return table[column_name].unique()
 
     def get_tables_by_prefix(self, session, prefix: str):
@@ -843,13 +696,6 @@ class CommonWarehouseConnector(Connector):
     ) -> pd.DataFrame:
         """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
         Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
-
-        Args:
-            session : connection session for warehouse access
-            material_registry_table_name (str): The material registry table name.
-
-        Returns:
-            pd.DataFrame: The filtered material registry table containing only the successfully materialized data.
         """
         material_registry_table = self.get_table(session, material_registry_table_name)
 
@@ -901,22 +747,7 @@ class CommonWarehouseConnector(Connector):
         input: pd.DataFrame,
         pred_df_config: Dict,
     ) -> pd.DataFrame:
-        """Calls the given function for prediction
-
-        Args:
-            predict_data (pd.DataFrame): Dataframe to be predicted
-            prediction_udf (Any): Function for prediction
-            entity_column (str): Name of the entity column
-            index_timestamp (str): Name of the index timestamp column
-            score_column_name (str): Name of the score column
-            percentile_column_name (str): Name of the percentile column
-            output_label_column (str): Name of the output label column
-            train_model_id (str): Model id
-            input (pd.DataFrame): Input dataframe
-        Returns:
-            Results of the predict function
-        """
-
+        """Calls the given function for prediction and returns results of the predict function."""
         preds = predict_data[[entity_column, index_timestamp]]
         prediction_df = prediction_udf(input)
 
@@ -933,33 +764,9 @@ class CommonWarehouseConnector(Connector):
     """ The following functions are only specific to Redshift Connector and BigQuery Connector and not used by any other connector."""
 
     def write_table_locally(self, df: pd.DataFrame, table_name: str) -> None:
-        """Writes the given pandas dataframe to the local storage with the given name.
-
-        Args:
-            df (pd.DataFrame): Pandas dataframe to be written to the local storage
-            table_name (str): Name with which the dataframe is to be written to the local storage
-
-        Returns:
-            Nothing
-        """
+        """Writes the given pandas dataframe to the local storage with the given name."""
         table_path = os.path.join(self.local_dir, f"{table_name}.parquet.gzip")
         df.to_parquet(table_path, compression="gzip")
-
-    def get_array_time_features_from_file(self, **kwargs):
-        """This function will read the arraytype features and timestamp columns from the given file."""
-        if len(self.array_time_features) != 0:
-            return
-        features_path = kwargs.get("features_path", None)
-        if features_path == None:
-            raise ValueError("features_path argument is required for Redshift")
-        with open(features_path, "r") as f:
-            column_names = json.load(f)
-            self.array_time_features["arraytype_columns"] = column_names[
-                "arraytype_columns"
-            ]
-            self.array_time_features["timestamp_columns"] = column_names[
-                "timestamp_columns"
-            ]
 
     def fetch_feature_df_path(self, feature_table_name: str) -> str:
         """This function will return the feature_df_path"""
@@ -984,11 +791,9 @@ class CommonWarehouseConnector(Connector):
         return table.filter(matching_columns)
 
     def make_local_dir(self) -> None:
-        "Created a local directory to store temporary files"
         Path(self.local_dir).mkdir(parents=True, exist_ok=True)
 
     def delete_local_data_folder(self) -> None:
-        """Deletes the local data folder."""
         try:
             shutil.rmtree(self.local_dir)
             logger.info("Local directory removed successfully")

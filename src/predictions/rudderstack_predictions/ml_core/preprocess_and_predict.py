@@ -13,7 +13,7 @@ import snowflake.snowpark.types as T
 from snowflake.snowpark.types import *
 import snowflake.snowpark.functions as F
 
-from ..wht.pythonWHT import PythonWHT
+from ..wht.pyNativeWHT import PyNativeWHT
 
 from ..utils import utils
 from ..utils.logger import logger
@@ -81,10 +81,10 @@ def preprocess_and_predict(
     except Exception as e:
         raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 
-    whtService = PythonWHT()
+    whtService = PyNativeWHT(None)
     whtService.init(connector, session, "", "")
 
-    feature_table_name = whtService.compute_material_name(
+    entity_var_table_name = whtService.compute_material_name(
         input_model_name, model_hash, seq_no
     )
 
@@ -96,14 +96,17 @@ def preprocess_and_predict(
         seq_no,
     )
 
-    logger.debug(f"Pulling data from Feature table - {feature_table_name}")
+    logger.debug(f"Pulling data from Entity-Var table - {entity_var_table_name}")
     raw_data = connector.get_table(
-        session, feature_table_name, filter_condition=trainer.eligible_users
+        session, entity_var_table_name, filter_condition=trainer.eligible_users
     )
 
-    logger.debug(f"Transforming timestamp columns.")
+    logger.debug("Transforming timestamp columns.")
     for col in timestamp_columns:
         raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
+
+    logger.debug(f"Transforming arraytype columns.")
+    _, raw_data = connector.transform_arraytype_features(raw_data, arraytype_columns)
 
     predict_data = connector.drop_cols(raw_data, ignore_features)
 

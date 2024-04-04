@@ -10,7 +10,7 @@ from functools import partial
 from .processors.ProcessorFactory import ProcessorFactory
 
 from .utils.logger import logger
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import asdict
 
 import snowflake.snowpark
@@ -71,12 +71,7 @@ def _train(
     )
     stage_name = None
 
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(
-        current_dir,
-        "config",
-        "model_configs.yaml",
-    )
+    config_path = utils.get_model_configs_file_path()
     folder_path = os.path.dirname(output_filename)
     target_path = utils.get_output_directory(folder_path)
 
@@ -89,6 +84,10 @@ def _train(
     _ = config["data"].pop(
         "features_profiles_model", None
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
+    _ = config["data"].pop(
+        "inputs", None
+    )  # For backward compatibility. Not using it anywhere else, hence deleting.
+
     merged_config = utils.combine_config(default_config, config)
 
     user_preference_order_infra = merged_config["data"].pop(
@@ -251,7 +250,7 @@ def _train(
 
     (
         model_hash,
-        features_model_name,
+        entity_var_model_name,
         creation_ts,
     ) = whtService.get_latest_entity_var_table(
         trainer.entity_key,
@@ -259,7 +258,7 @@ def _train(
 
     latest_seq_no = utils.extract_seq_no_from_select_query(inputs[0])
     latest_entity_var_table = whtService.compute_material_name(
-        features_model_name, model_hash, latest_seq_no
+        entity_var_model_name, model_hash, latest_seq_no
     )
 
     start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
@@ -272,11 +271,13 @@ def _train(
     if trainer.label_value is None and prediction_task == "classification":
         label_value = connector.get_default_label_value(
             session,
-            features_model_name,
+            entity_var_model_name,
             trainer.label_column,
             constants.POSITIVE_BOOLEAN_FLAGS,
         )
         trainer.label_value = label_value
+
+    absolute_input_models = whtService.get_input_models(inputs)
 
     logger.info(f"Getting input column types from table: {latest_entity_var_table}")
     input_column_types = connector.get_input_column_types(
@@ -292,10 +293,10 @@ def _train(
     get_material_names_partial = partial(
         whtService.get_material_names,
         end_date=end_date,
-        features_model_name=features_model_name,
+        entity_var_model_name=entity_var_model_name,
         model_hash=model_hash,
         prediction_horizon_days=trainer.prediction_horizon_days,
-        input_models=input_models,
+        input_models=absolute_input_models,
         inputs=inputs,
     )
     # material_names, training_dates
@@ -348,7 +349,7 @@ def _train(
             "material_names": material_names_,
             "material_hash": model_hash,
             **asdict(trainer),
-            "input_model_name": features_model_name,
+            "input_model_name": entity_var_model_name,
         },
         "model_info": {
             "file_location": {
@@ -362,7 +363,7 @@ def _train(
     }
     json.dump(results, open(output_filename, "w"))
 
-    model_timestamp = datetime.utcfromtimestamp(int(model_id)).strftime(
+    model_timestamp = datetime.fromtimestamp(int(model_id), tz=timezone.utc).strftime(
         "%Y-%m-%dT%H:%M:%SZ"
     )
     summary = trainer.prepare_training_summary(train_results, model_timestamp)

@@ -4,11 +4,13 @@ from .rudderPB import MATERIAL_PREFIX
 
 from ..utils import utils
 
-from ..utils.constants import TrainTablesInfo
+from ..utils.constants import TrainTablesInfo, MATERIAL_DATE_FORMAT
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
 from .rudderPB import RudderPB
 from .mockPB import MockPB
+
+import json
 
 
 def split_key(item):
@@ -38,6 +40,45 @@ class PythonWHT:
             return MockPB()
         return RudderPB()
 
+    def get_input_models(
+        self,
+        inputs: List[str],
+    ) -> List[str]:
+        """Returns List of input models - full paths in the profiles project for models
+        that are required to generate the current model.
+        """
+        original_input_models = [
+            self.split_material_name(input_)["model_name"] for input_ in inputs
+        ]
+
+        args = {
+            "site_config_path": self.site_config_path,
+            "project_folder": self.project_folder_path,
+        }
+
+        # Fetch models information from the project
+        pb_show_models_response_output = self._getPB().show_models(args)
+        models_info = self._getPB().extract_json_from_stdout(
+            pb_show_models_response_output
+        )
+
+        # Find matching models in the project
+        absolute_input_models = []
+
+        for model_name in original_input_models:
+            matching_models = [
+                key.split("/", 1)[-1] for key in models_info if key.endswith(model_name)
+            ]
+
+            if len(matching_models) == 1:
+                absolute_input_models.append(matching_models[0])
+            elif len(matching_models) > 1:
+                raise ValueError(
+                    f"Multiple models with name {model_name} are found. Please ensure the models added in inputs are named uniquely and retry"
+                )
+
+        return absolute_input_models
+
     def get_registry_table_name(self):
         if self.cached_registry_table_name == "":
             material_registry_tables = self.connector.get_tables_by_prefix(
@@ -51,13 +92,13 @@ class PythonWHT:
         return self.cached_registry_table_name
 
     def get_latest_entity_var_table(self, entity_key: str) -> Tuple[str, str, str]:
-        model_hash, model_name = self._getPB().get_latest_material_hash(
+        model_hash, entity_var_model_name = self._getPB().get_latest_material_hash(
             entity_key,
             self.site_config_path,
             self.project_folder_path,
         )
         creation_ts = self.get_model_creation_ts(model_hash, entity_key)
-        return model_hash, model_name, creation_ts
+        return model_hash, entity_var_model_name, creation_ts
 
     def get_model_creation_ts(self, model_hash: str, entity_key: str):
         return self.connector.get_creation_ts(
@@ -81,11 +122,6 @@ class PythonWHT:
         the current seq no with historic seq nos and verify those tables exist.
         This relies on the input sql queries sent by profiles which point to the current materialised tables.
 
-        Args:
-            session: WH connector session/cursor for data warehouse access
-            material_table_query (str): Query to fetch the material table names
-            feature_material_seq_no (int): feature material seq no
-            label_material_seq_no (int): label material seq no
         Returns:
             bool: True if the material table exists with given seq no else False
         """
@@ -123,7 +159,7 @@ class PythonWHT:
     def _fetch_valid_historic_materials(
         self,
         table_row,
-        feature_model_name,
+        entity_var_model_name,
         model_hash,
         inputs,
         materials,
@@ -131,11 +167,11 @@ class PythonWHT:
         feature_material_name, label_material_name = None, None
         if table_row.FEATURE_SEQ_NO is not None:
             feature_material_name = self.compute_material_name(
-                feature_model_name, model_hash, table_row.FEATURE_SEQ_NO
+                entity_var_model_name, model_hash, table_row.FEATURE_SEQ_NO
             )
         if table_row.LABEL_SEQ_NO is not None:
             label_material_name = self.compute_material_name(
-                feature_model_name, model_hash, table_row.LABEL_SEQ_NO
+                entity_var_model_name, model_hash, table_row.LABEL_SEQ_NO
             )
 
         if (
@@ -159,11 +195,23 @@ class PythonWHT:
                 break
 
         if validation_flag:
+            feature_table_date = (
+                "None"
+                if table_row.FEATURE_END_TS is None
+                else table_row.FEATURE_END_TS.strftime(MATERIAL_DATE_FORMAT)
+            )
+
+            label_table_date = (
+                "None"
+                if table_row.LABEL_END_TS is None
+                else table_row.LABEL_END_TS.strftime(MATERIAL_DATE_FORMAT)
+            )
+
             train_table_info = TrainTablesInfo(
                 feature_table_name=feature_material_name,
-                feature_table_date=str(table_row.FEATURE_END_TS),
+                feature_table_date=feature_table_date,
                 label_table_name=label_material_name,
-                label_table_date=str(table_row.LABEL_END_TS),
+                label_table_date=label_table_date,
             )
             materials.append(train_table_info)
 
@@ -171,29 +219,22 @@ class PythonWHT:
         self,
         start_time: str,
         end_time: str,
-        features_model_name: str,
+        entity_var_model_name: str,
         model_hash: str,
         prediction_horizon_days: int,
         inputs: List[str],
     ) -> List[TrainTablesInfo]:
-        """Generates material names as list containing feature table name and label table name required to create the training model and their corresponding training dates.
-
-        Args:
-            session : connection session for warehouse access
-            material_table (str): Name of the material table(present in constants.py file)
-            start_time (str): train_start_dt
-            end_time (str): train_end_dt
-            model_name (str): Present in model_configs file
-            model_hash (str) : latest model hash
-            prediction_horizon_days (int): period of days
+        """Generates material names as list containing feature table name and label table name
+            required to create the training model and their corresponding training dates.
 
         Returns:
-            List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
+            List[TrainTablesInfo]: A list of TrainTablesInfo objects,
+            each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
         feature_label_df = self.connector.join_feature_label_tables(
             self.session,
             self.get_registry_table_name(),
-            features_model_name,
+            entity_var_model_name,
             model_hash,
             start_time,
             end_time,
@@ -203,7 +244,7 @@ class PythonWHT:
         for row in feature_label_df:
             self._fetch_valid_historic_materials(
                 row,
-                features_model_name,
+                entity_var_model_name,
                 model_hash,
                 inputs,
                 materials,
@@ -219,16 +260,6 @@ class PythonWHT:
     ) -> None:
         """
         Generates training dataset from start_date and end_date, and fetches the resultant table names from the material_table.
-        Args:
-            session : warehouse session
-            materials (List[TrainTablesInfo]): materials info
-            start_date (str): Start date for training data.
-            features_profiles_model (str): The name of the model.
-            model_hash (str): The latest model hash.
-            prediction_horizon_days (int): The period of days for prediction horizon.
-            site_config_path (str): path to the siteconfig.yaml file
-            project_folder (str): project folder path to pb_project.yaml file
-            input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model.
 
         Returns:
             Tuple[str, str]: A tuple containing feature table date and label table date strings
@@ -317,10 +348,6 @@ class PythonWHT:
         return feature_date, label_date
 
     def split_material_name(self, name: str) -> dict:
-        """
-        Splits given material table into model_name, model_hash and seq_no
-        Ex. Splits "Material_user_var_table_54ddc22a_383" into (user_var_table, 54ddc22a, 383)
-        """
         mlower = name.lower()
         # TODO - Move this logic to bigquery conenctor
         if "`" in mlower:  # BigQuery case table name
@@ -345,7 +372,7 @@ class PythonWHT:
         self,
         start_date: str,
         end_date: str,
-        features_model_name: str,
+        entity_var_model_name: str,
         model_hash: str,
         prediction_horizon_days: int,
         input_models: List[str],
@@ -355,19 +382,6 @@ class PythonWHT:
         Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
         If no materialized data is found within the specified date range, the function attempts to materialize the feature and label data using the `materialise_past_data` function.
         If no materialized data is found even after materialization, an exception is raised.
-
-        Args:
-            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-            material_table (str): The name of the material table (present in constants.py file).
-            start_date (str): The start date for training data.
-            end_date (str): The end date for training data.
-            features_profiles_model (str): The name of the model.
-            model_hash (str): The latest model hash.
-            prediction_horizon_days (int): The period of days for prediction horizon.
-            site_config_path (str): path to the siteconfig.yaml file
-            project_folder (str): project folder path to pb_project.yaml file
-            input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model.
-            inputs (List[str]): List of input material queries
 
         Returns:
             List[TrainTablesInfo]: A list of TrainTablesInfo objects, each containing the names of the feature and label tables, as well as their corresponding training dates.
@@ -388,7 +402,7 @@ class PythonWHT:
         (materials) = self._get_material_names(
             start_date,
             end_date,
-            features_model_name,
+            entity_var_model_name,
             model_hash,
             prediction_horizon_days,
             inputs,
@@ -403,7 +417,7 @@ class PythonWHT:
             (materials) = self._get_material_names(
                 start_date,
                 end_date,
-                features_model_name,
+                entity_var_model_name,
                 model_hash,
                 prediction_horizon_days,
                 inputs,
@@ -412,7 +426,7 @@ class PythonWHT:
         complete_sequences_materials = get_complete_sequences(materials)
         if len(complete_sequences_materials) == 0:
             raise Exception(
-                f"Tried to materialise past data but no materialized data found for {features_model_name} between dates {start_date} and {end_date}"
+                f"Tried to materialise past data but no materialized data found for {entity_var_model_name} between dates {start_date} and {end_date}"
             )
         return complete_sequences_materials
 
@@ -420,41 +434,3 @@ class PythonWHT:
         self, model_name: str, model_hash: str, seq_no: int
     ) -> str:
         return f"{MATERIAL_PREFIX}{model_name}_{model_hash}_{seq_no:.0f}"
-
-    def get_input_models(
-        self,
-        original_input_models: List[str],
-    ) -> List[str]:
-        """Find matches for input models in the JSON data. If no matches are found, an exception is raised.
-        Args:
-            original_input_models (List[str]): List of input models - relative paths in the profiles project for models that are required to generate the current model.
-            train_summary_output_file_name (str): output filename
-            project_folder (str): project folder path to pb_project.yaml file
-            site_config_path (str): path to the siteconfig.yaml file
-        Returns:
-            List[str]: List of input models - full paths in the profiles project for models that are required to generate the current model.
-        """
-        args = {
-            "site_config_path": self.site_config_path,
-            "project_folder": self.project_folder,
-        }
-
-        json_data = self._getPB().show_models(args)
-
-        # Find matches for input models in the JSON data
-        new_input_models = []
-
-        for model in original_input_models:
-            model_key = model.split("/")[-1]
-            found_unique_match = False
-            for key in json_data:
-                if key.endswith(model_key):
-                    if found_unique_match:
-                        raise ValueError(
-                            f"Multiple unique occurrences found for {model_key}"
-                        )
-                    model_path = key.split("/", 1)[-1]
-                    new_input_models.append(model_path)
-                    found_unique_match = True
-
-        return new_input_models

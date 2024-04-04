@@ -1,3 +1,4 @@
+from functools import reduce
 import os
 import gzip
 import json
@@ -7,7 +8,7 @@ import shutil
 import pandas as pd
 from datetime import datetime
 
-from typing import Any, Iterable, List, Union, Optional, Sequence, Dict
+from typing import Any, Iterable, List, Tuple, Union, Optional, Sequence, Dict
 
 import snowflake.snowpark
 import snowflake.snowpark.types as T
@@ -26,6 +27,19 @@ local_folder = constants.SF_LOCAL_STORAGE_DIR
 
 class SnowflakeConnector(Connector):
     def __init__(self) -> None:
+        self.data_type_mapping = {
+            "numeric": (
+                T.DecimalType,
+                T.IntegerType,
+                T.LongType,
+                T.ShortType,
+                T.FloatType,
+                T.DoubleType,
+            ),
+            "categorical": (T.StringType, T.VariantType),
+            "timestamp": (T.TimestampType, T.DateType, T.TimeType),
+            "arraytype": (T.ArrayType),
+        }
         self.run_id = hashlib.md5(
             f"{str(datetime.now())}_{uuid.uuid4()}".encode()
         ).hexdigest()
@@ -40,54 +54,22 @@ class SnowflakeConnector(Connector):
         return
 
     def build_session(self, credentials: dict) -> snowflake.snowpark.Session:
-        """Builds the snowpark session with given credentials (creds)
-
-        Args:
-            creds (dict): Data warehouse credentials from profiles siteconfig
-
-        Returns:
-            session (snowflake.snowpark.Session): Snowpark session object
-        """
         self.connection_parameters = self.remap_credentials(credentials)
         session = Session.builder.configs(self.connection_parameters).create()
         return session
 
     def join_file_path(self, file_name: str) -> str:
-        """
-        Joins the given file name to the local temp folder path.
-
-        Args:
-            file_name (str): The name of the file to be joined to the path.
-
-        Returns:
-            The joined file path as a string.
-        """
+        """Joins the given file name to the local temp folder path."""
         return os.path.join(local_folder, file_name)
 
     def run_query(
         self, session: snowflake.snowpark.Session, query: str, **args
     ) -> List:
-        """Runs the given query on the snowpark session
-
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
-            query (str): Query to be executed on the snowpark session
-
-        Returns:
-            Results of the query run on the snowpark session
-        """
+        """Runs the given query on the snowpark session and returns a List with Named indices."""
         return session.sql(query).collect()
 
     def call_procedure(self, *args, **kwargs):
-        """Calls the given procedure on the snowpark session
-
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
-            args (list): List of arguments to be passed to the procedure
-
-        Returns:
-            Results of the procedure call
-        """
+        """Calls the given procedure on the snowpark session and returns the results of the procedure call."""
         session = kwargs.get("session", None)
         if session == None:
             raise Exception("Session object not found")
@@ -101,15 +83,6 @@ class SnowflakeConnector(Connector):
         return session.call(*args)
 
     def get_merged_table(self, base_table, incoming_table):
-        """Returns the merged table of base_table and incoming_table.
-
-        Args:
-            base_table (snowflake.snowpark.Table): base_table
-            incoming_table (snowflake.snowpark.Table): incoming_table
-
-        Returns:
-            snowflake.snowpark.Table: Merged table of feature table and feature table instance
-        """
         return (
             incoming_table
             if base_table is None
@@ -122,14 +95,6 @@ class SnowflakeConnector(Connector):
         return constants.WAREHOUSE_MODE
 
     def compute_udf_name(self, model_path: str) -> None:
-        """Returns the udf name using info from the model_path
-
-        Args:
-            model_path (str): Path of the model
-
-        Returns:
-            str: UDF name
-        """
         with open(model_path, "r") as f:
             results = json.load(f)
         stage_name = results["model_info"]["file_location"]["stage"]
@@ -138,16 +103,6 @@ class SnowflakeConnector(Connector):
     def is_valid_table(
         self, session: snowflake.snowpark.Session, table_name: str
     ) -> bool:
-        """
-        Checks whether a table exists in the data warehouse.
-
-        Args:
-            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-            table_name (str): The name of the table to be checked.
-
-        Returns:
-            bool: True if the table exists, False otherwise.
-        """
         try:
             session.sql(f"select * from {table_name} limit 1").collect()
             return True
@@ -162,9 +117,9 @@ class SnowflakeConnector(Connector):
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
-        material table name and wether its sucessfully materialised or not as well
+        material table name and wether its sucessfully materialised or not as well.
+        Right now, we consider tables as materialised if the metadata status is 2.
         """
-
         material_registry_table = self.get_table(session, registry_table_name)
         num_rows = (
             material_registry_table.withColumn(
@@ -182,15 +137,6 @@ class SnowflakeConnector(Connector):
     def get_table(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs
     ) -> snowflake.snowpark.Table:
-        """Fetches the table with the given name from the snowpark session as a snowpark table object
-
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
-            table_name (str): Name of the table to be fetched from the snowpark session
-
-        Returns:
-            table (snowflake.snowpark.Table): The table as a snowpark table object
-        """
         filter_condition = kwargs.get("filter_condition", None)
         if not self.is_valid_table(session, table_name):
             raise Exception(f"Table {table_name} does not exist or not authorized")
@@ -202,15 +148,6 @@ class SnowflakeConnector(Connector):
     def get_table_as_dataframe(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs
     ) -> pd.DataFrame:
-        """Fetches the table with the given name from the snowpark session as a pandas Dataframe object
-
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session object
-            table_name (str): Name of the table to be fetched from the snowpark session
-
-        Returns:
-            table (pd.DataFrame): The table as a pandas Dataframe object
-        """
         return self.get_table(session, table_name, **kwargs).toPandas()
 
     def send_table_to_train_env(self, table: snowflake.snowpark.Table, **kwargs) -> Any:
@@ -220,16 +157,6 @@ class SnowflakeConnector(Connector):
     def write_table(
         self, table: snowflake.snowpark.Table, table_name_remote: str, **kwargs
     ) -> None:
-        """Writes the given snowpark table object to the snowpark session with the name as the given name
-
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
-            table (snowflake.snowpark.Table): Snowpark table object to be written to the snowpark session
-            table_name_remote (str): Name with which the table is to be written to the snowpark session
-
-        Returns:
-            Nothing
-        """
         write_mode = kwargs.get("write_mode", "append")
         table.write.mode(write_mode).save_as_table(table_name_remote)
 
@@ -243,9 +170,6 @@ class SnowflakeConnector(Connector):
             - session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
             - auto_create_table (bool): Flag to indicate whether to create the table if it does not exist
             - overwrite (bool): Flag to indicate whether to overwrite the table if it already exists in the snowpark session
-
-        Returns:
-            Nothing
         """
         session = kwargs.get("session", None)
         if session is None:
@@ -267,19 +191,7 @@ class SnowflakeConnector(Connector):
         entity_column: str,
         label_value: Union[str, int, float],
     ) -> snowflake.snowpark.Table:
-        """
-        Labels the given label_columns in the table as '1' or '0' if the value matches the label_value or not respectively.
-
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
-            label_table_name (str): Name of the table to be labelled
-            label_column (str): Name of the column to be labelled
-            entity_column (str): Name of the entity column
-            label_value (Union[str,int,float]): Value to be labelled as '1'
-
-        Returns:
-            label_table (snowflake.snowpark.Table): The labelled table as a snowpark table object
-        """
+        """Labels the given label_columns in the table as '1' or '0' if the value matches the label_value or not respectively."""
         if label_value is None:
             table = self.get_table(session, label_table_name).select(
                 entity_column, label_column
@@ -304,128 +216,68 @@ class SnowflakeConnector(Connector):
         stage_name: str,
         overwrite: bool,
     ):
-        """Saves the given file to the given stage in the snowpark session
-
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
-            file_name (str): Name of the file to be saved to the snowpark session
-            stage_name (str): Name of the stage to which the file is to be saved
-            overwrite (bool): Flag to indicate whether to overwrite the file if it already exists in the stage
-
-        Returns:
-            Nothing
-        """
         session.file.put(file_name, stage_name, overwrite=overwrite)
 
-    def get_non_stringtype_features(
+    def fetch_table_metadata(
+        self, session: snowflake.snowpark.Session, table_name: str
+    ) -> List:
+        """Fetches a list containing the schema of the given table from the Snowflake schema."""
+        table = self.get_table(session, table_name)
+        return table.schema.fields
+
+    def fetch_given_data_type_columns(
         self,
-        session: snowflake.snowpark.Session,
-        feature_table_name: str,
+        schema_fields: List,
+        required_data_types: Tuple,
+        label_column: str,
+        entity_column: str,
+    ) -> List:
+        """Fetches the column names from the given schema_fields based on the required data types (exclude label and entity columns)"""
+        return [
+            field.name
+            for field in schema_fields
+            if isinstance(field.datatype, required_data_types)
+            and field.name.lower() not in (label_column.lower(), entity_column.lower())
+        ]
+
+    def get_numeric_features(
+        self,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
-        """
-        Returns a list of strings representing the names of the Non-StringType(non-categorical) columns in the feature table.
-
-        Args:
-            feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
-            label_column (str): A string representing the name of the label column.
-            entity_column (str): A string representing the name of the entity column.
-            [From kwargs] session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-
-        Returns:
-            List[str]: A list of strings representing the names of the non-StringType columns in the feature table.
-
-        Example:
-            Make the call as follows:
-            feature_table = snowflake.snowpark.Table(...)
-            label_column = "label"
-            entity_column = "entity"
-            non_stringtype_features = connector.get_non_stringtype_features(feature_table, label_column, entity_column, session=your_session)
-        """
-        feature_table = self.get_table(session, feature_table_name)
-        non_stringtype_features = []
-        for field in feature_table.schema.fields:
-            if not isinstance(
-                field.datatype, T.StringType
-            ) and field.name.lower() not in (
-                label_column.lower(),
-                entity_column.lower(),
-            ):
-                non_stringtype_features.append(field.name)
-        return non_stringtype_features
+        return self.fetch_given_data_type_columns(
+            schema_fields,
+            self.data_type_mapping["numeric"],
+            label_column,
+            entity_column,
+        )
 
     def get_stringtype_features(
         self,
-        session: snowflake.snowpark.Session,
-        feature_table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
-        """
-        Extracts the names of StringType(categorical) columns from a given feature table schema.
-
-        Args:
-            feature_table (snowflake.snowpark.Table): A feature table object from the `snowflake.snowpark.Table` class.
-            label_column (str): The name of the label column.
-            entity_column (str): The name of the entity column.
-            [From kwargs] session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-
-        Returns:
-            List[str]: A list of StringType(categorical) column names extracted from the feature table schema.
-
-        Example:
-            Make the call as follows:
-            feature_table = snowflake.snowpark.Table(...)
-            label_column = "label"
-            entity_column = "entity"
-            stringtype_features = connector.get_stringtype_features(feature_table, label_column, entity_column, session=your_session)
-        """
-        feature_table = self.get_table(session, feature_table_name)
-        stringtype_features = []
-        for field in feature_table.schema.fields:
-            if isinstance(field.datatype, T.StringType) and field.name.lower() not in (
-                label_column.lower(),
-                entity_column.lower(),
-            ):
-                stringtype_features.append(field.name)
-        return stringtype_features
+        return self.fetch_given_data_type_columns(
+            schema_fields,
+            self.data_type_mapping["categorical"],
+            label_column,
+            entity_column,
+        )
 
     def get_arraytype_columns(
         self,
-        session: snowflake.snowpark.Session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
-        """Returns the list of features to be ignored from the feature table.
-
-        Args:
-            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-            table_name (str): Name of the feature table from which to retrieve the arraytype columns.
-
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
-        table = self.get_table(session, table_name)
-        arraytype_columns = self.get_arraytype_columns_from_table(table)
-        return arraytype_columns
-
-    def get_arraytype_columns_from_table(
-        self, table: snowflake.snowpark.Table, **kwargs
-    ) -> list:
-        """Returns the list of features to be ignored from the feature table.
-        Args:
-            table (snowflake.snowpark.Table): snowpark table.
-        Returns:
-            list: The list of features to be ignored based column datatypes as ArrayType.
-        """
-        arraytype_columns = [
-            row.name
-            for row in table.schema.fields
-            if isinstance(row.datatype, T.ArrayType)
-        ]
-        return arraytype_columns
+        return self.fetch_given_data_type_columns(
+            schema_fields,
+            self.data_type_mapping["arraytype"],
+            label_column,
+            entity_column,
+        )
 
     def get_high_cardinal_features(
         self,
@@ -437,17 +289,7 @@ class SnowflakeConnector(Connector):
     ) -> List[str]:
         """
         Identify high cardinality features in the feature table based on condition that
-                the sum of frequency of ten most popular categories is less than 1% of the total row count,.
-
-        Args:
-            feature_table (snowflake.snowpark.Table): feature table.
-            categorical_columns (List[str]): The list of categorical columns in the feature table.
-            label_column (str): The name of the label column in the feature table.
-            entity_column (str): The name of the entity column in the feature table.
-            cardinal_feature_threshold (float): The threshold value for the cardinality of the feature.
-
-        Returns:
-            List[str]: A list of strings representing the names of the high cardinality features in the feature table.
+        the sum of frequency of ten most popular categories is less than cardinal_feature_threshold fraction(0.01) of the total row count.
         """
         high_cardinal_features = list()
         lower_categorical_features = [col.lower() for col in categorical_columns]
@@ -477,59 +319,107 @@ class SnowflakeConnector(Connector):
 
     def get_timestamp_columns(
         self,
-        session: snowflake.snowpark.Session,
-        table_name: str,
+        schema_fields: List,
         label_column: str,
         entity_column: str,
     ) -> List[str]:
+        return self.fetch_given_data_type_columns(
+            schema_fields,
+            self.data_type_mapping["timestamp"],
+            label_column,
+            entity_column,
+        )
+
+    def transform_arraytype_features(
+        self, feature_table: snowflake.snowpark.Table, arraytype_features: List[str]
+    ) -> Union[List[str], snowflake.snowpark.Table]:
+        """Transforms arraytype features in a snowflake.snowpark.Table by expanding the arraytype features
+        as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
         """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+        # Initialize lists to store transformed column names and DataFrames
+        transformed_column_names = []
+        transformed_tables = []
 
-        Args:
-            session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
+        # Initialize a variable to store the original feature table
+        transformed_feature_table = feature_table
 
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        table = self.get_table(session, table_name)
-        timestamp_columns = self.get_timestamp_columns_from_table(table)
-        return timestamp_columns
+        # Identify columns to group by
+        group_by_cols = [
+            col for col in feature_table.columns if col not in arraytype_features
+        ]
 
-    def get_timestamp_columns_from_table(
-        self, table: snowflake.snowpark.Table, **kwargs
-    ) -> List[str]:
-        """
-        Retrieve the names of timestamp columns from a given table schema, excluding the index timestamp column.
+        # Loop through each array type feature
+        for array_column in arraytype_features:
+            # Identify rows with empty or null arrays
+            empty_array_rows = feature_table.filter(F.col(array_column) == [])
+            null_array_value_rows = feature_table.filter(F.col(array_column).isNull())
+            merged_empty_rows = empty_array_rows.join(
+                null_array_value_rows, on=group_by_cols, how="full"
+            ).select(*group_by_cols)
 
-        Args:
-            session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
-            table_name (str): Name of the feature table from which to retrieve the timestamp columns.
+            # Skip to the next array type feature if all rows have empty or null arrays
+            if merged_empty_rows.count() == feature_table.count():
+                continue
 
-        Returns:
-            List[str]: A list of names of timestamp columns from the given table schema, excluding the index timestamp column.
-        """
-        timestamp_columns = []
-        for field in table.schema.fields:
-            if isinstance(field.datatype, (T.TimestampType, T.DateType, T.TimeType)):
-                timestamp_columns.append(field.name)
-        return timestamp_columns
+            # Explode the array and group by columns
+            exploded_df = feature_table.select(
+                *group_by_cols, F.explode(array_column).alias("ARRAY_VALUE")
+            )
+            grouped_df = exploded_df.groupBy(*exploded_df.columns).count()
+
+            # Extract unique values from the array
+            unique_values = [
+                row["ARRAY_VALUE"].strip('"')
+                for row in grouped_df.select("ARRAY_VALUE").distinct().collect()
+            ]
+            new_array_column_names = [
+                f"{array_column}_{value}".upper() for value in unique_values
+            ]
+
+            # Define columns to remove
+            columns_to_remove = ["COUNT", "ARRAY_VALUE"]
+            grouped_df_cols = [
+                col for col in grouped_df.columns if col not in columns_to_remove
+            ]
+
+            # Pivot the DataFrame to create new columns for each unique value
+            pivoted_df = (
+                grouped_df.groupBy(grouped_df_cols)
+                .pivot("ARRAY_VALUE", unique_values)
+                .sum("COUNT")
+                .na.fill(0)
+            )
+
+            # Join with rows having empty or null arrays, and fill NaN values with 0
+            joined_df = pivoted_df.join(
+                merged_empty_rows, on=group_by_cols, how="full"
+            ).fillna(0)
+            joined_df = self.drop_cols(joined_df, arraytype_features)
+
+            # Rename columns with unique values
+            for old_name, new_name in zip(unique_values, new_array_column_names):
+                transformed_column_names.append(new_name)
+                joined_df = joined_df.withColumnRenamed(f"'{old_name}'", new_name)
+
+            # Append the transformed DataFrame to the list
+            transformed_tables.append(joined_df)
+
+        # If there are transformed DataFrames, join them together
+        if transformed_tables:
+            transformed_feature_table = reduce(
+                lambda df1, df2: df1.join(df2, on=group_by_cols, how="left").fillna(0),
+                transformed_tables,
+            )
+
+        # Drop the original array type features from the transformed table
+        transformed_feature_table = self.drop_cols(
+            transformed_feature_table, arraytype_features
+        )
+        return transformed_column_names, transformed_feature_table
 
     def get_default_label_value(
         self, session, table_name: str, label_column: str, positive_boolean_flags: list
     ):
-        """
-        Returns the default label value for the given label column in the given table.
-
-        Args:
-            session (snowflake.snowpark.Session): The Snowpark session for data warehouse access.
-            table_name (str): The name of the table from which to retrieve the default label value.
-            label_column (str): The name of the label column from which to retrieve the default label value.
-            positive_boolean_flags (list): The sample names of the positive labels.
-
-        Returns:
-            The default label value for the given label column in the given table.
-        """
         label_value = list()
         table = self.get_table(session, table_name)
         distinct_labels = (
@@ -557,15 +447,14 @@ class SnowflakeConnector(Connector):
     def fetch_filtered_table(
         self,
         df,
-        features_profiles_model,
+        entity_var_model_name,
         model_hash,
         start_time,
         end_time,
         columns,
     ):
-        """Fetches the filtered table based on the given parameters."""
         filtered_snowpark_df = (
-            df.filter(col("model_name") == features_profiles_model)
+            df.filter(col("model_name") == entity_var_model_name)
             .filter(col("model_hash") == model_hash)
             .filter(
                 (to_date(col("end_ts")) >= start_time)
@@ -579,7 +468,7 @@ class SnowflakeConnector(Connector):
         self,
         session: snowflake.snowpark.Session,
         registry_table_name: str,
-        features_model_name: str,
+        entity_var_model_name: str,
         model_hash: str,
         start_time: str,
         end_time: str,
@@ -588,7 +477,7 @@ class SnowflakeConnector(Connector):
         snowpark_df = self.get_material_registry_table(session, registry_table_name)
         feature_snowpark_df = self.fetch_filtered_table(
             snowpark_df,
-            features_model_name,
+            entity_var_model_name,
             model_hash,
             start_time,
             end_time,
@@ -596,7 +485,7 @@ class SnowflakeConnector(Connector):
         )
         label_snowpark_df = self.fetch_filtered_table(
             snowpark_df,
-            features_model_name,
+            entity_var_model_name,
             model_hash,
             utils.date_add(start_time, prediction_horizon_days),
             utils.date_add(end_time, prediction_horizon_days),
@@ -633,18 +522,7 @@ class SnowflakeConnector(Connector):
         model_hash: str,
         entity_key: str,
     ):
-        """This function will return the model hash that is latest for given model name in material table
-
-        Args:
-            session (snowflake.snowpark.Session): snowpark session
-            material_table (str): name of material registry table
-            model_name (str): model_name from model_configs file
-            model_hash (str): latest model hash
-            entity_key (str): entity key
-
-        Returns:
-            (): it's latest creation timestamp
-        """
+        """Retrieves the latest creation timestamp for a specific model hash, and entity key."""
         snowpark_df = self.get_material_registry_table(session, material_table)
         try:
             temp_hash_vector = (
@@ -685,18 +563,7 @@ class SnowflakeConnector(Connector):
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
-        """This function will return the end_ts with given model hash and model name
-
-        Args:
-            session (snowflake.snowpark.Session): snowpark session
-            material_table (str): name of material registry table
-            model_name (str): model_name to be searched in material registry table
-            model_hash (str): latest model hash
-            seq_no (int): latest seq_no
-
-        Returns:
-            Tuple[str, str]: end_ts and model name
-        """
+        """This function will return the end_ts with given model, model name and seq_no."""
         snowpark_df = self.get_material_registry_table(session, material_table)
 
         try:
@@ -719,16 +586,6 @@ class SnowflakeConnector(Connector):
     def add_index_timestamp_colum_for_predict_data(
         self, predict_data, index_timestamp: str, end_ts: str
     ) -> snowflake.snowpark.Table:
-        """This function will add index_timestamp column to predict data
-
-        Args:
-            predict_data (snowflake.snowpark.Table): predict data
-            index_timestamp (str): index timestamp
-            end_ts (str): end timestamp value
-
-        Returns:
-            snowflake.snowpark.Table: predict data with index timestamp column
-        """
         predict_data = predict_data.withColumn(
             index_timestamp, F.to_timestamp(F.lit(end_ts))
         )
@@ -741,18 +598,7 @@ class SnowflakeConnector(Connector):
         file_name: str,
         target_folder: str,
     ) -> None:
-        """
-        Fetches a file from a Snowflake stage and saves it to a local target folder.
-
-        Args:
-            session (snowflake.snowpark.Session): The Snowflake session object used to connect to the Snowflake account.
-            stage_name (str): The name of the Snowflake stage where the file is located.
-            file_name (str): The name of the file to fetch from the stage.
-            target_folder (str): The local folder where the fetched file will be saved.
-
-        Returns:
-            None
-        """
+        """Fetches a file from a Snowflake stage and saves it to a local target folder."""
         file_stage_path = f"{stage_name}/{file_name}"
         self.get_file(session, file_stage_path, target_folder)
         input_file_path = os.path.join(target_folder, f"{file_name}.gz")
@@ -766,31 +612,11 @@ class SnowflakeConnector(Connector):
     def filter_table(
         self, table: snowflake.snowpark.Table, filter_condition: str
     ) -> snowflake.snowpark.Table:
-        """
-        Filters the given table based on the given column element.
-
-        Args:
-            table (snowflake.snowpark.Table): The table to be filtered.
-            column_element (str): The name of the column to be used for filtering.
-
-        Returns:
-            The filtered table as a snowpark table object.
-        """
         return table.filter(filter_condition)
 
     def drop_cols(
         self, table: snowflake.snowpark.Table, col_list: list
     ) -> snowflake.snowpark.Table:
-        """
-        Drops the columns in the given list from the given table.
-
-        Args:
-            table (snowflake.snowpark.Table): The table to be filtered.
-            col_list (list): The list of columns to be dropped.
-
-        Returns:
-            The table after the columns have been dropped as a snowpark table object.
-        """
         ignore_features_upper = [col.upper() for col in col_list]
         ignore_features_lower = [col.lower() for col in col_list]
         ignore_features_ = [
@@ -807,18 +633,6 @@ class SnowflakeConnector(Connector):
         max_row_count: int,
         min_sample_for_training: int,
     ) -> snowflake.snowpark.Table:
-        """
-        Sorts the given feature table based on the given entity column and index timestamp.
-
-        Args:
-            feature_table (snowflake.snowpark.Table): The table to be filtered.
-            entity_column (str): The name of the entity column to be used for sorting.
-            max_row_count (int): The maximum number of rows to be returned.
-            min_sample_for_training (int): The minimum number of rows required for training.
-
-        Returns:
-            The sorted feature table as a snowpark table object.
-        """
         table = (
             feature_table.withColumn(
                 "row_num",
@@ -903,13 +717,6 @@ class SnowflakeConnector(Connector):
     def validate_columns_are_present(
         self, feature_table: snowflake.snowpark.Table, label_column: str
     ) -> bool:
-        """This function will do the data validation on feature table and label column
-        Args:
-            feature_table (snowflake.snowpark.Table): feature table
-            label_column (str): label column name
-        Returns:
-            None
-        """
         if label_column.upper() not in feature_table.columns:
             raise Exception(
                 f"Label column {label_column} is not present in the feature table."
@@ -940,9 +747,11 @@ class SnowflakeConnector(Connector):
         ]
 
         if len(no_invalid_rows) > 0:
+            error_msg = ""
+            for row in result_table:
+                error_msg += f"\t{row[label_column]} - user count:  {row['COUNT']} ({100*row['NORMALIZED_COUNT']:.2f}%)\n"
             raise Exception(
-                f"Label column {label_column} has invalid proportions. {no_invalid_rows} \
-                    Please check if the label column has valid labels."
+                f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}."
             )
         return True
 
@@ -962,18 +771,7 @@ class SnowflakeConnector(Connector):
     def add_days_diff(
         self, table: snowflake.snowpark.Table, new_col, time_col, end_ts
     ) -> snowflake.snowpark.Table:
-        """
-        Adds a new column to the given table containing the difference in days between the given timestamp columns.
-
-        Args:
-            table (snowflake.snowpark.Table): The table to be filtered.
-            new_col (str): The name of the new column to be added.
-            time_col (str): The name of the first timestamp column.
-            end_ts (str): The timestamp value to calculate the difference.
-
-        Returns:
-            The table with the new column added as a snowpark table object.
-        """
+        """Adds a new column to the given table containing the difference in days between the given timestamp columns."""
         return table.withColumn(
             new_col, F.datediff("day", F.col(time_col), F.to_timestamp(F.lit(end_ts)))
         )
@@ -985,32 +783,12 @@ class SnowflakeConnector(Connector):
         entity_column: str,
         join_type: str = "inner",
     ) -> snowflake.snowpark.Table:
-        """
-        Joins the given feature table and label table based on the given entity column.
-
-        Args:
-            feature_table (snowflake.snowpark.Table): The feature table to be joined.
-            label_table (snowflake.snowpark.Table): The label table to be joined.
-            entity_column (str): The name of the entity column to be used for joining.
-            join_type (str): How to join the tables | Defaults to 'inner'.
-
-        Returns:
-            The table after the join action as a snowpark table object.
-        """
+        """Joins the given feature table and label table based on the given entity column."""
         return feature_table.join(label_table, [entity_column], join_type=join_type)
 
     def get_distinct_values_in_column(
         self, table: snowflake.snowpark.Table, column_name: str
     ) -> List:
-        """Returns the distinct values in the given column of the given table.
-
-        Args:
-            table (snowflake.snowpark.Table): The table from which the distinct values are to be extracted.
-            column_name (str): The name of the column from which the distinct values are to be extracted.
-
-        Returns:
-            List: The list of distinct values in the given column of the given table.
-        """
         return table.select(column_name).distinct().collect()
 
     def get_material_registry_table(
@@ -1018,13 +796,6 @@ class SnowflakeConnector(Connector):
     ) -> snowflake.snowpark.Table:
         """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
         Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
-
-        Args:
-            session (snowflake.snowpark.Session): A Snowpark session for data warehouse access.
-            material_registry_table_name (str): The material registry table name.
-
-        Returns:
-            snowflake.snowpark.Table: The filtered material registry table containing only the successfully materialized data.
         """
         material_registry_table = (
             self.get_table(session, material_registry_table_name)
@@ -1062,21 +833,7 @@ class SnowflakeConnector(Connector):
         input: snowflake.snowpark.Table,
         pred_df_config: Dict,
     ) -> pd.DataFrame:
-        """Calls the given function for prediction
-
-        Args:
-            predict_data (pd.DataFrame): Dataframe to be predicted
-            prediction_udf (Any): Function for prediction
-            entity_column (str): Name of the entity column
-            index_timestamp (str): Name of the index timestamp column
-            score_column_name (str): Name of the score column
-            percentile_column_name (str): Name of the percentile column
-            output_label_column (str): Name of the output label column
-            train_model_id (str): Model id
-            input (pd.DataFrame): Input dataframe
-        Returns:
-            Results of the predict function
-        """
+        """Calls the given function for prediction and returns results of the predict function."""
 
         pycaret_score_column_name = pred_df_config["score"].upper()
         pycaret_label_column_name = pred_df_config.get(
@@ -1123,16 +880,6 @@ class SnowflakeConnector(Connector):
     """ The following functions are only specific to Snowflake Connector and not used by any other connector."""
 
     def create_stage(self, session: snowflake.snowpark.Session):
-        """
-        Creates a Snowflake stage with the given name if it does not exist.
-
-        Args:
-            session (snowflake.snowpark.Session): A Snowflake session object to access the warehouse.
-            stage_name (str): The name of the Snowflake stage to be created.
-
-        Returns:
-            Nothing
-        """
         self.run_query(
             session, f"create stage if not exists {self.stage_name.replace('@', '')}"
         )
@@ -1143,17 +890,6 @@ class SnowflakeConnector(Connector):
         stage_name: str,
         import_paths: List[str],
     ) -> None:
-        """
-        Deletes files from the specified Snowflake stage that match the filenames extracted from the import paths.
-
-        Args:
-            session (snowflake.snowpark.Session): A Snowflake session object to access the warehouse
-            stage_name (str): The name of the Snowflake stage.
-            import_paths (List[str]): The paths of the files to be deleted from the stage.
-
-        Returns:
-            None: The function does not return any value.
-        """
         all_stages = self.run_query(
             session, f"show stages like '{stage_name.replace('@', '')}'"
         )
@@ -1170,23 +906,6 @@ class SnowflakeConnector(Connector):
     def _delete_procedures(
         self, session: snowflake.snowpark.Session, procedure_name: str
     ) -> None:
-        """
-        Deletes Snowflake train procedures based on a given name pattern.
-
-        Args:
-            session (snowflake.snowpark.Session): A Snowflake session object.
-
-        Returns:
-            None
-
-        Example:
-            session = snowflake.snowpark.Session(...)
-            delete_procedures(session, 'train_model')
-
-        This function retrieves a list of procedures that match the given train procedure name pattern using a SQL query.
-        It then iterates over each procedure and attempts to drop it using another SQL query.
-        If an error occurs during the drop operation, it is ignored.
-        """
         procedures = self.run_query(session, f"show procedures like '{procedure_name}'")
         for row in procedures:
             try:
@@ -1203,13 +922,6 @@ class SnowflakeConnector(Connector):
     ) -> bool:
         """Snowflake caches the functions and it reuses these next time. To avoid the caching,
         we manually search for the same function name and drop it before we create the udf.
-
-        Args:
-            session (snowflake.snowpark.Session): snowpark session to access warehouse
-            fn_name (str): Name of the function to be dropped
-
-        Returns:
-            bool
         """
         fn_list = session.sql(f"show user functions like '{fn_name}'").collect()
         if len(fn_list) == 0:
@@ -1232,16 +944,6 @@ class SnowflakeConnector(Connector):
         file_stage_path: str,
         target_folder: str,
     ):
-        """Fetches the file with the given path from the snowpark session to the target folder
-
-        Args:
-            session (snowflake.snowpark.Session): Snowpark session object to access the warehouse
-            file_stage_path (str): Path of the file to be fetched from the snowpark session
-            target_folder (str): Folder to which the file is to be fetched
-
-        Returns:
-            Nothing
-        """
         _ = session.file.get(file_stage_path, target_folder)
 
     def select_relevant_columns(

@@ -25,9 +25,7 @@ from sklearn.metrics import (
     r2_score,
 )
 
-from ..utils.constants import (
-    TrainTablesInfo,
-)
+from ..utils.constants import TrainTablesInfo, MATERIAL_DATE_FORMAT
 from ..wht.pythonWHT import PythonWHT
 
 from ..utils import utils
@@ -75,22 +73,58 @@ class MLTrainer(ABC):
         self.prep = utils.PreprocessorConfig(**kwargs["preprocessing"])
         self.outputs = utils.OutputsConfig(**kwargs["outputs"])
         self.isStratify = None
-
-        new_materialisations_config = kwargs.get("new_materialisations_config", {})
-        self.materialisation_strategy = new_materialisations_config.get(
-            "strategy", ""
-        ).lower()
-        self.materialisation_dates = new_materialisations_config.get("dates", [])
-        self.materialisation_max_no_dates = int(
-            new_materialisations_config.get("max_no_of_dates", 0)
+        new_materialisations_config = kwargs["data"].get(
+            "new_materialisations_config", {}
         )
-        self.feature_data_min_date_diff = int(
-            new_materialisations_config.get("feature_data_min_date_diff", 0)
-        )
+        self.load_materialisation_config(new_materialisations_config)
 
     hyperopts_expressions_map = {
         exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]
     }
+
+    def load_materialisation_config(self, materialisation_config: dict):
+        self.materialisation_strategy = materialisation_config.get(
+            "strategy", ""
+        ).lower()
+        assert self.materialisation_strategy in [
+            "auto",
+            "manual",
+            "",
+        ], "materialisation strategy can only be 'auto', 'manual', or ''."
+        if self.materialisation_strategy == "manual":
+            self.materialisation_dates = materialisation_config["dates"]
+            assert (
+                len(self.materialisation_dates) > 0
+            ), "materialisation dates are required for manual strategy."
+            if "max_no_of_dates" in materialisation_config:
+                logger.warning(
+                    "max_no_of_dates is not required for manual materialisation strategy. It gets ignored."
+                )
+            if "feature_data_min_date_diff" in materialisation_config:
+                logger.warning(
+                    "feature_data_min_date_diff is not required for manual materialisation strategy. It gets ignored."
+                )
+        elif self.materialisation_strategy == "auto":
+            self.materialisation_max_no_dates = int(
+                materialisation_config["max_no_of_dates"]
+            )
+            self.feature_data_min_date_diff = int(
+                materialisation_config["feature_data_min_date_diff"]
+            )
+            assert (
+                "max_no_of_dates" in materialisation_config
+            ), "max_no_of_dates is required for auto materialisation strategy."
+            assert (
+                "feature_data_min_date_diff" in materialisation_config
+            ), "feature_data_min_date_diff is required for auto materialisation strategy."
+            if "dates" in materialisation_config:
+                logger.warning(
+                    "dates are not required for auto materialisation strategy. It gets ignored."
+                )
+        elif self.materialisation_strategy == "":
+            logger.info(
+                "No past materialisation strategy given. The training will be done on the existing eligible past materialised data only."
+            )
 
     def get_preprocessing_pipeline(
         self,
@@ -100,12 +134,6 @@ class MLTrainer(ABC):
         categorical_pipeline_config: List[str],
     ):
         """Returns a preprocessing pipeline for given numeric and categorical columns and pipeline config
-
-        Args:
-            numeric_columns (list): name of the columns that are numeric in nature
-            categorical_columns (list): name of the columns that are categorical in nature
-            numerical_pipeline_config (list): configs for numeric pipeline from model_configs file
-            categorical_pipeline_config (list): configs for categorical pipeline from model_configs file
 
         Raises:
             ValueError: If num_params_name is invalid for numeric pipeline
@@ -167,14 +195,7 @@ class MLTrainer(ABC):
         return pipe
 
     def generate_hyperparameter_space(self, hyperopts: List[dict]) -> dict:
-        """Returns a dict of hyper-parameters expression map
-
-        Args:
-            hyperopts (List[dict]): list of all the hyper-parameter that are needed to be optimized
-
-        Returns:
-            dict: hyper-parameters expression map
-        """
+        """Returns a dict of hyper-parameters expression map."""
         space = {}
         for expression in hyperopts:
             expression_ = expression.copy()
@@ -416,7 +437,7 @@ class MLTrainer(ABC):
                 logger.info(f"training_dates : {training_dates}")
                 training_dates = sorted(
                     training_dates,
-                    key=lambda x: datetime.strptime(x, "%Y-%m-%d"),
+                    key=lambda x: datetime.strptime(x, MATERIAL_DATE_FORMAT),
                     reverse=True,
                 )
 
@@ -462,12 +483,16 @@ class MLTrainer(ABC):
                 f"new feature tables: {[m.feature_table_name for m in materials]}"
             )
             logger.debug(f"new label tables: {[m.label_table_name for m in materials]}")
-            met_data_requirement = self.check_min_data_requirement(
-                connector, session, materials
-            )
-
-            if met_data_requirement:
+            if (
+                self.materialisation_strategy == "auto"
+                and self.check_min_data_requirement(connector, session, materials)
+            ):
+                logger.info("Minimum data requirement satisfied.")
                 break
+        if not self.check_min_data_requirement(connector, session, materials):
+            logger.warning(
+                "Minimum data requirement not satisfied. Model performance may suffer. Try adding more datapoints by including more dates or increasing max_no_of_dates in the config."
+            )
 
         return materials
 
@@ -479,7 +504,9 @@ class ClassificationTrainer(MLTrainer):
     }
     models_map = {
         model.__name__: model
-        for model in [XGBClassifier, RandomForestClassifier, MLPClassifier]
+        # Removing MPLClassifier from the list of models as it is not supported by TreeExplainer while
+        # calculating shap values.
+        for model in [XGBClassifier, RandomForestClassifier]
     }
 
     def __init__(self, **kwargs):
@@ -502,19 +529,7 @@ class ClassificationTrainer(MLTrainer):
         model_class: Union[XGBClassifier, RandomForestClassifier, MLPClassifier],
         model_config: Dict,
     ) -> Tuple:
-        """Returns the classifier with best hyper-parameters after performing hyper-parameter tuning.
-
-        Args:
-            X_train (pd.DataFrame): X_train dataframe
-            y_train (pd.DataFrame): y_train dataframe
-            X_val (pd.DataFrame): X_val dataframe
-            y_val (pd.DataFrame): y_val dataframe
-            model_class (Union[XGBClassifier, RandomForestClassifier, MLPClassifier]): classifier to build model
-            model_config (dict): configurations for the given model
-
-        Returns:
-            Tuple: classifier with best hyper-parameters found out using val_data along with trials info
-        """
+        """Returns the classifier with best hyper-parameters after performing hyper-parameter tuning along with trials info."""
         hyperopt_space = self.generate_hyperparameter_space(model_config["hyperopts"])
 
         # We can set evaluation set for xgboost model which we cannot directly configure from configuration file
@@ -638,18 +653,6 @@ class ClassificationTrainer(MLTrainer):
         y: pd.DataFrame,
         label_column: str,
     ) -> None:
-        """Plots the diagnostics for the given model
-
-        Args:
-            Connector (Connector): Connector instance to access data warehouse
-            session: valid snowpark session or redshift cursor to access data warehouse
-            model (object): trained model
-            stage_name (str): name of the stage
-            x (pd.DataFrame): test data features
-            y (pd.Series): test data labels
-            figure_names (dict): dict of figure names
-            label_column (str): name of the label column
-        """
         try:
             y_pred = model.predict_proba(x)[:, 1]
             y_true = y.to_numpy()
@@ -704,7 +707,9 @@ class RegressionTrainer(MLTrainer):
 
     models_map = {
         model.__name__: model
-        for model in [XGBRegressor, RandomForestRegressor, MLPRegressor]
+        # Removing MLPRegressor from the list of models as it is taking too much time to
+        # calculate shap values for MLPRegressor
+        for model in [XGBRegressor, RandomForestRegressor]
     }
 
     def __init__(self, **kwargs):
@@ -727,20 +732,7 @@ class RegressionTrainer(MLTrainer):
         model_class: Union[XGBRegressor, RandomForestRegressor, MLPRegressor],
         model_config: Dict,
     ) -> Tuple:
-        """
-        Returns the regressor with best hyper-parameters after performing hyper-parameter tuning.
-
-        Args:
-            X_train (pd.DataFrame): X_train dataframe
-            y_train (pd.DataFrame): y_train dataframe
-            X_val (pd.DataFrame): X_val dataframe
-            y_val (pd.DataFrame): y_val dataframe
-            model_class: Regressor class to build the model
-            model_config (dict): configurations for the given model
-
-        Returns:
-            Tuple: regressor with best hyper-parameters found out using val_data along with trials info
-        """
+        """Returns the regressor with best hyper-parameters after performing hyper-parameter tuning along with trials info."""
         hyperopt_space = self.generate_hyperparameter_space(model_config["hyperopts"])
 
         # We can set evaluation set for XGB Regressor model which we cannot directly configure from the configuration file

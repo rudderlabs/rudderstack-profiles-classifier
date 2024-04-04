@@ -1,0 +1,8 @@
+schema_version: 44
+connection: test
+include_untimed: true
+model_folders:
+  - models
+packages:
+  - name: feature_table
+    url: https://github.com/rudderlabs/profiles-shopify-features/tree/bigquery-integration-test-features

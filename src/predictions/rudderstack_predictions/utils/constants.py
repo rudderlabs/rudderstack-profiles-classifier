@@ -20,8 +20,8 @@ POSITIVE_BOOLEAN_FLAGS = [
 LOCAL_STORAGE_DIR = "data"
 SF_LOCAL_STORAGE_DIR = "/tmp"
 rs_dtypes = '{"text": "character varying(65535)", "num": "float", "bool": "bool", "timestamp": "timestamp without time zone"}'
-CLASSIFIER_MIN_LABEL_PROPORTION = 0.001  # TODO: Change to 0.05 and next value to 0.95 once actual customers start using this
-CLASSIFIER_MAX_LABEL_PROPORTION = 0.999
+CLASSIFIER_MIN_LABEL_PROPORTION = 0.05
+CLASSIFIER_MAX_LABEL_PROPORTION = 0.95
 REGRESSOR_MIN_LABEL_DISTINCT_VALUES = 3
 REMOTE_DIR = "/home/ec2-user"
 INSTANCE_ID = "i-001c6544decab0fa3"
@@ -36,13 +36,17 @@ WAREHOUSE_MODE = "native-warehouse"
 RUDDERSTACK_MODE = "rudderstack-infra"
 ML_CORE_PYTHON_PATH = "src.predictions.rudderstack_predictions.ml_core"
 ML_CORE_PYNATIVE_PATH = "rudderstack_predictions.ml_core"
+MIN_PB_VERSION = 53
 
 # Smart data preparation
 
 # Min training data requirements
 # For classification its minimum negative sample
 # For regression its minimum number of samples
-MIN_NUM_OF_SAMPLES = 3
+MIN_NUM_OF_SAMPLES = 5000
+
+# Material date format
+MATERIAL_DATE_FORMAT = "%Y-%m-%d"
 
 from typing import NamedTuple
 

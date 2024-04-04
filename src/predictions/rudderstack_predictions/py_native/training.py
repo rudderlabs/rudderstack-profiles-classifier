@@ -4,14 +4,16 @@ from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
 from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
 
+import pandas as pd
+
 from ..utils import constants
 
 from ..wht.pyNativeWHT import PyNativeWHT
 from ..train import _train
 
 
-class ClassifierTrainingModel(BaseModelType):
-    TypeName = "classifier_training"
+class TrainingModel(BaseModelType):
+    TypeName = "training_model"
     BuildSpecSchema = {
         "type": "object",
         "additionalProperties": False,
@@ -51,19 +53,19 @@ class ClassifierTrainingModel(BaseModelType):
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:
-        return ClassifierTrainingRecipe(self.build_spec)
+        return TrainingRecipe(self.build_spec)
 
     def validate(self) -> tuple[bool, str]:
-        min_version = 49
+        min_version = constants.MIN_PB_VERSION
         if self.schema_version < min_version:
             return False, f"schema version should >= {min_version}"
         return super().validate()
 
 
-class ClassifierTrainingRecipe(PyNativeRecipe):
+class TrainingRecipe(PyNativeRecipe):
     def __init__(self, build_spec: dict) -> None:
         self.build_spec = build_spec
-        self.logger = Logger("ClassifierTrainingRecipe")
+        self.logger = Logger("TrainingRecipe")
 
     def describe(self, this: WhtMaterial):
         return (
@@ -77,7 +79,7 @@ class ClassifierTrainingRecipe(PyNativeRecipe):
         for input in self.build_spec["inputs"]:
             this.de_ref(input)
 
-    def _get_train_output_filepath(self, this: WhtMaterial):
+    def get_output_filepath(this: WhtMaterial):
         parts = this.name().rsplit("_", 1)
         file_name = parts[0] + "_" + "training_file"
         folder = this.get_output_folder()
@@ -89,14 +91,19 @@ class ClassifierTrainingRecipe(PyNativeRecipe):
 
         homedir = os.path.expanduser("~")
         with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-            creds = yaml.safe_load(f)["connections"]["test"]["outputs"]["env"]
+            creds = yaml.safe_load(f)["connections"]["test"]["outputs"]["redshift"]
         input_model_refs = self.build_spec.get("inputs", [])
-        output_filename = self._get_train_output_filepath(this)
+        output_filename = TrainingRecipe.get_output_filepath(this)
         site_config_path = os.getenv("SITE_CONFIG_PATH")
         project_folder = os.getenv("PROJECT_FOLDER")
         runtime_info = {}
         config = self.build_spec.get("ml_config", {})
         input_materials = []
+        # TODO
+        # 1. Get project_folder from pywht
+        # 2. Get site_config_path from pywht
+        # 3. Compute creds from site_config_path
+        # 4. Get runtime_info from pywht
         for input in self.build_spec["inputs"]:
             material = this.de_ref(input)
             input_materials.append(material.name())
@@ -112,3 +119,8 @@ class ClassifierTrainingRecipe(PyNativeRecipe):
             PyNativeWHT(this),
             constants.ML_CORE_PYNATIVE_PATH,
         )
+        # pb expects every model to create a material. The output material of training model is a file which is currently not supported
+        # So until file type support is added, create a dummy table in the database
+        data = {"dummy_column": ["dummy_value"]}
+        df = pd.DataFrame(data)
+        this.write_output(df)

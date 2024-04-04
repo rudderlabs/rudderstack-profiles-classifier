@@ -28,3 +28,4 @@ setuptools==68.2.2
 pyOpenSSL==24.0.0
 cryptography==42.0.4
 pillow==10.2.0
+pycaret==3.3.0

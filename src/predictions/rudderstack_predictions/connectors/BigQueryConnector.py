@@ -22,6 +22,7 @@ class BigQueryConnector(CommonWarehouseConnector):
                 "BYTEINT",
                 "DECIMAL",
                 "BIGDECIMAL",
+                "NUMERIC",
             ),
             "categorical": ("STRING", "JSON"),
             "timestamp": ("DATE", "TIME", "DATETIME", "TIMESTAMP", "INTERVAL"),

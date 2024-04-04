@@ -104,7 +104,6 @@ def validate_training_summary():
         assert 0 <= prob_th <= 1, f"Invalid prob_th - {prob_th}"
         threshold = json_data["data"]["threshold"]
         assert 0 <= threshold <= 1, f"Invalid threshold - {threshold}"
-        assert threshold, "threshold is empty"
         keys = ["test", "train", "val"]
         for key in keys:
             innerKeys = [

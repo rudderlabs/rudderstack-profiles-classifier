@@ -32,4 +32,5 @@ def train(
         input_models,
         PythonWHT(),
         constants.ML_CORE_PYTHON_PATH,
+        "TRAINING_METRICS_v4",
     )

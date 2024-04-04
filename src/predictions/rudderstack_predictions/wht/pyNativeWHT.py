@@ -62,3 +62,6 @@ class PyNativeWHT:
 
     def get_registry_table_name(self) -> str:
         return self.pythonWHT.get_registry_table_name()
+
+    def get_input_models(self, inputs: List[str]) -> List[str]:
+        return self.pythonWHT.get_input_models(inputs)

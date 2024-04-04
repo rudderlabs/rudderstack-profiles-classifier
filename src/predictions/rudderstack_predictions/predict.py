@@ -22,7 +22,6 @@ from .trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
-metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
 

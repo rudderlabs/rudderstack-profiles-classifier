@@ -30,6 +30,7 @@ class Processor(ABC):
         materials: List[TrainTablesInfo],
         model_config: dict,
         input_column_types: dict,
+        metrics_table: str,
         prediction_task: str,
         wh_creds: dict,
         site_config: dict,

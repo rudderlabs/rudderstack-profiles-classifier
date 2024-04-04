@@ -212,7 +212,7 @@ def preprocess_and_train(
 
     logger.info("Training and fetching the results")
     try:
-        # train_results_json = train_procedure(session,filtered_feature_table,train_config,feature_table_column_types)
+        # train_results_json = train_procedure(session,connector.feature_table_name,train_config,feature_table_column_types)
         train_results_json = connector.call_procedure(
             train_procedure,
             filtered_feature_table,

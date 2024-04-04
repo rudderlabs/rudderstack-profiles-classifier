@@ -341,7 +341,6 @@ class MLTrainer(ABC):
 
         # Get metrics
         results = self.get_metrics()
-        print(results)
 
         results["model_id"] = model_id
         metrics_df = pd.DataFrame(
@@ -602,9 +601,30 @@ class ClassificationTrainer(MLTrainer):
     ) -> dict:
 
         model_metrics = classification_results_pull().iloc[0].to_dict()
+
+        key_mapping = {
+            "F1": "f1_score",
+            "AUC": "pr_auc",
+            "Prec.": "precision",
+            "Recall": "recall",
+        }
+
+        # Create a new dictionary with updated keys
+        updated_metrics = {}
+        for old_key, new_key in key_mapping.items():
+            updated_metrics[new_key] = model_metrics.get(old_key, None)
+
+        updated_metrics['roc_auc'] = None
+        updated_metrics['users'] = 0
+
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
-            "metrics": model_metrics,
+            "metrics": {
+                "prob_th": 0,
+                "train": updated_metrics,
+                "test" : updated_metrics,
+                "val" : updated_metrics
+                }
         }
         return result_dict
     
@@ -656,7 +676,9 @@ class ClassificationTrainer(MLTrainer):
             "timestamp": model_timestamp,
             "data": {
                 "metrics": model_results["metrics"],
+                "threshold": 0
             },
+            
         }
         return training_summary
 
@@ -831,11 +853,28 @@ class RegressionTrainer(MLTrainer):
 
         model_metrics = regression_results_pull().iloc[0].to_dict()
 
-        result_dict = {
-            "output_model_name": self.output_profiles_ml_model,
-            "metrics": model_metrics,
+        key_mapping = {
+            'MAE': mean_absolute_error,
+            'MSE': mean_squared_error,
+            'R2': r2_score,
         }
 
+        # Create a new dictionary with updated keys
+        updated_metrics = {}
+        for old_key, new_key in key_mapping.items():
+            updated_metrics[new_key] = model_metrics.get(old_key, None)
+
+        updated_metrics['users'] = 0
+
+        result_dict = {
+            "output_model_name": self.output_profiles_ml_model,
+            "metrics": {
+                "prob_th": 0,
+                "train": updated_metrics,
+                "test" : updated_metrics,
+                "val" : updated_metrics
+                }
+        }
         return result_dict
 
     def prepare_training_summary(

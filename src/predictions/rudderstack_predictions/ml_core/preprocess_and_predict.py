@@ -61,7 +61,6 @@ def preprocess_and_predict(
     with open(model_path, "r") as f:
         results = json.load(f)
     train_model_id = results["model_info"]["model_id"]
-    prob_th = results["model_info"].get("threshold")
     stage_name = results["model_info"]["file_location"]["stage"]
     model_hash = results["config"]["material_hash"]
     input_model_name = results["config"]["input_model_name"]
@@ -251,7 +250,6 @@ def preprocess_and_predict(
         trainer.outputs.column_names.get("percentile"),
         trainer.outputs.column_names.get("output_label_column"),
         train_model_id,
-        prob_th,
         input_df,
         pred_df_config,
     )

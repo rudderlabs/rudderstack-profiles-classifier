@@ -744,7 +744,6 @@ class CommonWarehouseConnector(Connector):
         percentile_column_name: str,
         output_label_column: str,
         train_model_id: str,
-        prob_th: Optional[float],
         input: pd.DataFrame,
         pred_df_config: Dict,
     ) -> pd.DataFrame:

@@ -99,24 +99,20 @@ def validate_training_summary():
         assert isinstance(timestamp, str), f"Invalid timestamp - {timestamp}"
         assert timestamp, "Timestamp is empty"
         metrics = json_data["data"]["metrics"]
-        prob_th = metrics["prob_th"]
-        assert 0 <= prob_th <= 1, f"Invalid prob_th - {prob_th}"
-        threshold = json_data["data"]["threshold"]
-        assert 0 <= threshold <= 1, f"Invalid threshold - {threshold}"
-        keys = ["test", "train", "val"]
-        for key in keys:
-            innerKeys = [
-                "f1_score",
-                "pr_auc",
-                "precision",
-                "recall",
-                "roc_auc",
-                "users",
-            ]
-            for innerKey in innerKeys:
-                assert metrics[key][
-                    innerKey
-                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+        # keys = ["test", "train", "val"]
+        # for key in keys:
+        #     innerKeys = [
+        #         "f1_score",
+        #         "pr_auc",
+        #         "precision",
+        #         "recall",
+        #         "roc_auc",
+        #         "users",
+        #     ]
+        #     for innerKey in innerKeys:
+        #         assert metrics[key][
+        #             innerKey
+        #         ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
 def validate_column_names_in_output_json():

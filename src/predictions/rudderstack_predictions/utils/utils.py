@@ -159,72 +159,6 @@ class TrainerUtils:
         )
         return best_metrics, best_th
 
-    def get_metrics_classifier(
-        self,
-        clf,
-        X_train: pd.DataFrame,
-        y_train: pd.DataFrame,
-        X_test: pd.DataFrame,
-        y_test: pd.DataFrame,
-        X_val: pd.DataFrame,
-        y_val: pd.DataFrame,
-        train_config: dict,
-        recall_to_precision_importance: float = 1.0,
-    ) -> Tuple:
-        """Generates classification metrics and predictions for train,
-        validation and test data along with the best probability thresold.
-        """
-
-        train_predictions = predict_classification(clf, data=X_train)
-        filtered_train_predictions = train_predictions["prediction_label"]
-        train_metrics = self.get_classification_metrics(
-            y_train, filtered_train_predictions, recall_to_precision_importance
-        )
-
-        test_predictions = predict_classification(clf, data=X_test)
-        filtered_test_predictions = test_predictions["prediction_label"]
-        test_metrics = self.get_classification_metrics(
-            y_test, filtered_test_predictions, recall_to_precision_importance
-        )
-
-        val_predictions = predict_classification(clf, data=X_val)
-        filtered_val_predictions = val_predictions["prediction_label"]
-        val_metrics = self.get_classification_metrics(
-            y_val, filtered_val_predictions, recall_to_precision_importance
-        )
-
-        metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
-        predictions = {
-            "train": train_predictions,
-            "val": val_predictions,
-            "test": test_predictions,
-        }
-
-        # ToDO: This is for compatibility with UI and should be safely removed once the param is removed on UI
-        prob_th = 0.0
-        return metrics, predictions, round(prob_th, 2)
-
-    def get_metrics_regressor(
-        self, model, train_x, train_y, test_x, test_y, val_x, val_y
-    ):
-        """Calculate and return regression metrics for the trained model."""
-        train_pred = predict_regression(model, data=train_x)["prediction_label"]
-        test_pred = predict_regression(model, data=test_x)["prediction_label"]
-        val_pred = predict_regression(model, data=val_x)["prediction_label"]
-
-        train_metrics = {}
-        test_metrics = {}
-        val_metrics = {}
-
-        for metric_name, metric_func in self.evalution_metrics_map_regressor.items():
-            train_metrics[metric_name] = float(metric_func(train_y, train_pred))
-            test_metrics[metric_name] = float(metric_func(test_y, test_pred))
-            val_metrics[metric_name] = float(metric_func(val_y, val_pred))
-
-        metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
-
-        return metrics
-
 
 def split_train_test(
     preprocess_setup,
@@ -237,7 +171,7 @@ def split_train_test(
     test_size: float,
     preprocess_config,
 ) -> Tuple:
-    """Returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame"""
+    """Returns the train_x, train_y, test_x, test_y in form of pd.DataFrame"""
     feature_df.columns = feature_df.columns.str.upper()
 
     preprocess_setup(
@@ -250,31 +184,13 @@ def split_train_test(
     # Get the configurations
     train_x = get_config("X_train_transformed")
     train_y = get_config("y_train_transformed")
-    test_val_x = get_config("X_test_transformed")
-    test_val_y = get_config("y_test_transformed")
-
-    # Concatenate test_val_x and test_val_y into temp_data
-    temp_data = pd.concat([test_val_x, test_val_y], axis=1)
-
-    # Run a preprocessor setup on temp_data as per the val_size
-    preprocess_setup(
-        data=temp_data,
-        target=label_column.upper(),
-        train_size=val_size / (val_size + test_size),
-        preprocess=True,
-    )
-
-    # Get the configurations for the preprocessed temp_data
-    val_x = get_config("X_train_transformed")
-    val_y = get_config("y_train_transformed")
     test_x = get_config("X_test_transformed")
     test_y = get_config("y_test_transformed")
 
     train_x = train_x.drop([entity_column.upper()], axis=1)
-    val_x = val_x.drop([entity_column.upper()], axis=1)
     test_x = test_x.drop([entity_column.upper()], axis=1)
 
-    return train_x, train_y, test_x, test_y, val_x, val_y
+    return train_x, train_y, test_x, test_y
 
 
 def load_yaml(file_path: str) -> dict:

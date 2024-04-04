@@ -37,12 +37,14 @@ from pycaret.classification import (
     compare_models as classification_compare_models,
     get_config as get_classification_config,
     save_model as classification_save_model,
+    pull as classification_results_pull,
 )
 from pycaret.regression import (
     setup as regression_setup,
     compare_models as regression_compare_models,
     get_config as get_regression_config,
     save_model as regression_save_model,
+    pull as regression_results_pull,
 )
 
 trainer_utils = utils.TrainerUtils()
@@ -219,10 +221,6 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
-    def select_best_model(self, models, train_x, train_y, val_x, val_y, models_map):
-        pass
-
-    @abstractmethod
     def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         pass
 
@@ -240,9 +238,7 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
-    def get_metrics(
-        self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
-    ):
+    def get_metrics(self):
         pass
 
     @abstractmethod
@@ -276,7 +272,7 @@ class MLTrainer(ABC):
             "categorical_iterative_imputer": "lightgbm",
         }
 
-        train_x, train_y, test_x, test_y, val_x, val_y = utils.split_train_test(
+        train_x, train_y, test_x, test_y = utils.split_train_test(
             feature_df=feature_df,
             label_column=self.label_column,
             entity_column=self.entity_column,
@@ -290,18 +286,14 @@ class MLTrainer(ABC):
 
         train_data = pd.concat([train_x, train_y], axis=1)
         test_data = pd.concat([test_x, test_y], axis=1)
-        val_data = pd.concat([val_x, val_y], axis=1)
 
         return (
             train_x,
             train_y,
             test_x,
             test_y,
-            val_x,
-            val_y,
             train_data,
             test_data,
-            val_data,
         )
 
     def train_model_(
@@ -345,11 +337,8 @@ class MLTrainer(ABC):
             train_y,
             test_x,
             test_y,
-            val_x,
-            val_y,
             train_data,
             test_data,
-            val_data,
         ) = self.prepare_data(feature_df, categorical_columns, numeric_columns)
 
         # Initialize PyCaret setup for the model with train and test data
@@ -368,9 +357,8 @@ class MLTrainer(ABC):
         save_model(best_model, model_file)
 
         # Get metrics
-        results = self.get_metrics(
-            best_model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
-        )
+        results = self.get_metrics()
+
         results["model_id"] = model_id
         metrics_df = pd.DataFrame(
             {
@@ -572,25 +560,6 @@ class ClassificationTrainer(MLTrainer):
     def get_name(self):
         return "classification"
 
-    def select_best_model(self, models, train_x, train_y, val_x, val_y):
-        """
-        Returns the best classifier model with the best hyperparameters based on the given list of models and their configurations.
-        """
-        best_acc = 0
-        for model_config in models:
-            name = model_config["name"]
-
-            if name in self.models_map.keys():
-                clf, trials = self.build_model(
-                    train_x, train_y, val_x, val_y, self.models_map[name], model_config
-                )
-
-                if best_acc < max([-1 * loss for loss in trials.losses()]):
-                    final_clf = clf
-                    best_acc = max([-1 * loss for loss in trials.losses()])
-
-        return final_clf
-
     def prepare_data(
         self, feature_df: pd.DataFrame, categorical_columns, numeric_columns
     ):
@@ -638,6 +607,35 @@ class ClassificationTrainer(MLTrainer):
             classification_save_model,
         )
 
+    def get_metrics(self) -> dict:
+        model_metrics = classification_results_pull().iloc[0].to_dict()
+
+        key_mapping = {
+            "F1": "f1_score",
+            "AUC": "pr_auc",
+            "Prec.": "precision",
+            "Recall": "recall",
+        }
+
+        # Create a new dictionary with updated keys
+        updated_metrics = {}
+        for old_key, new_key in key_mapping.items():
+            updated_metrics[new_key] = model_metrics.get(old_key, None)
+
+        updated_metrics["roc_auc"] = None
+        updated_metrics["users"] = 0
+
+        result_dict = {
+            "output_model_name": self.output_profiles_ml_model,
+            "metrics": {
+                "prob_th": 0,
+                "train": updated_metrics,
+                "test": updated_metrics,
+                "val": updated_metrics,
+            },
+        }
+        return result_dict
+
     def plot_diagnostics(
         self,
         connector: Connector,
@@ -667,37 +665,12 @@ class ClassificationTrainer(MLTrainer):
             logger.error(f"Could not generate plots. {e}")
         pass
 
-    def get_metrics(
-        self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
-    ) -> dict:
-        model_metrics, _, prob_th = trainer_utils.get_metrics_classifier(
-            model,
-            train_x,
-            train_y,
-            test_x,
-            test_y,
-            val_x,
-            val_y,
-            train_config,
-            self.recall_to_precision_importance,
-        )
-        model_metrics["prob_th"] = prob_th
-        result_dict = {
-            "output_model_name": self.output_profiles_ml_model,
-            "prob_th": prob_th,
-            "metrics": model_metrics,
-        }
-        return result_dict
-
     def prepare_training_summary(
         self, model_results: dict, model_timestamp: str
     ) -> dict:
         training_summary = {
             "timestamp": model_timestamp,
-            "data": {
-                "metrics": model_results["metrics"],
-                "threshold": model_results["prob_th"],
-            },
+            "data": {"metrics": model_results["metrics"], "threshold": 0},
         }
         return training_summary
 
@@ -783,25 +756,6 @@ class RegressionTrainer(MLTrainer):
     def get_name(self):
         return "regression"
 
-    def select_best_model(self, models, train_x, train_y, val_x, val_y):
-        """
-        Returns the best regressor model with the best hyperparameters based on the given list of models and their configurations.
-        """
-        best_loss = float("inf")
-
-        for model_config in models:
-            name = model_config["name"]
-            if name in self.models_map.keys():
-                reg, trials = self.build_model(
-                    train_x, train_y, val_x, val_y, self.models_map[name], model_config
-                )
-
-                if best_loss > min(trials.losses()):
-                    final_reg = reg
-                    best_loss = min(trials.losses())
-
-        return final_reg
-
     def prepare_data(
         self, feature_df: pd.DataFrame, categorical_columns, numeric_columns
     ):
@@ -873,16 +827,30 @@ class RegressionTrainer(MLTrainer):
         except Exception as e:
             logger.error(f"Could not generate regression plots. {e}")
 
-    def get_metrics(
-        self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config
-    ) -> dict:
-        model_metrics = trainer_utils.get_metrics_regressor(
-            model, train_x, train_y, test_x, test_y, val_x, val_y
-        )
+    def get_metrics(self) -> dict:
+        model_metrics = regression_results_pull().iloc[0].to_dict()
+
+        key_mapping = {
+            "MAE": mean_absolute_error,
+            "MSE": mean_squared_error,
+            "R2": r2_score,
+        }
+
+        # Create a new dictionary with updated keys
+        updated_metrics = {}
+        for old_key, new_key in key_mapping.items():
+            updated_metrics[new_key] = model_metrics.get(old_key, None)
+
+        updated_metrics["users"] = 0
+
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
-            "prob_th": None,
-            "metrics": model_metrics,
+            "metrics": {
+                "prob_th": 0,
+                "train": updated_metrics,
+                "test": updated_metrics,
+                "val": updated_metrics,
+            },
         }
         return result_dict
 

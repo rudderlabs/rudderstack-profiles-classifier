@@ -171,7 +171,7 @@ def _train(
             """
             numeric_columns = feature_table_column_types["numeric"]
             categorical_columns = feature_table_column_types["categorical"]
-            
+
             feature_df = connector.get_table_as_dataframe(session, feature_table_name)
 
             model_file = connector.join_file_path(
@@ -357,7 +357,7 @@ def _train(
                 "file_name": f"{trainer.output_profiles_ml_model}_{model_file_name}",
             },
             "model_id": model_id,
-            "threshold": 0
+            "threshold": 0,
         },
         "column_names": train_results["column_names"],
     }

@@ -12,6 +12,6 @@ class MockPB:
 
     def show_models(self, *args):
         return RudderPB().show_models(*args)
-    
+
     def extract_json_from_stdout(self, *args):
         return RudderPB().extract_json_from_stdout(*args)

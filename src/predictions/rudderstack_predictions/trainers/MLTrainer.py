@@ -220,7 +220,6 @@ class MLTrainer(ABC):
     def get_name(self):
         pass
 
-
     @abstractmethod
     def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         pass
@@ -239,9 +238,7 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
-    def get_metrics(
-        self
-    ):
+    def get_metrics(self):
         pass
 
     @abstractmethod
@@ -257,8 +254,7 @@ class MLTrainer(ABC):
         categorical_columns: List[str],
         numeric_columns: List[str],
     ):
-        pass    
-
+        pass
 
     def prepare_data_(
         self,
@@ -356,7 +352,7 @@ class MLTrainer(ABC):
 
         # Compare different models and select the best one
         best_model = compare_models()
-    
+
         # Save the final model
         save_model(best_model, model_file)
 
@@ -611,10 +607,7 @@ class ClassificationTrainer(MLTrainer):
             classification_save_model,
         )
 
-    def get_metrics(
-        self
-    ) -> dict:
-
+    def get_metrics(self) -> dict:
         model_metrics = classification_results_pull().iloc[0].to_dict()
 
         key_mapping = {
@@ -629,20 +622,20 @@ class ClassificationTrainer(MLTrainer):
         for old_key, new_key in key_mapping.items():
             updated_metrics[new_key] = model_metrics.get(old_key, None)
 
-        updated_metrics['roc_auc'] = None
-        updated_metrics['users'] = 0
+        updated_metrics["roc_auc"] = None
+        updated_metrics["users"] = 0
 
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
             "metrics": {
                 "prob_th": 0,
                 "train": updated_metrics,
-                "test" : updated_metrics,
-                "val" : updated_metrics
-                }
+                "test": updated_metrics,
+                "val": updated_metrics,
+            },
         }
         return result_dict
-    
+
     def plot_diagnostics(
         self,
         connector: Connector,
@@ -677,11 +670,7 @@ class ClassificationTrainer(MLTrainer):
     ) -> dict:
         training_summary = {
             "timestamp": model_timestamp,
-            "data": {
-                "metrics": model_results["metrics"],
-                "threshold": 0
-            },
-            
+            "data": {"metrics": model_results["metrics"], "threshold": 0},
         }
         return training_summary
 
@@ -767,7 +756,6 @@ class RegressionTrainer(MLTrainer):
     def get_name(self):
         return "regression"
 
-
     def prepare_data(
         self, feature_df: pd.DataFrame, categorical_columns, numeric_columns
     ):
@@ -839,16 +827,13 @@ class RegressionTrainer(MLTrainer):
         except Exception as e:
             logger.error(f"Could not generate regression plots. {e}")
 
-    def get_metrics(
-        self
-    ) -> dict:
-
+    def get_metrics(self) -> dict:
         model_metrics = regression_results_pull().iloc[0].to_dict()
 
         key_mapping = {
-            'MAE': mean_absolute_error,
-            'MSE': mean_squared_error,
-            'R2': r2_score,
+            "MAE": mean_absolute_error,
+            "MSE": mean_squared_error,
+            "R2": r2_score,
         }
 
         # Create a new dictionary with updated keys
@@ -856,16 +841,16 @@ class RegressionTrainer(MLTrainer):
         for old_key, new_key in key_mapping.items():
             updated_metrics[new_key] = model_metrics.get(old_key, None)
 
-        updated_metrics['users'] = 0
+        updated_metrics["users"] = 0
 
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
             "metrics": {
                 "prob_th": 0,
                 "train": updated_metrics,
-                "test" : updated_metrics,
-                "val" : updated_metrics
-                }
+                "test": updated_metrics,
+                "val": updated_metrics,
+            },
         }
         return result_dict
 

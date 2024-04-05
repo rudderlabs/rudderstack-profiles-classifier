@@ -232,9 +232,6 @@ if __name__ == "__main__":
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
 
-    if args.mode == constants.CI_MODE:
-        sys.exit(0)
-    wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
     current_dir = os.path.dirname(os.path.abspath(__file__))
     output_dir = (
         args.output_path
@@ -251,6 +248,8 @@ if __name__ == "__main__":
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
+    if args.mode == constants.CI_MODE:
+        sys.exit(0)
 
     if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
         logger.debug(f"Downloading files from S3 in {args.mode} mode.")
@@ -262,6 +261,7 @@ if __name__ == "__main__":
         trainer = RegressionTrainer(**args.merged_config)
 
     # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
+    wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
     warehouse = wh_creds["type"]
     connector = ConnectorFactory.create(warehouse, output_dir)
     session = connector.build_session(wh_creds)

@@ -533,9 +533,14 @@ def get_feature_package_path(input_models: List[str]) -> str:
 
 
 def subprocess_run(args):
-    response = subprocess.run(
-        args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-    )
+    try:
+        response = subprocess.run(
+            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+    except Exception as e:
+        raise Exception(
+            f"Error occurred while running subprocess with params {args}: {e}"
+        )
     if response.returncode != 0:
         logger.error(f"Error occurred. Exit code:{response.returncode}")
         logger.error(f"Subprocess Output: {response.stdout}")

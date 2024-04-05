@@ -14,7 +14,6 @@ class SnowflakeProcessor(Processor):
         model_config: dict,
         input_column_types: dict,
         metrics_table: str,
-        prediction_task: str,
         wh_creds: dict,
         site_config: dict,
     ):
@@ -37,7 +36,6 @@ class SnowflakeProcessor(Processor):
         inputs,
         output_tablename,
         merged_config,
-        prediction_task,
         site_config: dict,
     ):
         return preprocess_and_predict(
@@ -46,7 +44,6 @@ class SnowflakeProcessor(Processor):
             model_path,
             inputs,
             output_tablename,
-            prediction_task,
             session=self.session,
             connector=self.connector,
             trainer=self.trainer,

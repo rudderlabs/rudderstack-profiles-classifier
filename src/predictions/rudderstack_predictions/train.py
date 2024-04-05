@@ -27,7 +27,7 @@ from .utils import utils
 from .utils import constants
 
 from .connectors.ConnectorFactory import ConnectorFactory
-from .trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
+from .trainers.TrainerFactory import TrainerFactory
 from .ml_core.preprocess_and_train import train_and_store_model_results
 from typing import List
 
@@ -93,14 +93,22 @@ def _train(
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None
     )
-    prediction_task = merged_config["data"].pop(
-        "task", "classification"
-    )  # Assuming default as classification
 
-    if prediction_task == "classification":
-        trainer = ClassificationTrainer(**merged_config)
-    elif prediction_task == "regression":
-        trainer = RegressionTrainer(**merged_config)
+    connector = ConnectorFactory.create(creds["type"], folder_path)
+    session = connector.build_session(creds)
+    whtService.init(connector, session, site_config_path, project_folder)
+
+    (
+        model_hash,
+        entity_var_model_name,
+        creation_ts,
+    ) = whtService.get_latest_entity_var_table(
+        merged_config["data"]["entity_key"],
+    )
+
+    trainer = TrainerFactory.create(
+        merged_config, connector, session, entity_var_model_name
+    )
 
     logger.debug(
         f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
@@ -118,8 +126,6 @@ def _train(
     warehouse = creds["type"]
     logger.debug(f"Building session for {warehouse}")
     if warehouse == "snowflake":
-        connector = ConnectorFactory.create(warehouse)
-        session = connector.build_session(creds)
         stage_name = connector.stage_name
         train_procedure = connector.stored_procedure_name
         import_paths = connector.delete_files
@@ -148,6 +154,8 @@ def _train(
                 "scikit-plot==0.3.7",
             ],
         )
+
+        # This function is called from connector.call_procedure in preprocess_and_train.py
         def train_and_store_model_results_sf(
             session: snowflake.snowpark.Session,
             feature_table_name: str,
@@ -237,20 +245,8 @@ def _train(
 
     elif warehouse in ("redshift", "bigquery"):
         train_procedure = train_and_store_model_results
-        connector = ConnectorFactory.create(warehouse, folder_path)
-        session = connector.build_session(creds)
         connector.delete_local_data_folder()
         connector.make_local_dir()
-
-    whtService.init(connector, session, site_config_path, project_folder)
-
-    (
-        model_hash,
-        entity_var_model_name,
-        creation_ts,
-    ) = whtService.get_latest_entity_var_table(
-        trainer.entity_key,
-    )
 
     latest_seq_no = utils.extract_seq_no_from_select_query(inputs[0])
     latest_entity_var_table = whtService.compute_material_name(
@@ -263,15 +259,6 @@ def _train(
         start_date, end_date = utils.get_date_range(
             creation_ts, trainer.prediction_horizon_days
         )
-
-    if trainer.label_value is None and prediction_task == "classification":
-        label_value = connector.get_default_label_value(
-            session,
-            entity_var_model_name,
-            trainer.label_column,
-            constants.POSITIVE_BOOLEAN_FLAGS,
-        )
-        trainer.label_value = label_value
 
     absolute_input_models = whtService.get_input_models(inputs)
 
@@ -321,7 +308,6 @@ def _train(
         merged_config,
         input_column_types,
         metrics_table,
-        prediction_task,
         creds,
         utils.load_yaml(site_config_path),
     )

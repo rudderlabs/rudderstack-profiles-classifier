@@ -1,6 +1,7 @@
 import os
 import json
 from typing import List
+import sys
 
 from ..utils import utils
 from ..utils.logger import logger
@@ -24,7 +25,7 @@ class LocalProcessor(Processor):
         local_dir = self.connector.get_local_dir()
         output_path = os.path.dirname(local_dir)
         commands = [
-            f"python3",
+            sys.executable,
             "-u",
             "-m",
             f"{self.ml_core_path}.preprocess_and_train",
@@ -81,7 +82,7 @@ class LocalProcessor(Processor):
 
         logger.debug("Starting prediction on local processing mode")
         commands = [
-            "python3",
+            sys.executable,
             "-u",
             "-m",
             f"{self.ml_core_path}.preprocess_and_predict",

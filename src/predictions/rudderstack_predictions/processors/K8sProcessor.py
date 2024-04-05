@@ -5,7 +5,7 @@ import time
 from typing import List
 from kubernetes import client, config, watch
 import base64
-
+import sys
 
 from ..processors.Processor import Processor
 from ..utils import constants
@@ -188,7 +188,7 @@ class K8sProcessor(Processor):
         k8s_config = credentials_presets["kubernetes"]
         s3_config = credentials_presets["s3"]
         command = [
-            "python3",
+            sys.executable,
             "-u",
             "-m",
             f"{self.ml_core_path}.preprocess_and_train",
@@ -297,7 +297,7 @@ class K8sProcessor(Processor):
             constants.K8S_MODE,
         )
         command = [
-            "python3",
+            sys.executable,
             "-u",
             "-m",
             f"{self.ml_core_path}.preprocess_and_predict",

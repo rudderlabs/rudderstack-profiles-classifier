@@ -50,7 +50,6 @@ class LocalProcessor(Processor):
             raise Exception(
                 f"Error occurred while running train script in local processing mode. Error: {response_for_train.stderr}"
             )
-        # check the connector code
         train_results_json = self.connector.load_and_delete_json(
             constants.TRAIN_JSON_RESULT_FILE
         )

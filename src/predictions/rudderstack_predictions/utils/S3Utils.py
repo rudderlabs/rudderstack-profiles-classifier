@@ -1,22 +1,13 @@
 import os
 import boto3
 from ..utils.logger import logger
-from ..utils import constants
-import configparser
 
 
 class S3Utils:
-    def download_directory_from_S3(s3_config, local_directory, mode):
-        if mode == constants.K8S_MODE:
-            S3Utils._download_directory(s3_config, local_directory)
-        elif mode == constants.RUDDERSTACK_MODE:
-            S3Utils._download_directory_using_keys(s3_config, local_directory)
-
-    def _download_directory(s3_config, local_directory):
-        s3 = boto3.client("s3", region_name=s3_config["region"])
-        S3Utils._download(s3_config["bucket"], s3_config["path"], s3, local_directory)
-
-    def _download(bucket_name, s3_path, client, local_directory):
+    def download_directory(s3_config, local_directory):
+        client = boto3.client("s3", region_name=s3_config["region"])
+        bucket_name = s3_config["bucket"]
+        s3_path = s3_config["path"]
         objects = client.list_objects(Bucket=bucket_name, Prefix=s3_path)["Contents"]
         for obj in objects:
             key = obj["Key"]
@@ -34,17 +25,7 @@ class S3Utils:
             f"All files from {bucket_name}/{s3_path} downloaded to {local_directory}"
         )
 
-    def _download_directory_using_keys(s3_config, local_directory):
-        s3 = boto3.client(
-            "s3",
-            region_name=s3_config["region"],
-            aws_access_key_id=s3_config["access_key_id"],
-            aws_secret_access_key=s3_config["access_key_secret"],
-            aws_session_token=s3_config["aws_session_token"],
-        )
-        S3Utils._download(s3_config["bucket"], s3_config["path"], s3, local_directory)
-
-    def delete_directory_in_S3(bucket_name, aws_region_name, folder_name):
+    def delete_directory(bucket_name, aws_region_name, folder_name):
         s3 = boto3.client("s3", region_name=aws_region_name)
         objects = s3.list_objects(Bucket=bucket_name, Prefix=folder_name)["Contents"]
         for obj in objects:
@@ -53,23 +34,8 @@ class S3Utils:
         s3.delete_object(Bucket=bucket_name, Key=folder_name)
         logger.debug(f"Deleted folder: {folder_name}")
 
-    def upload_directory_to_S3(
-        bucket, aws_region_name, destination, path, allowedFiles, mode
-    ):
-        if mode == constants.K8S_MODE:
-            S3Utils._upload_directory(
-                bucket, aws_region_name, destination, path, allowedFiles
-            )
-        elif mode == constants.RUDDERSTACK_MODE:
-            S3Utils._upload_directory_using_keys(
-                bucket, aws_region_name, destination, path, allowedFiles
-            )
-
-    def _upload_directory(bucket, aws_region_name, destination, path, allowedFiles):
-        s3 = boto3.client("s3", region_name=aws_region_name)
-        S3Utils._upload(bucket, destination, path, s3, allowedFiles)
-
-    def _upload(bucket, destination, path, client, allowedFiles):
+    def upload_directory(bucket, aws_region_name, destination, path, allowedFiles):
+        client = boto3.client("s3", region_name=aws_region_name)
         for subdir, _, files in os.walk(path):
             for file in files:
                 if file not in allowedFiles:
@@ -84,27 +50,6 @@ class S3Utils:
                         raise Exception(
                             f"The file {full_path} was not found in ec2 while uploading trained files to s3."
                         )
-
-    def _upload_directory_using_keys(
-        bucket, aws_region_name, destination, path, allowedFiles
-    ):
-        credentials_file_path = os.path.join(constants.REMOTE_DIR, ".aws/credentials")
-        if os.path.exists(credentials_file_path):
-            config = configparser.ConfigParser()
-            config.read(credentials_file_path)
-            aws_access_key_id = config.get("default", "aws_access_key_id")
-            aws_secret_access_key = config.get("default", "aws_secret_access_key")
-            aws_session_token = config.get("default", "aws_session_token")
-        else:
-            raise Exception(f"Credentials file not found at {credentials_file_path}.")
-        s3 = boto3.client(
-            "s3",
-            region_name=aws_region_name,
-            aws_access_key_id=aws_access_key_id,
-            aws_secret_access_key=aws_secret_access_key,
-            aws_session_token=aws_session_token,
-        )
-        S3Utils._upload(bucket, destination, path, s3, allowedFiles)
 
     def get_temporary_credentials(role_arn: str):
         sts_client = boto3.client("sts")

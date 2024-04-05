@@ -272,16 +272,6 @@ if __name__ == "__main__":
     parser.add_argument("--metrics_table", type=str)
     args = parser.parse_args()
 
-    if args.mode == constants.CI_MODE:
-        sys.exit(0)
-    wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
-
-    if args.prediction_task == "classification":
-        trainer = ClassificationTrainer(**args.merged_config)
-    elif args.prediction_task == "regression":
-        trainer = RegressionTrainer(**args.merged_config)
-
-    # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
     output_dir = (
         args.output_path
         if args.mode == constants.LOCAL_MODE
@@ -297,6 +287,15 @@ if __name__ == "__main__":
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
+
+    if args.mode == constants.CI_MODE:
+        sys.exit(0)
+    wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
+
+    if args.prediction_task == "classification":
+        trainer = ClassificationTrainer(**args.merged_config)
+    elif args.prediction_task == "regression":
+        trainer = RegressionTrainer(**args.merged_config)
 
     warehouse = wh_creds["type"]
     train_procedure = train_and_store_model_results

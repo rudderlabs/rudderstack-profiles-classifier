@@ -276,6 +276,7 @@ def _train(
         trainer.label_value = label_value
 
     absolute_input_models = whtService.get_input_models(inputs)
+    logger.info(f"Absolute input models: {absolute_input_models} using inputs {inputs}")
 
     logger.info(f"Getting input column types from table: {latest_entity_var_table}")
     input_column_types = connector.get_input_column_types(

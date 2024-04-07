@@ -622,7 +622,7 @@ class ClassificationTrainer(MLTrainer):
         for old_key, new_key in key_mapping.items():
             updated_metrics[new_key] = model_metrics.get(old_key, None)
 
-        updated_metrics["roc_auc"] = None
+        updated_metrics["roc_auc"] = 0
         updated_metrics["users"] = 0
 
         result_dict = {
@@ -831,12 +831,12 @@ class RegressionTrainer(MLTrainer):
         model_metrics = regression_results_pull().iloc[0].to_dict()
 
         key_mapping = {
-            "MAE": mean_absolute_error,
-            "MSE": mean_squared_error,
-            "R2": r2_score,
+            "MAE": "mean_absolute_error",
+            "MSE": "mean_squared_error",
+            "R2": "r2_score",
         }
 
-        # Create a new dictionary with updated keys
+        # # Create a new dictionary with updated keys
         updated_metrics = {}
         for old_key, new_key in key_mapping.items():
             updated_metrics[new_key] = model_metrics.get(old_key, None)

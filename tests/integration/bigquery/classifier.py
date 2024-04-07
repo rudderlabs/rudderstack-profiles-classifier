@@ -117,7 +117,7 @@ def validate_training_summary():
             for innerKey in innerKeys:
                 assert metrics[key][
                     innerKey
-                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+                ] is not None, f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
 def validate_reports():

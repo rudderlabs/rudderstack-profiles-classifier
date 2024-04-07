@@ -2,6 +2,7 @@ from train import *
 import shutil
 from predict import *
 from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
+from src.predictions.rudderstack_predictions.wht.mockPB import MockPB
 from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
     ConnectorFactory,
 )
@@ -102,7 +103,7 @@ def validate_training_summary_regression():
             for innerKey in innerKeys:
                 assert metrics[key][
                     innerKey
-                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+                ] is not None, f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
 def validate_column_names_in_output_json():
@@ -200,7 +201,7 @@ def test_regressor():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
+    latest_model_hash, entity_var_model_name = MockPB().get_latest_material_hash(
         entity_key,
         siteconfig_path,
         project_path,

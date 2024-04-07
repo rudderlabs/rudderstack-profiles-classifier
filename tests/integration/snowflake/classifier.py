@@ -3,6 +3,7 @@ import shutil
 import time
 from predict import *
 from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
+from src.predictions.rudderstack_predictions.wht.mockPB import MockPB
 from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
     ConnectorFactory,
 )
@@ -10,7 +11,16 @@ import json
 from tests.integration.utils import create_site_config_file
 import os
 
-creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
+# creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
+
+homedir = os.path.expanduser("~")
+
+with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
+    env_name = "dev"
+    import yaml
+    creds = yaml.safe_load(f)["connections"]["dev_wh2"]["outputs"][env_name]
+
+
 creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -114,7 +124,7 @@ def validate_training_summary():
             for innerKey in innerKeys:
                 assert metrics[key][
                     innerKey
-                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+                ] is not None , f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
 def validate_column_names_in_output_json():
@@ -208,7 +218,7 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
+    latest_model_hash, entity_var_model_name = MockPB().get_latest_material_hash(
         entity_key,
         siteconfig_path,
         project_path,

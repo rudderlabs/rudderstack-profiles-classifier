@@ -110,9 +110,9 @@ def validate_training_summary():
                 "users",
             ]
             for innerKey in innerKeys:
-                assert metrics[key][
-                    innerKey
-                ] is not None, f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+                assert (
+                    metrics[key][innerKey] is not None
+                ), f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
 def validate_column_names_in_output_json():

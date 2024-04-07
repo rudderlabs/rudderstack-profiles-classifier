@@ -11,16 +11,7 @@ import json
 from tests.integration.utils import create_site_config_file
 import os
 
-# creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-
-homedir = os.path.expanduser("~")
-
-with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-    env_name = "dev"
-    import yaml
-    creds = yaml.safe_load(f)["connections"]["dev_wh2"]["outputs"][env_name]
-
-
+creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
 creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -122,9 +113,9 @@ def validate_training_summary():
                 "users",
             ]
             for innerKey in innerKeys:
-                assert metrics[key][
-                    innerKey
-                ] is not None , f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+                assert (
+                    metrics[key][innerKey] is not None
+                ), f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
 def validate_column_names_in_output_json():

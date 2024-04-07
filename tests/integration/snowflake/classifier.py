@@ -3,7 +3,6 @@ import shutil
 import time
 from predict import *
 from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
-from src.predictions.rudderstack_predictions.wht.mockPB import MockPB
 from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
     ConnectorFactory,
 )
@@ -209,7 +208,7 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, entity_var_model_name = MockPB().get_latest_material_hash(
+    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
         entity_key,
         siteconfig_path,
         project_path,

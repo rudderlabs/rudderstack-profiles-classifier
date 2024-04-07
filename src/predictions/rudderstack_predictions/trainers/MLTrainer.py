@@ -670,7 +670,7 @@ class ClassificationTrainer(MLTrainer):
     ) -> dict:
         training_summary = {
             "timestamp": model_timestamp,
-            "data": {"metrics": model_results["metrics"], "threshold": 0},
+            "data": {"metrics": model_results["metrics"]},
         }
         return training_summary
 

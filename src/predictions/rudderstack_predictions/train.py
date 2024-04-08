@@ -139,20 +139,7 @@ def _train(
             stage_location=stage_name,
             replace=True,
             imports=import_paths,
-            packages=[
-                "snowflake-snowpark-python==1.11.1",
-                "scikit-learn==1.1.1",
-                "xgboost==1.5.0",
-                "joblib==1.2.0",
-                "PyYAML==6.0.1",
-                "numpy==1.23.1",
-                "pandas==1.5.3",
-                "hyperopt==0.2.7",
-                "shap==0.41.0",
-                "matplotlib==3.7.1",
-                "seaborn==0.12.0",
-                "scikit-plot==0.3.7",
-            ],
+            packages=constants.SNOWFLAKE_TRAINING_PACKAGES,
         )
 
         # This function is called from connector.call_procedure in preprocess_and_train.py

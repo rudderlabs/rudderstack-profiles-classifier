@@ -155,19 +155,8 @@ def preprocess_and_predict(
             replace=True,
             stage_location=stage_name,
             name=udf_name,
-            imports=[f"{stage_name}/{model_name}"],
-            packages=[
-                "snowflake-snowpark-python==1.11.1",
-                "typing",
-                "scikit-learn==1.1.1",
-                "xgboost==1.5.0",
-                "numpy==1.23.1",
-                "pandas==1.5.3",
-                "joblib==1.2.0",
-                "cachetools==4.2.2",
-                "PyYAML==6.0.1",
-                "simplejson",
-            ],
+            imports=[f"{stage_name}/{model_name}"] + connector.delete_files,
+            packages=constants.SNOWFLAKE_TRAINING_PACKAGES + ["cachetools==4.2.2"],
         )
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features

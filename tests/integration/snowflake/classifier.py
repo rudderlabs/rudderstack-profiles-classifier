@@ -213,7 +213,7 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, entity_var_model_name = MockPB().get_latest_material_hash(
+    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
         entity_key,
         siteconfig_path,
         project_path,

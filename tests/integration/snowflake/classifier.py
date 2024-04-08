@@ -100,7 +100,12 @@ def validate_training_summary():
         assert isinstance(timestamp, str), f"Invalid timestamp - {timestamp}"
         assert timestamp, "Timestamp is empty"
         metrics = json_data["data"]["metrics"]
-
+        prob_th = metrics["prob_th"]
+        assert 0 <= prob_th <= 1, f"Invalid prob_th - {prob_th}"
+        assert prob_th is not None, "prob_th is empty"
+        threshold = json_data["data"]["threshold"]
+        assert 0 <= threshold <= 1, f"Invalid threshold - {threshold}"
+        assert threshold is not None, "threshold is empty"
         keys = ["test", "train", "val"]
         for key in keys:
             innerKeys = [
@@ -208,7 +213,7 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
+    latest_model_hash, entity_var_model_name = MockPB().get_latest_material_hash(
         entity_key,
         siteconfig_path,
         project_path,

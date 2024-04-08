@@ -628,11 +628,12 @@ class ClassificationTrainer(MLTrainer):
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
             "metrics": {
-                "prob_th": 0,
                 "train": updated_metrics,
                 "test": updated_metrics,
                 "val": updated_metrics,
+                "prob_th": 0,
             },
+            "prob_th": 0,
         }
         return result_dict
 
@@ -670,7 +671,10 @@ class ClassificationTrainer(MLTrainer):
     ) -> dict:
         training_summary = {
             "timestamp": model_timestamp,
-            "data": {"metrics": model_results["metrics"]},
+            "data": {
+                "metrics": model_results["metrics"],
+                "threshold": model_results["prob_th"],
+            },
         }
         return training_summary
 

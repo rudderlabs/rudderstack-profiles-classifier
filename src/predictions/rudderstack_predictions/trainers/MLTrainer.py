@@ -357,7 +357,7 @@ class MLTrainer(ABC):
         save_model(best_model, model_file)
 
         # Get metrics
-        results = self.get_metrics()
+        results = self.get_metrics(best_model, train_x, train_y)
 
         results["model_id"] = model_id
         metrics_df = pd.DataFrame(
@@ -607,8 +607,9 @@ class ClassificationTrainer(MLTrainer):
             classification_save_model,
         )
 
-    def get_metrics(self) -> dict:
+    def get_metrics(self, model, X_train, y_train) -> dict:
         model_metrics = classification_results_pull().iloc[0].to_dict()
+        train_metrics = trainer_utils.get_metrics_classifier(model, X_train, y_train)
 
         key_mapping = {
             "F1": "f1_score",
@@ -618,19 +619,19 @@ class ClassificationTrainer(MLTrainer):
         }
 
         # Create a new dictionary with updated keys
-        updated_metrics = {}
+        test_metrics = {}
         for old_key, new_key in key_mapping.items():
-            updated_metrics[new_key] = model_metrics.get(old_key, None)
+            test_metrics[new_key] = model_metrics.get(old_key, None)
 
-        updated_metrics["roc_auc"] = 0
-        updated_metrics["users"] = 0
+        test_metrics["roc_auc"] = 0
+        test_metrics["users"] = 0
 
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
             "metrics": {
-                "train": updated_metrics,
-                "test": updated_metrics,
-                "val": updated_metrics,
+                "train": train_metrics,
+                "test": test_metrics,
+                "val": test_metrics,
                 "prob_th": 0,
             },
             "prob_th": 0,
@@ -831,8 +832,9 @@ class RegressionTrainer(MLTrainer):
         except Exception as e:
             logger.error(f"Could not generate regression plots. {e}")
 
-    def get_metrics(self) -> dict:
+    def get_metrics(self, model, X_train, y_train) -> dict:
         model_metrics = regression_results_pull().iloc[0].to_dict()
+        train_metrics = trainer_utils.get_metrics_regressor(model, X_train, y_train)
 
         key_mapping = {
             "MAE": "mean_absolute_error",
@@ -841,19 +843,19 @@ class RegressionTrainer(MLTrainer):
         }
 
         # # Create a new dictionary with updated keys
-        updated_metrics = {}
+        test_metrics = {}
         for old_key, new_key in key_mapping.items():
-            updated_metrics[new_key] = model_metrics.get(old_key, None)
+            test_metrics[new_key] = model_metrics.get(old_key, None)
 
-        updated_metrics["users"] = 0
+        test_metrics["users"] = 0
 
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
             "metrics": {
                 "prob_th": 0,
-                "train": updated_metrics,
-                "test": updated_metrics,
-                "val": updated_metrics,
+                "train": train_metrics,
+                "test": test_metrics,
+                "val": test_metrics,
             },
         }
         return result_dict

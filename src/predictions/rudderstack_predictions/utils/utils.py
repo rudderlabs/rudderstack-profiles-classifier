@@ -148,6 +148,39 @@ class TrainerUtils:
         )
         return best_metrics, best_th
 
+    def get_metrics_classifier(
+        self,
+        model,
+        train_x,
+        train_y,
+    ) -> Tuple:
+        """Generates classification metrics and predictions for train,
+        validation and test data along with the best probability thresold.
+        """
+
+        train_preds = model.predict(train_x)
+        train_y = train_y.to_numpy()
+
+        train_metrics = self.get_classification_metrics(train_y, train_preds)
+
+        return train_metrics
+
+    def get_metrics_regressor(
+        self,
+        model,
+        train_x,
+        train_y,
+    ):
+        """Calculate and return regression metrics for the trained model."""
+        train_pred = model.predict(train_x)
+
+        train_metrics = {}
+
+        for metric_name, metric_func in self.evalution_metrics_map_regressor.items():
+            train_metrics[metric_name] = float(metric_func(train_y, train_pred))
+
+        return train_metrics
+
 
 def split_train_test(
     preprocess_setup,

@@ -19,10 +19,6 @@ from .utils import constants
 
 from .connectors.ConnectorFactory import ConnectorFactory
 
-# Below lines make relative imports work in snowpark stored procedures
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)

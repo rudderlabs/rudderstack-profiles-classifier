@@ -310,7 +310,6 @@ class MLTrainer(ABC):
                 "output_model_name": [results["output_model_name"]],
             }
         ).reset_index(drop=True)
-
         return train_x, test_x, test_y, pipe, model_id, metrics_df, results
 
     @abstractmethod

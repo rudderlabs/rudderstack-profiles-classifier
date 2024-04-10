@@ -50,7 +50,6 @@ def preprocess_and_predict(
 
     with open(model_path, "r") as f:
         results = json.load(f)
-    logger.info("Loading model file")
     train_model_id = results["model_info"]["model_id"]
     prob_th = results["model_info"].get("threshold")
     stage_name = results["model_info"]["file_location"]["stage"]
@@ -202,8 +201,7 @@ def preprocess_and_predict(
         prob_th,
         input_df,
     )
-    preds_with_percentile.to_csv("predictions.csv", index=False)
-    logger.debug(f"Writing predictions to warehouse table {output_tablename}")
+    logger.debug("Writing predictions to warehouse")
     connector.write_table(
         preds_with_percentile,
         output_tablename,
@@ -250,7 +248,6 @@ if __name__ == "__main__":
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-    logger.info("Start predicting locally")
     if args.mode == constants.CI_MODE:
         sys.exit(0)
 
@@ -270,7 +267,7 @@ if __name__ == "__main__":
     session = connector.build_session(wh_creds)
 
     model_path = os.path.join(output_dir, args.json_output_filename)
-    logger.info("Calling preprocess_and_predict")
+
     _ = preprocess_and_predict(
         wh_creds,
         args.s3_config,
@@ -282,7 +279,6 @@ if __name__ == "__main__":
         connector=connector,
         trainer=trainer,
     )
-    logger.info("Done preprocess_and_predict")
 
     if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
         logger.debug(f"Deleting additional local directory from {args.mode} mode.")

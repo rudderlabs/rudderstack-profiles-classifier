@@ -20,7 +20,6 @@ from ..trainers.ClassificationTrainer import ClassificationTrainer
 from ..trainers.RegressionTrainer import RegressionTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
 
-metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
 
@@ -28,6 +27,7 @@ def train_and_store_model_results(
     feature_df: pd.DataFrame,
     train_config: dict,
     feature_table_column_types: dict,
+    metrics_table: str,
     **kwargs,
 ) -> dict:
     """Creates and saves the trained model pipeline after performing preprocessing and classification and
@@ -84,7 +84,8 @@ def train_and_store_model_results(
     )
     connector.write_pandas(shap_importance, "FEATURE_IMPORTANCE", if_exists="replace")
     metrics_df, create_metrics_table_query = connector.fetch_create_metrics_table_query(
-        metrics_df
+        metrics_df,
+        metrics_table,
     )
     connector.run_query(
         session,
@@ -146,6 +147,7 @@ def preprocess_and_train(
     train_table_pairs: List[constants.TrainTablesInfo],
     merged_config: dict,
     input_column_types: dict,
+    metrics_table: str,
     **kwargs,
 ):
     session = kwargs.get("session", None)
@@ -230,6 +232,7 @@ def preprocess_and_train(
             filtered_feature_table,
             train_config,
             feature_table_column_types,
+            metrics_table,
             session=session,
             connector=connector,
             trainer=trainer,
@@ -268,18 +271,9 @@ if __name__ == "__main__":
     parser.add_argument("--wh_creds", type=json.loads)
     parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
+    parser.add_argument("--metrics_table", type=str)
     args = parser.parse_args()
 
-    if args.mode == constants.CI_MODE:
-        sys.exit(0)
-    wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
-
-    if args.prediction_task == "classification":
-        trainer = ClassificationTrainer(**args.merged_config)
-    elif args.prediction_task == "regression":
-        trainer = RegressionTrainer(**args.merged_config)
-
-    # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
     output_dir = (
         args.output_path
         if args.mode == constants.LOCAL_MODE
@@ -295,6 +289,15 @@ if __name__ == "__main__":
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
+
+    if args.mode == constants.CI_MODE:
+        sys.exit(0)
+    wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
+
+    if args.prediction_task == "classification":
+        trainer = ClassificationTrainer(**args.merged_config)
+    elif args.prediction_task == "regression":
+        trainer = RegressionTrainer(**args.merged_config)
 
     warehouse = wh_creds["type"]
     train_procedure = train_and_store_model_results
@@ -314,6 +317,7 @@ if __name__ == "__main__":
         material_info,
         args.merged_config,
         args.input_column_types,
+        args.metrics_table,
         session=session,
         connector=connector,
         trainer=trainer,

@@ -5,7 +5,7 @@ import time
 from typing import List
 from kubernetes import client, config, watch
 import base64
-
+import sys
 
 from ..processors.Processor import Processor
 from ..utils import constants
@@ -61,7 +61,7 @@ class K8sProcessor(Processor):
                         containers=[
                             client.V1Container(
                                 name="container",
-                                image="rudderstack/profiles-classifier:v0.1.1",
+                                image="rudderstack/profiles-classifier:v0.2.1",
                                 image_pull_policy="Always",
                                 env=[
                                     client.V1EnvVar(
@@ -179,6 +179,7 @@ class K8sProcessor(Processor):
         materials: List[TrainTablesInfo],
         merged_config: dict,
         input_column_types: dict,
+        metrics_table: str,
         prediction_task: str,
         wh_creds: dict,
         site_config: dict,
@@ -187,7 +188,7 @@ class K8sProcessor(Processor):
         k8s_config = credentials_presets["kubernetes"]
         s3_config = credentials_presets["s3"]
         command = [
-            "python3",
+            sys.executable,
             "-u",
             "-m",
             f"{self.ml_core_path}.preprocess_and_train",
@@ -209,6 +210,8 @@ class K8sProcessor(Processor):
             json.dumps(input_column_types),
             "--prediction_task",
             prediction_task,
+            "--metrics_table",
+            metrics_table,
         ]
         job_name = "ml-training-" + str(uuid.uuid4())
         self._execute(
@@ -294,7 +297,7 @@ class K8sProcessor(Processor):
             constants.K8S_MODE,
         )
         command = [
-            "python3",
+            sys.executable,
             "-u",
             "-m",
             f"{self.ml_core_path}.preprocess_and_predict",

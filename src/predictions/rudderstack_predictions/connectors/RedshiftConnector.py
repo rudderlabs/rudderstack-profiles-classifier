@@ -84,10 +84,11 @@ class RedshiftConnector(CommonWarehouseConnector):
         return named_schema_list
 
     def fetch_create_metrics_table_query(
-        self, metrics_df: pd.DataFrame
+        self,
+        metrics_df: pd.DataFrame,
+        table_name: str,
     ) -> Tuple[pd.DataFrame, str]:
         database_dtypes = json.loads(constants.rs_dtypes)
-        metrics_table = constants.METRICS_TABLE
         metrics_table_query = ""
 
         for col in metrics_df.columns:
@@ -103,6 +104,6 @@ class RedshiftConnector(CommonWarehouseConnector):
 
         metrics_table_query = metrics_table_query[:-1]
         create_metrics_table_query = (
-            f"CREATE TABLE IF NOT EXISTS {metrics_table} ({metrics_table_query});"
+            f"CREATE TABLE IF NOT EXISTS {table_name} ({metrics_table_query});"
         )
         return metrics_df, create_metrics_table_query

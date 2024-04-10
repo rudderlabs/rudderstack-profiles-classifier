@@ -22,6 +22,9 @@ class Training:
     def de_ref(self, model_ref):
         return EntityVarTable()
 
+    def name(self):
+        return "Material_is_churned_7_days_d5df04xx_1093"
+
 
 if __name__ == "__main__":
     build_spec = {
@@ -54,6 +57,7 @@ if __name__ == "__main__":
         input_model_refs,
         PyNativeWHT(training_material),
         constants.ML_CORE_PYTHON_PATH,
+        training_material.name(),
     )
     _predict(
         creds,

@@ -1,6 +1,7 @@
 import os
 import json
 from typing import List
+import sys
 
 from ..utils import utils
 from ..utils.logger import logger
@@ -15,6 +16,7 @@ class LocalProcessor(Processor):
         materials: List[constants.TrainTablesInfo],
         merged_config: dict,
         input_column_types: dict,
+        metrics_table: str,
         prediction_task: str,
         wh_creds: dict,
         site_config: dict,
@@ -23,7 +25,7 @@ class LocalProcessor(Processor):
         local_dir = self.connector.get_local_dir()
         output_path = os.path.dirname(local_dir)
         commands = [
-            f"python3",
+            sys.executable,
             "-u",
             "-m",
             f"{self.ml_core_path}.preprocess_and_train",
@@ -43,6 +45,8 @@ class LocalProcessor(Processor):
             output_path,
             "--mode",
             constants.LOCAL_MODE,
+            "--metrics_table",
+            metrics_table,
         ]
         response_for_train = utils.subprocess_run(commands)
         if response_for_train.returncode != 0:
@@ -78,7 +82,7 @@ class LocalProcessor(Processor):
 
         logger.debug("Starting prediction on local processing mode")
         commands = [
-            "python3",
+            sys.executable,
             "-u",
             "-m",
             f"{self.ml_core_path}.preprocess_and_predict",

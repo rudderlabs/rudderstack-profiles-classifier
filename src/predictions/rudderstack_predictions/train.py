@@ -39,7 +39,6 @@ from typing import List
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
-metrics_table = constants.METRICS_TABLE
 model_file_name = constants.MODEL_FILE_NAME
 
 
@@ -54,6 +53,7 @@ def _train(
     input_models: List[str],
     whtService: PythonWHT,
     ml_core_path: str,
+    metrics_table: str,
 ) -> None:
     """Trains the model and saves the model with given output_filename.
 
@@ -158,6 +158,7 @@ def _train(
             feature_table_name: str,
             train_config: dict,
             feature_table_column_types: dict,
+            metrics_table: str,
         ) -> dict:
             """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
 
@@ -323,6 +324,7 @@ def _train(
         train_table_pairs,
         merged_config,
         input_column_types,
+        metrics_table,
         prediction_task,
         creds,
         utils.load_yaml(site_config_path),

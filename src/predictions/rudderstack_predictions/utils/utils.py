@@ -327,7 +327,7 @@ def get_all_ignore_features(
 
 
 def parse_warehouse_creds(creds: dict, mode: str) -> dict:
-    if mode == constants.K8S_MODE:
+    if mode == constants.RUDDERSTACK_MODE:
         wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
         wh_creds = json.loads(wh_creds_str)
     else:

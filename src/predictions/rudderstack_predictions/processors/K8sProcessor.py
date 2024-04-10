@@ -61,7 +61,7 @@ class K8sProcessor(Processor):
                         containers=[
                             client.V1Container(
                                 name="container",
-                                image="rudderstack/profiles-classifier:v0.2.1",
+                                image="rudderstack/profiles-classifier:v0.2.2",
                                 image_pull_policy="Always",
                                 env=[
                                     client.V1EnvVar(
@@ -195,13 +195,11 @@ class K8sProcessor(Processor):
             "--s3_bucket",
             s3_config["bucket"],
             "--mode",
-            constants.K8S_MODE,
+            constants.RUDDERSTACK_MODE,
             "--aws_region_name",
             s3_config["region"],
             "--s3_path",
             s3_config["path"],
-            "--ec2_temp_output_json",
-            constants.EC2_TEMP_OUTPUT_JSON,
             "--material_names",
             json.dumps(materials),
             "--merged_config",
@@ -217,17 +215,16 @@ class K8sProcessor(Processor):
         self._execute(
             job_name=job_name, wh_creds=wh_creds, k8s_config=k8s_config, command=command
         )
-        S3Utils.download_directory_from_S3(
+        S3Utils.download_directory(
             s3_config,
             self.connector.get_local_dir(),
-            constants.K8S_MODE,
         )
-        S3Utils.delete_directory_in_S3(
+        S3Utils.delete_directory(
             s3_config["bucket"], s3_config["region"], s3_config["path"]
         )
         with open(
             os.path.join(
-                self.connector.get_local_dir(), constants.EC2_TEMP_OUTPUT_JSON
+                self.connector.get_local_dir(), constants.TRAIN_JSON_RESULT_FILE
             ),
             "r",
         ) as file:
@@ -288,13 +285,12 @@ class K8sProcessor(Processor):
         ]
         logger.debug("Uploading files required for prediction to S3")
         local_folder = self.connector.get_local_dir()
-        S3Utils.upload_directory_to_S3(
+        S3Utils.upload_directory(
             s3_config["bucket"],
             s3_config["region"],
             s3_config["path"],
             os.path.dirname(local_folder),
             predict_upload_whitelist,
-            constants.K8S_MODE,
         )
         command = [
             sys.executable,
@@ -304,7 +300,7 @@ class K8sProcessor(Processor):
             "--s3_config",
             json.dumps(s3_config),
             "--mode",
-            constants.K8S_MODE,
+            constants.RUDDERSTACK_MODE,
             "--json_output_filename",
             json_output_filename,
             "--inputs",
@@ -320,6 +316,6 @@ class K8sProcessor(Processor):
         self._execute(
             job_name=job_name, wh_creds=wh_creds, k8s_config=k8s_config, command=command
         )
-        S3Utils.delete_directory_in_S3(
+        S3Utils.delete_directory(
             s3_config["bucket"], s3_config["region"], s3_config["path"]
         )

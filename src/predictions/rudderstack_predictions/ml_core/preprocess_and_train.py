@@ -258,7 +258,6 @@ if __name__ == "__main__":
     parser.add_argument("--s3_bucket", type=str)
     parser.add_argument("--aws_region_name", type=str)
     parser.add_argument("--s3_path", type=str)
-    parser.add_argument("--ec2_temp_output_json", type=str)
     parser.add_argument("--material_names", type=json.loads)
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--input_column_types", type=json.loads)
@@ -317,26 +316,27 @@ if __name__ == "__main__":
         connector=connector,
         trainer=trainer,
     )
-    with open(os.path.join(local_folder, args.ec2_temp_output_json), "w") as file:
+    with open(
+        os.path.join(local_folder, constants.TRAIN_JSON_RESULT_FILE), "w"
+    ) as file:
         json.dump(train_results_json, file)
 
-    if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
+    if args.mode == constants.RUDDERSTACK_MODE:
         logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
 
         train_upload_whitelist = utils.merge_lists_to_unique(
             list(trainer.figure_names.values()),
             [
                 f"{trainer.output_profiles_ml_model}_{model_file_name}",
-                args.ec2_temp_output_json,
+                constants.TRAIN_JSON_RESULT_FILE,
             ],
         )
-        S3Utils.upload_directory_to_S3(
+        S3Utils.upload_directory(
             args.s3_bucket,
             args.aws_region_name,
             args.s3_path,
             local_folder,
             train_upload_whitelist,
-            args.mode,
         )
 
         logger.debug(f"Deleting additional local directory from {args.mode} mode.")

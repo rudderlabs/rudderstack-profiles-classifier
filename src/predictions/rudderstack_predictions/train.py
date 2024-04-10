@@ -212,10 +212,8 @@ def _train(
                 shap_importance = utils.plot_top_k_feature_importance(
                     pipe,
                     train_x,
-                    numeric_columns,
-                    categorical_columns,
                     figure_file,
-                    top_k_features=5,
+                    top_k_features=20,
                 )
                 connector.write_pandas(
                     shap_importance,

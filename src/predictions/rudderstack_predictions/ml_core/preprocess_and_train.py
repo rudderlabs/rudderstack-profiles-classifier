@@ -65,8 +65,6 @@ def train_and_store_model_results(
     train_x, test_x, test_y, pipe, model_id, metrics_df, results = trainer.train_model(
         feature_df, categorical_columns, numeric_columns, train_config, model_file
     )
-    onehot_encoder_columns = results.pop("onehot_encoder_columns")
-
     logger.info(f"Generating plots and saving them to the output directory.")
     trainer.plot_diagnostics(
         connector, session, pipe, None, test_x, test_y, trainer.label_column
@@ -77,9 +75,6 @@ def train_and_store_model_results(
     shap_importance = utils.plot_top_k_feature_importance(
         pipe,
         train_x,
-        numeric_columns,
-        categorical_columns,
-        onehot_encoder_columns,
         figure_file,
         top_k_features=20,
     )

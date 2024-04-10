@@ -64,7 +64,7 @@ def train_and_store_model_results(
     feature_df.columns = [col.upper() for col in feature_df.columns]
 
     train_x, test_x, test_y, pipe, model_id, metrics_df, results = trainer.train_model(
-        feature_df, categorical_columns, numeric_columns, train_config, model_file
+        feature_df, train_config, model_file
     )
 
     logger.info(f"Generating plots and saving them to the output directory.")
@@ -77,10 +77,7 @@ def train_and_store_model_results(
     shap_importance = utils.plot_top_k_feature_importance(
         pipe,
         train_x,
-        numeric_columns,
-        categorical_columns,
         figure_file,
-        top_k_features=5,
     )
     connector.write_pandas(shap_importance, "FEATURE_IMPORTANCE", if_exists="replace")
     metrics_df, create_metrics_table_query = connector.fetch_create_metrics_table_query(

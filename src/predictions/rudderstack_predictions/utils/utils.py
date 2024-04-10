@@ -713,7 +713,7 @@ def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
 
 
 def plot_top_k_feature_importance(
-    pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5
+    pipe, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=10
 ) -> pd.DataFrame:
     train_x_processed = pipe["preprocessor"].transform(train_x)
     train_x_processed = train_x_processed.astype(np.int_)
@@ -743,9 +743,11 @@ def plot_top_k_feature_importance(
             "Got 3D numpy array with last dimension having depth of 2. Taking the second output for plotting feature importance"
         )
         shap_values = shap_values[:, :, 1]
-    onehot_encoder_columns = get_column_names(
-        dict(pipe.steps)["preprocessor"].transformers_[1][1].named_steps["encoder"],
-        categorical_columns,
+    onehot_encoder_columns = list(
+        dict(pipe.steps)["preprocessor"]
+        .transformers_[1][1]
+        .named_steps["encoder"]
+        .get_feature_names_out(categorical_columns)
     )
     col_names_ = (
         numeric_columns

@@ -131,7 +131,7 @@ class MLTrainer(ABC):
         self, model_results: dict, model_timestamp: str
     ) -> dict:
         pass
-    
+
     @abstractmethod
     def load_model(self, model_file: str):
         pass
@@ -190,9 +190,9 @@ class MLTrainer(ABC):
         feature_df: pd.DataFrame,
         train_config: dict,
         model_file: str,
-        pycaret_model_setup : callable,
-        pycaret_compare_models : callable,
-        pycaret_save_model : callable,
+        pycaret_model_setup: callable,
+        pycaret_compare_models: callable,
+        pycaret_save_model: callable,
     ):
         """Creates and saves the trained model pipeline after performing preprocessing and classification
         and returns the various variables required for further processing by training procesudres/functions.
@@ -376,4 +376,3 @@ class MLTrainer(ABC):
             )
 
         return materials
-

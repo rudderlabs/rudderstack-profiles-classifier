@@ -15,8 +15,8 @@ from pycaret.regression import (
     predict_model as regression_predict_model,
 )
 
-class RegressionTrainer(MLTrainer):
 
+class RegressionTrainer(MLTrainer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -31,13 +31,10 @@ class RegressionTrainer(MLTrainer):
         }
         self.isStratify = False
 
-
     def get_name(self):
         return "regression"
 
-    def prepare_data(
-        self, feature_df: pd.DataFrame
-    ):
+    def prepare_data(self, feature_df: pd.DataFrame):
         return self._prepare_data(
             regression_setup,
             get_regression_config,
@@ -102,7 +99,9 @@ class RegressionTrainer(MLTrainer):
 
     def get_metrics(self, model, X_train, y_train) -> dict:
         model_metrics = regression_results_pull().iloc[0].to_dict()
-        train_metrics = self.trainer_utils.get_metrics_regressor(model, X_train, y_train)
+        train_metrics = self.trainer_utils.get_metrics_regressor(
+            model, X_train, y_train
+        )
 
         key_mapping = {
             "MAE": "mean_absolute_error",
@@ -149,6 +148,6 @@ class RegressionTrainer(MLTrainer):
 
     def load_model(self, model_file: str):
         return regression_load_model(model_file)
-    
+
     def predict_model(self, model, test_x: pd.DataFrame):
         return regression_predict_model(model, test_x)

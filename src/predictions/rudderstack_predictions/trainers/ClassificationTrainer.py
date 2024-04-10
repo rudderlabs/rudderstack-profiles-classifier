@@ -16,8 +16,8 @@ from pycaret.classification import (
     predict_model as classification_predict_model,
 )
 
-class ClassificationTrainer(MLTrainer):
 
+class ClassificationTrainer(MLTrainer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -36,13 +36,9 @@ class ClassificationTrainer(MLTrainer):
     def get_name(self):
         return "classification"
 
-    def prepare_data(
-        self, feature_df: pd.DataFrame
-    ):
+    def prepare_data(self, feature_df: pd.DataFrame):
         return self._prepare_data(
-            classification_setup,
-            get_classification_config,
-            feature_df
+            classification_setup, get_classification_config, feature_df
         )
 
     def prepare_label_table(self, connector: Connector, session, label_table_name: str):
@@ -79,7 +75,9 @@ class ClassificationTrainer(MLTrainer):
 
     def get_metrics(self, model, X_train, y_train) -> dict:
         model_metrics = classification_results_pull().iloc[0].to_dict()
-        train_metrics = self.trainer_utils.get_metrics_classifier(model, X_train, y_train)
+        train_metrics = self.trainer_utils.get_metrics_classifier(
+            model, X_train, y_train
+        )
 
         key_mapping = {
             "F1": "f1_score",
@@ -164,6 +162,6 @@ class ClassificationTrainer(MLTrainer):
 
     def load_model(self, model_file: str):
         return classification_load_model(model_file)
-    
+
     def predict_model(self, model, test_x: pd.DataFrame):
         return classification_predict_model(model, test_x)

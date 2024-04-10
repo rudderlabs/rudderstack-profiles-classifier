@@ -27,7 +27,11 @@ from .utils import utils
 from .utils import constants
 
 from .connectors.ConnectorFactory import ConnectorFactory
-from .trainers.MLTrainer import ClassificationTrainer, MLTrainer, RegressionTrainer
+from .trainers.MLTrainer import MLTrainer
+from .trainers.ClassificationTrainer import ClassificationTrainer
+from .trainers.RegressionTrainer import RegressionTrainer
+
+
 from .ml_core.preprocess_and_train import train_and_store_model_results
 from typing import List
 
@@ -188,8 +192,6 @@ def _train(
                 results,
             ) = trainer.train_model(
                 feature_df,
-                categorical_columns,
-                numeric_columns,
                 train_config,
                 model_file,
             )
@@ -214,10 +216,7 @@ def _train(
                 shap_importance = utils.plot_top_k_feature_importance(
                     pipe,
                     train_x,
-                    numeric_columns,
-                    categorical_columns,
                     figure_file,
-                    top_k_features=5,
                 )
                 connector.write_pandas(
                     shap_importance,

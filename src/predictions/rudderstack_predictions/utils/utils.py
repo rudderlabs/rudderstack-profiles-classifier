@@ -522,7 +522,7 @@ def subprocess_run(args):
     return response
 
 
-def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
+def plot_regression_deciles(y_pred : np.array, y_true : np.array, deciles_file : str, label_column : str):
     """
     Plots y-actual vs y-predicted using deciles and saves it as a file.
     Args:
@@ -567,7 +567,7 @@ def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
     plt.clf()
 
 
-def plot_regression_residuals(y_pred, y_true, residuals_file):
+def plot_regression_residuals(y_pred : np.array, y_true : np.array, residuals_file : str):
     residuals = y_true - y_pred
     sns.set(style="ticks", context="notebook")
     plt.figure(figsize=(8, 6))
@@ -618,7 +618,7 @@ def regression_evaluation_plot(y_pred, y_true, regression_chart_file, num_bins=1
     plt.clf()
 
 
-def plot_roc_auc_curve(y_pred, y_true, roc_auc_file) -> None:
+def plot_roc_auc_curve(y_pred : np.array, y_true : np.array, roc_auc_file : str) -> None:
     fpr, tpr, _ = roc_curve(y_true, y_pred)
     roc_auc = auc(fpr, tpr)
     sns.set(style="ticks", context="notebook")
@@ -635,7 +635,7 @@ def plot_roc_auc_curve(y_pred, y_true, roc_auc_file) -> None:
     plt.clf()
 
 
-def plot_pr_auc_curve(y_pred, y_true, pr_auc_file) -> None:
+def plot_pr_auc_curve(y_pred : np.array, y_true : np.array, pr_auc_file : str) -> None:
     precision, recall, _ = precision_recall_curve(y_true, y_pred)
     pr_auc = auc(recall, precision)
     sns.set(style="ticks", context="notebook")
@@ -653,7 +653,7 @@ def plot_pr_auc_curve(y_pred, y_true, pr_auc_file) -> None:
     plt.clf()
 
 
-def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
+def plot_lift_chart(y_pred : np.array, y_true : np.array, lift_chart_file : str) -> None:
     """Generates a lift chart for a binary classification model."""
     data = pd.DataFrame()
     data["label"] = y_true
@@ -702,20 +702,15 @@ def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
 
 
 def plot_top_k_feature_importance(
-    model, train_x, numeric_columns, categorical_columns, figure_file, top_k_features=5
+    model, train_x, figure_file
 ) -> pd.DataFrame:
     """
     Generates a bar chart to visualize the top k important features in a machine learning model.
 
     Args:
-        session (object): The session object used for writing the feature importance values and saving the chart image.
         model (object): The trained model object.
-        stage_name (str): The name of the stage where the chart image will be saved.
         train_x (array-like): The input data used for calculating the feature importance values.
-        numeric_columns (list): The list of column names for numeric features.
-        categorical_columns (list): The list of column names for categorical features.
-        chart_name (str): The name of the chart image file.
-        top_k_features (int, optional): The number of top important features to display in the chart. Default is 5.
+        figure_file (str): The name of the chart image file.
 
     Returns:
         None. The function generates a bar chart and writes the feature importance values to a table in the session.

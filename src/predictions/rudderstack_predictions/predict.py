@@ -16,8 +16,8 @@ from .utils import utils
 from .utils import constants
 
 from .connectors.ConnectorFactory import ConnectorFactory
-from .trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
-
+from .trainers.ClassificationTrainer import ClassificationTrainer
+from .trainers.RegressionTrainer import RegressionTrainer
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)

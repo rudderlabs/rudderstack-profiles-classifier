@@ -16,7 +16,8 @@ from ..utils.logger import logger
 from ..utils import constants
 from ..utils.S3Utils import S3Utils
 
-from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
+from ..trainers.ClassificationTrainer import ClassificationTrainer
+from ..trainers.RegressionTrainer import RegressionTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
 
 metrics_table = constants.METRICS_TABLE

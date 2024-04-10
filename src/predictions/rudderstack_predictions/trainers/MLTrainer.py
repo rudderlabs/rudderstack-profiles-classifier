@@ -311,7 +311,7 @@ class MLTrainer(ABC):
             }
         ).reset_index(drop=True)
         onehot_encoder_columns = list(
-            dict(pipe.steps)["preprocessor"]
+            dict(joblib.load(model_file).steps)["preprocessor"]
             .transformers_[1][1]
             .named_steps["encoder"]
             .get_feature_names_out(categorical_columns)

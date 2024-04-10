@@ -310,7 +310,13 @@ class MLTrainer(ABC):
                 "output_model_name": [results["output_model_name"]],
             }
         ).reset_index(drop=True)
-
+        onehot_encoder_columns = list(
+            dict(pipe.steps)["preprocessor"]
+            .transformers_[1][1]
+            .named_steps["encoder"]
+            .get_feature_names_out(categorical_columns)
+        )
+        results["onehot_encoder_columns"] = onehot_encoder_columns
         return train_x, test_x, test_y, pipe, model_id, metrics_df, results
 
     @abstractmethod

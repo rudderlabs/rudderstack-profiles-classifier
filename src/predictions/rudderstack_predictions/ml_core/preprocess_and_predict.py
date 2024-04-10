@@ -240,7 +240,7 @@ if __name__ == "__main__":
     )
 
     file_handler = logging.FileHandler(
-        os.path.join(output_dir, "preprocess_and_predict.log")
+        os.path.join(current_dir, "preprocess_and_predict.log")
     )
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

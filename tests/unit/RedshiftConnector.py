@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import Mock, patch, MagicMock, call
 from redshift_connector.cursor import Cursor
 from pandas.core.api import DataFrame as DataFrame
-from src.predictions.rudderstack_predictions.trainers.MLTrainer import (
+from src.predictions.rudderstack_predictions.trainers.ClassificationTrainer import (
     ClassificationTrainer,
 )
 from src.predictions.rudderstack_predictions.wht.pythonWHT import PythonWHT

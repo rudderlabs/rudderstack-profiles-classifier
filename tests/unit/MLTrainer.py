@@ -1,6 +1,8 @@
 import unittest
 from unittest.mock import Mock, patch
 from src.predictions.rudderstack_predictions.trainers.MLTrainer import *
+from src.predictions.rudderstack_predictions.trainers.ClassificationTrainer import *
+from src.predictions.rudderstack_predictions.trainers.RegressionTrainer import *
 
 
 def build_trainer_config():

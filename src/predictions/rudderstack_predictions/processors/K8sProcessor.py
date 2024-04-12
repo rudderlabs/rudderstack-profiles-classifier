@@ -180,7 +180,6 @@ class K8sProcessor(Processor):
         merged_config: dict,
         input_column_types: dict,
         metrics_table: str,
-        prediction_task: str,
         wh_creds: dict,
         site_config: dict,
     ):
@@ -206,8 +205,6 @@ class K8sProcessor(Processor):
             json.dumps(merged_config),
             "--input_column_types",
             json.dumps(input_column_types),
-            "--prediction_task",
-            prediction_task,
             "--metrics_table",
             metrics_table,
         ]
@@ -272,7 +269,6 @@ class K8sProcessor(Processor):
         inputs,
         output_tablename: str,
         merged_config: dict,
-        prediction_task: dict,
         site_config: dict,
     ):
         credentials_presets = site_config["py_models"]["credentials_presets"]
@@ -309,8 +305,6 @@ class K8sProcessor(Processor):
             output_tablename,
             "--merged_config",
             json.dumps(merged_config),
-            "--prediction_task",
-            prediction_task,
         ]
         job_name = "ml-prediction-" + str(uuid.uuid4())
         self._execute(

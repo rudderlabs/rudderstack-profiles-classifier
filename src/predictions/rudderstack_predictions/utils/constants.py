@@ -45,6 +45,21 @@ MATERIAL_DATE_FORMAT = "%Y-%m-%d"
 
 from typing import NamedTuple
 
+SNOWFLAKE_TRAINING_PACKAGES = [
+    "snowflake-snowpark-python==1.11.1",
+    "scikit-learn==1.1.1",
+    "xgboost==1.5.0",
+    "joblib==1.2.0",
+    "PyYAML==6.0.1",
+    "numpy==1.23.1",
+    "pandas==1.5.3",
+    "hyperopt==0.2.7",
+    "shap==0.41.0",
+    "matplotlib==3.7.1",
+    "seaborn==0.12.0",
+    "scikit-plot==0.3.7",
+]
+
 
 class TrainTablesInfo(NamedTuple):
     feature_table_name: str

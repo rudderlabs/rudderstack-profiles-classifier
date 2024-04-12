@@ -5,8 +5,8 @@ import unittest
 from unittest.mock import Mock, patch, MagicMock, call
 from redshift_connector.cursor import Cursor
 from pandas.core.api import DataFrame as DataFrame
-from src.predictions.rudderstack_predictions.trainers.MLTrainer import (
-    ClassificationTrainer,
+from src.predictions.rudderstack_predictions.trainers.TrainerFactory import (
+    TrainerFactory,
 )
 from src.predictions.rudderstack_predictions.wht.pythonWHT import PythonWHT
 
@@ -836,7 +836,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             self.connector, self.session, "siteconfig.yaml", "project_folder"
         )
         trainer_input = build_trainer_config()
-        self.trainer = ClassificationTrainer(**trainer_input)
+        self.trainer = TrainerFactory.create(trainer_input)
         self.trainer.materialisation_strategy = "auto"
         self.trainer.materialisation_max_no_dates = 2
         self.prediction_horizon_days = 7

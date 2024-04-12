@@ -282,6 +282,7 @@ def _train(
         latest_entity_var_table,
         trainer.label_column,
         trainer.entity_column,
+        trainer.prep.ignore_features,
     )
     logger.debug(f"Input column types detected: {input_column_types}")
 

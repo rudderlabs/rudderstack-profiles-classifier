@@ -70,3 +70,6 @@ py_models:
     python_path: <path_to_env> # You can get this by running   `which python` in the terminal after you activate your virtual env
 ```
 
+### 3. Building the model
+
+Refer to our [docs page](https://www.rudderstack.com/docs/profiles/predictions/) for how to set up a python model in your project. There are various advanced config options that you can find in the [model_configs.yaml](src/predictions/rudderstack_predictions/config/model_configs.yaml) file. You can add these options in the python model of your profiles project to override the defaults.

@@ -260,10 +260,14 @@ def get_feature_table_column_types(
 
     # Add the trannsformed array type cols to numeric cols
     for col in transformed_arraytype_cols:
-        input_column_types["numeric"].append(col)
+        input_column_types["numeric"][col] = T.DecimalType()
 
-    upper_numeric_input_cols = uppercase_columns(input_column_types["numeric"])
-    upper_timestamp_input_cols = uppercase_columns(input_column_types["timestamp"])
+    upper_numeric_input_cols = uppercase_columns(
+        list(input_column_types["numeric"].keys())
+    )
+    upper_timestamp_input_cols = uppercase_columns(
+        list(input_column_types["timestamp"].keys())
+    )
     upper_feature_table_numeric_cols = merge_lists_to_unique(
         upper_numeric_input_cols, upper_timestamp_input_cols
     )
@@ -273,7 +277,9 @@ def get_feature_table_column_types(
             continue
         elif col.upper() in upper_feature_table_numeric_cols:
             feature_table_column_types["numeric"].append(col.upper())
-        elif col.upper() in uppercase_columns(input_column_types["categorical"]):
+        elif col.upper() in uppercase_columns(
+            list(input_column_types["categorical"].keys())
+        ):
             feature_table_column_types["categorical"].append(col.upper())
         else:
             raise Exception(

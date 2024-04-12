@@ -28,17 +28,26 @@ local_folder = constants.SF_LOCAL_STORAGE_DIR
 class SnowflakeConnector(Connector):
     def __init__(self) -> None:
         self.data_type_mapping = {
-            "numeric": (
-                T.DecimalType,
-                T.IntegerType,
-                T.LongType,
-                T.ShortType,
-                T.FloatType,
-                T.DoubleType,
-            ),
-            "categorical": (T.StringType, T.VariantType),
-            "timestamp": (T.TimestampType, T.DateType, T.TimeType),
-            "arraytype": (T.ArrayType),
+            "numeric": {
+                "DecimalType": T.DecimalType(),
+                "DoubleType": T.DoubleType(),
+                "FloatType": T.FloatType(),
+                "IntegerType": T.IntegerType(),
+                "LongType": T.LongType(),
+                "ShortType": T.ShortType(),
+            },
+            "categorical": {
+                "StringType": T.StringType(),
+                "VariantType": T.VariantType(),
+            },
+            "timestamp": {
+                "TimestampType": T.TimestampType(),
+                "DateType": T.DateType(),
+                "TimeType": T.TimeType(),
+            },
+            "arraytype": {
+                "ArrayType": T.ArrayType(),
+            },
         }
         self.run_id = hashlib.md5(
             f"{str(datetime.now())}_{uuid.uuid4()}".encode()
@@ -225,27 +234,41 @@ class SnowflakeConnector(Connector):
         table = self.get_table(session, table_name)
         return table.schema.fields
 
+    def field_datatype_to_string(self, datatype: object) -> str:
+        """Converts field datatype to string by extracting from the first character till 'Type'"""
+        datatype_str = str(datatype)
+        index_of_type = datatype_str.find("Type")
+        return datatype_str[: index_of_type + len("Type")]
+
+    def is_instance_of(self, datatype, data_type_str: str) -> bool:
+        """Check if datatype is an instance of the class represented by data_type_str."""
+        class_obj = getattr(T, data_type_str)
+        return isinstance(datatype, class_obj)
+
     def fetch_given_data_type_columns(
         self,
         schema_fields: List,
-        required_data_types: Tuple,
+        required_data_types: Dict[str, object],
         label_column: str,
         entity_column: str,
-    ) -> List:
+    ) -> Dict:
         """Fetches the column names from the given schema_fields based on the required data types (exclude label and entity columns)"""
-        return [
-            field.name
+        return {
+            field.name: self.field_datatype_to_string(field.datatype)
             for field in schema_fields
-            if isinstance(field.datatype, required_data_types)
+            if any(
+                self.is_instance_of(field.datatype, data_type_str)
+                for data_type_str in required_data_types.keys()
+            )
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
-        ]
+        }
 
     def get_numeric_features(
         self,
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["numeric"],
@@ -258,7 +281,7 @@ class SnowflakeConnector(Connector):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["categorical"],
@@ -271,7 +294,7 @@ class SnowflakeConnector(Connector):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["arraytype"],
@@ -805,18 +828,40 @@ class SnowflakeConnector(Connector):
         return material_registry_table
 
     def generate_type_hint(
-        self, df: snowflake.snowpark.Table, column_types: Dict[str, List[str]]
+        self,
+        df: snowflake.snowpark.Table,
+        column_types: Dict[str, List[str]],
+        input_column_types_map,
     ):
         types = []
+
         for col in df.columns:
             if col in column_types["categorical"]:
-                types.append(T.StringType())
+                if col in input_column_types_map["categorical"]:
+                    print("Categorical column found in input_column_types_map")
+                    types.append(
+                        self.data_type_mapping["categorical"][
+                            input_column_types_map["categorical"][col]
+                        ]
+                    )
+                else:
+                    types.append(T.StringType())
             elif col in column_types["numeric"]:
-                types.append(T.DecimalType())
+                if col in input_column_types_map["numeric"]:
+                    print("Categorical column found in input_column_types_map")
+                    types.append(
+                        self.data_type_mapping["numeric"][
+                            input_column_types_map["numeric"][col]
+                        ]
+                    )
+                else:
+                    types.append(T.DecimalType())
             else:
                 raise Exception(
                     f"Column {col} not found in the training data config either as categorical or numeric column"
                 )
+
+        print(types)
 
         return types
 

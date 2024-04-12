@@ -97,6 +97,14 @@ def preprocess_and_predict(
         seq_no,
     )
 
+    predict_input_column_types = connector.get_input_column_types(
+        session,
+        trainer,
+        entity_var_table_name,
+        trainer.label_column,
+        trainer.entity_column,
+    )
+
     logger.debug(f"Pulling data from Entity-Var table - {entity_var_table_name}")
     raw_data = connector.get_table(
         session, entity_var_table_name, filter_condition=trainer.eligible_users
@@ -123,7 +131,9 @@ def preprocess_and_predict(
         predict_data, required_features_upper_case
     )
     types = connector.generate_type_hint(
-        input_df, results["column_names"]["feature_table_column_types"]
+        input_df,
+        results["column_names"]["feature_table_column_types"],
+        predict_input_column_types,
     )
 
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
@@ -177,6 +187,7 @@ def preprocess_and_predict(
             return regression_predict_model(trained_model, df)
 
     features = input_df.columns
+    print("Columns: ", predict_data.columns)
 
     if creds["type"] == "snowflake":
         udf_name = connector.udf_name
@@ -258,6 +269,7 @@ def preprocess_and_predict(
         pred_output_df_columns,
     )
     logger.debug("Writing predictions to warehouse")
+
     connector.write_table(
         preds_with_percentile,
         output_tablename,

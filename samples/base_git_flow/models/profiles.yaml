@@ -316,15 +316,15 @@ models:
         #         - timestamp asc
         #     where: context_campaign_source is not null and context_campaign_source!=''
         #     description: First source from which a user has visited the app
-        # - entity_var:
-        #     name: last_source_name
-        #     from: inputs/rsPages
-        #     select: last_value(context_campaign_source)
-        #     window:
-        #       order_by:
-        #         - timestamp asc
-        #     where: context_campaign_source is not null and context_campaign_source!=''
-        #     description: Last source from which a user has visited the app
+        - entity_var:
+            name: last_source_name
+            from: inputs/rsPages
+            select: last_value(context_campaign_source)
+            window:
+              order_by:
+                - timestamp asc
+            where: context_campaign_source is not null and context_campaign_source!=''
+            description: Last source from which a user has visited the app
         # - entity_var:
         #     name: campaigns_list
         #     from: models/pages_orderby_table
@@ -374,7 +374,7 @@ models:
         # - first_campaign_name
         # - last_campaign_name
         # - first_source_name
-        # - last_source_name
+        - last_source_name
         # - campaigns_list
         # - mediums_list
         # - sources_list

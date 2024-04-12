@@ -26,13 +26,11 @@ class Connector(ABC):
         """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp) for a given table."""
         schema_fields = self.fetch_table_metadata(session, table_name)
 
-        numeric_columns = utils.merge_lists_to_unique(
-            self.get_numeric_features(schema_fields, label_column, entity_column),
-            trainer_obj.prep.numeric_pipeline["numeric_columns"],
+        numeric_columns = self.get_numeric_features(
+            schema_fields, label_column, entity_column
         )
-        categorical_columns = utils.merge_lists_to_unique(
-            self.get_stringtype_features(schema_fields, label_column, entity_column),
-            trainer_obj.prep.categorical_pipeline["categorical_columns"],
+        categorical_columns = self.get_stringtype_features(
+            schema_fields, label_column, entity_column
         )
         arraytype_columns = self.get_arraytype_columns(
             schema_fields, label_column, entity_column
@@ -156,7 +154,7 @@ class Connector(ABC):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         pass
 
     @abstractmethod
@@ -165,7 +163,7 @@ class Connector(ABC):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         pass
 
     @abstractmethod
@@ -174,7 +172,7 @@ class Connector(ABC):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         pass
 
     @abstractmethod

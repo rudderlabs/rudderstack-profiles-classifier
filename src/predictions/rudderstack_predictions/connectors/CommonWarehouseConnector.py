@@ -222,21 +222,21 @@ class CommonWarehouseConnector(Connector):
         required_data_types: Tuple,
         label_column: str,
         entity_column: str,
-    ) -> List:
+    ) -> Dict:
         """Fetches the column names from the given schema_fields based on the required data types (exclude label and entity columns)"""
-        return [
-            field.name
+        return {
+            field.name: field.field_type
             for field in schema_fields
             if field.field_type in required_data_types
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
-        ]
+        }
 
     def get_numeric_features(
         self,
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["numeric"],
@@ -249,7 +249,7 @@ class CommonWarehouseConnector(Connector):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["categorical"],
@@ -262,7 +262,7 @@ class CommonWarehouseConnector(Connector):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["arraytype"],
@@ -275,7 +275,7 @@ class CommonWarehouseConnector(Connector):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["timestamp"],
@@ -719,7 +719,12 @@ class CommonWarehouseConnector(Connector):
         )
         return material_registry_table[material_registry_table["status"] == 2]
 
-    def generate_type_hint(self, df: pd.DataFrame, column_types: Dict[str, List[str]]):
+    def generate_type_hint(
+        self,
+        df: pd.DataFrame,
+        column_types: Dict[str, List[str]],
+        input_column_types_map,
+    ):
         types = []
         cat_columns = [col.lower() for col in column_types["categorical"]]
         numeric_columns = [col.lower() for col in column_types["numeric"]]

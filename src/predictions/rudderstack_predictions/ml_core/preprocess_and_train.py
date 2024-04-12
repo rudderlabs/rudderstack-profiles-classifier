@@ -161,7 +161,7 @@ def preprocess_and_train(
         )
         feature_table_instance = prepare_feature_table(
             train_table_pair,
-            input_column_types["timestamp"],
+            list(input_column_types["timestamp"].keys()),
             session=session,
             connector=connector,
             trainer=trainer,
@@ -173,7 +173,7 @@ def preprocess_and_train(
 
     high_cardinal_features = connector.get_high_cardinal_features(
         feature_table,
-        input_column_types["categorical"],
+        list(input_column_types["categorical"].keys()),
         trainer.label_column,
         trainer.entity_column,
         cardinal_feature_threshold,
@@ -190,7 +190,7 @@ def preprocess_and_train(
 
     logger.debug(f"Transforming arraytype features")
     transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
-        feature_table, input_column_types["arraytype"]
+        feature_table, list(input_column_types["arraytype"].keys())
     )
 
     logger.debug("Fetching feature table column types")
@@ -243,7 +243,9 @@ def preprocess_and_train(
 
     logger.info("Saving column names info. to the output json.")
     train_results_json["column_names"] = {}
-    train_results_json["column_names"]["input_column_types"] = input_column_types
+    train_results_json["column_names"]["input_column_types"] = {
+        key: list(input_column_types[key].keys()) for key in input_column_types
+    }
     train_results_json["column_names"]["ignore_features"] = ignore_features
     train_results_json["column_names"][
         "feature_table_column_types"

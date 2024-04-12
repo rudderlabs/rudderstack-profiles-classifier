@@ -233,13 +233,14 @@ if __name__ == "__main__":
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-    if args.mode == constants.CI_MODE:
-        sys.exit(0)
 
     if args.mode == constants.RUDDERSTACK_MODE:
         logger.debug(f"Downloading files from S3 in {args.mode} mode.")
         S3Utils.download_directory(args.s3_config, output_dir, args.mode)
     trainer = TrainerFactory.create(args.merged_config)
+
+    if args.mode == constants.CI_MODE:
+        sys.exit(0)
 
     wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
     connector = ConnectorFactory.create(wh_creds["type"], output_dir)

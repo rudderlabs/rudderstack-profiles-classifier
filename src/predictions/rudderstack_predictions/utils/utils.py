@@ -366,6 +366,8 @@ def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> Lis
 def transform_null(
     df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str]
 ) -> pd.DataFrame:
+    for col in numeric_columns:
+        df[col] = df[col].astype("float64")
     """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
     for col in numeric_columns:
         df[col] = df[col].astype("float64")

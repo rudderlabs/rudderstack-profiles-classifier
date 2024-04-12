@@ -275,6 +275,7 @@ class MLTrainer(ABC):
 
         train_x = utils.transform_null(train_x, numeric_columns, categorical_columns)
         val_x = utils.transform_null(val_x, numeric_columns, categorical_columns)
+        test_x = utils.transform_null(test_x, numeric_columns, categorical_columns)
 
         preprocessor_pipe_x = self.get_preprocessing_pipeline(
             numeric_columns,

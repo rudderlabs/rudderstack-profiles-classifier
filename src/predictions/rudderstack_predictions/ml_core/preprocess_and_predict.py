@@ -251,19 +251,17 @@ if __name__ == "__main__":
     if args.mode == constants.CI_MODE:
         sys.exit(0)
 
-    if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
+    if args.mode == constants.RUDDERSTACK_MODE:
         logger.debug(f"Downloading files from S3 in {args.mode} mode.")
-        S3Utils.download_directory_from_S3(args.s3_config, output_dir, args.mode)
+        S3Utils.download_directory(args.s3_config, output_dir)
 
     if args.prediction_task == "classification":
         trainer = ClassificationTrainer(**args.merged_config)
     elif args.prediction_task == "regression":
         trainer = RegressionTrainer(**args.merged_config)
 
-    # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
     wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
-    warehouse = wh_creds["type"]
-    connector = ConnectorFactory.create(warehouse, output_dir)
+    connector = ConnectorFactory.create(wh_creds["type"], output_dir)
     session = connector.build_session(wh_creds)
 
     model_path = os.path.join(output_dir, args.json_output_filename)
@@ -280,6 +278,6 @@ if __name__ == "__main__":
         trainer=trainer,
     )
 
-    if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
-        logger.debug(f"Deleting additional local directory from {args.mode} mode.")
+    if args.mode == constants.RUDDERSTACK_MODE:
+        logger.debug(f"Deleting files in {output_dir}")
         utils.delete_folder(output_dir)

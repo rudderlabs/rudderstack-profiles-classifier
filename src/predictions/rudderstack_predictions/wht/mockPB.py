@@ -6,7 +6,8 @@ class MockPB:
         # SELECT * FROM MATERIAL_REGISTRY_4 WHERE model_type='entity_var_model'
         # AND end_ts BETWEEN CURRENT_DATE - INTERVAL '14 days' AND CURRENT_DATE - INTERVAL '7 days';
         # return "8b944948", "user_var_table"
-        return "a0d59ed6", "user_var_table"
+        # return "a0d59ed6", "user_var_table"
+        return "bd659b57", "user_var_table"
 
     def run(self, *args):
         return RudderPB().run(*args)

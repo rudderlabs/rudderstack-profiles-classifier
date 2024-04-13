@@ -838,7 +838,6 @@ class SnowflakeConnector(Connector):
         for col in df.columns:
             if col in column_types["categorical"]:
                 if col in input_column_types_map["categorical"]:
-                    print("Categorical column found in input_column_types_map")
                     types.append(
                         self.data_type_mapping["categorical"][
                             input_column_types_map["categorical"][col]
@@ -848,7 +847,6 @@ class SnowflakeConnector(Connector):
                     types.append(T.StringType())
             elif col in column_types["numeric"]:
                 if col in input_column_types_map["numeric"]:
-                    print("Categorical column found in input_column_types_map")
                     types.append(
                         self.data_type_mapping["numeric"][
                             input_column_types_map["numeric"][col]
@@ -860,8 +858,6 @@ class SnowflakeConnector(Connector):
                 raise Exception(
                     f"Column {col} not found in the training data config either as categorical or numeric column"
                 )
-
-        print(types)
 
         return types
 

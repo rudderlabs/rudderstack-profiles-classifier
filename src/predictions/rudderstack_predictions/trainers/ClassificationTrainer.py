@@ -14,7 +14,10 @@ from pycaret.classification import (
     pull as classification_results_pull,
     load_model as classification_load_model,
     predict_model as classification_predict_model,
+    add_metric as classification_add_metric,
 )
+
+from sklearn.metrics import roc_auc_score
 
 
 class ClassificationTrainer(MLTrainer):
@@ -64,16 +67,27 @@ class ClassificationTrainer(MLTrainer):
         merged_config: dict,
         model_file: str,
     ):
+       
+        custom_metrics = [{
+            "id" : "roc_auc",
+            "name" : "roc_auc",
+            "function" : roc_auc_score,
+            "greater_is_better" : False
+        }]
+
         return self.train_model_(
             feature_df,
             merged_config,
             model_file,
             classification_setup,
+            classification_add_metric,
+            custom_metrics,
             classification_compare_models,
             classification_save_model,
         )
 
-    def get_metrics(self, model, X_train, y_train) -> dict:
+    def get_metrics(self, model, fold_param, X_train, y_train) -> dict:
+        
         model_metrics = classification_results_pull().iloc[0].to_dict()
         train_metrics = self.trainer_utils.get_metrics_classifier(
             model, X_train, y_train
@@ -84,6 +98,7 @@ class ClassificationTrainer(MLTrainer):
             "AUC": "pr_auc",
             "Prec.": "precision",
             "Recall": "recall",
+            "roc_auc": "roc_auc"
         }
 
         # Create a new dictionary with updated keys
@@ -91,8 +106,7 @@ class ClassificationTrainer(MLTrainer):
         for old_key, new_key in key_mapping.items():
             test_metrics[new_key] = model_metrics.get(old_key, None)
 
-        test_metrics["roc_auc"] = 0
-        test_metrics["users"] = 0
+        test_metrics["users"] = int(1/fold_param * len(X_train))
 
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,

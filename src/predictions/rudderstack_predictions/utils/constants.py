@@ -37,6 +37,16 @@ ML_CORE_PYTHON_PATH = "src.predictions.rudderstack_predictions.ml_core"
 ML_CORE_PYNATIVE_PATH = "rudderstack_predictions.ml_core"
 MIN_PB_VERSION = 53
 
+PRED_OUTPUT_DF_COLUMNS = {
+    "classification":  {
+            "label": "prediction_label",
+            "score": "prediction_score",
+        },
+    "regression": {
+        "score": "prediction_label",
+    }
+}
+
 # Smart data preparation
 
 # Min training data requirements

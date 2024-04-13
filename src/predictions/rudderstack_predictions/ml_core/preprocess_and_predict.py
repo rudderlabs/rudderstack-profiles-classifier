@@ -148,17 +148,9 @@ def preprocess_and_predict(
     #  For classification we had the scores as score_column_name and then compute the output_label_column based on the threshold. So the mapping.
     #  For regression, we had the score column only , thus mapped the score to pycaret's prediction_label
 
-    pred_output_df_columns = {}
-    if prediction_task == "classification":
-        pred_output_df_columns = {
-            "label": "prediction_label",
-            "score": "prediction_score",
-        }
-    elif prediction_task == "regression":
-        pred_output_df_columns = {
-            "score": "prediction_label",
-        }
+    pred_output_df_columns = constants.PRED_OUTPUT_DF_COLUMNS[prediction_task]
 
+    # ToDo: To move them to trainer class
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location"""

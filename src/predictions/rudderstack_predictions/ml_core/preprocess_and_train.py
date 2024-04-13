@@ -8,6 +8,8 @@ from typing import List
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
+from ..trainers.TrainerFactory import TrainerFactory
+
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
@@ -15,9 +17,6 @@ from ..utils import utils
 from ..utils.logger import logger
 from ..utils import constants
 from ..utils.S3Utils import S3Utils
-
-from ..trainers.ClassificationTrainer import ClassificationTrainer
-from ..trainers.RegressionTrainer import RegressionTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
 
 model_file_name = constants.MODEL_FILE_NAME
@@ -66,7 +65,6 @@ def train_and_store_model_results(
     train_x, test_x, test_y, pipe, model_id, metrics_df, results = trainer.train_model(
         feature_df, train_config, model_file
     )
-
     logger.info(f"Generating plots and saving them to the output directory.")
     trainer.plot_diagnostics(
         connector, session, pipe, None, test_x, test_y, trainer.label_column
@@ -78,6 +76,7 @@ def train_and_store_model_results(
         pipe,
         train_x,
         figure_file,
+        top_k_features=20,
     )
     connector.write_pandas(shap_importance, "FEATURE_IMPORTANCE", if_exists="replace")
     metrics_df, create_metrics_table_query = connector.fetch_create_metrics_table_query(
@@ -262,11 +261,9 @@ if __name__ == "__main__":
     parser.add_argument("--s3_bucket", type=str)
     parser.add_argument("--aws_region_name", type=str)
     parser.add_argument("--s3_path", type=str)
-    parser.add_argument("--ec2_temp_output_json", type=str)
     parser.add_argument("--material_names", type=json.loads)
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--input_column_types", type=json.loads)
-    parser.add_argument("--prediction_task", type=str)
     parser.add_argument("--wh_creds", type=json.loads)
     parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
@@ -292,11 +289,7 @@ if __name__ == "__main__":
     if args.mode == constants.CI_MODE:
         sys.exit(0)
     wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
-
-    if args.prediction_task == "classification":
-        trainer = ClassificationTrainer(**args.merged_config)
-    elif args.prediction_task == "regression":
-        trainer = RegressionTrainer(**args.merged_config)
+    trainer = TrainerFactory.create(args.merged_config)
 
     warehouse = wh_creds["type"]
     train_procedure = train_and_store_model_results
@@ -321,26 +314,27 @@ if __name__ == "__main__":
         connector=connector,
         trainer=trainer,
     )
-    with open(os.path.join(local_folder, args.ec2_temp_output_json), "w") as file:
+    with open(
+        os.path.join(local_folder, constants.TRAIN_JSON_RESULT_FILE), "w"
+    ) as file:
         json.dump(train_results_json, file)
 
-    if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
+    if args.mode == constants.RUDDERSTACK_MODE:
         logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
 
         train_upload_whitelist = utils.merge_lists_to_unique(
             list(trainer.figure_names.values()),
             [
                 f"{trainer.output_profiles_ml_model}_{model_file_name}",
-                args.ec2_temp_output_json,
+                constants.TRAIN_JSON_RESULT_FILE,
             ],
         )
-        S3Utils.upload_directory_to_S3(
+        S3Utils.upload_directory(
             args.s3_bucket,
             args.aws_region_name,
             args.s3_path,
             local_folder,
             train_upload_whitelist,
-            args.mode,
         )
 
         logger.debug(f"Deleting additional local directory from {args.mode} mode.")

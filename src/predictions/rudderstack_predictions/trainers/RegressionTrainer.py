@@ -154,5 +154,5 @@ class RegressionTrainer(MLTrainer):
     def load_model(self, model_file: str):
         return regression_load_model(model_file)
 
-    def predict_model(self, model, test_x: pd.DataFrame):
+    def predict(self, model, test_x: pd.DataFrame):
         return regression_predict_model(model, test_x)

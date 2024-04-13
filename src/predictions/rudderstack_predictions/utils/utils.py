@@ -309,7 +309,7 @@ def get_all_ignore_features(
 
 
 def parse_warehouse_creds(creds: dict, mode: str) -> dict:
-    if mode == constants.K8S_MODE:
+    if mode == constants.RUDDERSTACK_MODE:
         wh_creds_str = os.environ[constants.K8S_WH_CREDS_KEY]
         wh_creds = json.loads(wh_creds_str)
     else:
@@ -348,6 +348,8 @@ def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> Lis
 def transform_null(
     df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str]
 ) -> pd.DataFrame:
+    for col in numeric_columns:
+        df[col] = df[col].astype("float64")
     """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
     for col in numeric_columns:
         df[col] = df[col].fillna(0)
@@ -714,7 +716,9 @@ def plot_lift_chart(y_pred: np.array, y_true: np.array, lift_chart_file: str) ->
     plt.clf()
 
 
-def plot_top_k_feature_importance(model, train_x, figure_file) -> pd.DataFrame:
+def plot_top_k_feature_importance(
+    model, train_x, figure_file, top_k_features=20
+) -> pd.DataFrame:
     """
     Generates a bar chart to visualize the top k important features in a machine learning model.
 

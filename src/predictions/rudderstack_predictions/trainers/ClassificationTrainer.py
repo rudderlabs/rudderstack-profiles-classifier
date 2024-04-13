@@ -4,6 +4,7 @@ from ..utils import utils
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
 from ..trainers.MLTrainer import MLTrainer
+from ..utils import constants
 
 
 from pycaret.classification import (
@@ -21,8 +22,17 @@ from sklearn.metrics import roc_auc_score
 
 
 class ClassificationTrainer(MLTrainer):
-    def __init__(self, **kwargs):
+    def __init__(
+        self, connector: Connector, session, entity_var_model_name: str, **kwargs
+    ):
         super().__init__(**kwargs)
+        if self.label_value is None:
+            self.label_value = connector.get_default_label_value(
+                session,
+                entity_var_model_name,
+                self.label_column,
+                constants.POSITIVE_BOOLEAN_FLAGS,
+            )
 
         self.figure_names = {
             "roc-auc-curve": f"04-test-roc-auc-{self.output_profiles_ml_model}.png",
@@ -177,5 +187,5 @@ class ClassificationTrainer(MLTrainer):
     def load_model(self, model_file: str):
         return classification_load_model(model_file)
 
-    def predict_model(self, model, test_x: pd.DataFrame):
+    def predict(self, model, test_x: pd.DataFrame):
         return classification_predict_model(model, test_x)

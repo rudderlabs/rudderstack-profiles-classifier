@@ -3,6 +3,8 @@
 import os
 import sys
 
+from .trainers.TrainerFactory import TrainerFactory
+
 from .utils.S3Utils import S3Utils
 
 from .processors.ProcessorFactory import ProcessorFactory
@@ -52,14 +54,7 @@ def _predict(
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None
     )
-    prediction_task = merged_config["data"].pop(
-        "task", "classification"
-    )  # Assuming default as classification
-
-    if prediction_task == "classification":
-        trainer = ClassificationTrainer(**merged_config)
-    elif prediction_task == "regression":
-        trainer = RegressionTrainer(**merged_config)
+    trainer = TrainerFactory.create(merged_config)
 
     logger.debug(
         f"Started Predicting for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
@@ -98,6 +93,5 @@ def _predict(
         inputs,
         output_tablename,
         merged_config,
-        prediction_task,
         site_config,
     )

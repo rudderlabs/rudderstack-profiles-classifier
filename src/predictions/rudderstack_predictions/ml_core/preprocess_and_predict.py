@@ -13,6 +13,8 @@ import snowflake.snowpark.types as T
 from snowflake.snowpark.types import *
 import snowflake.snowpark.functions as F
 
+from ..trainers.TrainerFactory import TrainerFactory
+
 from ..wht.pyNativeWHT import PyNativeWHT
 
 from ..utils import utils
@@ -20,8 +22,7 @@ from ..utils.logger import logger
 from ..utils import constants
 from ..utils.S3Utils import S3Utils
 
-from ..trainers.ClassificationTrainer import ClassificationTrainer
-from ..trainers.RegressionTrainer import RegressionTrainer
+from ..trainers.MLTrainer import MLTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -45,16 +46,14 @@ def preprocess_and_predict(
     model_path,
     inputs,
     output_tablename,
-    prediction_task,
-    **kwargs,
+    session,
+    connector,
+    trainer: MLTrainer,
 ):
     """
     This function is responsible for preprocessing
     and predicting on the data.
     """
-    session = kwargs.get("session", None)
-    connector = kwargs.get("connector", None)
-    trainer = kwargs.get("trainer", None)
 
     model_file_name = constants.MODEL_FILE_NAME
     connector.compute_udf_name(model_path)
@@ -140,17 +139,6 @@ def preprocess_and_predict(
         predict_data, trainer.index_timestamp, end_ts
     )
 
-    # For pycaret predictions,
-    #   In case of classification, there are two labels : prediction_label and prediction_score
-    #   In case of regression, there is only one label : prediction_label
-
-    # In our context,
-    #  For classification we had the scores as score_column_name and then compute the output_label_column based on the threshold. So the mapping.
-    #  For regression, we had the score column only , thus mapped the score to pycaret's prediction_label
-
-    pred_output_df_columns = constants.PRED_OUTPUT_DF_COLUMNS[prediction_task]
-
-    # ToDo: To move them to trainer class
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location"""
@@ -162,21 +150,18 @@ def preprocess_and_predict(
         else:
             filename = os.path.join(local_folder, filename)
 
-        if prediction_task == "classification":
-            model = classification_load_model(filename)
-        elif prediction_task == "regression":
-            model = regression_load_model(filename)
-
+        model = trainer.load_model(filename)
         return model
 
-    def predict_helper(df, model_name: str, **kwargs) -> Any:
+    def predict_helper(df, model_name: str) -> Any:
         trained_model = load_model(model_name)
         df.columns = [x.upper() for x in df.columns]
-
-        if prediction_task == "classification":
-            return classification_predict_model(trained_model, df)
-        elif prediction_task == "regression":
-            return regression_predict_model(trained_model, df)
+        for col in numeric_columns:
+            df[col] = df[col].astype("float64")
+        """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
+        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+        return trainer.predict(trained_model, df)
 
     features = input_df.columns
     print("Columns: ", predict_data.columns)
@@ -184,8 +169,8 @@ def preprocess_and_predict(
     if creds["type"] == "snowflake":
         udf_name = connector.udf_name
 
-        pycaret_score_column = pred_output_df_columns["score"]
-        pycaret_label_column = pred_output_df_columns.get(
+        pycaret_score_column = trainer.pred_output_df_columns["score"]
+        pycaret_label_column = trainer.pred_output_df_columns.get(
             "label", "prediction_score"
         )  # To make up for the missing column in case of regression
 
@@ -193,27 +178,15 @@ def preprocess_and_predict(
             session=session,
             name=udf_name,
             stage_location=stage_name,
-            is_permanent=True,
+            is_permanent=False,
             replace=True,
             output_schema=PandasDataFrameType(
                 [FloatType(), FloatType()], [pycaret_score_column, pycaret_label_column]
             ),
             input_types=[PandasDataFrameType(types)],
             input_names=features,
-            imports=[f"{stage_name}/{model_name}.pkl"],
-            packages=[
-                "snowflake-snowpark-python==1.11.1",
-                "typing",
-                "scikit-learn==1.1.1",
-                "xgboost==1.5.0",
-                "numpy==1.23.1",
-                "pandas==1.5.3",
-                "joblib==1.2.0",
-                "cachetools==4.2.2",
-                "PyYAML==6.0.1",
-                "pycaret",
-                "simplejson",
-            ],
+            imports=[f"{stage_name}/{model_name}.pkl"] + connector.delete_files,
+            packages=constants.SNOWFLAKE_TRAINING_PACKAGES + ["cachetools==4.2.2"],
         )
         class predict_scores:
             def end_partition(self, df):
@@ -226,7 +199,7 @@ def preprocess_and_predict(
 
                 # Check if 'label' is present in pred_output_df_columns
                 # Had to add a dummy label column in case of regression to the output dataframe as the UDTF expects the two columns in output
-                if "label" in pred_output_df_columns:
+                if "label" in trainer.pred_output_df_columns:
                     prediction_df[pycaret_label_column] = predictions[
                         pycaret_label_column
                     ]
@@ -258,7 +231,7 @@ def preprocess_and_predict(
         trainer.outputs.column_names.get("output_label_column"),
         train_model_id,
         input_df,
-        pred_output_df_columns,
+        trainer.pred_output_df_columns,
     )
     logger.debug("Writing predictions to warehouse")
 
@@ -284,7 +257,6 @@ if __name__ == "__main__":
     parser.add_argument("--inputs", type=json.loads)
     parser.add_argument("--output_tablename", type=str)
     parser.add_argument("--merged_config", type=json.loads)
-    parser.add_argument("--prediction_task", type=str)
     parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
@@ -302,25 +274,19 @@ if __name__ == "__main__":
     formatter = logging.Formatter(
         "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
     )
-    file_handler.setLevel(logging.INFO)
+    file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
+
+    if args.mode == constants.RUDDERSTACK_MODE:
+        logger.debug(f"Downloading files from S3 in {args.mode} mode.")
+        S3Utils.download_directory(args.s3_config, output_dir)
     if args.mode == constants.CI_MODE:
         sys.exit(0)
+    trainer = TrainerFactory.create(args.merged_config)
 
-    if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
-        logger.debug(f"Downloading files from S3 in {args.mode} mode.")
-        S3Utils.download_directory_from_S3(args.s3_config, output_dir, args.mode)
-
-    if args.prediction_task == "classification":
-        trainer = ClassificationTrainer(**args.merged_config)
-    elif args.prediction_task == "regression":
-        trainer = RegressionTrainer(**args.merged_config)
-
-    # Creating the Redshift connector and session bcoz this case of code will only be triggerred for Redshift
     wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
-    warehouse = wh_creds["type"]
-    connector = ConnectorFactory.create(warehouse, output_dir)
+    connector = ConnectorFactory.create(wh_creds["type"], output_dir)
     session = connector.build_session(wh_creds)
 
     model_path = os.path.join(output_dir, args.json_output_filename)
@@ -331,12 +297,11 @@ if __name__ == "__main__":
         model_path,
         args.inputs,
         args.output_tablename,
-        args.prediction_task,
         session=session,
         connector=connector,
         trainer=trainer,
     )
 
-    if args.mode in (constants.RUDDERSTACK_MODE, constants.K8S_MODE):
-        logger.debug(f"Deleting additional local directory from {args.mode} mode.")
+    if args.mode == constants.RUDDERSTACK_MODE:
+        logger.debug(f"Deleting files in {output_dir}")
         utils.delete_folder(output_dir)

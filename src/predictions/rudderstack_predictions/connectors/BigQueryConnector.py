@@ -23,6 +23,8 @@ class BigQueryConnector(CommonWarehouseConnector):
                 "DECIMAL",
                 "BIGDECIMAL",
                 "NUMERIC",
+                "FLOAT",
+                "BOOLEAN",
             ),
             "categorical": ("STRING", "JSON"),
             "timestamp": ("DATE", "TIME", "DATETIME", "TIMESTAMP", "INTERVAL"),
@@ -50,12 +52,15 @@ class BigQueryConnector(CommonWarehouseConnector):
         self, session: google.cloud.bigquery.client.Client, query: str, response=True
     ) -> Optional[List]:
         """Runs the given query on the bigquery connection and returns a list with Named indices."""
-        if response:
-            return list(
-                session.query_and_wait(query).to_dataframe().itertuples(index=False)
-            )
-        else:
-            return session.query_and_wait(query)
+        try:
+            if response:
+                return list(
+                    session.query_and_wait(query).to_dataframe().itertuples(index=False)
+                )
+            else:
+                return session.query_and_wait(query)
+        except Exception as e:
+            raise Exception(f"Couldn't run the query: {query}. Error: {str(e)}")
 
     def get_table_as_dataframe(
         self, session: google.cloud.bigquery.client.Client, table_name: str, **kwargs
@@ -105,5 +110,5 @@ class BigQueryConnector(CommonWarehouseConnector):
                 metrics_table_query += f"{col} TIMESTAMP,"
 
         metrics_table_query = metrics_table_query[:-1]
-        create_metrics_table_query = f"CREATE TABLE IF NOT EXISTS {self.project_id}.{self.schema}.{table_name} ({metrics_table_query});"
+        create_metrics_table_query = f"CREATE TABLE IF NOT EXISTS `{self.project_id}.{self.schema}.{table_name}` ({metrics_table_query});"
         return metrics_df, create_metrics_table_query

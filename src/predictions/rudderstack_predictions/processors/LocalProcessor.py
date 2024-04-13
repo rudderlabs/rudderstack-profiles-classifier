@@ -17,11 +17,9 @@ class LocalProcessor(Processor):
         merged_config: dict,
         input_column_types: dict,
         metrics_table: str,
-        prediction_task: str,
         wh_creds: dict,
         site_config: dict,
     ):
-        ec2_temp_output_json = constants.EC2_TEMP_OUTPUT_JSON
         local_dir = self.connector.get_local_dir()
         output_path = os.path.dirname(local_dir)
         commands = [
@@ -29,16 +27,12 @@ class LocalProcessor(Processor):
             "-u",
             "-m",
             f"{self.ml_core_path}.preprocess_and_train",
-            "--ec2_temp_output_json",
-            ec2_temp_output_json,
             "--material_names",
             json.dumps(materials),
             "--merged_config",
             json.dumps(merged_config),
             "--input_column_types",
             json.dumps(input_column_types),
-            "--prediction_task",
-            prediction_task,
             "--wh_creds",
             json.dumps(wh_creds),
             "--output_path",
@@ -53,17 +47,9 @@ class LocalProcessor(Processor):
             raise Exception(
                 f"Error occurred while running train script in local processing mode. Error: {response_for_train.stderr}"
             )
-        try:
-            train_results_json = self.connector.load_and_delete_json(
-                ec2_temp_output_json
-            )
-        except Exception as e:
-            logger.exception(
-                f"An exception occured while trying to load and delete json {ec2_temp_output_json} from local: {e}"
-            )
-            raise Exception(
-                f"An exception occured while trying to load and delete json {ec2_temp_output_json} from local: {e}"
-            )
+        train_results_json = self.connector.load_and_delete_json(
+            constants.TRAIN_JSON_RESULT_FILE
+        )
         return train_results_json
 
     def predict(
@@ -74,7 +60,6 @@ class LocalProcessor(Processor):
         inputs,
         output_tablename,
         merged_config,
-        prediction_task,
         site_config: dict,
     ):
         output_path = os.path.dirname(model_path)
@@ -98,8 +83,6 @@ class LocalProcessor(Processor):
             output_tablename,
             "--merged_config",
             json.dumps(merged_config),
-            "--prediction_task",
-            prediction_task,
             "--output_path",
             output_path,
             "--mode",

@@ -22,12 +22,8 @@ rs_dtypes = '{"text": "character varying(65535)", "num": "float", "bool": "bool"
 CLASSIFIER_MIN_LABEL_PROPORTION = 0.05
 CLASSIFIER_MAX_LABEL_PROPORTION = 0.95
 REGRESSOR_MIN_LABEL_DISTINCT_VALUES = 3
-REMOTE_DIR = "/home/ec2-user"
-INSTANCE_ID = "i-001c6544decab0fa3"
-EC2_TEMP_OUTPUT_JSON = "train_results.json"
-SSM_SLEEP_TIME = 5
+TRAIN_JSON_RESULT_FILE = "train_results.json"
 K8S_WH_CREDS_KEY = "WAREHOUSE_CREDS"
-K8S_MODE = "K8S"
 CI_MODE = "ci"
 K8S_TIMEOUT_IN_SEC = 120
 LOCAL_MODE = "local"
@@ -58,6 +54,22 @@ MIN_NUM_OF_SAMPLES = 5000
 MATERIAL_DATE_FORMAT = "%Y-%m-%d"
 
 from typing import NamedTuple
+
+SNOWFLAKE_TRAINING_PACKAGES = [
+    "snowflake-snowpark-python==1.11.1",
+    "scikit-learn==1.1.1",
+    "xgboost==1.5.0",
+    "joblib==1.2.0",
+    "PyYAML==6.0.1",
+    "numpy==1.23.1",
+    "pandas==1.5.3",
+    "hyperopt==0.2.7",
+    "shap==0.41.0",
+    "matplotlib==3.7.1",
+    "seaborn==0.12.0",
+    "scikit-plot==0.3.7",
+    "pycaret",
+]
 
 
 class TrainTablesInfo(NamedTuple):

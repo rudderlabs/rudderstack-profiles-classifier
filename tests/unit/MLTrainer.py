@@ -1,14 +1,15 @@
 import unittest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 from src.predictions.rudderstack_predictions.trainers.MLTrainer import *
-from src.predictions.rudderstack_predictions.trainers.ClassificationTrainer import *
-from src.predictions.rudderstack_predictions.trainers.RegressionTrainer import *
+from src.predictions.rudderstack_predictions.trainers.TrainerFactory import (
+    TrainerFactory,
+)
 
 
 def build_trainer_config():
     config = {"data": {}, "preprocessing": {}, "outputs": {}}
 
-    config["data"]["label_value"] = None
+    config["data"]["label_value"] = "label_value"
     config["data"]["label_column"] = None
     config["data"]["entity_column"] = None
     config["data"]["entity_key"] = None
@@ -39,7 +40,7 @@ def build_trainer_config():
 class TestClassificationTrainer(unittest.TestCase):
     def test_prepare_training_summary(self):
         config = build_trainer_config()
-        trainer = ClassificationTrainer(**config)
+        trainer = TrainerFactory.create(config)
         metrics = {"test": {}, "train": {}, "val": {}}
         timestamp = "2023-11-08"
         threshold = 0.62
@@ -54,16 +55,24 @@ class TestClassificationTrainer(unittest.TestCase):
             },
         )
 
+    def test_default_label_value(self):
+        config = build_trainer_config()
+        config["data"]["label_value"] = None
+        connector = Mock()
+        connector.get_default_label_value = Mock(return_value="default_value")
+        trainer = TrainerFactory.create(config, connector)
+        self.assertEqual(trainer.label_value, "default_value")
+
     def test_materialisation_config_is_loaded_correctly(self):
         config = build_trainer_config()
-        trainer = ClassificationTrainer(**config)
+        trainer = TrainerFactory.create(config)
         self.assertEqual(trainer.materialisation_strategy, "")
         config["data"]["new_materialisations_config"] = {
             "strategy": "auto",
             "feature_data_min_date_diff": 7,
             "max_no_of_dates": 3,
         }
-        trainer = ClassificationTrainer(**config)
+        trainer = TrainerFactory.create(config)
         self.assertEqual(trainer.materialisation_strategy, "auto")
         self.assertEqual(trainer.materialisation_max_no_dates, 3)
         self.assertEqual(trainer.feature_data_min_date_diff, 7)
@@ -72,7 +81,7 @@ class TestClassificationTrainer(unittest.TestCase):
             "dates": ["2022-01-01,2022-03-01", "2022-05-01,2022-07-01"],
             "max_no_of_dates": 3,
         }
-        trainer = ClassificationTrainer(**config)
+        trainer = TrainerFactory.create(config)
         self.assertEqual(trainer.materialisation_strategy, "manual")
         self.assertEqual(
             trainer.materialisation_dates,
@@ -88,7 +97,7 @@ class TestClassificationTrainer(unittest.TestCase):
             "max_no_of_dates": 3,
         }
         with self.assertRaises(Exception) as context:
-            ClassificationTrainer(**config)
+            trainer = TrainerFactory.create(config)
         self.assertIn(
             "materialisation dates are required for manual strategy in the input config.",
             str(context.exception),
@@ -98,7 +107,7 @@ class TestClassificationTrainer(unittest.TestCase):
             "max_no_of_dates": 3,
         }
         with self.assertRaises(Exception) as context:
-            ClassificationTrainer(**config)
+            trainer = TrainerFactory.create(config)
         self.assertIn(
             "'feature_data_min_date_diff' not found in input config",
             str(context.exception),
@@ -106,7 +115,7 @@ class TestClassificationTrainer(unittest.TestCase):
 
     def test_validate_data(self):
         config = build_trainer_config()
-        trainer = ClassificationTrainer(**config)
+        trainer = TrainerFactory.create(config)
         mock_connector = Mock()
         mock_connector.validate_columns_are_present = Mock(return_value=True)
         mock_connector.validate_class_proportions = Mock(return_value=True)
@@ -123,7 +132,7 @@ class TestClassificationTrainer(unittest.TestCase):
 
     def test_validate_data_raises_exception_on_failure(self):
         config = build_trainer_config()
-        trainer = ClassificationTrainer(**config)
+        trainer = TrainerFactory.create(config)
         mock_connector = Mock()
         mock_connector.validate_columns_are_present.side_effect = Exception(
             "Raise exception"

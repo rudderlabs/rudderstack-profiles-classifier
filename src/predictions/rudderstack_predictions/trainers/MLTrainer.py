@@ -7,7 +7,7 @@ import pandas as pd
 from copy import deepcopy
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Tuple, List, Union, Dict
+from typing import Any, Tuple, List, Union, Dict
 from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 
 from sklearn.pipeline import Pipeline
@@ -22,6 +22,9 @@ from ..wht.pythonWHT import PythonWHT
 from ..utils import utils
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
+from ..utils import constants
+
+trainer_utils = utils.TrainerUtils()
 
 
 @dataclass
@@ -128,10 +131,6 @@ class MLTrainer(ABC):
 
     @abstractmethod
     def load_model(self, model_file: str):
-        pass
-
-    @abstractmethod
-    def predict_model(self, model, test_x: pd.DataFrame):
         pass
 
     @abstractmethod
@@ -280,6 +279,10 @@ class MLTrainer(ABC):
     def check_min_data_requirement(
         self, connector: Connector, session, materials
     ) -> bool:
+        pass
+
+    @abstractmethod
+    def predict(self, trained_model) -> Any:
         pass
 
     def check_and_generate_more_materials(

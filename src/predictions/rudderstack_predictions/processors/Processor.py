@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple, Union, Dict
+from typing import List, Union
 
 from ..utils.constants import *
 from ..trainers.MLTrainer import MLTrainer
@@ -31,7 +31,6 @@ class Processor(ABC):
         model_config: dict,
         input_column_types: dict,
         metrics_table: str,
-        prediction_task: str,
         wh_creds: dict,
         site_config: dict,
     ):
@@ -46,7 +45,6 @@ class Processor(ABC):
         inputs,
         output_tablename,
         merged_config,
-        prediction_task,
         site_config: dict,
     ):
         pass

@@ -6,7 +6,7 @@ from src.predictions.rudderstack_predictions.trainers.TrainerFactory import (
 )
 
 
-def build_trainer_config():
+def build_trainer_config(task="classification"):
     config = {"data": {}, "preprocessing": {}, "outputs": {}}
 
     config["data"]["label_value"] = "label_value"
@@ -22,6 +22,7 @@ def build_trainer_config():
     config["data"]["inputs"] = None
     config["data"]["max_row_count"] = None
     config["data"]["prep"] = None
+    config["data"]["task"] = task
     config["data"]["recall_to_precision_importance"] = 0.0
     config["preprocessing"]["timestamp_columns"] = None
     config["preprocessing"]["ignore_features"] = None
@@ -173,16 +174,16 @@ class TestClassificationTrainer(unittest.TestCase):
 
 class TestRegressionTrainer(unittest.TestCase):
     def test_prepare_training_summary(self):
-        config = build_trainer_config()
-        trainer = RegressionTrainer(**config)
+        config = build_trainer_config(task="regression")
+        trainer = TrainerFactory.create(config)
         metrics = {"test": {}, "train": {}, "val": {}}
         timestamp = "2023-11-08"
         result = trainer.prepare_training_summary({"metrics": metrics}, timestamp)
         self.assertEqual(result, {"data": {"metrics": metrics}, "timestamp": timestamp})
 
     def test_validate_data(self):
-        config = build_trainer_config()
-        trainer = RegressionTrainer(**config)
+        config = build_trainer_config(task="regression")
+        trainer = TrainerFactory.create(config)
         mock_connector = Mock()
         mock_connector.validate_columns_are_present = Mock(return_value=True)
         mock_connector.validate_label_distinct_values = Mock(return_value=True)
@@ -198,8 +199,8 @@ class TestRegressionTrainer(unittest.TestCase):
         self.assertFalse(trainer.validate_data(mock_connector, None))
 
     def test_validate_data_raises_exception_on_failure(self):
-        config = build_trainer_config()
-        trainer = RegressionTrainer(**config)
+        config = build_trainer_config(task="regression")
+        trainer = TrainerFactory.create(config)
         mock_connector = Mock()
         mock_connector.validate_columns_are_present.side_effect = Exception(
             "Raise exception"

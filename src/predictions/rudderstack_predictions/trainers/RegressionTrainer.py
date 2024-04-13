@@ -57,7 +57,6 @@ class RegressionTrainer(MLTrainer):
         merged_config: dict,
         model_file: str,
     ):
-        
         custom_metrics = []
 
         return self.train_model_(
@@ -103,7 +102,7 @@ class RegressionTrainer(MLTrainer):
         except Exception as e:
             logger.error(f"Could not generate regression plots. {e}")
 
-    def get_metrics(self, model,fold_param, X_train, y_train) -> dict:
+    def get_metrics(self, model, fold_param, X_train, y_train) -> dict:
         model_metrics = regression_results_pull().iloc[0].to_dict()
         train_metrics = self.trainer_utils.get_metrics_regressor(
             model, X_train, y_train
@@ -120,7 +119,7 @@ class RegressionTrainer(MLTrainer):
         for old_key, new_key in key_mapping.items():
             test_metrics[new_key] = model_metrics.get(old_key, None)
 
-        test_metrics["users"] = int(1/fold_param * len(X_train))
+        test_metrics["users"] = int(1 / fold_param * len(X_train))
 
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,

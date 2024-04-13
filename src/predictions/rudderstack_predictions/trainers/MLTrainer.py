@@ -186,7 +186,7 @@ class MLTrainer(ABC):
         model_file: str,
         pycaret_model_setup: callable,
         pycaret_add_custom_metric: callable,
-        custom_metrics : dict,
+        custom_metrics: dict,
         pycaret_compare_models: callable,
         pycaret_save_model: callable,
     ):
@@ -236,7 +236,12 @@ class MLTrainer(ABC):
         )
 
         for custom_metric in custom_metrics:
-                pycaret_add_custom_metric(custom_metric['id'], custom_metric['name'], custom_metric['function'], greater_is_better= custom_metric['greater_is_better'])
+            pycaret_add_custom_metric(
+                custom_metric["id"],
+                custom_metric["name"],
+                custom_metric["function"],
+                greater_is_better=custom_metric["greater_is_better"],
+            )
 
         # Compare different models and select the best one
         best_model = pycaret_compare_models()

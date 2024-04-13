@@ -759,12 +759,13 @@ class SnowflakeConnector(Connector):
         self, feature_table: snowflake.snowpark.Table, label_column: str
     ) -> bool:
         distinct_values_count = feature_table.groupBy(label_column).count()
-        if distinct_values_count.count() < int(
-            constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
-        ):
+        num_distinct_values = distinct_values_count.count()
+        req_distinct_values = int(constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES)
+        if  num_distinct_values < req_distinct_values :
             raise Exception(
-                f"Label column {label_column} has invalid number of distinct values. \
-                    Please check if the label column has valid labels."
+                
+                f"Label column {label_column} has {num_distinct_values} of distinct values while we expect minimum {req_distinct_values} values for a regression problem.\
+                    Please check your label column and modify task in your python model to 'classification' if that's a better fit. "
             )
         return True
 

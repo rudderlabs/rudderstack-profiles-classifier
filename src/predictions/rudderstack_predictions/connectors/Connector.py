@@ -273,12 +273,20 @@ class Connector(ABC):
 
     @abstractmethod
     def check_for_classification_data_requirement(
-        self, session, meterials, label_column, label_value
+        self,
+        session,
+        materials,
+        label_column,
+        label_value,
+        entity_column,
+        filter_condition,
     ) -> bool:
         pass
 
     @abstractmethod
-    def check_for_regression_data_requirement(self, session, meterials) -> bool:
+    def check_for_regression_data_requirement(
+        self, session, materials, filter_condition
+    ) -> bool:
         pass
 
     @abstractmethod

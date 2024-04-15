@@ -180,7 +180,7 @@ def validate_predictions_df():
 
 
 def test_classification():
-    connector = ConnectorFactory.create("bigquery")
+    connector = ConnectorFactory.create("bigquery", folder_path_output_file)
     session = connector.build_session(creds)
 
     st = time.time()

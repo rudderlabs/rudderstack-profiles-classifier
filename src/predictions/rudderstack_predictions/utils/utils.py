@@ -189,39 +189,6 @@ class TrainerUtils:
         return train_metrics
 
 
-def split_train_test_pycaret(
-    preprocess_setup,
-    get_config,
-    feature_df: pd.DataFrame,
-    label_column: str,
-    entity_column: str,
-    train_size: float,
-    val_size: float,
-    test_size: float,
-    preprocess_config,
-) -> Tuple:
-    """Returns the train_x, train_y, test_x, test_y in form of pd.DataFrame"""
-    feature_df.columns = feature_df.columns.str.upper()
-
-    preprocess_setup(
-        data=feature_df,
-        target=label_column.upper(),
-        preprocess=True,
-        train_size=train_size,
-    )
-
-    # Get the configurations
-    train_x = get_config("X_train_transformed")
-    train_y = get_config("y_train_transformed")
-    test_x = get_config("X_test_transformed")
-    test_y = get_config("y_test_transformed")
-
-    train_x = train_x.drop([entity_column.upper()], axis=1)
-    test_x = test_x.drop([entity_column.upper()], axis=1)
-
-    return train_x, train_y, test_x, test_y
-
-
 def split_train_test(
     feature_df: pd.DataFrame,
     label_column: str,
@@ -808,12 +775,13 @@ def plot_top_k_feature_importance(
         }
 
         explainer_class = explainer_map[model_class]
-
         explainer = explainer_class(model, sample_data)
 
         shap_values = explainer(sample_data)
         if len(shap_values.shape) == 3:
             shap_values = shap_values[:, :, 1]
+            
+        shap_values.values = np.array(shap_values.values, dtype=float)
 
         shap.plots.beeswarm(shap_values, max_display=20, show=False)
         plt.savefig(figure_file)

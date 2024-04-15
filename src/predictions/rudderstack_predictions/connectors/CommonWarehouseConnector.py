@@ -634,16 +634,12 @@ class CommonWarehouseConnector(Connector):
         distinct_values_count_list = feature_table[label_column].value_counts()
         num_distinct_values = len(distinct_values_count_list)
         req_distinct_values = constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
-        if (
-            num_distinct_values
-            < req_distinct_values
-        ):
+        if num_distinct_values < req_distinct_values:
             raise Exception(
                 f"Label column {label_column} has {num_distinct_values} of distinct values while we expect minimum {req_distinct_values} values for a regression problem.\
                     Please check your label column and modify task in your python model to 'classification' if that's a better fit. "
             )
         return True
-    
 
     def add_days_diff(
         self, table: pd.DataFrame, new_col: str, time_col: str, end_ts: str
@@ -654,9 +650,12 @@ class CommonWarehouseConnector(Connector):
         except pd.errors.OutOfBoundsDatetime as e:
             min_ts = pd.Timestamp.min
             max_ts = pd.Timestamp.max
-            invalid_rows_count = ((table[time_col] < min_ts) | (table[time_col] > max_ts)).sum()
+            invalid_rows_count = (
+                (table[time_col] < min_ts) | (table[time_col] > max_ts)
+            ).sum()
 
-            raise ValueError( f"{time_col} entity var has timestamp values outside the acceptable range of {min_ts} and {max_ts}.  \
+            raise ValueError(
+                f"{time_col} entity var has timestamp values outside the acceptable range of {min_ts} and {max_ts}.  \
                               This may be due to some data corruption in source tables or an error in the entity var definition.  \
                               You can exclude these users for training using the eligible_users flag.  \
                               Total rows with invalid {time_col} values: {invalid_rows_count}"

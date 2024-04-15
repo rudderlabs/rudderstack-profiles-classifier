@@ -87,12 +87,5 @@ class RedShiftConnector(ConnectorBase):
                     f"Successfully wrote table {table_name} to S3 and then to Redshift"
                 )
         except Exception as e:
-            # Check for non existing schema
-            if "cannot copy into nonexistent table" in str(e).lower():
-                logger.info(f"{table_name} not found. Creating it")
-                self.create_table(df, table_name, schema)
-                # Try again
-                logger.info("Trying again")
-                self.write_to_table(df, table_name, schema, if_exists)
-            else:
-                raise e
+            logger.error(f"Error while writing to warehouse: {e}")
+            raise Exception(f"Error while writing to warehouse: {e}")

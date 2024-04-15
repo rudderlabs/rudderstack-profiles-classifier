@@ -736,51 +736,13 @@ def plot_top_k_feature_importance(
             sample_data = train_x.sample(100, random_state=42)
         model_class = model.__class__.__name__
 
-        # Select the appropriate explainer based on the model class name
-        explainer_map = {
-            "RidgeClassifier": shap.LinearExplainer,
-            "AdaBoostClassifier": shap.KernelExplainer,
-            "ExtraTreesClassifier": shap.TreeExplainer,
-            "RandomForestClassifier": shap.TreeExplainer,
-            "LogisticRegression": shap.LinearExplainer,
-            "GaussianNB": shap.KernelExplainer,
-            "KNeighborsClassifier": shap.KernelExplainer,
-            "DecisionTreeClassifier": shap.TreeExplainer,
-            "GradientBoostingClassifier": shap.TreeExplainer,
-            "LinearDiscriminantAnalysis": shap.LinearExplainer,
-            "LGBMClassifier": shap.TreeExplainer,
-            "DummyClassifier": shap.KernelExplainer,
-            "SVC": shap.KernelExplainer,
-            "QuadraticDiscriminantAnalysis": shap.KernelExplainer,
-            "XGBClassifier": shap.TreeExplainer,
-            "LinearRegression": shap.LinearExplainer,
-            "Ridge": shap.LinearExplainer,
-            "BayesianRidge": shap.LinearExplainer,
-            "Lasso": shap.LinearExplainer,
-            "LeastAngleRegression": shap.LinearExplainer,
-            "LassoLeastAngleRegression": shap.LinearExplainer,
-            "LightGBM": shap.TreeExplainer,
-            "GradientBoostingRegressor": shap.TreeExplainer,
-            "HuberRegressor": shap.LinearExplainer,
-            "RandomForestRegressor": shap.TreeExplainer,
-            "DecisionTreeRegressor": shap.TreeExplainer,
-            "ExtraTreesRegressor": shap.TreeExplainer,
-            "XGBRegressor": shap.TreeExplainer,
-            "AdaBoostRegressor": shap.TreeExplainer,
-            "ElasticNet": shap.LinearExplainer,
-            "OrthogonalMatchingPursuit": shap.LinearExplainer,
-            "KNeighborsRegressor": shap.KernelExplainer,
-            "DummyRegressor": shap.KernelExplainer,
-            "PassiveAggressiveRegressor": shap.LinearExplainer,
-        }
-
-        explainer_class = explainer_map[model_class]
+        explainer_class = constants.EXPLAINER_MAP[model_class]
         explainer = explainer_class(model, sample_data)
 
         shap_values = explainer(sample_data)
         if len(shap_values.shape) == 3:
             shap_values = shap_values[:, :, 1]
-            
+
         shap_values.values = np.array(shap_values.values, dtype=float)
 
         shap.plots.beeswarm(shap_values, max_display=20, show=False)

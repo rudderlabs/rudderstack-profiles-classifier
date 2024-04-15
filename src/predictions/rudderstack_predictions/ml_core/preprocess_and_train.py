@@ -72,13 +72,13 @@ def train_and_store_model_results(
     figure_file = connector.join_file_path(
         trainer.figure_names["feature-importance-chart"]
     )
-    shap_importance = utils.plot_top_k_feature_importance(
+    logger.info(f"Generating feature importance plot")
+    utils.plot_top_k_feature_importance(
         pipe,
         train_x,
         figure_file,
         top_k_features=20,
     )
-    connector.write_pandas(shap_importance, "FEATURE_IMPORTANCE", if_exists="replace")
     metrics_df, create_metrics_table_query = connector.fetch_create_metrics_table_query(
         metrics_df,
         metrics_table,

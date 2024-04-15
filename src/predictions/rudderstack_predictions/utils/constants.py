@@ -43,6 +43,44 @@ PRED_OUTPUT_DF_COLUMNS = {
     },
 }
 
+import shap
+
+EXPLAINER_MAP = {
+    "RidgeClassifier": shap.LinearExplainer,
+    "AdaBoostClassifier": shap.KernelExplainer,
+    "ExtraTreesClassifier": shap.TreeExplainer,
+    "RandomForestClassifier": shap.TreeExplainer,
+    "LogisticRegression": shap.LinearExplainer,
+    "GaussianNB": shap.KernelExplainer,
+    "KNeighborsClassifier": shap.KernelExplainer,
+    "DecisionTreeClassifier": shap.TreeExplainer,
+    "GradientBoostingClassifier": shap.TreeExplainer,
+    "LinearDiscriminantAnalysis": shap.LinearExplainer,
+    "LGBMClassifier": shap.TreeExplainer,
+    "DummyClassifier": shap.KernelExplainer,
+    "SVC": shap.KernelExplainer,
+    "QuadraticDiscriminantAnalysis": shap.KernelExplainer,
+    "XGBClassifier": shap.TreeExplainer,
+    "LinearRegression": shap.LinearExplainer,
+    "Ridge": shap.LinearExplainer,
+    "BayesianRidge": shap.LinearExplainer,
+    "Lasso": shap.LinearExplainer,
+    "LeastAngleRegression": shap.LinearExplainer,
+    "LassoLeastAngleRegression": shap.LinearExplainer,
+    "LightGBM": shap.TreeExplainer,
+    "GradientBoostingRegressor": shap.TreeExplainer,
+    "HuberRegressor": shap.LinearExplainer,
+    "RandomForestRegressor": shap.TreeExplainer,
+    "DecisionTreeRegressor": shap.TreeExplainer,
+    "ExtraTreesRegressor": shap.TreeExplainer,
+    "XGBRegressor": shap.TreeExplainer,
+    "AdaBoostRegressor": shap.TreeExplainer,
+    "ElasticNet": shap.LinearExplainer,
+    "OrthogonalMatchingPursuit": shap.LinearExplainer,
+    "KNeighborsRegressor": shap.KernelExplainer,
+    "DummyRegressor": shap.KernelExplainer,
+    "PassiveAggressiveRegressor": shap.LinearExplainer,
+}
 # Smart data preparation
 
 # Min training data requirements

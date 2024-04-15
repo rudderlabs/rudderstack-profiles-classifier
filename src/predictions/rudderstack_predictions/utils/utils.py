@@ -8,6 +8,9 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
+from pycaret.classification import predict_model as classification_predict_model
+from pycaret.regression import predict_model as regression_predict_model
+
 from sklearn.metrics import (
     precision_recall_fscore_support,
     roc_auc_score,
@@ -158,7 +161,9 @@ class TrainerUtils:
         validation and test data along with the best probability thresold.
         """
 
-        train_preds = model.predict(train_x)
+        train_preds = classification_predict_model(model, train_x)[
+            "prediction_label"
+        ].to_numpy()
         train_y = train_y.to_numpy()
 
         train_metrics = self.get_classification_metrics(train_y, train_preds)
@@ -172,7 +177,9 @@ class TrainerUtils:
         train_y,
     ):
         """Calculate and return regression metrics for the trained model."""
-        train_pred = model.predict(train_x)
+        train_pred = regression_predict_model(model, train_x)[
+            "prediction_label"
+        ].to_numpy()
 
         train_metrics = {}
 
@@ -182,7 +189,7 @@ class TrainerUtils:
         return train_metrics
 
 
-def split_train_test(
+def split_train_test_pycaret(
     preprocess_setup,
     get_config,
     feature_df: pd.DataFrame,
@@ -211,6 +218,31 @@ def split_train_test(
 
     train_x = train_x.drop([entity_column.upper()], axis=1)
     test_x = test_x.drop([entity_column.upper()], axis=1)
+
+    return train_x, train_y, test_x, test_y
+
+
+def split_train_test(
+    feature_df: pd.DataFrame,
+    label_column: str,
+    entity_column: str,
+    train_size: float,
+    isStratify: bool,
+) -> Tuple:
+    """Returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame"""
+    feature_df.columns = feature_df.columns.str.upper()
+    X_train, X_test = train_test_split(
+        feature_df,
+        train_size=train_size,
+        random_state=42,
+        stratify=feature_df[label_column.upper()].values if isStratify else None,
+    )
+
+    train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
+    train_y = X_train[[label_column.upper()]]
+
+    test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
+    test_y = X_test[[label_column.upper()]]
 
     return train_x, train_y, test_x, test_y
 

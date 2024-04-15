@@ -133,17 +133,8 @@ class MLTrainer(ABC):
     def load_model(self, model_file: str):
         pass
 
-    @abstractmethod
     def prepare_data(
         self,
-        feature_df: pd.DataFrame,
-    ):
-        pass
-
-    def _prepare_data(
-        self,
-        preprocess_setup,
-        get_config,
         feature_df: pd.DataFrame,
     ):
         preprocess_config = {
@@ -159,11 +150,7 @@ class MLTrainer(ABC):
             label_column=self.label_column,
             entity_column=self.entity_column,
             train_size=self.prep.train_size,
-            val_size=self.prep.val_size,
-            test_size=self.prep.test_size,
-            preprocess_setup=preprocess_setup,
-            get_config=get_config,
-            preprocess_config=preprocess_config,
+            isStratify=self.isStratify,
         )
 
         train_data = pd.concat([train_x, train_y], axis=1)
@@ -188,6 +175,7 @@ class MLTrainer(ABC):
         custom_metrics: dict,
         pycaret_compare_models: callable,
         pycaret_save_model: callable,
+        pycaret_get_config: callable,
     ):
         """Creates and saves the trained model pipeline after performing preprocessing and classification
         and returns the various variables required for further processing by training procesudres/functions.
@@ -251,6 +239,8 @@ class MLTrainer(ABC):
         # Get metrics
         results = self.get_metrics(best_model, fold_param, train_x, train_y)
 
+        train_x_transformed = pycaret_get_config("X_train_transformed")
+
         results["model_id"] = model_id
         metrics_df = pd.DataFrame(
             {
@@ -260,7 +250,15 @@ class MLTrainer(ABC):
             }
         ).reset_index(drop=True)
 
-        return train_x, test_x, test_y, best_model, model_id, metrics_df, results
+        return (
+            train_x_transformed,
+            test_x,
+            test_y,
+            best_model,
+            model_id,
+            metrics_df,
+            results,
+        )
 
     @abstractmethod
     def train_model(

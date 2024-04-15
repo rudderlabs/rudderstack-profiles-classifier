@@ -165,8 +165,6 @@ def _train(
                 dict: returns the model_id which is basically the time converted to key at which results were
                     generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
             """
-            numeric_columns = feature_table_column_types["numeric"]
-            categorical_columns = feature_table_column_types["categorical"]
 
             feature_df = connector.get_table_as_dataframe(session, feature_table_name)
 

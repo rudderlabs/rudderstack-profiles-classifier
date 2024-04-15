@@ -10,7 +10,7 @@ from ..utils import constants
 from pycaret.classification import (
     setup as classification_setup,
     compare_models as classification_compare_models,
-    get_config as get_classification_config,
+    get_config as classification_get_config,
     save_model as classification_save_model,
     pull as classification_results_pull,
     load_model as classification_load_model,
@@ -48,11 +48,6 @@ class ClassificationTrainer(MLTrainer):
 
     def get_name(self):
         return "classification"
-
-    def prepare_data(self, feature_df: pd.DataFrame):
-        return self._prepare_data(
-            classification_setup, get_classification_config, feature_df
-        )
 
     def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         label_table = connector.label_table(
@@ -95,6 +90,7 @@ class ClassificationTrainer(MLTrainer):
             custom_metrics,
             classification_compare_models,
             classification_save_model,
+            classification_get_config,
         )
 
     def get_metrics(self, model, fold_param, X_train, y_train) -> dict:
@@ -141,8 +137,11 @@ class ClassificationTrainer(MLTrainer):
         label_column: str,
     ) -> None:
         try:
-            y_pred = model.predict_proba(x)[:, 1]
-            y_true = y.to_numpy()
+            predictions = classification_predict_model(model, x)["prediction_label"]
+            y_true = y.to_numpy().reshape(
+                -1,
+            )
+            y_pred = predictions.to_numpy()
 
             roc_auc_file = connector.join_file_path(self.figure_names["roc-auc-curve"])
             utils.plot_roc_auc_curve(y_pred, y_true, roc_auc_file)

@@ -8,7 +8,7 @@ from ..connectors.Connector import Connector
 from pycaret.regression import (
     setup as regression_setup,
     compare_models as regression_compare_models,
-    get_config as get_regression_config,
+    get_config as regression_get_config,
     save_model as regression_save_model,
     pull as regression_results_pull,
     load_model as regression_load_model,
@@ -34,13 +34,6 @@ class RegressionTrainer(MLTrainer):
 
     def get_name(self):
         return "regression"
-
-    def prepare_data(self, feature_df: pd.DataFrame):
-        return self._prepare_data(
-            regression_setup,
-            get_regression_config,
-            feature_df,
-        )
 
     def prepare_label_table(self, connector: Connector, session, label_table_name: str):
         return connector.label_table(
@@ -68,6 +61,7 @@ class RegressionTrainer(MLTrainer):
             custom_metrics,
             regression_compare_models,
             regression_save_model,
+            regression_get_config,
         )
 
     def plot_diagnostics(
@@ -81,8 +75,11 @@ class RegressionTrainer(MLTrainer):
         label_column: str,
     ):
         try:
-            y_pred = model.predict(x)
-            y_true = y.to_numpy()
+            predictions = regression_predict_model(model, x)["prediction_label"]
+            y_true = y.to_numpy().reshape(
+                -1,
+            )
+            y_pred = predictions.to_numpy()
 
             residuals_file = connector.join_file_path(
                 self.figure_names["residuals-chart"]

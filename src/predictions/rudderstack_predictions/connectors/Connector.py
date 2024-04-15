@@ -22,8 +22,10 @@ class Connector(ABC):
         table_name: str,
         label_column: str,
         entity_column: str,
+        ignore_features: List[str],
     ) -> Dict:
         """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp) for a given table."""
+        lowercase_list = lambda features: [feature.lower() for feature in features]
         schema_fields = self.fetch_table_metadata(session, table_name)
 
         numeric_columns = self.get_numeric_features(
@@ -40,12 +42,21 @@ class Connector(ABC):
             if len(trainer_obj.prep.timestamp_columns) == 0
             else trainer_obj.prep.timestamp_columns
         )
-        return {
+        input_column_types = {
             "numeric": numeric_columns,
             "categorical": categorical_columns,
             "arraytype": arraytype_columns,
             "timestamp": timestamp_columns,
         }
+
+        for column_type, columns in input_column_types.items():
+            input_column_types[column_type] = {
+                key: value
+                for key, value in columns.items()
+                if key not in lowercase_list(ignore_features)
+            }
+
+        return input_column_types
 
     @abstractmethod
     def fetch_filtered_table(

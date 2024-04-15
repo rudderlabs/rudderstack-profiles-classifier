@@ -102,6 +102,7 @@ def preprocess_and_predict(
         entity_var_table_name,
         trainer.label_column,
         trainer.entity_column,
+        trainer.prep.ignore_features,
     )
 
     logger.debug(f"Pulling data from Entity-Var table - {entity_var_table_name}")

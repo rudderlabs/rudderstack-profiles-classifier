@@ -769,7 +769,6 @@ def plot_top_k_feature_importance(
     plt.title(f"Top {top_k_features} Important Features")
     plt.savefig(figure_file, bbox_inches="tight")
     plt.clf()
-    return shap_importance
 
 
 def fetch_staged_file(

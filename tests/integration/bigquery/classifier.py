@@ -4,10 +4,12 @@ from train import *
 import shutil
 from predict import *
 import time
-from src.predictions.rudderstack_predictions.connectors.BigQueryConnector import (
-    BigQueryConnector,
-)
+
 from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
+from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
+    ConnectorFactory,
+)
+
 import json
 
 
@@ -29,6 +31,7 @@ eligible_users = "1=1"
 package_name = "feature_table"
 label_column = "total_sessions_till_date"
 inputs = [f"/packages/{package_name}/models/{feature_table_name}"]
+train_input_model_name = "predictions_dev_features"
 output_model_name = "total_sessions_classification_integration_test"
 pred_horizon_days = 7
 pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
@@ -36,6 +39,7 @@ output_label = "OUTPUT_LABEL"
 s3_config = {}
 p_output_tablename = "test_run_can_delete_2"
 entity_key = "user"
+material_registry_table_name = "material_registry_4"
 
 
 data = {
@@ -145,8 +149,7 @@ def validate_reports():
 
 
 def validate_predictions_df():
-    connector = BigQueryConnector(folder_path_output_file)
-
+    connector = ConnectorFactory.create("bigquery", folder_path_output_file)
     session = connector.build_session(creds)
 
     required_columns = [
@@ -177,6 +180,9 @@ def validate_predictions_df():
 
 
 def test_classification():
+    connector = ConnectorFactory.create("bigquery")
+    session = connector.build_session(creds)
+
     st = time.time()
 
     create_site_config_file(creds, siteconfig_path)
@@ -189,15 +195,27 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, _ = RudderPB().get_latest_material_hash(
+    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
         entity_key,
         siteconfig_path,
         project_path,
     )
 
+    latest_seq_no = connector.get_latest_seq_no_from_registry(
+        session, material_registry_table_name, latest_model_hash, entity_var_model_name
+    )
+
+    input_model_hash = connector.get_model_hash_from_registry(
+        session, material_registry_table_name, train_input_model_name, latest_seq_no
+    )
+
+    # Closing the session immediately after use to avoid multiple open sessions conflict
+    session.close()
+
     train_inputs = [
-        f"""SELECT * FROM {creds['project_id']}.{creds['schema']}.material_user_var_table_{latest_model_hash}_27""",
+        f"""SELECT * FROM {creds['schema']}.material_{train_input_model_name}_{input_model_hash}_{latest_seq_no}""",
     ]
+
     runtime_info = {"site_config_path": siteconfig_path}
 
     try:

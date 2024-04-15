@@ -448,6 +448,26 @@ class CommonWarehouseConnector(Connector):
             )
         return int(seq_no)
 
+    def get_model_hash_from_registry(
+        self, session, material_table: str, model_name: str, seq_no: int
+    ) -> str:
+        redshift_df = self.get_material_registry_table(session, material_table)
+        try:
+            temp_hash_vector = (
+                redshift_df.query(f'model_name == "{model_name}"')
+                .query(f"seq_no == {seq_no}")
+                .sort_values(by="creation_ts", ascending=False)
+                .reset_index(drop=True)[["model_hash"]]
+                .iloc[0]
+            )
+            model_hash = temp_hash_vector["model_hash"]
+        except:
+            raise Exception(
+                f"Error occurred while fetching model hash from registry table. \
+                    No material found with name {model_name} and seq no {seq_no}"
+            )
+        return model_hash
+
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:

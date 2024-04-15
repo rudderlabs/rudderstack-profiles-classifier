@@ -43,11 +43,4 @@ class BigqueryConnector(ConnectorBase):
 
         except Exception as e:
             logger.error(f"Error while writing to warehouse: {e}")
-
-            # Check for non-existing schema
-            err_str = f"table '{table_name}' does not exist".lower()
-            if err_str in str(e).lower():
-                self.create_table(df, table_name, schema)
-                # Try again`
-                logger.info("Trying again")
-                self.write_to_table(df, table_name, schema, if_exists)
+            raise Exception(f"Error while writing to warehouse: {e}")

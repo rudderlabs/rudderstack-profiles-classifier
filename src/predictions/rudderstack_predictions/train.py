@@ -210,13 +210,6 @@ def _train(
                     figure_file,
                     top_k_features=20,
                 )
-                connector.write_pandas(
-                    shap_importance,
-                    "FEATURE_IMPORTANCE",
-                    session=session,
-                    auto_create_table=True,
-                    overwrite=True,
-                )
                 connector.save_file(session, figure_file, stage_name, overwrite=True)
             except Exception as e:
                 logger.error(f"Could not generate plots {e}")

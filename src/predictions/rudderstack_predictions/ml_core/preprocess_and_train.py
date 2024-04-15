@@ -72,7 +72,8 @@ def train_and_store_model_results(
     figure_file = connector.join_file_path(
         trainer.figure_names["feature-importance-chart"]
     )
-    shap_importance = utils.plot_top_k_feature_importance(
+    logger.info(f"Generating feature importance plot")
+    utils.plot_top_k_feature_importance(
         pipe,
         train_x,
         figure_file,

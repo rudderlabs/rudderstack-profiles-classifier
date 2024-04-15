@@ -61,7 +61,7 @@ class K8sProcessor(Processor):
                         containers=[
                             client.V1Container(
                                 name="container",
-                                image="rudderstack/profiles-classifier:v0.2.4",
+                                image="rudderstack/profiles-classifier:v0.3.0",
                                 image_pull_policy="Always",
                                 env=[
                                     client.V1EnvVar(

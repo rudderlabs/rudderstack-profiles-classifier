@@ -39,7 +39,7 @@ output_label = "OUTPUT_LABEL"
 s3_config = {}
 p_output_tablename = "test_run_can_delete_2"
 entity_key = "user"
-material_registry_table_name = "material_registry_4"
+material_registry_table_name = "MATERIAL_REGISTRY_4"
 
 
 data = {
@@ -213,7 +213,7 @@ def test_classification():
     session.close()
 
     train_inputs = [
-        f"""SELECT * FROM {creds['schema']}.material_{train_input_model_name}_{input_model_hash}_{latest_seq_no}""",
+        f"""SELECT * FROM {creds['project_id']}.{creds['schema']}.material_{train_input_model_name}_{input_model_hash}_{latest_seq_no}""",
     ]
 
     runtime_info = {"site_config_path": siteconfig_path}

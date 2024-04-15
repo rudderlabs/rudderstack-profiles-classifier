@@ -12,6 +12,8 @@ from typing import Any
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 
+from ..trainers.TrainerFactory import TrainerFactory
+
 from ..wht.pyNativeWHT import PyNativeWHT
 
 from ..utils import utils
@@ -19,7 +21,7 @@ from ..utils.logger import logger
 from ..utils import constants
 from ..utils.S3Utils import S3Utils
 
-from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
+from ..trainers.MLTrainer import MLTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -34,16 +36,14 @@ def preprocess_and_predict(
     model_path,
     inputs,
     output_tablename,
-    prediction_task,
-    **kwargs,
+    session,
+    connector,
+    trainer: MLTrainer,
 ):
     """
     This function is responsible for preprocessing
     and predicting on the data.
     """
-    session = kwargs.get("session", None)
-    connector = kwargs.get("connector", None)
-    trainer = kwargs.get("trainer", None)
 
     model_file_name = constants.MODEL_FILE_NAME
     connector.compute_udf_name(model_path)
@@ -135,7 +135,7 @@ def preprocess_and_predict(
             m = joblib.load(file)
             return m
 
-    def predict_helper(df, model_name: str, **kwargs) -> Any:
+    def predict_helper(df, model_name: str) -> Any:
         trained_model = load_model(model_name)
         df.columns = [x.upper() for x in df.columns]
         for col in numeric_columns:
@@ -143,10 +143,7 @@ def preprocess_and_predict(
         """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
         df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
         df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
-        if prediction_task == "classification":
-            return trained_model.predict_proba(df)[:, 1]
-        elif prediction_task == "regression":
-            return trained_model.predict(df)
+        return trainer.predict(trained_model, df)
 
     features = input_df.columns
 
@@ -160,19 +157,8 @@ def preprocess_and_predict(
             replace=True,
             stage_location=stage_name,
             name=udf_name,
-            imports=[f"{stage_name}/{model_name}"],
-            packages=[
-                "snowflake-snowpark-python==1.11.1",
-                "typing",
-                "scikit-learn==1.1.1",
-                "xgboost==1.5.0",
-                "numpy==1.23.1",
-                "pandas==1.5.3",
-                "joblib==1.2.0",
-                "cachetools==4.2.2",
-                "PyYAML==6.0.1",
-                "simplejson",
-            ],
+            imports=[f"{stage_name}/{model_name}"] + connector.delete_files,
+            packages=constants.SNOWFLAKE_TRAINING_PACKAGES + ["cachetools==4.2.2"],
         )
         def predict_scores(df: types) -> T.PandasSeries[float]:
             df.columns = features
@@ -229,7 +215,6 @@ if __name__ == "__main__":
     parser.add_argument("--inputs", type=json.loads)
     parser.add_argument("--output_tablename", type=str)
     parser.add_argument("--merged_config", type=json.loads)
-    parser.add_argument("--prediction_task", type=str)
     parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
     args = parser.parse_args()
@@ -250,17 +235,13 @@ if __name__ == "__main__":
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-    if args.mode == constants.CI_MODE:
-        sys.exit(0)
 
     if args.mode == constants.RUDDERSTACK_MODE:
         logger.debug(f"Downloading files from S3 in {args.mode} mode.")
         S3Utils.download_directory(args.s3_config, output_dir)
-
-    if args.prediction_task == "classification":
-        trainer = ClassificationTrainer(**args.merged_config)
-    elif args.prediction_task == "regression":
-        trainer = RegressionTrainer(**args.merged_config)
+    if args.mode == constants.CI_MODE:
+        sys.exit(0)
+    trainer = TrainerFactory.create(args.merged_config)
 
     wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
     connector = ConnectorFactory.create(wh_creds["type"], output_dir)
@@ -274,7 +255,6 @@ if __name__ == "__main__":
         model_path,
         args.inputs,
         args.output_tablename,
-        args.prediction_task,
         session=session,
         connector=connector,
         trainer=trainer,

@@ -8,6 +8,8 @@ from typing import List
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
+from ..trainers.TrainerFactory import TrainerFactory
+
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
@@ -15,8 +17,6 @@ from ..utils import utils
 from ..utils.logger import logger
 from ..utils import constants
 from ..utils.S3Utils import S3Utils
-
-from ..trainers.MLTrainer import ClassificationTrainer, RegressionTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
 
 model_file_name = constants.MODEL_FILE_NAME
@@ -261,7 +261,6 @@ if __name__ == "__main__":
     parser.add_argument("--material_names", type=json.loads)
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--input_column_types", type=json.loads)
-    parser.add_argument("--prediction_task", type=str)
     parser.add_argument("--wh_creds", type=json.loads)
     parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
@@ -287,11 +286,7 @@ if __name__ == "__main__":
     if args.mode == constants.CI_MODE:
         sys.exit(0)
     wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
-
-    if args.prediction_task == "classification":
-        trainer = ClassificationTrainer(**args.merged_config)
-    elif args.prediction_task == "regression":
-        trainer = RegressionTrainer(**args.merged_config)
+    trainer = TrainerFactory.create(args.merged_config)
 
     warehouse = wh_creds["type"]
     train_procedure = train_and_store_model_results

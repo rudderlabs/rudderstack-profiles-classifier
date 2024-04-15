@@ -17,7 +17,6 @@ class LocalProcessor(Processor):
         merged_config: dict,
         input_column_types: dict,
         metrics_table: str,
-        prediction_task: str,
         wh_creds: dict,
         site_config: dict,
     ):
@@ -34,8 +33,6 @@ class LocalProcessor(Processor):
             json.dumps(merged_config),
             "--input_column_types",
             json.dumps(input_column_types),
-            "--prediction_task",
-            prediction_task,
             "--wh_creds",
             json.dumps(wh_creds),
             "--output_path",
@@ -63,7 +60,6 @@ class LocalProcessor(Processor):
         inputs,
         output_tablename,
         merged_config,
-        prediction_task,
         site_config: dict,
     ):
         output_path = os.path.dirname(model_path)
@@ -87,8 +83,6 @@ class LocalProcessor(Processor):
             output_tablename,
             "--merged_config",
             json.dumps(merged_config),
-            "--prediction_task",
-            prediction_task,
             "--output_path",
             output_path,
             "--mode",

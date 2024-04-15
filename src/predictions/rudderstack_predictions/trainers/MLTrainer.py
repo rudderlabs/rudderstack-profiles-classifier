@@ -7,7 +7,7 @@ import pandas as pd
 from copy import deepcopy
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Tuple, List, Union, Dict
+from typing import Any, Tuple, List, Union, Dict
 from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
 
 from sklearn.pipeline import Pipeline
@@ -31,6 +31,7 @@ from ..wht.pythonWHT import PythonWHT
 from ..utils import utils
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
+from ..utils import constants
 
 trainer_utils = utils.TrainerUtils()
 
@@ -323,6 +324,10 @@ class MLTrainer(ABC):
     ) -> bool:
         pass
 
+    @abstractmethod
+    def predict(self, trained_model) -> Any:
+        pass
+
     def check_and_generate_more_materials(
         self,
         get_material_func: callable,
@@ -437,8 +442,17 @@ class ClassificationTrainer(MLTrainer):
         for model in [XGBClassifier, RandomForestClassifier]
     }
 
-    def __init__(self, **kwargs):
+    def __init__(
+        self, connector: Connector, session, entity_var_model_name: str, **kwargs
+    ):
         super().__init__(**kwargs)
+        if self.label_value is None:
+            self.label_value = connector.get_default_label_value(
+                session,
+                entity_var_model_name,
+                self.label_column,
+                constants.POSITIVE_BOOLEAN_FLAGS,
+            )
 
         self.figure_names = {
             "roc-auc-curve": f"04-test-roc-auc-{self.output_profiles_ml_model}.png",
@@ -604,6 +618,9 @@ class ClassificationTrainer(MLTrainer):
             session, materials, label_column, self.label_value
         )
 
+    def predict(self, trained_model, df) -> Any:
+        return trained_model.predict_proba(df)[:, 1]
+
 
 class RegressionTrainer(MLTrainer):
     evalution_metrics_map = {
@@ -764,3 +781,6 @@ class RegressionTrainer(MLTrainer):
         self, connector: Connector, session, materials
     ) -> bool:
         return connector.check_for_regression_data_requirement(session, materials)
+
+    def predict(self, trained_model, df) -> Any:
+        return trained_model.predict(df)

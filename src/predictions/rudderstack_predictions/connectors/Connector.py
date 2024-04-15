@@ -51,11 +51,11 @@ class Connector(ABC):
             "timestamp": timestamp_columns,
         }
 
-        for key in input_column_types:
-            input_column_types[key] = [
-                value
-                for value in input_column_types[key]
-                if value.lower() not in lowercase_list(ignore_features)
+        for column_type, columns in input_column_types.items():
+            input_column_types[column_type] = [
+                column
+                for column in columns
+                if column.lower() not in lowercase_list(ignore_features)
             ]
 
         return input_column_types

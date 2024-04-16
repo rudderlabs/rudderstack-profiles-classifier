@@ -734,6 +734,10 @@ def plot_top_k_feature_importance(
             sample_data = train_x
         else:
             sample_data = train_x.sample(100, random_state=42)
+
+        for col in list(sample_data):
+            sample_data[col] = sample_data[col].astype(float)
+
         model_class = model.__class__.__name__
 
         explainer_class = constants.EXPLAINER_MAP[model_class]
@@ -742,8 +746,6 @@ def plot_top_k_feature_importance(
         shap_values = explainer(sample_data)
         if len(shap_values.shape) == 3:
             shap_values = shap_values[:, :, 1]
-
-        shap_values.values = np.array(shap_values.values, dtype=float)
 
         shap.plots.beeswarm(shap_values, max_display=20, show=False)
         plt.savefig(figure_file)

@@ -578,11 +578,13 @@ class TestValidations(unittest.TestCase):
         label_column = "COL1"
         with self.assertRaises(Exception) as context:
             self.connector.validate_label_distinct_values(self.table, label_column)
-        self.assertIn(
-            f"Label column {label_column} has invalid number of distinct values.",
-            str(context.exception),
-            [],
-        )
+            distinct_values_count = self.table.groupBy(label_column).count()
+            num_distinct_values = distinct_values_count.count()
+            self.assertIn(
+                f"Label column {label_column} has {num_distinct_values} distinct values",
+                str(context.exception),
+                [],
+            )
 
     @patch(
         "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",

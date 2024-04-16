@@ -748,7 +748,7 @@ def plot_top_k_feature_importance(
             shap_values = shap_values[:, :, 1]
 
         shap.plots.beeswarm(shap_values, max_display=20, show=False)
-        plt.savefig(figure_file)
+        plt.savefig(figure_file, bbox_inches="tight")
 
         vals = np.abs(shap_values.values).mean(0)
         feature_names = sample_data.columns

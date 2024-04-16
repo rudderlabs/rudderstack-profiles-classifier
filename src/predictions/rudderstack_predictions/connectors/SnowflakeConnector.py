@@ -563,11 +563,11 @@ class SnowflakeConnector(Connector):
     def get_model_hash_from_registry(
         self, session, material_table, model_name: str, seq_no: int
     ) -> str:
-        snowpark_df = self.get_material_registry_table(session, material_table)
+        material_registry_df = self.get_material_registry_table(session, material_table)
 
         try:
             feature_table_info = (
-                snowpark_df.filter(col("model_name") == model_name)
+                material_registry_df.filter(col("model_name") == model_name)
                 .filter(col("seq_no") == seq_no)
                 .select("model_hash")
                 .collect()[0]

@@ -8,7 +8,7 @@ class TestPyNativeWHT(unittest.TestCase):
     def setUp(self):
         self.whtMaterial = Mock()
         self.pyNativeWHT = PyNativeWHT(self.whtMaterial)
-        self.pyNativeWHT.init(None, None, None, None)
+        self.pyNativeWHT.init(None, None, None)
 
     def test_run(self):
         self.pyNativeWHT.pythonWHT.run = Mock()

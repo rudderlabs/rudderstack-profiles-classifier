@@ -20,7 +20,6 @@ class TestGetInputModels(unittest.TestCase):
 
         self.pythonWHT.init(
             connector=None,
-            session=None,
             site_config_path="site_config",
             project_folder_path="project_folder",
         )

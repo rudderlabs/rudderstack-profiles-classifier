@@ -828,8 +828,7 @@ def get_timestamp_columns(table: snowflake.snowpark.Table) -> List[str]:
     return timestamp_columns
 
 
-# Not being called currently. Functions for saving feature-importance score for top_k and
-# bottom_k users as per their prediction scores. ####
+# TODO: Remove this unused code
 def explain_prediction(
     creds: dict,
     user_main_id: str,

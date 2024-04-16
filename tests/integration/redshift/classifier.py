@@ -226,7 +226,7 @@ def test_classification():
     )
 
     latest_seq_no = connector.get_latest_seq_no_from_registry(
-        session, material_registry_table_name, latest_model_hash, entity_var_model_name
+        material_registry_table_name, latest_model_hash, entity_var_model_name
     )
 
     input_model_hash = connector.get_model_hash_from_registry(

@@ -39,7 +39,6 @@ def train_and_store_model_results(
         overwrite corresponding values from model_configs.yaml file
         feature_table_column_types (dict): column types of the feature table
         From kwargs:
-            session (redshift_connector.cursor.Cursor): valid redshift session to access data warehouse
             connector (RedshiftConnector): RedshiftConnector object
             trainer (MLTrainer): MLTrainer object which has all the configs and methods required for training
 
@@ -47,12 +46,11 @@ def train_and_store_model_results(
         dict: returns the model_id which is basically the time converted to key at which results were generated
         along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
     """
-    session = kwargs.get("session")
     connector = kwargs.get("connector")
     trainer = kwargs.get("trainer")
-    if session is None or connector is None or trainer is None:
+    if connector is None or trainer is None:
         raise ValueError(
-            "session, connector and trainer are required in kwargs for training in Redshift"
+            "connector and trainer are required in kwargs for training in train_and_store_model_results"
         )
     numeric_columns = feature_table_column_types["numeric"]
     categorical_columns = feature_table_column_types["categorical"]
@@ -67,7 +65,7 @@ def train_and_store_model_results(
     )
     logger.info(f"Generating plots and saving them to the output directory.")
     trainer.plot_diagnostics(
-        connector, session, pipe, None, test_x, test_y, trainer.label_column
+        connector, connector.session, pipe, None, test_x, test_y, trainer.label_column
     )
     figure_file = connector.join_file_path(
         trainer.figure_names["feature-importance-chart"]
@@ -84,7 +82,6 @@ def train_and_store_model_results(
         metrics_table,
     )
     connector.run_query(
-        session,
         create_metrics_table_query,
         response=False,
     )
@@ -99,7 +96,6 @@ def prepare_feature_table(
 ):
     """Combines Feature table and Label table pairs, while converting all timestamp cols
     to numeric for creating a single table with user features and label."""
-    session = kwargs.get("session", None)
     connector = kwargs.get("connector", None)
     trainer = kwargs.get("trainer", None)
     try:
@@ -110,14 +106,14 @@ def prepare_feature_table(
         )
         if trainer.eligible_users:
             feature_table = connector.get_table(
-                session, feature_table_name, filter_condition=trainer.eligible_users
+                feature_table_name, filter_condition=trainer.eligible_users
             )
         else:
             default_user_shortlisting = (
                 f"{trainer.label_column} != {trainer.label_value}"
             )
             feature_table = connector.get_table(
-                session, feature_table_name, filter_condition=default_user_shortlisting
+                feature_table_name, filter_condition=default_user_shortlisting
             )
 
         feature_table = connector.drop_cols(feature_table, [trainer.label_column])
@@ -126,7 +122,7 @@ def prepare_feature_table(
             feature_table = connector.add_days_diff(
                 feature_table, col, col, feature_table_dt
             )
-        label_table = trainer.prepare_label_table(connector, session, label_table_name)
+        label_table = trainer.prepare_label_table(connector, label_table_name)
         feature_table = connector.join_feature_table_label_table(
             feature_table, label_table, trainer.entity_column, "inner"
         )
@@ -146,7 +142,6 @@ def preprocess_and_train(
     metrics_table: str,
     **kwargs,
 ):
-    session = kwargs.get("session", None)
     connector = kwargs.get("connector", None)
     trainer = kwargs.get("trainer", None)
     min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
@@ -162,7 +157,6 @@ def preprocess_and_train(
         feature_table_instance = prepare_feature_table(
             train_table_pair,
             input_column_types["timestamp"],
-            session=session,
             connector=connector,
             trainer=trainer,
         )
@@ -229,7 +223,6 @@ def preprocess_and_train(
             train_config,
             feature_table_column_types,
             metrics_table,
-            session=session,
             connector=connector,
             trainer=trainer,
         )
@@ -291,8 +284,7 @@ if __name__ == "__main__":
 
     warehouse = wh_creds["type"]
     train_procedure = train_and_store_model_results
-    connector = ConnectorFactory.create(warehouse, output_dir)
-    session = connector.build_session(wh_creds)
+    connector = ConnectorFactory.create(warehouse, wh_creds, output_dir)
     local_folder = connector.get_local_dir()
 
     material_info_ = args.material_names
@@ -308,7 +300,6 @@ if __name__ == "__main__":
         args.merged_config,
         args.input_column_types,
         args.metrics_table,
-        session=session,
         connector=connector,
         trainer=trainer,
     )

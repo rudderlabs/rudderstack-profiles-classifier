@@ -155,7 +155,7 @@ def validate_reports_regression():
 
 
 def validate_predictions_df():
-    connector = ConnectorFactory.create("snowflake")
+    connector = ConnectorFactory.create("snowflake", creds)
     session = connector.build_session(creds)
     required_columns = [
         "USER_MAIN_ID",
@@ -181,7 +181,7 @@ def validate_predictions_df():
 
 
 def test_regressor():
-    connector = ConnectorFactory.create("snowflake")
+    connector = ConnectorFactory.create("snowflake", creds)
     session = connector.build_session(creds)
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -208,7 +208,7 @@ def test_regressor():
     )
 
     latest_seq_no = connector.get_latest_seq_no_from_registry(
-        session, material_registry_table_name, latest_model_hash, entity_var_model_name
+        material_registry_table_name, latest_model_hash, entity_var_model_name
     )
 
     input_model_hash = connector.get_model_hash_from_registry(

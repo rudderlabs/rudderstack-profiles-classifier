@@ -94,9 +94,8 @@ def _train(
         "user_preference_order_infra", None
     )
 
-    connector = ConnectorFactory.create(creds["type"], folder_path)
-    session = connector.build_session(creds)
-    whtService.init(connector, session, site_config_path, project_folder)
+    connector = ConnectorFactory.create(creds["type"], creds, folder_path)
+    whtService.init(connector, site_config_path, project_folder)
 
     (
         model_hash,
@@ -106,9 +105,7 @@ def _train(
         merged_config["data"]["entity_key"],
     )
 
-    trainer = TrainerFactory.create(
-        merged_config, connector, session, entity_var_model_name
-    )
+    trainer = TrainerFactory.create(merged_config, connector, entity_var_model_name)
 
     logger.debug(
         f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
@@ -130,8 +127,17 @@ def _train(
         train_procedure = connector.stored_procedure_name
         import_paths = connector.delete_files
 
-        connector.create_stage(session)
-        connector.pre_job_cleanup(session)
+        connector.create_stage()
+        connector.pre_job_cleanup()
+
+        # FIXME: Avoid creating session multiple times
+
+        # This is to avoid the pickling error in snowpark
+        # TypeError: cannot pickle '_thread.lock' object
+        connector.session.close()
+        connector.session = None
+        # A new session must be created before creating the stored procedure
+        new_session = connector.build_session(creds)
 
         @sproc(
             name=train_procedure,
@@ -224,6 +230,9 @@ def _train(
             )
             return results
 
+        # Recomputing the session object since it was reset
+        connector.session = new_session
+
     elif warehouse in ("redshift", "bigquery"):
         train_procedure = train_and_store_model_results
         connector.delete_local_data_folder()
@@ -245,7 +254,6 @@ def _train(
 
     logger.info(f"Getting input column types from table: {latest_entity_var_table}")
     input_column_types = connector.get_input_column_types(
-        session,
         trainer,
         latest_entity_var_table,
         trainer.label_column,
@@ -274,7 +282,6 @@ def _train(
             input_models,
             whtService,
             connector,
-            session,
         )
     except Exception as e:
         logger.error(f"Error while generating new materials, {str(e)}")
@@ -282,7 +289,7 @@ def _train(
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = ProcessorFactory.create(mode, trainer, connector, session, ml_core_path)
+    processor = ProcessorFactory.create(mode, trainer, connector, ml_core_path)
     logger.debug(f"Using {mode} processor for training")
     train_results = processor.train(
         train_procedure,
@@ -337,10 +344,10 @@ def _train(
 
     for figure_name in trainer.figure_names.values():
         try:
-            connector.fetch_staged_file(session, stage_name, figure_name, target_path)
+            connector.fetch_staged_file(stage_name, figure_name, target_path)
         except:
             logger.warning(f"Could not fetch {figure_name}")
 
     logger.debug("Cleaning up the training session")
-    connector.post_job_cleanup(session)
+    connector.post_job_cleanup()
     logger.debug("Training completed")

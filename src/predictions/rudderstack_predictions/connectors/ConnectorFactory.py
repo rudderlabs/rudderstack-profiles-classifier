@@ -11,14 +11,14 @@ except Exception as e:
 
 
 class ConnectorFactory:
-    def create(warehouse, folder_path: str = None) -> Connector:
+    def create(warehouse, creds: dict, folder_path: str = None) -> Connector:
         connector = None
         if warehouse == "snowflake":
-            connector = SnowflakeConnector()
+            connector = SnowflakeConnector(creds)
         elif warehouse == "redshift":
-            connector = RedshiftConnector(folder_path)
+            connector = RedshiftConnector(creds, folder_path)
         elif warehouse == "bigquery":
-            connector = BigQueryConnector(folder_path)
+            connector = BigQueryConnector(creds, folder_path)
         else:
             raise Exception(f"Invalid warehouse {warehouse}")
         return connector

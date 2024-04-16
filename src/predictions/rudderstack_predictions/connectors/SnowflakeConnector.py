@@ -26,7 +26,8 @@ local_folder = constants.SF_LOCAL_STORAGE_DIR
 
 
 class SnowflakeConnector(Connector):
-    def __init__(self) -> None:
+    def __init__(self, creds: dict) -> None:
+        super().__init__(creds)
         self.data_type_mapping = {
             "numeric": (
                 T.DecimalType,
@@ -62,17 +63,12 @@ class SnowflakeConnector(Connector):
         """Joins the given file name to the local temp folder path."""
         return os.path.join(local_folder, file_name)
 
-    def run_query(
-        self, session: snowflake.snowpark.Session, query: str, **args
-    ) -> List:
+    def run_query(self, query: str, **args) -> List:
         """Runs the given query on the snowpark session and returns a List with Named indices."""
-        return session.sql(query).collect()
+        return self.session.sql(query).collect()
 
     def call_procedure(self, *args, **kwargs):
         """Calls the given procedure on the snowpark session and returns the results of the procedure call."""
-        session = kwargs.get("session", None)
-        if session == None:
-            raise Exception("Session object not found")
         args = list(args)
         args.insert(2, self.feature_table_name)
         feature_table_df = args.pop(
@@ -80,7 +76,7 @@ class SnowflakeConnector(Connector):
         )  # Snowflake stored procedure for training requires feature_table_name saved on warehouse instead of feature_table_df
         del feature_table_df
 
-        return session.call(*args)
+        return self.session.call(*args)
 
     def get_merged_table(self, base_table, incoming_table):
         return (
@@ -100,18 +96,15 @@ class SnowflakeConnector(Connector):
         stage_name = results["model_info"]["file_location"]["stage"]
         self.udf_name = f"prediction_score_{stage_name.replace('@','')}"
 
-    def is_valid_table(
-        self, session: snowflake.snowpark.Session, table_name: str
-    ) -> bool:
+    def is_valid_table(self, table_name: str) -> bool:
         try:
-            session.sql(f"select * from {table_name} limit 1").collect()
+            self.session.sql(f"select * from {table_name} limit 1").collect()
             return True
         except:
             return False
 
     def check_table_entry_in_material_registry(
         self,
-        session: snowflake.snowpark.Session,
         registry_table_name: str,
         material: dict,
     ) -> bool:
@@ -120,7 +113,7 @@ class SnowflakeConnector(Connector):
         material table name and wether its sucessfully materialised or not as well.
         Right now, we consider tables as materialised if the metadata status is 2.
         """
-        material_registry_table = self.get_table(session, registry_table_name)
+        material_registry_table = self.get_table(registry_table_name)
         num_rows = (
             material_registry_table.withColumn(
                 "status", F.get_path("metadata", F.lit("complete.status"))
@@ -134,13 +127,11 @@ class SnowflakeConnector(Connector):
 
         return num_rows != 0
 
-    def get_table(
-        self, session: snowflake.snowpark.Session, table_name: str, **kwargs
-    ) -> snowflake.snowpark.Table:
+    def get_table(self, table_name: str, **kwargs) -> snowflake.snowpark.Table:
         filter_condition = kwargs.get("filter_condition", None)
-        if not self.is_valid_table(session, table_name):
+        if not self.is_valid_table(table_name):
             raise Exception(f"Table {table_name} does not exist or not authorized")
-        table = session.table(table_name)
+        table = self.session.table(table_name)
         if filter_condition:
             table = self.filter_table(table, filter_condition)
         return table
@@ -148,7 +139,12 @@ class SnowflakeConnector(Connector):
     def get_table_as_dataframe(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs
     ) -> pd.DataFrame:
-        return self.get_table(session, table_name, **kwargs).toPandas()
+        # Duplicating some code to avoid passing session as argument
+        try:
+            session.sql(f"select * from {table_name} limit 1").collect()
+        except:
+            raise Exception(f"Table {table_name} does not exist or not authorized")
+        return session.table(table_name).toPandas()
 
     def send_table_to_train_env(self, table: snowflake.snowpark.Table, **kwargs) -> Any:
         """Sends the given snowpark table to the training env(ie. snowflake warehouse in this case) with the name as given"""
@@ -185,7 +181,6 @@ class SnowflakeConnector(Connector):
 
     def label_table(
         self,
-        session: snowflake.snowpark.Session,
         label_table_name: str,
         label_column: str,
         entity_column: str,
@@ -193,12 +188,10 @@ class SnowflakeConnector(Connector):
     ) -> snowflake.snowpark.Table:
         """Labels the given label_columns in the table as '1' or '0' if the value matches the label_value or not respectively."""
         if label_value is None:
-            table = self.get_table(session, label_table_name).select(
-                entity_column, label_column
-            )
+            table = self.get_table(label_table_name).select(entity_column, label_column)
         else:
             table = (
-                self.get_table(session, label_table_name)
+                self.get_table(label_table_name)
                 .withColumn(
                     label_column,
                     F.when(F.col(label_column) == label_value, F.lit(1)).otherwise(
@@ -218,11 +211,9 @@ class SnowflakeConnector(Connector):
     ):
         session.file.put(file_name, stage_name, overwrite=overwrite)
 
-    def fetch_table_metadata(
-        self, session: snowflake.snowpark.Session, table_name: str
-    ) -> List:
+    def fetch_table_metadata(self, table_name: str) -> List:
         """Fetches a list containing the schema of the given table from the Snowflake schema."""
-        table = self.get_table(session, table_name)
+        table = self.get_table(table_name)
         return table.schema.fields
 
     def fetch_given_data_type_columns(
@@ -418,10 +409,10 @@ class SnowflakeConnector(Connector):
         return transformed_column_names, transformed_feature_table
 
     def get_default_label_value(
-        self, session, table_name: str, label_column: str, positive_boolean_flags: list
+        self, table_name: str, label_column: str, positive_boolean_flags: list
     ):
         label_value = list()
-        table = self.get_table(session, table_name)
+        table = self.get_table(table_name)
         distinct_labels = (
             table.select(F.col(label_column).alias("distinct_labels"))
             .distinct()
@@ -466,7 +457,6 @@ class SnowflakeConnector(Connector):
 
     def join_feature_label_tables(
         self,
-        session: snowflake.snowpark.Session,
         registry_table_name: str,
         entity_var_model_name: str,
         model_hash: str,
@@ -474,7 +464,7 @@ class SnowflakeConnector(Connector):
         end_time: str,
         prediction_horizon_days: int,
     ) -> Iterable:
-        snowpark_df = self.get_material_registry_table(session, registry_table_name)
+        snowpark_df = self.get_material_registry_table(registry_table_name)
         feature_snowpark_df = self.fetch_filtered_table(
             snowpark_df,
             entity_var_model_name,
@@ -508,22 +498,21 @@ class SnowflakeConnector(Connector):
             .collect()
         )
 
-    def get_tables_by_prefix(self, session: snowflake.snowpark.Session, prefix: str):
+    def get_tables_by_prefix(self, prefix: str):
         tables = list()
-        registry_df = self.run_query(session, f"show tables starts with '{prefix}'")
+        registry_df = self.run_query(f"show tables starts with '{prefix}'")
         for row in registry_df:
             tables.append(row.name)
         return tables
 
     def get_creation_ts(
         self,
-        session: snowflake.snowpark.Session,
         material_table: str,
         model_hash: str,
         entity_key: str,
     ):
         """Retrieves the latest creation timestamp for a specific model hash, and entity key."""
-        snowpark_df = self.get_material_registry_table(session, material_table)
+        snowpark_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
                 snowpark_df.filter(col("model_hash") == model_hash)
@@ -542,9 +531,9 @@ class SnowflakeConnector(Connector):
         return creation_ts
 
     def get_latest_seq_no_from_registry(
-        self, session, material_table: str, model_hash: str, model_name: str
+        self, material_table: str, model_hash: str, model_name: str
     ) -> int:
-        snowpark_df = self.get_material_registry_table(session, material_table)
+        snowpark_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
                 snowpark_df.filter(col("model_hash") == model_hash)
@@ -583,10 +572,10 @@ class SnowflakeConnector(Connector):
         return model_hash
 
     def get_end_ts(
-        self, session, material_table, model_name: str, model_hash: str, seq_no: int
+        self, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
         """This function will return the end_ts with given model, model name and seq_no."""
-        snowpark_df = self.get_material_registry_table(session, material_table)
+        snowpark_df = self.get_material_registry_table(material_table)
 
         try:
             feature_table_info = (
@@ -615,14 +604,13 @@ class SnowflakeConnector(Connector):
 
     def fetch_staged_file(
         self,
-        session: snowflake.snowpark.Session,
         stage_name: str,
         file_name: str,
         target_folder: str,
     ) -> None:
         """Fetches a file from a Snowflake stage and saves it to a local target folder."""
         file_stage_path = f"{stage_name}/{file_name}"
-        self.get_file(session, file_stage_path, target_folder)
+        self.get_file(self.session, file_stage_path, target_folder)
         input_file_path = os.path.join(target_folder, f"{file_name}.gz")
         output_file_path = os.path.join(target_folder, file_name)
 
@@ -666,7 +654,6 @@ class SnowflakeConnector(Connector):
 
     def check_for_classification_data_requirement(
         self,
-        session: snowflake.snowpark.Session,
         materials: List[constants.TrainTablesInfo],
         label_column: str,
         label_value: str,
@@ -681,7 +668,7 @@ class SnowflakeConnector(Connector):
             )
 
             label_table = self.get_table(
-                session, m.label_table_name, filter_condition=filter_condition
+                m.label_table_name, filter_condition=filter_condition
             )
 
             temp_table = self.join_feature_table_label_table(
@@ -715,14 +702,13 @@ class SnowflakeConnector(Connector):
 
     def check_for_regression_data_requirement(
         self,
-        session: snowflake.snowpark.Session,
         materials: List[constants.TrainTablesInfo],
         filter_condition: str = None,
     ) -> bool:
         total_samples = 0
         for m in materials:
             feature_table = self.get_table(
-                session, m.feature_table_name, filter_condition=filter_condition
+                m.feature_table_name, filter_condition=filter_condition
             )
 
             total_samples += feature_table.count()
@@ -816,13 +802,13 @@ class SnowflakeConnector(Connector):
         return table.select(column_name).distinct().collect()
 
     def get_material_registry_table(
-        self, session: snowflake.snowpark.Session, material_registry_table_name: str
+        self, material_registry_table_name: str
     ) -> snowflake.snowpark.Table:
         """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
         Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
         """
         material_registry_table = (
-            self.get_table(session, material_registry_table_name)
+            self.get_table(material_registry_table_name)
             .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
             .filter(F.col("status") == 2)
         )
@@ -875,53 +861,45 @@ class SnowflakeConnector(Connector):
         )
         return preds_with_percentile
 
-    """ The following functions are only specific to Snowflake Connector and not used by any other connector."""
-
-    def create_stage(self, session: snowflake.snowpark.Session):
+    def create_stage(self):
         self.run_query(
-            session, f"create stage if not exists {self.stage_name.replace('@', '')}"
+            f"create stage if not exists {self.stage_name.replace('@', '')}",
         )
 
     def _delete_import_files(
         self,
-        session: snowflake.snowpark.Session,
+        _: snowflake.snowpark.Session,
         stage_name: str,
         import_paths: List[str],
     ) -> None:
-        all_stages = self.run_query(
-            session, f"show stages like '{stage_name.replace('@', '')}'"
-        )
+        all_stages = self.run_query(f"show stages like '{stage_name.replace('@', '')}'")
         if len(all_stages) == 0:
             logger.info(f"Stage {stage_name} does not exist. No files to delete.")
             return
 
         import_files = [element.split("/")[-1] for element in import_paths]
-        files = self.run_query(session, f"list {stage_name}")
+        files = self.run_query(f"list {stage_name}")
         for row in files:
             if any(substring in row.name for substring in import_files):
-                self.run_query(session, f"remove @{row.name}")
+                self.run_query(f"remove @{row.name}")
 
     def _delete_procedures(
-        self, session: snowflake.snowpark.Session, procedure_name: str
+        self, _: snowflake.snowpark.Session, procedure_name: str
     ) -> None:
-        procedures = self.run_query(session, f"show procedures like '{procedure_name}'")
+        procedures = self.run_query(f"show procedures like '{procedure_name}'")
         for row in procedures:
             try:
                 words = row.arguments.split(" ")[:-2]
                 procedure_arguments = " ".join(words)
-                self.run_query(
-                    session, f"drop procedure if exists {procedure_arguments}"
-                )
+                self.run_query(f"drop procedure if exists {procedure_arguments}")
             except Exception as e:
                 raise Exception(f"Error while dropping procedure {e}")
 
-    def _drop_fn_if_exists(
-        self, session: snowflake.snowpark.Session, fn_name: str
-    ) -> bool:
+    def _drop_fn_if_exists(self, _: snowflake.snowpark.Session, fn_name: str) -> bool:
         """Snowflake caches the functions and it reuses these next time. To avoid the caching,
         we manually search for the same function name and drop it before we create the udf.
         """
-        fn_list = session.sql(f"show user functions like '{fn_name}'").collect()
+        fn_list = self.session.sql(f"show user functions like '{fn_name}'").collect()
         if len(fn_list) == 0:
             logger.info(f"Function {fn_name} does not exist")
             return True
@@ -931,18 +909,18 @@ class SnowflakeConnector(Connector):
             )
             for fn in fn_list:
                 fn_signature = fn["arguments"].split("RETURN")[0]
-                drop = session.sql(f"DROP FUNCTION IF EXISTS {fn_signature}")
+                drop = self.session.sql(f"DROP FUNCTION IF EXISTS {fn_signature}")
                 logger.info(drop.collect()[0].status)
             logger.info("All functions with the same name dropped")
             return True
 
     def get_file(
         self,
-        session: snowflake.snowpark.Session,
+        _: snowflake.snowpark.Session,
         file_stage_path: str,
         target_folder: str,
     ):
-        _ = session.file.get(file_stage_path, target_folder)
+        _ = self.session.file.get(file_stage_path, target_folder)
 
     def select_relevant_columns(
         self,
@@ -961,19 +939,19 @@ class SnowflakeConnector(Connector):
         ]
         return table.select(*shortlisted_columns)
 
-    def _job_cleanup(self, session: snowflake.snowpark.Session):
+    def _job_cleanup(self):
         if self.stored_procedure_name:
-            self._delete_procedures(session, self.stored_procedure_name)
+            self._delete_procedures(self.session, self.stored_procedure_name)
         if self.udf_name:
-            self._drop_fn_if_exists(session, self.udf_name)
+            self._drop_fn_if_exists(self.session, self.udf_name)
         if self.delete_files:
-            self._delete_import_files(session, self.stage_name, self.delete_files)
+            self._delete_import_files(self.session, self.stage_name, self.delete_files)
 
-    def pre_job_cleanup(self, session: snowflake.snowpark.Session):
-        self._job_cleanup(session)
+    def pre_job_cleanup(self):
+        self._job_cleanup()
 
-    def post_job_cleanup(self, session: snowflake.snowpark.Session):
-        self._job_cleanup(session)
+    def post_job_cleanup(self):
+        self._job_cleanup()
         if self.feature_table_name:
-            self.run_query(session, f"drop table if exists {self.feature_table_name}")
-        session.close()
+            self.run_query(f"drop table if exists {self.feature_table_name}")
+        self.session.close()

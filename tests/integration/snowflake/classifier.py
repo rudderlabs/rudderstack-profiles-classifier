@@ -173,7 +173,7 @@ def validate_reports():
 
 
 def validate_predictions_df():
-    connector = ConnectorFactory.create("snowflake")
+    connector = ConnectorFactory.create("snowflake", creds)
     session = connector.build_session(creds)
     required_columns = [
         "USER_MAIN_ID",
@@ -200,8 +200,7 @@ def validate_predictions_df():
 
 
 def test_classification():
-    connector = ConnectorFactory.create("snowflake")
-    session = connector.build_session(creds)
+    connector = ConnectorFactory.create("snowflake", creds)
 
     st = time.time()
 
@@ -222,7 +221,9 @@ def test_classification():
     )
 
     latest_seq_no = connector.get_latest_seq_no_from_registry(
-        session, material_registry_table_name, latest_model_hash, entity_var_model_name
+        material_registry_table_name,
+        latest_model_hash,
+        entity_var_model_name,
     )
 
     input_model_hash = connector.get_model_hash_from_registry(
@@ -230,7 +231,7 @@ def test_classification():
     )
 
     # Closing the session immediately after use to avoid multiple open sessions conflict
-    session.close()
+    connector.session.close()
 
     train_inputs = [
         f"""SELECT * FROM {creds['schema']}.material_{train_input_model_name}_{input_model_hash}_{latest_seq_no}""",

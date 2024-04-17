@@ -234,13 +234,13 @@ class SnowflakeConnector(Connector):
         table = self.get_table(session, table_name)
         return table.schema.fields
 
-    def field_datatype_to_string(self, datatype: object) -> str:
+    def _field_datatype_to_string(self, datatype: object) -> str:
         """Converts field datatype to string by extracting from the first character till 'Type'"""
         datatype_str = str(datatype)
         index_of_type = datatype_str.find("Type")
         return datatype_str[: index_of_type + len("Type")]
 
-    def is_instance_of(self, datatype, data_type_str: str) -> bool:
+    def _datatype_is_instance_of(self, datatype, data_type_str: str) -> bool:
         """Check if datatype is an instance of the class represented by data_type_str."""
         class_obj = getattr(T, data_type_str)
         return isinstance(datatype, class_obj)
@@ -254,10 +254,10 @@ class SnowflakeConnector(Connector):
     ) -> Dict:
         """Fetches the column names from the given schema_fields based on the required data types (exclude label and entity columns)"""
         return {
-            field.name: self.field_datatype_to_string(field.datatype)
+            field.name: self._field_datatype_to_string(field.datatype)
             for field in schema_fields
             if any(
-                self.is_instance_of(field.datatype, data_type_str)
+                self._datatype_is_instance_of(field.datatype, data_type_str)
                 for data_type_str in required_data_types.keys()
             )
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
@@ -836,30 +836,30 @@ class SnowflakeConnector(Connector):
         types = []
 
         for col in df.columns:
-            if col in column_types["categorical"]:
-                if col in input_column_types_map["categorical"]:
-                    types.append(
-                        self.data_type_mapping["categorical"][
-                            input_column_types_map["categorical"][col]
-                        ]
-                    )
-                else:
-                    types.append(T.StringType())
-            elif col in column_types["numeric"]:
-                if col in input_column_types_map["numeric"]:
-                    types.append(
-                        self.data_type_mapping["numeric"][
-                            input_column_types_map["numeric"][col]
-                        ]
-                    )
-                else:
-                    types.append(T.DecimalType())
-            else:
-                raise Exception(
-                    f"Column {col} not found in the training data config either as categorical or numeric column"
-                )
+            column_dtype = self.get_column_dtype(
+                col, column_types, input_column_types_map
+            )
+            types.append(column_dtype)
 
         return types
+
+    def get_column_dtype(self, col, column_types, input_column_types_map):
+        if col in column_types["categorical"]:
+            return self.get_column_dtype_helper(
+                col, input_column_types_map, "categorical"
+            )
+        elif col in column_types["numeric"]:
+            return self.get_column_dtype_helper(col, input_column_types_map, "numeric")
+        else:
+            raise Exception(
+                f"Column {col} not found in the training data config either as categorical or numeric column"
+            )
+
+    def get_column_dtype_helper(self, col, input_column_types_map, type):
+        if col in input_column_types_map[type]:
+            return self.data_type_mapping[type][input_column_types_map[type][col]]
+        else:
+            return T.StringType() if type == "categorical" else T.DecimalType()
 
     def call_prediction_udf(
         self,

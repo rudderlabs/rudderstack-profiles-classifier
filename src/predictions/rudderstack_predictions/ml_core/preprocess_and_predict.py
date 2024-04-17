@@ -30,15 +30,6 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
-from pycaret.classification import (
-    load_model as classification_load_model,
-    predict_model as classification_predict_model,
-)
-from pycaret.regression import (
-    load_model as regression_load_model,
-    predict_model as regression_predict_model,
-)
-
 
 def preprocess_and_predict(
     creds,
@@ -165,7 +156,6 @@ def preprocess_and_predict(
         return trainer.predict(trained_model, df)
 
     features = input_df.columns
-    print("Columns: ", predict_data.columns)
 
     if creds["type"] == "snowflake":
         udf_name = connector.udf_name
@@ -188,6 +178,7 @@ def preprocess_and_predict(
             input_names=features,
             imports=[f"{stage_name}/{model_name}.pkl"] + connector.delete_files,
             packages=constants.SNOWFLAKE_TRAINING_PACKAGES + ["cachetools==4.2.2"],
+            max_batch_size=10000,
         )
         class predict_scores:
             def end_partition(self, df):
@@ -240,7 +231,11 @@ def preprocess_and_predict(
         preds_with_percentile,
         output_tablename,
         write_mode="overwrite",
+        local=False,
+        if_exists="replace",
+        s3_config=s3_config,
     )
+
     logger.debug("Closing the session")
 
     connector.post_job_cleanup(session)

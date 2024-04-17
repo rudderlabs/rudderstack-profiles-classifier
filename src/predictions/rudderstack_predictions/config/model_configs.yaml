@@ -67,8 +67,7 @@ preprocessing:
 
   # Train, test, val split ratios. They must be each between 0 and 1, and sum to 1
   train_size: 0.6
-  val_size: 0.2
-  test_size: 0.2
+
 
 train:
   data_path:

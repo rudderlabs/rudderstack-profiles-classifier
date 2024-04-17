@@ -106,7 +106,7 @@ SNOWFLAKE_TRAINING_PACKAGES = [
     "matplotlib==3.7.1",
     "seaborn==0.12.0",
     "scikit-plot==0.3.7",
-    "pycaret",
+    "pycaret<=3.3.0",
 ]
 
 

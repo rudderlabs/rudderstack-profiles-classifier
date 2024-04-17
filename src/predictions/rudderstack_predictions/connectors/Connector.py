@@ -31,6 +31,12 @@ class Connector(ABC):
         numeric_columns = self.get_numeric_features(
             schema_fields, label_column, entity_column
         )
+        trainer_obj_numeric_columns = {
+            col: self.data_type_mapping["numeric"][col]
+            for col in trainer_obj.prep.numeric_pipeline["numeric_columns"]
+        }
+        numeric_columns = {**numeric_columns, **trainer_obj_numeric_columns}
+
         categorical_columns = self.get_stringtype_features(
             schema_fields, label_column, entity_column
         )
@@ -53,7 +59,7 @@ class Connector(ABC):
             input_column_types[column_type] = {
                 key: value
                 for key, value in columns.items()
-                if key not in lowercase_list(ignore_features)
+                if key.lower() not in lowercase_list(ignore_features)
             }
 
         return input_column_types
@@ -203,7 +209,7 @@ class Connector(ABC):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         pass
 
     @abstractmethod

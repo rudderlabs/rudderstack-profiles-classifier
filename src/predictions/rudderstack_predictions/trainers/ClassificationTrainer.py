@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 import pandas as pd
 from ..utils import utils
 from ..utils.logger import logger
@@ -18,7 +18,11 @@ from pycaret.classification import (
     add_metric as classification_add_metric,
 )
 
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import (
+    average_precision_score,
+    precision_recall_fscore_support,
+    roc_auc_score,
+)
 
 
 class ClassificationTrainer(MLTrainer):
@@ -33,6 +37,14 @@ class ClassificationTrainer(MLTrainer):
                 self.label_column,
                 constants.POSITIVE_BOOLEAN_FLAGS,
             )
+
+        self.metrics_key_mapping = {
+            "F1": "f1_score",
+            "AUC": "pr_auc",
+            "Prec.": "precision",
+            "Recall": "recall",
+            "roc_auc": "roc_auc",
+        }
 
         self.figure_names = {
             "roc-auc-curve": f"04-test-roc-auc-{self.output_profiles_ml_model}.png",
@@ -77,11 +89,13 @@ class ClassificationTrainer(MLTrainer):
                 "id": "roc_auc",
                 "name": "roc_auc",
                 "function": roc_auc_score,
-                "greater_is_better": False,
+                "greater_is_better": True,
             }
         ]
 
-        return self.train_model_(
+        metric_to_optimize = "F1"
+
+        return self._train_model(
             feature_df,
             merged_config,
             model_file,
@@ -91,28 +105,20 @@ class ClassificationTrainer(MLTrainer):
             classification_compare_models,
             classification_save_model,
             classification_get_config,
+            metric_to_optimize,
         )
 
-    def get_metrics(self, model, fold_param, X_train, y_train) -> dict:
+    def get_metrics(self, model, X_train, y_train, y_test, fold_param) -> dict:
         model_metrics = classification_results_pull().iloc[0].to_dict()
-        train_metrics = self.trainer_utils.get_metrics_classifier(
-            model, X_train, y_train
-        )
+        train_metrics = self.get_metrics_classifier(model, X_train, y_train)
 
-        key_mapping = {
-            "F1": "f1_score",
-            "AUC": "pr_auc",
-            "Prec.": "precision",
-            "Recall": "recall",
-            "roc_auc": "roc_auc",
-        }
-
-        # Create a new dictionary with updated keys
         test_metrics = {}
-        for old_key, new_key in key_mapping.items():
+        for old_key, new_key in self.metrics_key_mapping.items():
             test_metrics[new_key] = model_metrics.get(old_key, None)
 
-        test_metrics["users"] = int(1 / fold_param * len(X_train))
+        test_metrics["users"] = len(y_test)
+        val_metrics = test_metrics
+        val_metrics["users"] = int(1 / fold_param * len(X_train))
 
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
@@ -125,6 +131,55 @@ class ClassificationTrainer(MLTrainer):
             "prob_th": 0,
         }
         return result_dict
+
+    def get_classification_metrics(
+        self,
+        y_true: pd.DataFrame,
+        y_pred: pd.DataFrame,
+        y_pred_proba: pd.DataFrame,
+        recall_to_precision_importance: float = 1.0,
+    ) -> dict:
+        """Returns classification metrics in form of a dict for the given thresold."""
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            y_true,
+            y_pred,
+            beta=recall_to_precision_importance,
+        )
+        precision = precision[1]
+        recall = recall[1]
+        f1 = f1[1]
+        roc_auc = roc_auc_score(y_true, y_pred_proba)
+        pr_auc = average_precision_score(y_true, y_pred_proba)
+        user_count = y_true.shape[0]
+        metrics = {
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1,
+            "roc_auc": roc_auc,
+            "pr_auc": pr_auc,
+            "users": user_count,
+        }
+        return metrics
+
+    def get_metrics_classifier(
+        self,
+        model,
+        train_x,
+        train_y,
+    ) -> Tuple:
+        train_pred = classification_predict_model(model, train_x)[
+            "prediction_label"
+        ].to_numpy()
+        train_pred_proba = classification_predict_model(model, train_x)[
+            "prediction_score"
+        ].to_numpy()
+        train_y = train_y.to_numpy()
+
+        train_metrics = self.get_classification_metrics(
+            train_y, train_pred, train_pred_proba
+        )
+
+        return train_metrics
 
     def plot_diagnostics(
         self,

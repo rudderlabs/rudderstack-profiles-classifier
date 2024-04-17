@@ -148,7 +148,6 @@ def _train(
             session: snowflake.snowpark.Session,
             feature_table_name: str,
             train_config: dict,
-            feature_table_column_types: dict,
             metrics_table: str,
         ) -> dict:
             """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
@@ -159,8 +158,7 @@ def _train(
                     and is input to training and prediction
                 train_config (dict): configs from profiles.yaml which should overwrite corresponding values
                     from model_configs.yaml file
-                feature_table_column_types (dict): dictionary containing the column types of the feature table
-
+\
             Returns:
                 dict: returns the model_id which is basically the time converted to key at which results were
                     generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.

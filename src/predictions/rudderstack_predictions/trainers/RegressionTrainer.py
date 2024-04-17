@@ -1,5 +1,6 @@
 from typing import List
 import pandas as pd
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from ..trainers.MLTrainer import MLTrainer
 from ..utils import utils
 from ..utils.logger import logger
@@ -21,6 +22,11 @@ class RegressionTrainer(MLTrainer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        self.metrics_key_mapping = {
+            "MAE": "mean_absolute_error",
+            "MSE": "mean_squared_error",
+            "R2": "r2_score",
+        }
         self.figure_names = {
             # "regression-lift-chart" : f"04-regression-chart-{self.output_profiles_ml_model}.png",
             "deciles-plot": f"03-deciles-plot-{self.output_profiles_ml_model}.png",
@@ -29,6 +35,10 @@ class RegressionTrainer(MLTrainer):
         }
         self.pred_output_df_columns = {
             "score": "prediction_label",
+        }
+        self.evalution_metrics_map_regressor = {
+            metric.__name__: metric
+            for metric in [mean_absolute_error, mean_squared_error, r2_score]
         }
         self.isStratify = False
 
@@ -52,7 +62,9 @@ class RegressionTrainer(MLTrainer):
     ):
         custom_metrics = []
 
-        return self.train_model_(
+        metric_to_optimize = "R2"
+
+        return self._train_model(
             feature_df,
             merged_config,
             model_file,
@@ -62,6 +74,7 @@ class RegressionTrainer(MLTrainer):
             regression_compare_models,
             regression_save_model,
             regression_get_config,
+            metric_to_optimize,
         )
 
     def plot_diagnostics(
@@ -99,24 +112,17 @@ class RegressionTrainer(MLTrainer):
         except Exception as e:
             logger.error(f"Could not generate regression plots. {e}")
 
-    def get_metrics(self, model, fold_param, X_train, y_train) -> dict:
+    def get_metrics(self, model, X_train, y_train, y_test, fold_param) -> dict:
         model_metrics = regression_results_pull().iloc[0].to_dict()
-        train_metrics = self.trainer_utils.get_metrics_regressor(
-            model, X_train, y_train
-        )
+        train_metrics = self.get_metrics_regressor(model, X_train, y_train)
 
-        key_mapping = {
-            "MAE": "mean_absolute_error",
-            "MSE": "mean_squared_error",
-            "R2": "r2_score",
-        }
-
-        # # Create a new dictionary with updated keys
         test_metrics = {}
-        for old_key, new_key in key_mapping.items():
+        for old_key, new_key in self.metrics_key_mapping.items():
             test_metrics[new_key] = model_metrics.get(old_key, None)
 
-        test_metrics["users"] = int(1 / fold_param * len(X_train))
+        test_metrics["users"] = len(y_test)
+        val_metrics = test_metrics
+        val_metrics["users"] = int(1 / fold_param * len(X_train))
 
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
@@ -128,6 +134,23 @@ class RegressionTrainer(MLTrainer):
             },
         }
         return result_dict
+
+    def get_metrics_regressor(
+        self,
+        model,
+        train_x,
+        train_y,
+    ):
+        train_pred = regression_predict_model(model, train_x)[
+            "prediction_label"
+        ].to_numpy()
+
+        train_metrics = {}
+
+        for metric_name, metric_func in self.evalution_metrics_map_regressor.items():
+            train_metrics[metric_name] = float(metric_func(train_y, train_pred))
+
+        return train_metrics
 
     def prepare_training_summary(
         self, model_results: dict, model_timestamp: str

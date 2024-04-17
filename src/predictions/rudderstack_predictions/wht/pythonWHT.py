@@ -35,7 +35,7 @@ class PythonWHT:
         self.cached_registry_table_name = ""
 
     def _getPB(self):
-        mock = False
+        mock = True
         if mock:
             return MockPB()
         return RudderPB()

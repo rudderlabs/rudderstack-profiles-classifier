@@ -25,7 +25,6 @@ model_file_name = constants.MODEL_FILE_NAME
 def train_and_store_model_results(
     feature_df: pd.DataFrame,
     train_config: dict,
-    feature_table_column_types: dict,
     metrics_table: str,
     **kwargs,
 ) -> dict:
@@ -37,7 +36,6 @@ def train_and_store_model_results(
         and is input to training and prediction.
         train_config (dict): configs from profiles.yaml which should
         overwrite corresponding values from model_configs.yaml file
-        feature_table_column_types (dict): column types of the feature table
         From kwargs:
             session (redshift_connector.cursor.Cursor): valid redshift session to access data warehouse
             connector (RedshiftConnector): RedshiftConnector object
@@ -54,8 +52,6 @@ def train_and_store_model_results(
         raise ValueError(
             "session, connector and trainer are required in kwargs for training in Redshift"
         )
-    numeric_columns = feature_table_column_types["numeric"]
-    categorical_columns = feature_table_column_types["categorical"]
 
     model_file = connector.join_file_path(
         f"{trainer.output_profiles_ml_model}_{model_file_name}"
@@ -228,7 +224,6 @@ def preprocess_and_train(
             train_procedure,
             filtered_feature_table,
             train_config,
-            feature_table_column_types,
             metrics_table,
             session=session,
             connector=connector,

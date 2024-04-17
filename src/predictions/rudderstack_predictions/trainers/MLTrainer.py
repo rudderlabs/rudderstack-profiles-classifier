@@ -24,8 +24,6 @@ from ..utils.logger import logger
 from ..connectors.Connector import Connector
 from ..utils import constants
 
-trainer_utils = utils.TrainerUtils()
-
 
 @dataclass
 class MLTrainer(ABC):
@@ -54,7 +52,6 @@ class MLTrainer(ABC):
             "new_materialisations_config", {}
         )
         self.load_materialisation_config(new_materialisations_config)
-        self.trainer_utils = utils.TrainerUtils()
 
     hyperopts_expressions_map = {
         exp.__name__: exp for exp in [hp.choice, hp.quniform, hp.uniform, hp.loguniform]
@@ -137,14 +134,6 @@ class MLTrainer(ABC):
         self,
         feature_df: pd.DataFrame,
     ):
-        preprocess_config = {
-            "numeric_imputation": "median",
-            "categorical_imputation": "mode",
-            "iterative_imputation_iters": 5,
-            "numeric_iterative_imputer": "lightgbm",
-            "categorical_iterative_imputer": "lightgbm",
-        }
-
         train_x, train_y, test_x, test_y = utils.split_train_test(
             feature_df=feature_df,
             label_column=self.label_column,
@@ -165,7 +154,7 @@ class MLTrainer(ABC):
             test_data,
         )
 
-    def train_model_(
+    def _train_model(
         self,
         feature_df: pd.DataFrame,
         train_config: dict,
@@ -176,6 +165,7 @@ class MLTrainer(ABC):
         pycaret_compare_models: callable,
         pycaret_save_model: callable,
         pycaret_get_config: callable,
+        metric_to_optimize: str,
     ):
         """Creates and saves the trained model pipeline after performing preprocessing and classification
         and returns the various variables required for further processing by training procesudres/functions.
@@ -231,13 +221,13 @@ class MLTrainer(ABC):
             )
 
         # Compare different models and select the best one
-        best_model = pycaret_compare_models()
+        best_model = pycaret_compare_models(sort=metric_to_optimize)
 
         # Save the final model
         pycaret_save_model(best_model, model_file)
 
         # Get metrics
-        results = self.get_metrics(best_model, fold_param, train_x, train_y)
+        results = self.get_metrics(best_model, train_x, train_y, test_y, fold_param)
 
         train_x_transformed = pycaret_get_config("X_train_transformed")
 

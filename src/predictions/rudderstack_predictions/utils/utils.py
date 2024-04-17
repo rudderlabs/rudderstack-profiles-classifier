@@ -73,8 +73,6 @@ class PreprocessorConfig:
     categorical_pipeline: dict
     feature_selectors: dict
     train_size: float
-    test_size: float
-    val_size: float
 
 
 @dataclass
@@ -83,110 +81,6 @@ class OutputsConfig:
 
     column_names: dict
     feature_meta_data: List[dict]
-
-
-class TrainerUtils:
-    evalution_metrics_map_regressor = {
-        metric.__name__: metric
-        for metric in [mean_absolute_error, mean_squared_error, r2_score]
-    }
-
-    def get_classification_metrics(
-        self,
-        y_true: pd.DataFrame,
-        y_pred: pd.DataFrame,
-        recall_to_precision_importance: float = 1.0,
-    ) -> dict:
-        """Returns classification metrics in form of a dict for the given thresold."""
-        precision, recall, f1, _ = precision_recall_fscore_support(
-            y_true,
-            y_pred,
-            beta=recall_to_precision_importance,
-        )
-        precision = precision[1]
-        recall = recall[1]
-        f1 = f1[1]
-        roc_auc = roc_auc_score(y_true, y_pred)
-        pr_auc = average_precision_score(y_true, y_pred)
-        user_count = y_true.shape[0]
-        metrics = {
-            "precision": precision,
-            "recall": recall,
-            "f1_score": f1,
-            "roc_auc": roc_auc,
-            "pr_auc": pr_auc,
-            "users": user_count,
-        }
-        return metrics
-
-    def get_best_th(
-        self,
-        y_true: pd.DataFrame,
-        y_pred_proba: np.array,
-        metric_to_optimize: str,
-        recall_to_precision_importance: float = 1.0,
-    ) -> Tuple:
-        """This function calculates the thresold that maximizes f1 score based on y_true and y_pred_proba
-        and classication metrics on basis of that."""
-
-        metric_functions = {
-            "f1_score": f1_score,
-            "precision": precision_score,
-            "recall": recall_score,
-            "accuracy": accuracy_score,
-        }
-
-        if metric_to_optimize not in metric_functions:
-            raise ValueError(f"Unsupported metric: {metric_to_optimize}")
-
-        objective_function = metric_functions[metric_to_optimize]
-        objective = lambda th: -objective_function(
-            y_true, np.where(y_pred_proba > th, 1, 0)
-        )
-
-        result = minimize_scalar(objective, bounds=(0, 1), method="bounded")
-        best_th = result.x
-        best_metrics = self.get_classification_metrics(
-            y_true, y_pred_proba, best_th, recall_to_precision_importance
-        )
-        return best_metrics, best_th
-
-    def get_metrics_classifier(
-        self,
-        model,
-        train_x,
-        train_y,
-    ) -> Tuple:
-        """Generates classification metrics and predictions for train,
-        validation and test data along with the best probability thresold.
-        """
-
-        train_preds = classification_predict_model(model, train_x)[
-            "prediction_label"
-        ].to_numpy()
-        train_y = train_y.to_numpy()
-
-        train_metrics = self.get_classification_metrics(train_y, train_preds)
-
-        return train_metrics
-
-    def get_metrics_regressor(
-        self,
-        model,
-        train_x,
-        train_y,
-    ):
-        """Calculate and return regression metrics for the trained model."""
-        train_pred = regression_predict_model(model, train_x)[
-            "prediction_label"
-        ].to_numpy()
-
-        train_metrics = {}
-
-        for metric_name, metric_func in self.evalution_metrics_map_regressor.items():
-            train_metrics[metric_name] = float(metric_func(train_y, train_pred))
-
-        return train_metrics
 
 
 def split_train_test(
@@ -257,9 +151,8 @@ def get_feature_table_column_types(
     feature_table_column_types = {"numeric": [], "categorical": []}
     uppercase_columns = lambda columns: [col.upper() for col in columns]
 
-    # Add the trannsformed array type cols to numeric cols
     for col in transformed_arraytype_cols:
-        input_column_types["numeric"][col] = T.DecimalType()
+        input_column_types["numeric"][col] = None
 
     upper_numeric_input_cols = uppercase_columns(
         list(input_column_types["numeric"].keys())
@@ -342,20 +235,6 @@ def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> Lis
         for value in onehot_encoder.categories_[col_id]:
             category_names.append(f"{col}_{value}")
     return category_names
-
-
-def transform_null(
-    df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str]
-) -> pd.DataFrame:
-    for col in numeric_columns:
-        df[col] = df[col].astype("float64")
-    """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
-    for col in numeric_columns:
-        df[col] = df[col].fillna(0)
-
-    for col in categorical_columns:
-        df[col] = df[col].fillna("unknown")
-    return df
 
 
 def get_output_directory(folder_path: str) -> str:
@@ -537,17 +416,6 @@ def subprocess_run(args):
 def plot_regression_deciles(
     y_pred: np.array, y_true: np.array, deciles_file: str, label_column: str
 ):
-    """
-    Plots y-actual vs y-predicted using deciles and saves it as a file.
-    Args:
-        y_pred : Predicted labels.
-        y_true : Actual labels.
-        deciles_file (str): File path to save the deciles plot.
-        label_column (str): Name of the label column.
-    Returns:
-        None. The function only saves the deciles plot as a file.
-    """
-
     y_true = pd.Series(y_true)
     y_pred = pd.Series(y_pred)
 
@@ -718,17 +586,6 @@ def plot_lift_chart(y_pred: np.array, y_true: np.array, lift_chart_file: str) ->
 def plot_top_k_feature_importance(
     model, train_x, figure_file, top_k_features=20
 ) -> pd.DataFrame:
-    """
-    Generates a bar chart to visualize the top k important features in a machine learning model.
-
-    Args:
-        model (object): The trained model object.
-        train_x (array-like): The input data used for calculating the feature importance values.
-        figure_file (str): The name of the chart image file.
-
-    Returns:
-        None. The function generates a bar chart and writes the feature importance values to a table in the session.
-    """
     try:
         if len(train_x) < 100:
             sample_data = train_x
@@ -747,18 +604,10 @@ def plot_top_k_feature_importance(
         if len(shap_values.shape) == 3:
             shap_values = shap_values[:, :, 1]
 
-        shap.plots.beeswarm(shap_values, max_display=20, show=False)
+        shap.plots.beeswarm(shap_values, max_display=top_k_features, show=False)
         plt.savefig(figure_file, bbox_inches="tight")
 
-        vals = np.abs(shap_values.values).mean(0)
-        feature_names = sample_data.columns
-
-        feature_importance = pd.DataFrame(
-            list(zip(feature_names, vals)),
-            columns=["col_name", "feature_importance_vals"],
-        )
-
-        return feature_importance
+        return None
 
     except Exception as e:
         logger.warning(f"Exception occured while plotting feature importance {e}")

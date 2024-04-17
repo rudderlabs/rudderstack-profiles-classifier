@@ -11,7 +11,8 @@ package_name = "feature_table"
 feature_table_name = "shopify_user_features"
 eligible_users = "1=1"
 package_name = "feature_table"
-label_column = "is_churned_7_days"
+classifier_label_column = "is_churned_7_days"
+regressor_label_column = "days_since_last_seen"
 inputs = [f"packages/{package_name}/models/{feature_table_name}"]
 s3_config = {}
 pred_horizon_days = 7

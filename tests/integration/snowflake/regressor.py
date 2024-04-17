@@ -22,7 +22,7 @@ data = {
     "features_profiles_model": feature_table_name,
     "inputs": inputs,
     "eligible_users": "1=1",
-    "label_column": label_column,
+    "label_column": regressor_label_column,
     "task": "regression",
     "output_profiles_ml_model": output_model_name,
     "train_start_dt": "2024-02-08",

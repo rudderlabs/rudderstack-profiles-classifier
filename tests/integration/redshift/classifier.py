@@ -1,12 +1,8 @@
-from tests.integration.utils import create_site_config_file
+from tests.integration.utils import *
 from train import *
 import shutil
 from predict import *
 import time
-from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
-    RedshiftConnector,
-)
-from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
 import json
 import os
 
@@ -23,22 +19,7 @@ folder_path_output_file = os.path.dirname(output_filename)
 
 os.makedirs(output_folder, exist_ok=True)
 
-package_name = "feature_table"
-feature_table_name = "shopify_user_features"
-eligible_users = "1=1"
-package_name = "feature_table"
-label_column = "is_churned_7_days"
 train_input_model_name = "shopify_user_features"
-inputs = [f"packages/{package_name}/models/{feature_table_name}"]
-output_model_name = "ltv_classification_integration_test"
-pred_horizon_days = 7
-pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
-output_label = "OUTPUT_LABEL"
-s3_config = {}
-p_output_tablename = "test_run_can_delete_2"
-entity_key = "user"
-material_registry_table_name = "material_registry_4"
-
 
 data = {
     "prediction_horizon_days": pred_horizon_days,
@@ -171,42 +152,7 @@ def validate_reports():
         raise Exception(f"{missing_files} not found in reports directory")
 
 
-def validate_predictions_df():
-    connector = RedshiftConnector(folder_path_output_file)
-
-    session = connector.build_session(creds)
-
-    required_columns = [
-        "USER_MAIN_ID",
-        "VALID_AT",
-        pred_column,
-        "MODEL_ID",
-        output_label,
-        f"PERCENTILE_{pred_column}",
-    ]
-
-    required_columns_lower = [column.lower() for column in required_columns]
-
-    try:
-        df = connector.get_table_as_dataframe(session, p_output_tablename)
-        columns_in_file = df.columns.tolist()
-        print(columns_in_file)
-    except Exception as e:
-        raise e
-
-    # Check if the required columns are present
-    if not set(required_columns_lower).issubset(columns_in_file):
-        missing_columns = set(required_columns_lower) - set(columns_in_file)
-        raise Exception(f"Miissing columns: {missing_columns} in predictions table.")
-
-    session.close()
-    return True
-
-
 def test_classification():
-    connector = RedshiftConnector(folder_path_output_file)
-    session = connector.build_session(creds)
-
     st = time.time()
 
     create_site_config_file(creds, siteconfig_path)
@@ -219,22 +165,9 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
-        entity_key,
-        siteconfig_path,
-        project_path,
+    entity_var_model_name, latest_model_hash, latest_seq_no = get_latest_entity_var(
+        creds, siteconfig_path, project_path
     )
-
-    latest_seq_no = connector.get_latest_seq_no_from_registry(
-        material_registry_table_name, latest_model_hash, entity_var_model_name
-    )
-
-    input_model_hash = connector.get_model_hash_from_registry(
-        session, material_registry_table_name, train_input_model_name, latest_seq_no
-    )
-
-    # Closing the session immediately after use to avoid multiple open sessions conflict
-    session.close()
 
     train_inputs = [
         f"""SELECT * FROM {creds['schema']}.material_{train_input_model_name}_{input_model_hash}_{latest_seq_no}""",
@@ -271,7 +204,7 @@ def test_classification():
             predict_config,
             runtime_info,
         )
-        validate_predictions_df()
+        validate_predictions_df_classification(creds)
 
     except Exception as e:
         raise e

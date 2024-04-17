@@ -284,7 +284,7 @@ if __name__ == "__main__":
 
     warehouse = wh_creds["type"]
     train_procedure = train_and_store_model_results
-    connector = ConnectorFactory.create(warehouse, wh_creds, output_dir)
+    connector = ConnectorFactory.create(wh_creds, output_dir)
     local_folder = connector.get_local_dir()
 
     material_info_ = args.material_names

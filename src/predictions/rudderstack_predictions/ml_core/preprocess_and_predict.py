@@ -242,7 +242,7 @@ if __name__ == "__main__":
     trainer = TrainerFactory.create(args.merged_config)
 
     wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
-    connector = ConnectorFactory.create(wh_creds["type"], wh_creds, output_dir)
+    connector = ConnectorFactory.create(wh_creds, output_dir)
 
     model_path = os.path.join(output_dir, args.json_output_filename)
 

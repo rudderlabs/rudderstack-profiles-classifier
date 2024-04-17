@@ -31,7 +31,7 @@ def create_site_config_file(creds, siteconfig_path):
 
 
 def get_latest_entity_var(creds: dict, siteconfig_path: str, project_path: str):
-    connector = ConnectorFactory.create(creds["type"], creds)
+    connector = ConnectorFactory.create(creds)
 
     latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
         entity_key,
@@ -72,7 +72,7 @@ def validate_predictions_df_classification(creds: dict):
 
 
 def _validate_predictions_df(creds: dict, required_columns):
-    connector = ConnectorFactory.create(creds["type"], creds)
+    connector = ConnectorFactory.create(creds)
 
     try:
         df = connector.get_table_as_dataframe(connector.session, p_output_tablename)

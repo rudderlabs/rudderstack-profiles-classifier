@@ -11,8 +11,9 @@ except Exception as e:
 
 
 class ConnectorFactory:
-    def create(warehouse, creds: dict, folder_path: str = None) -> Connector:
+    def create(creds: dict, folder_path: str = None) -> Connector:
         connector = None
+        warehouse = creds["type"]
         if warehouse == "snowflake":
             connector = SnowflakeConnector(creds)
         elif warehouse == "redshift":

@@ -58,9 +58,7 @@ def _predict(
     logger.debug(
         f"Started Predicting for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
     )
-
-    warehouse = creds["type"]
-    connector = ConnectorFactory.create(warehouse, creds, folder_path)
+    connector = ConnectorFactory.create(creds, folder_path)
 
     connector.compute_udf_name(model_path)
     connector.pre_job_cleanup()

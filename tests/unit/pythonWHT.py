@@ -1,9 +1,5 @@
 import unittest
-from unittest.mock import MagicMock, patch
-from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
-    ConnectorFactory,
-)
-from src.predictions.rudderstack_predictions.utils import utils
+from unittest.mock import patch
 from src.predictions.rudderstack_predictions.wht.pythonWHT import PythonWHT
 
 

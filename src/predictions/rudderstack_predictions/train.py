@@ -94,7 +94,7 @@ def _train(
         "user_preference_order_infra", None
     )
 
-    connector = ConnectorFactory.create(creds["type"], creds, folder_path)
+    connector = ConnectorFactory.create(creds, folder_path)
     whtService.init(connector, site_config_path, project_folder)
 
     (

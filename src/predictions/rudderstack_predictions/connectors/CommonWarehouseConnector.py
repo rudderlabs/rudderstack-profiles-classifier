@@ -46,7 +46,7 @@ class CommonWarehouseConnector(Connector):
         """
         transformed_dfs = []
         transformed_feature_df = feature_df.copy()
-        transformed_array_col_names = {}
+        transformed_array_col_names = []
 
         # Group by columns excluding arraytype features
         group_by_cols = [
@@ -77,7 +77,7 @@ class CommonWarehouseConnector(Connector):
             new_array_column_names = [
                 f"{array_col_name}_{value}".upper() for value in unique_values
             ]
-            transformed_array_col_names[array_col_name] = "int"
+            transformed_array_col_names.extend(new_array_column_names)
 
             # Pivot the DataFrame to create new columns for each unique value
             pivoted_df = pd.pivot_table(

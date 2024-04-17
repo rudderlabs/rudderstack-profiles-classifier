@@ -178,7 +178,6 @@ def preprocess_and_predict(
             input_names=features,
             imports=[f"{stage_name}/{model_name}.pkl"] + connector.delete_files,
             packages=constants.SNOWFLAKE_TRAINING_PACKAGES + ["cachetools==4.2.2"],
-            max_batch_size=10000,
         )
         class predict_scores:
             def end_partition(self, df):

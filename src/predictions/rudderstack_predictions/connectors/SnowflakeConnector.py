@@ -882,9 +882,7 @@ class SnowflakeConnector(Connector):
             if any(substring in row.name for substring in import_files):
                 self.run_query(f"remove @{row.name}")
 
-    def _delete_procedures(
-        self, procedure_name: str
-    ) -> None:
+    def _delete_procedures(self, procedure_name: str) -> None:
         procedures = self.run_query(f"show procedures like '{procedure_name}'")
         for row in procedures:
             try:

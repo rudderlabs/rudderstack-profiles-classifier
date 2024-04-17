@@ -1,8 +1,11 @@
+import os
 import yaml
 from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
     ConnectorFactory,
 )
 from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
+
+current_dir = os.path.dirname(os.path.abspath(__file__))
 
 package_name = "feature_table"
 feature_table_name = "shopify_user_features"
@@ -31,7 +34,7 @@ def create_site_config_file(creds, siteconfig_path):
 
 
 def get_latest_entity_var(creds: dict, siteconfig_path: str, project_path: str):
-    connector = ConnectorFactory.create(creds)
+    connector = ConnectorFactory.create(creds, current_dir)
 
     latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
         entity_key,
@@ -72,7 +75,7 @@ def validate_predictions_df_classification(creds: dict):
 
 
 def _validate_predictions_df(creds: dict, required_columns):
-    connector = ConnectorFactory.create(creds)
+    connector = ConnectorFactory.create(creds, current_dir)
 
     try:
         df = connector.get_table_as_dataframe(connector.session, p_output_tablename)

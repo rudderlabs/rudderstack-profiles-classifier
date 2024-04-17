@@ -610,7 +610,7 @@ class SnowflakeConnector(Connector):
     ) -> None:
         """Fetches a file from a Snowflake stage and saves it to a local target folder."""
         file_stage_path = f"{stage_name}/{file_name}"
-        self.get_file(self.session, file_stage_path, target_folder)
+        self.get_file(file_stage_path, target_folder)
         input_file_path = os.path.join(target_folder, f"{file_name}.gz")
         output_file_path = os.path.join(target_folder, file_name)
 
@@ -868,7 +868,6 @@ class SnowflakeConnector(Connector):
 
     def _delete_import_files(
         self,
-        _: snowflake.snowpark.Session,
         stage_name: str,
         import_paths: List[str],
     ) -> None:
@@ -884,7 +883,7 @@ class SnowflakeConnector(Connector):
                 self.run_query(f"remove @{row.name}")
 
     def _delete_procedures(
-        self, _: snowflake.snowpark.Session, procedure_name: str
+        self, procedure_name: str
     ) -> None:
         procedures = self.run_query(f"show procedures like '{procedure_name}'")
         for row in procedures:
@@ -895,7 +894,7 @@ class SnowflakeConnector(Connector):
             except Exception as e:
                 raise Exception(f"Error while dropping procedure {e}")
 
-    def _drop_fn_if_exists(self, _: snowflake.snowpark.Session, fn_name: str) -> bool:
+    def _drop_fn_if_exists(self, fn_name: str) -> bool:
         """Snowflake caches the functions and it reuses these next time. To avoid the caching,
         we manually search for the same function name and drop it before we create the udf.
         """
@@ -916,7 +915,6 @@ class SnowflakeConnector(Connector):
 
     def get_file(
         self,
-        _: snowflake.snowpark.Session,
         file_stage_path: str,
         target_folder: str,
     ):
@@ -941,11 +939,11 @@ class SnowflakeConnector(Connector):
 
     def _job_cleanup(self):
         if self.stored_procedure_name:
-            self._delete_procedures(self.session, self.stored_procedure_name)
+            self._delete_procedures(self.stored_procedure_name)
         if self.udf_name:
-            self._drop_fn_if_exists(self.session, self.udf_name)
+            self._drop_fn_if_exists(self.udf_name)
         if self.delete_files:
-            self._delete_import_files(self.session, self.stage_name, self.delete_files)
+            self._delete_import_files(self.stage_name, self.delete_files)
 
     def pre_job_cleanup(self):
         self._job_cleanup()

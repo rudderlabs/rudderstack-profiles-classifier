@@ -206,7 +206,7 @@ def test_classification():
             predict_config,
             runtime_info,
         )
-        validate_predictions_df_classification()
+        validate_predictions_df_classification(creds)
 
     except Exception as e:
         raise e

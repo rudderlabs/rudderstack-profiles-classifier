@@ -72,17 +72,13 @@ class TestGenerateTypeHint(unittest.TestCase):
         )
         table = self.session.create_dataframe(df)
         column_types = {
-            "categorical": ["COL1", "COL4"],
-            "numeric": ["COL2", "COL3"],
-        }
-        input_column_types_map = {
-            "numeric": {"COL2": "IntegerType", "COL3": "FloatType"},
-            "categorical": {"COL1": "StringType", "COL4": "StringType"},
+            "COL1": "StringType",
+            "COL2": "IntegerType",
+            "COL3": "FloatType",
+            "COL4": "StringType",
         }
 
-        type_hints = self.connector.generate_type_hint(
-            table, column_types, input_column_types_map
-        )
+        type_hints = self.connector.generate_type_hint(table, column_types)
         self.assertEqual(
             type_hints, [T.StringType(), T.IntegerType(), T.FloatType(), T.StringType()]
         )
@@ -91,15 +87,9 @@ class TestGenerateTypeHint(unittest.TestCase):
     def test_handles_single_row_and_column(self):
         df = pd.DataFrame({"COL1": [1]})
         table = self.session.create_dataframe(df)
-        column_types = {
-            "categorical": {},
-            "numeric": ["COL1"],
-        }
-        input_column_types_map = {"numeric": {"COL1": "IntegerType"}}
+        column_types = {"COL1": "IntegerType"}
 
-        type_hints = self.connector.generate_type_hint(
-            table, column_types, input_column_types_map
-        )
+        type_hints = self.connector.generate_type_hint(table, column_types)
         self.assertEqual(type_hints, [T.IntegerType()])
 
 

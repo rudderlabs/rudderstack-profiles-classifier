@@ -492,41 +492,6 @@ class TestSelectRelevantColumns(unittest.TestCase):
         )
 
 
-class TestGenerateTypeHint(unittest.TestCase):
-    def setUp(self) -> None:
-        self.connector = RedshiftConnector("data")
-        self.column_types = {
-            "categorical": ["col2"],
-            "numeric": ["col1"],
-        }
-        self.input_column_types_map = {"col1": int, "col2": str}
-        return super().setUp()
-
-    # Returns a list of type hints for given pandas DataFrame's fields
-    def test_returns_type_hints(self):
-        df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
-        type_hints = self.connector.generate_type_hint(
-            df, self.column_types, self.input_column_types_map
-        )
-        self.assertEqual(type_hints, [float, str])
-
-    # Handles empty DataFrame
-    def test_handles_empty_dataframe(self):
-        df = pd.DataFrame()
-        type_hints = self.connector.generate_type_hint(
-            df, self.column_types, self.input_column_types_map
-        )
-        self.assertEqual(type_hints, [])
-
-    # Handles DataFrame with single row and column
-    def test_handles_single_row_and_column(self):
-        df = pd.DataFrame({"col1": [1]})
-        type_hints = self.connector.generate_type_hint(
-            df, self.column_types, self.input_column_types_map
-        )
-        self.assertEqual(type_hints, [float])
-
-
 class TestValidations(unittest.TestCase):
     def setUp(self) -> None:
         self.connector = RedshiftConnector("data")

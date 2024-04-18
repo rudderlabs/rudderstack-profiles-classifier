@@ -227,7 +227,7 @@ class CommonWarehouseConnector(Connector):
         return {
             field.name: field.field_type
             for field in schema_fields
-            if field.field_type in required_data_types
+            if field.field_type in required_data_types.keys()
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
         }
 
@@ -736,21 +736,8 @@ class CommonWarehouseConnector(Connector):
         self,
         df: pd.DataFrame,
         column_types: Dict[str, List[str]],
-        input_column_types_map,
     ):
-        types = []
-        cat_columns = [col.lower() for col in column_types["categorical"]]
-        numeric_columns = [col.lower() for col in column_types["numeric"]]
-        for col in df.columns:
-            if col.lower() in cat_columns:
-                types.append(str)
-            elif col.lower() in numeric_columns:
-                types.append(float)
-            else:
-                raise Exception(
-                    f"Column {col} not found in the training data config either as categorical or numeric column"
-                )
-        return types
+        return None
 
     def call_prediction_udf(
         self,

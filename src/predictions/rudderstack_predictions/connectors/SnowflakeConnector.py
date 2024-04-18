@@ -49,6 +49,10 @@ class SnowflakeConnector(Connector):
                 "ArrayType": T.ArrayType(),
             },
         }
+        self.dtype_utils_mapping = {
+            "numeric": "DecimalType",
+            "categorical": "StringType",
+        }
         self.run_id = hashlib.md5(
             f"{str(datetime.now())}_{uuid.uuid4()}".encode()
         ).hexdigest()
@@ -831,35 +835,17 @@ class SnowflakeConnector(Connector):
         self,
         df: snowflake.snowpark.Table,
         column_types: Dict[str, List[str]],
-        input_column_types_map,
     ):
         types = []
 
         for col in df.columns:
-            column_dtype = self.get_column_dtype(
-                col, column_types, input_column_types_map
-            )
-            types.append(column_dtype)
+            dtype_str = column_types[col]
+            for category, mapping in self.data_type_mapping.items():
+                if dtype_str in mapping:
+                    types.append(mapping[dtype_str])
+                    break
 
         return types
-
-    def get_column_dtype(self, col, column_types, input_column_types_map):
-        if col in column_types["categorical"]:
-            return self.get_column_dtype_helper(
-                col, input_column_types_map, "categorical"
-            )
-        elif col in column_types["numeric"]:
-            return self.get_column_dtype_helper(col, input_column_types_map, "numeric")
-        else:
-            raise Exception(
-                f"Column {col} not found in the training data config either as categorical or numeric column"
-            )
-
-    def get_column_dtype_helper(self, col, input_column_types_map, type):
-        if col in input_column_types_map[type]:
-            return self.data_type_mapping[type][input_column_types_map[type][col]]
-        else:
-            return T.StringType() if type == "categorical" else T.DecimalType()
 
     def call_prediction_udf(
         self,

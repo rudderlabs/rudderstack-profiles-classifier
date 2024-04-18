@@ -56,10 +56,6 @@ def preprocess_and_predict(
     model_hash = results["config"]["material_hash"]
     input_model_name = results["config"]["input_model_name"]
 
-    numeric_columns = results["column_names"]["feature_table_column_types"]["numeric"]
-    categorical_columns = results["column_names"]["feature_table_column_types"][
-        "categorical"
-    ]
     arraytype_columns = results["column_names"]["input_column_types"]["arraytype"]
     timestamp_columns = results["column_names"]["input_column_types"]["timestamp"]
     ignore_features = results["column_names"]["ignore_features"]
@@ -87,15 +83,6 @@ def preprocess_and_predict(
         seq_no,
     )
 
-    predict_input_column_types = connector.get_input_column_types(
-        session,
-        trainer,
-        entity_var_table_name,
-        trainer.label_column,
-        trainer.entity_column,
-        trainer.prep.ignore_features,
-    )
-
     logger.debug(f"Pulling data from Entity-Var table - {entity_var_table_name}")
     raw_data = connector.get_table(
         session, entity_var_table_name, filter_condition=trainer.eligible_users
@@ -113,18 +100,14 @@ def preprocess_and_predict(
     required_features_upper_case = set(
         [
             col.upper()
-            for cols in results["column_names"]["feature_table_column_types"].values()
-            for col in cols
-            if col not in ignore_features
+            for col in results["column_names"]["feature_table_column_types"].keys()
         ]
     )
     input_df = connector.select_relevant_columns(
         predict_data, required_features_upper_case
     )
     types = connector.generate_type_hint(
-        input_df,
-        results["column_names"]["feature_table_column_types"],
-        predict_input_column_types,
+        input_df, results["column_names"]["feature_table_column_types"]
     )
 
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
@@ -148,11 +131,6 @@ def preprocess_and_predict(
     def predict_helper(df, model_name: str) -> Any:
         trained_model = load_model(model_name)
         df.columns = [x.upper() for x in df.columns]
-        for col in numeric_columns:
-            df[col] = df[col].astype("float64")
-        """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
-        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
         return trainer.predict(trained_model, df)
 
     features = input_df.columns

@@ -196,6 +196,7 @@ def preprocess_and_train(
         trainer.label_column,
         trainer.entity_column,
         transformed_arraytype_cols,
+        connector.dtype_utils_mapping,
     )
     logger.debug(f"Feature_table column types detected: {feature_table_column_types}")
 

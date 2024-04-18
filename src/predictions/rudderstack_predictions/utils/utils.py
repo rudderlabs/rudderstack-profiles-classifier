@@ -147,37 +147,27 @@ def get_feature_table_column_types(
     label_column: str,
     entity_column: str,
     transformed_arraytype_cols: List[str],
+    dtype_mapping: dict,
 ):
-    feature_table_column_types = {"numeric": [], "categorical": []}
-    uppercase_columns = lambda columns: [col.upper() for col in columns]
+    feature_table_column_types = {}
 
     for col in transformed_arraytype_cols:
-        input_column_types["numeric"][col] = None
+        input_column_types["numeric"][col] = dtype_mapping["numeric"]
 
-    upper_numeric_input_cols = uppercase_columns(
-        list(input_column_types["numeric"].keys())
-    )
-    upper_timestamp_input_cols = uppercase_columns(
-        list(input_column_types["timestamp"].keys())
-    )
-    upper_feature_table_numeric_cols = merge_lists_to_unique(
-        upper_numeric_input_cols, upper_timestamp_input_cols
-    )
+    for col in input_column_types["timestamp"]:
+        input_column_types["numeric"][col] = dtype_mapping["numeric"]
 
     for col in feature_table.columns:
         if col.upper() in (label_column.upper(), entity_column.upper()):
             continue
-        elif col.upper() in upper_feature_table_numeric_cols:
-            feature_table_column_types["numeric"].append(col.upper())
-        elif col.upper() in uppercase_columns(
-            list(input_column_types["categorical"].keys())
-        ):
-            feature_table_column_types["categorical"].append(col.upper())
+        elif col in input_column_types["numeric"]:
+            feature_table_column_types[col] = input_column_types["numeric"][col]
+        elif col in input_column_types["categorical"]:
+            feature_table_column_types[col] = input_column_types["categorical"][col]
         else:
             raise Exception(
                 f"Column {col.upper()} in feature table is not numeric or categorical"
             )
-
     return feature_table_column_types
 
 
@@ -596,7 +586,6 @@ def plot_top_k_feature_importance(
             sample_data[col] = sample_data[col].astype(float)
 
         model_class = model.__class__.__name__
-
         explainer_class = constants.EXPLAINER_MAP[model_class]
         explainer = explainer_class(model, sample_data)
 

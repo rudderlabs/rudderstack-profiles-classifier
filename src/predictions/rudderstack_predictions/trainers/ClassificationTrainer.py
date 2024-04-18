@@ -92,8 +92,10 @@ class ClassificationTrainer(MLTrainer):
                 "greater_is_better": True,
             }
         ]
-
         metric_to_optimize = "F1"
+        models_to_include = merged_config["model_params"]["models"]["include"][
+            "classifiers"
+        ]
 
         return self._train_model(
             feature_df,
@@ -106,6 +108,7 @@ class ClassificationTrainer(MLTrainer):
             classification_save_model,
             classification_get_config,
             metric_to_optimize,
+            models_to_include,
         )
 
     def get_metrics(self, model, X_train, y_train, y_test, fold_param) -> dict:

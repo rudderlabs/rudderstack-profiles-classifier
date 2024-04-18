@@ -61,8 +61,10 @@ class RegressionTrainer(MLTrainer):
         model_file: str,
     ):
         custom_metrics = []
-
         metric_to_optimize = "R2"
+        models_to_include = merged_config["model_params"]["models"]["include"][
+            "regressors"
+        ]
 
         return self._train_model(
             feature_df,
@@ -75,6 +77,7 @@ class RegressionTrainer(MLTrainer):
             regression_save_model,
             regression_get_config,
             metric_to_optimize,
+            models_to_include,
         )
 
     def plot_diagnostics(

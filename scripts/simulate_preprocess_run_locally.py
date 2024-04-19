@@ -21,8 +21,8 @@ from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import 
 # print current working directory
 print(os.getcwd())
 # The next four vars should be modified based on the run.
-profiles_yaml_path = "../../base_features/models/profiles-ml.yaml"
-connection_name = "test"
+profiles_yaml_path = "samples/predictions_dev_project/models/profiles-ml.yaml"
+connection_name = os.getenv("SITE_CONN_NAME", None)
 # You can get these two vars from `ps -ef | grep preprocess_and_train` command when the parent process (simulate_pb_run or pb run) is running and the code enters training part.
 # Or they can be hardcoded based on the run.
 material_names = '[["Material_user_var_table_7f41ca02_55", "2024-04-04", "Material_user_var_table_7f41ca02_63", "2024-04-11"], ["Material_user_var_table_7f41ca02_62", "2024-04-05", "Material_user_var_table_7f41ca02_60", "2024-04-12"], ["Material_user_var_table_7f41ca02_62", "2024-04-05", "Material_user_var_table_7f41ca02_61", "2024-04-12"]]'

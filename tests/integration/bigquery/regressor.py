@@ -116,9 +116,6 @@ def validate_reports_regression():
 
 
 def test_regressor():
-    connector = ConnectorFactory.create("bigquery", folder_path_output_file)
-    session = connector.build_session(creds)
-
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_path = os.path.join(current_dir, "sample_project")
     siteconfig_path = os.path.join(project_path, "siteconfig.yaml")

@@ -4,11 +4,6 @@ from train import *
 import shutil
 from predict import *
 import time
-from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
-from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
-    ConnectorFactory,
-)
-
 import json
 
 
@@ -133,9 +128,6 @@ def validate_reports():
 
 
 def test_classification():
-    connector = ConnectorFactory.create("bigquery", folder_path_output_file)
-    session = connector.build_session(creds)
-
     st = time.time()
 
     create_site_config_file(creds, siteconfig_path)

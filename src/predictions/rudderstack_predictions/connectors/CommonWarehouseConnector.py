@@ -555,7 +555,7 @@ class CommonWarehouseConnector(Connector):
         for m in materials:
             query_str = f"""SELECT COUNT(*) FROM (SELECT {entity_key}
                 FROM {m.feature_table_name}{where_condition}) a
-                INNER JOIN (select * from {m.label_table_name}{where_condition}) b ON a.{entity_key} = b.{entity_key}
+                INNER JOIN (SELECT * FROM {m.label_table_name}{where_condition}) b ON a.{entity_key} = b.{entity_key}
                 WHERE b.{label_column} != {label_value}"""
 
             result = self.run_query(session, query_str, response=True)

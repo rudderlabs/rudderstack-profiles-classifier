@@ -651,7 +651,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
             cursor,
             """SELECT COUNT(*) FROM (SELECT user
                 FROM feature_table_name) a
-                INNER JOIN label_table_name b ON a.user = b.user
+                INNER JOIN (SELECT * FROM label_table_name) b ON a.user = b.user
                 WHERE b.label != 1""",
             response=True,
         )

@@ -17,6 +17,9 @@ from src.predictions.rudderstack_predictions.trainers.TrainerFactory import (
 from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
     ConnectorFactory,
 )
+from dotenv import load_dotenv  # pip3 install python-dotenv
+
+load_dotenv()
 
 # print current working directory
 print(os.getcwd())

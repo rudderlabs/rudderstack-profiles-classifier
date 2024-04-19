@@ -31,3 +31,5 @@ scripts/local_simulator.py
 **/build/*
 *siteconfig*
 .venv/
+*.parquet
+*.pkl

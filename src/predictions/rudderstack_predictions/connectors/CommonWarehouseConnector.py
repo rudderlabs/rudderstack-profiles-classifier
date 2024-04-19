@@ -521,21 +521,17 @@ class CommonWarehouseConnector(Connector):
     def filter_feature_table(
         self,
         feature_table: pd.DataFrame,
-        entity_column: str,
         max_row_count: int,
         min_sample_for_training: int,
     ) -> pd.DataFrame:
-        feature_table["row_num"] = feature_table.groupby(entity_column).cumcount() + 1
-        feature_table = feature_table[feature_table["row_num"] == 1]
-        feature_table = feature_table.sort_values(
-            by=[entity_column], ascending=[True]
-        ).drop(columns=["row_num"])
-        feature_table_filtered = feature_table.head(max_row_count)
-        if len(feature_table_filtered) < min_sample_for_training:
+        if len(feature_table) < min_sample_for_training:
             raise Exception(
-                f"Insufficient data for training. Only {len(feature_table_filtered)} user records found. Required minimum {min_sample_for_training} user records."
+                f"Insufficient data for training. Only {len(feature_table)} user records found. Required minimum {min_sample_for_training} user records."
             )
-        return feature_table_filtered
+        elif len(feature_table) <= max_row_count:
+            return feature_table
+        else:
+            return feature_table.sample(n=max_row_count)
 
     def check_for_classification_data_requirement(
         self,
@@ -543,14 +539,20 @@ class CommonWarehouseConnector(Connector):
         materials: List[constants.TrainTablesInfo],
         label_column: str,
         label_value: str,
+        entity_key: str,
+        filter_condition: str = None,
     ) -> bool:
         total_negative_samples = 0
         total_samples = 0
-        for material in materials:
-            label_material = material.label_table_name
-            query_str = f"""SELECT COUNT(*) as count
-                FROM {label_material}
-                WHERE {label_column} != {label_value}"""
+        where_condition = ""
+        if filter_condition is not None:
+            where_condition = f" WHERE {filter_condition}"
+
+        for m in materials:
+            query_str = f"""SELECT COUNT(*) FROM (SELECT {entity_key}
+                FROM {m.feature_table_name}{where_condition}) a
+                INNER JOIN (SELECT * FROM {m.label_table_name}{where_condition}) b ON a.{entity_key} = b.{entity_key}
+                WHERE b.{label_column} != {label_value}"""
 
             result = self.run_query(session, query_str, response=True)
 
@@ -558,7 +560,7 @@ class CommonWarehouseConnector(Connector):
                 total_negative_samples += result[0][0]
 
             query_str = f"""SELECT COUNT(*) as count
-                FROM {label_material}"""
+                FROM {m.label_table_name}{where_condition}"""
             result = self.run_query(session, query_str, response=True)
 
             if len(result) != 0:
@@ -586,12 +588,17 @@ class CommonWarehouseConnector(Connector):
         self,
         session,
         materials: List[constants.TrainTablesInfo],
+        filter_condition: str = None,
     ) -> bool:
         total_samples = 0
+        where_condition = ""
+        if filter_condition is not None:
+            where_condition = f" WHERE {filter_condition}"
+
         for material in materials:
             feature_material = material.feature_table_name
             query_str = f"""SELECT COUNT(*) as count
-                FROM {feature_material}"""
+                FROM {feature_material}{where_condition}"""
             result = self.run_query(session, query_str, response=True)
 
             if len(result) != 0:

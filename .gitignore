@@ -30,6 +30,10 @@ scripts/local_simulator.py
 *.egg-info
 **/build/*
 *siteconfig*
+.venv/
+*.parquet
+*.pkl
+
 .venv/*
 samples/base_git_flow/*
 scripts/test_classifier_local.py

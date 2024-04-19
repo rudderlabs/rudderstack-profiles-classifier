@@ -28,6 +28,7 @@ eligible_users = "days_since_last_seen IS NOT NULL"
 package_name = "feature_table"
 label_column = "days_since_last_seen"
 inputs = [f"packages/{package_name}/models/{feature_table_name}"]
+train_input_model_name = "shopify_user_features"
 output_model_name = "ltv_regression_integration_test"
 pred_horizon_days = 7
 pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
@@ -188,11 +189,15 @@ def test_regressor():
         session, material_registry_table_name, latest_model_hash, entity_var_model_name
     )
 
+    input_model_hash = connector.get_model_hash_from_registry(
+        session, material_registry_table_name, train_input_model_name, latest_seq_no
+    )
+
     # Closing the session immediately after use to avoid multiple open sessions conflict
     session.close()
 
     train_inputs = [
-        f"""SELECT * FROM {creds['schema']}.material_{entity_var_model_name}_{latest_model_hash}_{latest_seq_no}""",
+        f"""SELECT * FROM {creds['schema']}.material_{train_input_model_name}_{input_model_hash}_{latest_seq_no}""",
     ]
     runtime_info = {"site_config_path": siteconfig_path}
 

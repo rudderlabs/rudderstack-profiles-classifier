@@ -587,6 +587,28 @@ class SnowflakeConnector(Connector):
             )
         return int(seq_no)
 
+    def get_model_hash_from_registry(
+        self, session, material_table, model_name: str, seq_no: int
+    ) -> str:
+        material_registry_df = self.get_material_registry_table(session, material_table)
+
+        try:
+            feature_table_info = (
+                material_registry_df.filter(col("model_name") == model_name)
+                .filter(col("seq_no") == seq_no)
+                .select("model_hash")
+                .collect()[0]
+            )
+
+            model_hash = feature_table_info.MODEL_HASH
+        except:
+            raise Exception(
+                f"Error occurred while fetching model hash from registry table. \
+                    Project is never materialzied with model name {model_name} and seq no {seq_no}."
+            )
+
+        return model_hash
+
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:

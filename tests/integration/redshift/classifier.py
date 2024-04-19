@@ -28,6 +28,7 @@ feature_table_name = "shopify_user_features"
 eligible_users = "1=1"
 package_name = "feature_table"
 label_column = "is_churned_7_days"
+train_input_model_name = "shopify_user_features"
 inputs = [f"packages/{package_name}/models/{feature_table_name}"]
 output_model_name = "ltv_classification_integration_test"
 pred_horizon_days = 7
@@ -199,11 +200,15 @@ def test_classification():
         session, material_registry_table_name, latest_model_hash, entity_var_model_name
     )
 
+    input_model_hash = connector.get_model_hash_from_registry(
+        session, material_registry_table_name, train_input_model_name, latest_seq_no
+    )
+
     # Closing the session immediately after use to avoid multiple open sessions conflict
     session.close()
 
     train_inputs = [
-        f"""SELECT * FROM {creds['schema']}.material_{entity_var_model_name}_{latest_model_hash}_{latest_seq_no}""",
+        f"""SELECT * FROM {creds['schema']}.material_{train_input_model_name}_{input_model_hash}_{latest_seq_no}""",
     ]
     runtime_info = {"site_config_path": siteconfig_path}
 

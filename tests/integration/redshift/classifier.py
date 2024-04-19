@@ -19,8 +19,6 @@ folder_path_output_file = os.path.dirname(output_filename)
 
 os.makedirs(output_folder, exist_ok=True)
 
-train_input_model_name = "shopify_user_features"
-
 data = {
     "prediction_horizon_days": pred_horizon_days,
     "features_profiles_model": feature_table_name,
@@ -165,7 +163,7 @@ def test_classification():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    entity_var_model_name, latest_model_hash, latest_seq_no = get_latest_entity_var(
+    input_model_hash, latest_seq_no = get_latest_entity_var(
         creds, siteconfig_path, project_path
     )
 

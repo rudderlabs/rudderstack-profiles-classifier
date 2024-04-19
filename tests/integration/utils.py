@@ -21,6 +21,7 @@ pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
 output_label = "OUTPUT_LABEL"
 p_output_tablename = "test_run_can_delete_2"
 entity_key = "user"
+train_input_model_name = "shopify_user_features"
 material_registry_table_name = "MATERIAL_REGISTRY_4"
 
 
@@ -48,8 +49,11 @@ def get_latest_entity_var(creds: dict, siteconfig_path: str, project_path: str):
         latest_model_hash,
         entity_var_model_name,
     )
+    input_model_hash = connector.get_model_hash_from_registry(
+        material_registry_table_name, train_input_model_name, latest_seq_no
+    )
     connector.post_job_cleanup()
-    return entity_var_model_name, latest_model_hash, latest_seq_no
+    return input_model_hash, latest_seq_no
 
 
 def validate_predictions_df_regressor(creds: dict):

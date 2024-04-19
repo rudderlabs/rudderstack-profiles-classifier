@@ -6,6 +6,9 @@ from ..utils import utils
 
 
 class Connector(ABC):
+    def __init__(self, creds: dict) -> None:
+        self.session = self.build_session(creds)
+
     def remap_credentials(self, credentials: dict) -> dict:
         """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses"""
         new_creds = {
@@ -17,7 +20,6 @@ class Connector(ABC):
 
     def get_input_column_types(
         self,
-        session,
         trainer_obj,
         table_name: str,
         label_column: str,
@@ -26,7 +28,7 @@ class Connector(ABC):
     ) -> Dict:
         """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp) for a given table."""
         lowercase_list = lambda features: [feature.lower() for feature in features]
-        schema_fields = self.fetch_table_metadata(session, table_name)
+        schema_fields = self.fetch_table_metadata(table_name)
 
         numeric_columns = utils.merge_lists_to_unique(
             self.get_numeric_features(schema_fields, label_column, entity_column),
@@ -85,7 +87,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def run_query(self, session, query: str, response: bool) -> Optional[Sequence]:
+    def run_query(self, query: str, response: bool) -> Optional[Sequence]:
         pass
 
     @abstractmethod
@@ -103,12 +105,16 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_table(self, session, table_name: str, **kwargs):
+    def get_table(self, table_name: str, **kwargs):
         pass
 
     @abstractmethod
     def get_table_as_dataframe(
-        self, session, table_name: str, **kwargs
+        self,
+        # session is being passed as argument since "self.session" is not available in Snowpark stored procedure
+        session,
+        table_name: str,
+        **kwargs
     ) -> pd.DataFrame:
         pass
 
@@ -121,12 +127,12 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def is_valid_table(self, session, table_name) -> bool:
+    def is_valid_table(self, table_name) -> bool:
         pass
 
     @abstractmethod
     def check_table_entry_in_material_registry(
-        self, session, registry_table_name: str, material: dict
+        self, registry_table_name: str, material: dict
     ) -> bool:
         pass
 
@@ -143,7 +149,6 @@ class Connector(ABC):
     @abstractmethod
     def label_table(
         self,
-        session,
         label_table_name: str,
         label_column: str,
         entity_column: str,
@@ -153,12 +158,17 @@ class Connector(ABC):
 
     @abstractmethod
     def save_file(
-        self, session, file_name: str, stage_name: str, overwrite: bool
+        self,
+        # session is being passed as argument since "self.session" is not available in Snowpark stored procedure
+        session,
+        file_name: str,
+        stage_name: str,
+        overwrite: bool,
     ) -> Any:
         pass
 
     @abstractmethod
-    def fetch_table_metadata(self, session, table_name: str) -> List:
+    def fetch_table_metadata(self, table_name: str) -> List:
         pass
 
     @abstractmethod
@@ -210,18 +220,17 @@ class Connector(ABC):
 
     @abstractmethod
     def get_default_label_value(
-        self, session, table_name: str, label_column: str, positive_boolean_flags: list
+        self, table_name: str, label_column: str, positive_boolean_flags: list
     ):
         pass
 
     @abstractmethod
-    def get_tables_by_prefix(self, session, prefix: str) -> str:
+    def get_tables_by_prefix(self, prefix: str) -> str:
         pass
 
     @abstractmethod
     def get_creation_ts(
         self,
-        session,
         material_table: str,
         model_hash: str,
         entity_key: str,
@@ -230,20 +239,19 @@ class Connector(ABC):
 
     @abstractmethod
     def get_latest_seq_no_from_registry(
-        self, session, material_table: str, model_hash: str, model_name: str
+        self, material_table: str, model_hash: str, model_name: str
     ) -> int:
         pass
 
     @abstractmethod
     def get_model_hash_from_registry(
-        self, session, material_table: str, model_name: str, seq_no: int
+        self, material_table: str, model_name: str, seq_no: int
     ) -> str:
         pass
 
     @abstractmethod
     def get_end_ts(
         self,
-        session,
         material_table: str,
         model_name: str,
         model_hash: str,
@@ -259,7 +267,7 @@ class Connector(ABC):
 
     @abstractmethod
     def fetch_staged_file(
-        self, session, stage_name: str, file_name: str, target_folder: str
+        self, stage_name: str, file_name: str, target_folder: str
     ) -> None:
         pass
 
@@ -279,7 +287,6 @@ class Connector(ABC):
     @abstractmethod
     def check_for_classification_data_requirement(
         self,
-        session,
         materials,
         label_column,
         label_value,
@@ -290,7 +297,7 @@ class Connector(ABC):
 
     @abstractmethod
     def check_for_regression_data_requirement(
-        self, session, materials, filter_condition
+        self, materials, filter_condition
     ) -> bool:
         pass
 
@@ -322,7 +329,7 @@ class Connector(ABC):
 
     @abstractmethod
     def get_material_registry_table(
-        self, session: Any, material_registry_table_name: str
+        self, material_registry_table_name: str
     ) -> pd.DataFrame:
         pass
 
@@ -355,17 +362,16 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def pre_job_cleanup(self, session) -> None:
+    def pre_job_cleanup(self) -> None:
         pass
 
     @abstractmethod
-    def post_job_cleanup(self, session) -> None:
+    def post_job_cleanup(self) -> None:
         pass
 
     @abstractmethod
     def join_feature_label_tables(
         self,
-        session,
         registry_table_name: str,
         entity_var_model_name: str,
         model_hash: str,

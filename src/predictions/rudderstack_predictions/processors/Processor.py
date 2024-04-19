@@ -1,13 +1,9 @@
 from abc import ABC, abstractmethod
-from typing import List, Union
+from typing import List
 
 from ..utils.constants import *
 from ..trainers.MLTrainer import MLTrainer
 from ..connectors.Connector import Connector
-
-import snowflake.snowpark
-import redshift_connector
-import redshift_connector.cursor
 
 
 class Processor(ABC):
@@ -15,12 +11,10 @@ class Processor(ABC):
         self,
         trainer: MLTrainer,
         connector: Connector,
-        session: Union[snowflake.snowpark.Session, redshift_connector.cursor.Cursor],
         ml_core_path: str,
     ):
         self.trainer = trainer
         self.connector = connector
-        self.session = session
         self.ml_core_path = ml_core_path
 
     @abstractmethod

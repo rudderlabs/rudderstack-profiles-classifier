@@ -23,7 +23,6 @@ class SnowflakeProcessor(Processor):
             model_config,
             input_column_types,
             metrics_table,
-            session=self.session,
             connector=self.connector,
             trainer=self.trainer,
         )
@@ -44,7 +43,6 @@ class SnowflakeProcessor(Processor):
             model_path,
             inputs,
             output_tablename,
-            session=self.session,
             connector=self.connector,
             trainer=self.trainer,
         )

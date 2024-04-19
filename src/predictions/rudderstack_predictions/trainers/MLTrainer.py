@@ -205,13 +205,14 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
-    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
+    def prepare_label_table(self, connector: Connector, label_table_name: str):
         pass
 
     @abstractmethod
     def plot_diagnostics(
         self,
         connector: Connector,
+        # session is being passed as argument since "self.session" is not available in Snowpark stored procedure
         session,
         model,
         stage_name: str,
@@ -319,9 +320,7 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
-    def check_min_data_requirement(
-        self, connector: Connector, session, materials
-    ) -> bool:
+    def check_min_data_requirement(self, connector: Connector, materials) -> bool:
         pass
 
     @abstractmethod
@@ -335,11 +334,8 @@ class MLTrainer(ABC):
         input_models: str,
         whtService: PythonWHT,
         connector: Connector,
-        session,
     ):
-        met_data_requirement = self.check_min_data_requirement(
-            connector, session, materials
-        )
+        met_data_requirement = self.check_min_data_requirement(connector, materials)
 
         logger.debug(f"Min data requirement satisfied: {met_data_requirement}")
         logger.debug(
@@ -418,11 +414,11 @@ class MLTrainer(ABC):
             logger.debug(f"new label tables: {[m.label_table_name for m in materials]}")
             if (
                 self.materialisation_strategy == "auto"
-                and self.check_min_data_requirement(connector, session, materials)
+                and self.check_min_data_requirement(connector, materials)
             ):
                 logger.info("Minimum data requirement satisfied.")
                 break
-        if not self.check_min_data_requirement(connector, session, materials):
+        if not self.check_min_data_requirement(connector, materials):
             logger.warning(
                 "Minimum data requirement not satisfied. Model performance may suffer. Try adding more datapoints by including more dates or increasing max_no_of_dates in the config."
             )
@@ -442,13 +438,10 @@ class ClassificationTrainer(MLTrainer):
         for model in [XGBClassifier, RandomForestClassifier]
     }
 
-    def __init__(
-        self, connector: Connector, session, entity_var_model_name: str, **kwargs
-    ):
+    def __init__(self, connector: Connector, entity_var_model_name: str, **kwargs):
         super().__init__(**kwargs)
         if self.label_value is None:
             self.label_value = connector.get_default_label_value(
-                session,
                 entity_var_model_name,
                 self.label_column,
                 constants.POSITIVE_BOOLEAN_FLAGS,
@@ -525,9 +518,8 @@ class ClassificationTrainer(MLTrainer):
 
         return final_clf
 
-    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
+    def prepare_label_table(self, connector: Connector, label_table_name: str):
         label_table = connector.label_table(
-            session,
             label_table_name,
             self.label_column,
             self.entity_column,
@@ -610,12 +602,9 @@ class ClassificationTrainer(MLTrainer):
             feature_table, self.label_column
         ) and connector.validate_class_proportions(feature_table, self.label_column)
 
-    def check_min_data_requirement(
-        self, connector: Connector, session, materials
-    ) -> bool:
+    def check_min_data_requirement(self, connector: Connector, materials) -> bool:
         label_column = self.label_column
         return connector.check_for_classification_data_requirement(
-            session,
             materials,
             label_column,
             self.label_value,
@@ -714,9 +703,8 @@ class RegressionTrainer(MLTrainer):
 
         return final_reg
 
-    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
+    def prepare_label_table(self, connector: Connector, label_table_name: str):
         return connector.label_table(
-            session,
             label_table_name,
             self.label_column,
             self.entity_column,
@@ -782,11 +770,9 @@ class RegressionTrainer(MLTrainer):
             feature_table, self.label_column
         ) and connector.validate_label_distinct_values(feature_table, self.label_column)
 
-    def check_min_data_requirement(
-        self, connector: Connector, session, materials
-    ) -> bool:
+    def check_min_data_requirement(self, connector: Connector, materials) -> bool:
         return connector.check_for_regression_data_requirement(
-            session, materials, self.eligible_users
+            materials, self.eligible_users
         )
 
     def predict(self, trained_model, df) -> Any:

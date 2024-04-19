@@ -58,18 +58,15 @@ def _predict(
     logger.debug(
         f"Started Predicting for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
     )
-
-    warehouse = creds["type"]
-    connector = ConnectorFactory.create(warehouse, folder_path)
-    session = connector.build_session(creds)
+    connector = ConnectorFactory.create(creds, folder_path)
 
     connector.compute_udf_name(model_path)
-    connector.pre_job_cleanup(session)
+    connector.pre_job_cleanup()
 
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
-    processor = ProcessorFactory.create(mode, trainer, connector, session, ml_core_path)
+    processor = ProcessorFactory.create(mode, trainer, connector, ml_core_path)
     logger.debug(f"Using {mode} processor for predictions")
 
     site_config = utils.load_yaml(site_config_path)

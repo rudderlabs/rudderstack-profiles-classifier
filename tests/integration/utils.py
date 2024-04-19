@@ -34,7 +34,9 @@ def create_site_config_file(creds, siteconfig_path):
         file.write(yaml_data)
 
 
-def get_latest_entity_var(creds: dict, siteconfig_path: str, project_path: str, train_input_model_name: str):
+def get_latest_entity_var(
+    creds: dict, siteconfig_path: str, project_path: str, train_input_model_name: str
+):
     connector = ConnectorFactory.create(creds, current_dir)
 
     latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(

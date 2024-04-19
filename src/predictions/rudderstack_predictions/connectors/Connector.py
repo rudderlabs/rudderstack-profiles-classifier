@@ -235,6 +235,12 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def get_model_hash_from_registry(
+        self, session, material_table: str, model_name: str, seq_no: int
+    ) -> str:
+        pass
+
+    @abstractmethod
     def get_end_ts(
         self,
         session,
@@ -272,12 +278,20 @@ class Connector(ABC):
 
     @abstractmethod
     def check_for_classification_data_requirement(
-        self, session, meterials, label_column, label_value
+        self,
+        session,
+        materials,
+        label_column,
+        label_value,
+        entity_column,
+        filter_condition,
     ) -> bool:
         pass
 
     @abstractmethod
-    def check_for_regression_data_requirement(self, session, meterials) -> bool:
+    def check_for_regression_data_requirement(
+        self, session, materials, filter_condition
+    ) -> bool:
         pass
 
     @abstractmethod

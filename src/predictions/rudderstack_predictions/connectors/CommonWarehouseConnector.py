@@ -448,6 +448,26 @@ class CommonWarehouseConnector(Connector):
             )
         return int(seq_no)
 
+    def get_model_hash_from_registry(
+        self, session, material_table: str, model_name: str, seq_no: int
+    ) -> str:
+        material_registry_df = self.get_material_registry_table(session, material_table)
+        try:
+            temp_hash_vector = (
+                material_registry_df.query(f'model_name == "{model_name}"')
+                .query(f"seq_no == {seq_no}")
+                .sort_values(by="creation_ts", ascending=False)
+                .reset_index(drop=True)[["model_hash"]]
+                .iloc[0]
+            )
+            model_hash = temp_hash_vector["model_hash"]
+        except:
+            raise Exception(
+                f"Error occurred while fetching model hash from registry table. \
+                    No material found with name {model_name} and seq no {seq_no}"
+            )
+        return model_hash
+
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
@@ -519,14 +539,20 @@ class CommonWarehouseConnector(Connector):
         materials: List[constants.TrainTablesInfo],
         label_column: str,
         label_value: str,
+        entity_key: str,
+        filter_condition: str = None,
     ) -> bool:
         total_negative_samples = 0
         total_samples = 0
-        for material in materials:
-            label_material = material.label_table_name
-            query_str = f"""SELECT COUNT(*) as count
-                FROM {label_material}
-                WHERE {label_column} != {label_value}"""
+        where_condition = ""
+        if filter_condition is not None:
+            where_condition = f" WHERE {filter_condition}"
+
+        for m in materials:
+            query_str = f"""SELECT COUNT(*) FROM (SELECT {entity_key}
+                FROM {m.feature_table_name}{where_condition}) a
+                INNER JOIN (SELECT * FROM {m.label_table_name}{where_condition}) b ON a.{entity_key} = b.{entity_key}
+                WHERE b.{label_column} != {label_value}"""
 
             result = self.run_query(session, query_str, response=True)
 
@@ -534,7 +560,7 @@ class CommonWarehouseConnector(Connector):
                 total_negative_samples += result[0][0]
 
             query_str = f"""SELECT COUNT(*) as count
-                FROM {label_material}"""
+                FROM {m.label_table_name}{where_condition}"""
             result = self.run_query(session, query_str, response=True)
 
             if len(result) != 0:
@@ -562,12 +588,17 @@ class CommonWarehouseConnector(Connector):
         self,
         session,
         materials: List[constants.TrainTablesInfo],
+        filter_condition: str = None,
     ) -> bool:
         total_samples = 0
+        where_condition = ""
+        if filter_condition is not None:
+            where_condition = f" WHERE {filter_condition}"
+
         for material in materials:
             feature_material = material.feature_table_name
             query_str = f"""SELECT COUNT(*) as count
-                FROM {feature_material}"""
+                FROM {feature_material}{where_condition}"""
             result = self.run_query(session, query_str, response=True)
 
             if len(result) != 0:

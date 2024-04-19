@@ -560,6 +560,28 @@ class SnowflakeConnector(Connector):
             )
         return int(seq_no)
 
+    def get_model_hash_from_registry(
+        self, session, material_table, model_name: str, seq_no: int
+    ) -> str:
+        material_registry_df = self.get_material_registry_table(session, material_table)
+
+        try:
+            feature_table_info = (
+                material_registry_df.filter(col("model_name") == model_name)
+                .filter(col("seq_no") == seq_no)
+                .select("model_hash")
+                .collect()[0]
+            )
+
+            model_hash = feature_table_info.MODEL_HASH
+        except:
+            raise Exception(
+                f"Error occurred while fetching model hash from registry table. \
+                    Project is never materialzied with model name {model_name} and seq no {seq_no}."
+            )
+
+        return model_hash
+
     def get_end_ts(
         self, session, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
@@ -648,17 +670,28 @@ class SnowflakeConnector(Connector):
         materials: List[constants.TrainTablesInfo],
         label_column: str,
         label_value: str,
+        entity_column: str,
+        filter_condition: str = None,
     ) -> bool:
-        label_materials = [m.label_table_name for m in materials]
-        label_table = None
+        final_feature_table = None
 
-        for label_material in label_materials:
-            temp_table = self.get_table(session, label_material)
-            label_table = self.get_merged_table(label_table, temp_table)
+        for m in materials:
+            feature_table = self.get_table(
+                session, m.feature_table_name, filter_condition=filter_condition
+            )
 
-        total_samples = label_table.count()
+            label_table = self.get_table(
+                session, m.label_table_name, filter_condition=filter_condition
+            )
 
-        total_negative_samples = label_table.filter(
+            temp_table = self.join_feature_table_label_table(
+                feature_table, label_table, entity_column, "inner"
+            )
+            final_feature_table = self.get_merged_table(final_feature_table, temp_table)
+
+        total_samples = final_feature_table.count()
+
+        total_negative_samples = final_feature_table.filter(
             F.col(label_column) != label_value
         ).count()
 
@@ -684,14 +717,16 @@ class SnowflakeConnector(Connector):
         self,
         session: snowflake.snowpark.Session,
         materials: List[constants.TrainTablesInfo],
+        filter_condition: str = None,
     ) -> bool:
-        feature_table = None
-        for material in materials:
-            feature_material = material.feature_table_name
-            temp_table = self.get_table(session, feature_material)
-            feature_table = self.get_merged_table(feature_table, temp_table)
+        total_samples = 0
+        for m in materials:
+            feature_table = self.get_table(
+                session, m.feature_table_name, filter_condition=filter_condition
+            )
 
-        total_samples = feature_table.count()
+            total_samples += feature_table.count()
+
         min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
 
         if total_samples < min_no_of_samples:

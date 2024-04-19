@@ -643,15 +643,16 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         self.connector.run_query = Mock(side_effect=[([15],), ([100],)])
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column, 1
+            cursor, materials, label_column, 1, "user"
         )
 
         self.assertTrue(result)
         self.connector.run_query.assert_any_call(
             cursor,
-            """SELECT COUNT(*) as count
-                FROM label_table_name
-                WHERE label != 1""",
+            """SELECT COUNT(*) FROM (SELECT user
+                FROM feature_table_name) a
+                INNER JOIN (SELECT * FROM label_table_name) b ON a.user = b.user
+                WHERE b.label != 1""",
             response=True,
         )
 
@@ -678,7 +679,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         self.connector.run_query = Mock(side_effect=[([9],), ([80],)])
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column, 1
+            cursor, materials, label_column, 1, "user"
         )
 
         self.assertFalse(result)
@@ -706,7 +707,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             self.connector.check_for_classification_data_requirement(
-                cursor, materials, label_column, 1
+                cursor, materials, label_column, 1, "user"
             )
 
     @patch(
@@ -726,7 +727,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         self.connector.run_query = Mock()
         self.connector.run_query.assert_not_called()
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column, 1
+            cursor, materials, label_column, 1, "user"
         )
         self.assertFalse(result)  # No materials, so considered sufficient
 

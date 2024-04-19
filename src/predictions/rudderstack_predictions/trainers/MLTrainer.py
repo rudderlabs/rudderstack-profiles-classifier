@@ -615,7 +615,12 @@ class ClassificationTrainer(MLTrainer):
     ) -> bool:
         label_column = self.label_column
         return connector.check_for_classification_data_requirement(
-            session, materials, label_column, self.label_value
+            session,
+            materials,
+            label_column,
+            self.label_value,
+            self.entity_column,
+            self.eligible_users,
         )
 
     def predict(self, trained_model, df) -> Any:
@@ -780,7 +785,9 @@ class RegressionTrainer(MLTrainer):
     def check_min_data_requirement(
         self, connector: Connector, session, materials
     ) -> bool:
-        return connector.check_for_regression_data_requirement(session, materials)
+        return connector.check_for_regression_data_requirement(
+            session, materials, self.eligible_users
+        )
 
     def predict(self, trained_model, df) -> Any:
         return trained_model.predict(df)

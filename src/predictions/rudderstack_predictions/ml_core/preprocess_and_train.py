@@ -154,7 +154,7 @@ def preprocess_and_train(
     train_config = merged_config["train"]
 
     feature_table = None
-    logger.info("Preparing training dataset using the input material names:")
+    logger.info("Preparing training dataset using the past snapshot tables:")
     for train_table_pair in train_table_pairs:
         logger.info(
             f"\t\tFeature table: {train_table_pair.feature_table_name}\tLabel table: {train_table_pair.label_table_name}"
@@ -177,7 +177,9 @@ def preprocess_and_train(
         trainer.entity_column,
         cardinal_feature_threshold,
     )
-    logger.info(f"High cardinality features detected: {high_cardinal_features}")
+    logger.info(
+        f"Following features are detected as having high cardinality, and will be ignored for training: {high_cardinal_features}"
+    )
 
     transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
         feature_table, input_column_types["arraytype"]
@@ -188,7 +190,7 @@ def preprocess_and_train(
         trainer.prep.ignore_features,
         high_cardinal_features,
     )
-    logger.info(f"Ignore features detected: {ignore_features}")
+    logger.info(f"List of all features to be ignored: {ignore_features}")
     feature_table = connector.drop_cols(feature_table, ignore_features)
 
     logger.debug("Fetching feature table column types")

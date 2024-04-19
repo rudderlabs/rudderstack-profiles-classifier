@@ -770,9 +770,7 @@ class RegressionTrainer(MLTrainer):
             feature_table, self.label_column
         ) and connector.validate_label_distinct_values(feature_table, self.label_column)
 
-    def check_min_data_requirement(
-        self, connector: Connector, materials
-    ) -> bool:
+    def check_min_data_requirement(self, connector: Connector, materials) -> bool:
         return connector.check_for_regression_data_requirement(
             materials, self.eligible_users
         )

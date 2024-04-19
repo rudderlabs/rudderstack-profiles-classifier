@@ -136,22 +136,9 @@ def test_regressor():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
-        entity_key,
-        siteconfig_path,
-        project_path,
+    input_model_hash, latest_seq_no = get_latest_entity_var(
+        creds, siteconfig_path, project_path
     )
-
-    latest_seq_no = connector.get_latest_seq_no_from_registry(
-        session, material_registry_table_name, latest_model_hash, entity_var_model_name
-    )
-
-    input_model_hash = connector.get_model_hash_from_registry(
-        session, material_registry_table_name, train_input_model_name, latest_seq_no
-    )
-
-    # Closing the session immediately after use to avoid multiple open sessions conflict
-    session.close()
 
     train_inputs = [
         f"""SELECT * FROM {creds['project_id']}.{creds['schema']}.material_{train_input_model_name}_{input_model_hash}_{latest_seq_no}""",

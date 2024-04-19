@@ -552,9 +552,9 @@ class SnowflakeConnector(Connector):
         return int(seq_no)
 
     def get_model_hash_from_registry(
-        self, session, material_table, model_name: str, seq_no: int
+        self, material_table, model_name: str, seq_no: int
     ) -> str:
-        material_registry_df = self.get_material_registry_table(session, material_table)
+        material_registry_df = self.get_material_registry_table(material_table)
 
         try:
             feature_table_info = (

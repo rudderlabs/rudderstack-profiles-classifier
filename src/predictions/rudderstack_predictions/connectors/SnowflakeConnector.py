@@ -139,7 +139,9 @@ class SnowflakeConnector(Connector):
     def get_table_as_dataframe(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs
     ) -> pd.DataFrame:
-        # Duplicating some code to avoid passing session as argument
+        # Duplicating "self.get_table()" function code here.
+        # This is because "get_table()"" uses "self.session" which is not available in case of Snowpark
+        # and I prefer duplicating 3 lines of code over changing the signature of multiple functions
         try:
             session.sql(f"select * from {table_name} limit 1").collect()
         except:

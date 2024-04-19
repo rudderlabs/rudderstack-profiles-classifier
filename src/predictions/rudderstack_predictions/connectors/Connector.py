@@ -110,8 +110,8 @@ class Connector(ABC):
 
     @abstractmethod
     def get_table_as_dataframe(
-        # session needs to passed as argument since the method is called from Snowpark procedure
         self,
+        # session is being passed as argument since "self.session" is not available in Snowpark stored procedure
         session,
         table_name: str,
         **kwargs
@@ -158,8 +158,8 @@ class Connector(ABC):
 
     @abstractmethod
     def save_file(
-        # session needs to passed as argument since the method is called from Snowpark procedure
         self,
+        # session is being passed as argument since "self.session" is not available in Snowpark stored procedure
         session,
         file_name: str,
         stage_name: str,

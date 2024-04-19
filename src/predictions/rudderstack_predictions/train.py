@@ -132,8 +132,8 @@ def _train(
 
         # FIXME: Avoid creating session multiple times
 
-        # This is to avoid the pickling error in snowpark
-        # TypeError: cannot pickle '_thread.lock' object
+        # This is to avoid the pickling error in snowpark - TypeError: cannot pickle '_thread.lock' object
+        # The implication of this is that the "self.session" is not available in Snowpark stored procedures
         connector.session.close()
         connector.session = None
         # A new session must be created before creating the stored procedure

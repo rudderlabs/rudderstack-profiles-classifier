@@ -212,7 +212,8 @@ class MLTrainer(ABC):
     def plot_diagnostics(
         self,
         connector: Connector,
-        session,  # session is being passed as argument since this function is called from Snowpark procedure
+        # session is being passed as argument since "self.session" is not available in Snowpark stored procedure
+        session,
         model,
         stage_name: str,
         x: pd.DataFrame,

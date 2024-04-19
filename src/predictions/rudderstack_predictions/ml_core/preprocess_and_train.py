@@ -154,9 +154,10 @@ def preprocess_and_train(
     train_config = merged_config["train"]
 
     feature_table = None
+    logger.info("Preparing training dataset using the input material names:")
     for train_table_pair in train_table_pairs:
         logger.info(
-            f"Preparing training dataset using {train_table_pair.feature_table_name} and {train_table_pair.label_table_name} as feature and label tables respectively"
+            f"\t\tFeature table: {train_table_pair.feature_table_name}\tLabel table: {train_table_pair.label_table_name}"
         )
         feature_table_instance = prepare_feature_table(
             train_table_pair,
@@ -168,7 +169,6 @@ def preprocess_and_train(
         feature_table = connector.get_merged_table(
             feature_table, feature_table_instance
         )
-        break
 
     high_cardinal_features = connector.get_high_cardinal_features(
         feature_table,
@@ -177,9 +177,8 @@ def preprocess_and_train(
         trainer.entity_column,
         cardinal_feature_threshold,
     )
-    logger.debug(f"High cardinality features detected: {high_cardinal_features}")
+    logger.info(f"High cardinality features detected: {high_cardinal_features}")
 
-    logger.debug(f"Transforming arraytype features")
     transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
         feature_table, input_column_types["arraytype"]
     )
@@ -189,7 +188,7 @@ def preprocess_and_train(
         trainer.prep.ignore_features,
         high_cardinal_features,
     )
-    logger.debug(f"Ignore features detected: {ignore_features}")
+    logger.info(f"Ignore features detected: {ignore_features}")
     feature_table = connector.drop_cols(feature_table, ignore_features)
 
     logger.debug("Fetching feature table column types")
@@ -203,17 +202,17 @@ def preprocess_and_train(
     logger.debug(f"Feature_table column types detected: {feature_table_column_types}")
 
     task_type = trainer.get_name()
-    logger.info(f"Performing data validation for {task_type}")
+    logger.debug(f"Performing data validation for {task_type}")
 
     trainer.validate_data(connector, feature_table)
-    logger.info("Data validation is completed")
+    logger.debug("Data validation is completed")
 
     filtered_feature_table = connector.filter_feature_table(
         feature_table,
-        trainer.entity_column,
         trainer.max_row_count,
         min_sample_for_training,
     )
+
     connector.send_table_to_train_env(
         filtered_feature_table,
         write_mode="overwrite",

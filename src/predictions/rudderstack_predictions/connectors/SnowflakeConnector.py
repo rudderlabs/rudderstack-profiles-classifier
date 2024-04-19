@@ -629,29 +629,18 @@ class SnowflakeConnector(Connector):
     def filter_feature_table(
         self,
         feature_table: snowflake.snowpark.Table,
-        entity_column: str,
         max_row_count: int,
         min_sample_for_training: int,
     ) -> snowflake.snowpark.Table:
-        table = (
-            feature_table.withColumn(
-                "row_num",
-                F.row_number().over(
-                    Window.partition_by(F.col(entity_column)).order_by(
-                        F.col(entity_column).desc()
-                    )
-                ),
-            )
-            .filter(F.col("row_num") == 1)
-            .drop(["row_num"])
-            .sample(n=int(max_row_count))
-        )
-        if table.count() < min_sample_for_training:
+        if feature_table.count() < min_sample_for_training:
             raise Exception(
-                f"Insufficient data for training. Only {table.count()} user records found. \
+                f"Insufficient data for training. Only {feature_table.count()} user records found. \
                     Required minimum {min_sample_for_training} user records."
             )
-        return table
+        elif feature_table.count() <= max_row_count:
+            return feature_table
+        else:
+            return feature_table.sample(n=int(max_row_count))
 
     def check_for_classification_data_requirement(
         self,

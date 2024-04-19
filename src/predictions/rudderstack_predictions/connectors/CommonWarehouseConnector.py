@@ -501,21 +501,17 @@ class CommonWarehouseConnector(Connector):
     def filter_feature_table(
         self,
         feature_table: pd.DataFrame,
-        entity_column: str,
         max_row_count: int,
         min_sample_for_training: int,
     ) -> pd.DataFrame:
-        feature_table["row_num"] = feature_table.groupby(entity_column).cumcount() + 1
-        feature_table = feature_table[feature_table["row_num"] == 1]
-        feature_table = feature_table.sort_values(
-            by=[entity_column], ascending=[True]
-        ).drop(columns=["row_num"])
-        feature_table_filtered = feature_table.head(max_row_count)
-        if len(feature_table_filtered) < min_sample_for_training:
+        if len(feature_table) < min_sample_for_training:
             raise Exception(
-                f"Insufficient data for training. Only {len(feature_table_filtered)} user records found. Required minimum {min_sample_for_training} user records."
+                f"Insufficient data for training. Only {len(feature_table)} user records found. Required minimum {min_sample_for_training} user records."
             )
-        return feature_table_filtered
+        elif len(feature_table) <= max_row_count:
+            return feature_table
+        else:
+            return feature_table.sample(n=max_row_count)
 
     def check_for_classification_data_requirement(
         self,

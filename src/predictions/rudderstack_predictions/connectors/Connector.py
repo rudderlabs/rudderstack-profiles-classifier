@@ -265,7 +265,6 @@ class Connector(ABC):
     def filter_feature_table(
         self,
         feature_table,
-        entity_column: str,
         max_row_count: int,
         min_sample_for_training: int,
     ):

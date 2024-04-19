@@ -669,7 +669,9 @@ class SnowflakeConnector(Connector):
                 session, m.feature_table_name, filter_condition=filter_condition
             )
 
-            label_table = self.get_table(session, m.label_table_name)
+            label_table = self.get_table(
+                session, m.label_table_name, filter_condition=filter_condition
+            )
 
             temp_table = self.join_feature_table_label_table(
                 feature_table, label_table, entity_column, "inner"

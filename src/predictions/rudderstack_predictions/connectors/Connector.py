@@ -235,6 +235,12 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def get_model_hash_from_registry(
+        self, session, material_table: str, model_name: str, seq_no: int
+    ) -> str:
+        pass
+
+    @abstractmethod
     def get_end_ts(
         self,
         session,

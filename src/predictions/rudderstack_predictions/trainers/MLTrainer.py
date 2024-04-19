@@ -95,6 +95,13 @@ class MLTrainer(ABC):
                 "No past materialisation strategy given. The training will be done on the existing eligible past materialised data only."
             )
 
+    def map_metrics_keys(self, model_metrics: dict):
+        modified_metrics = {}
+        for old_key, new_key in self.metrics_key_mapping.items():
+            modified_metrics[new_key] = model_metrics.get(old_key, None)
+
+        return modified_metrics
+
     @abstractmethod
     def get_name(self):
         pass
@@ -163,6 +170,7 @@ class MLTrainer(ABC):
         pycaret_add_custom_metric: callable,
         custom_metrics: dict,
         pycaret_compare_models: callable,
+        pycaret_tune_model: callable,
         pycaret_save_model: callable,
         pycaret_get_config: callable,
         metric_to_optimize: str,
@@ -220,20 +228,20 @@ class MLTrainer(ABC):
                 greater_is_better=custom_metric["greater_is_better"],
             )
 
-        # Compare different models and select the best one
         best_model = pycaret_compare_models(
             sort=metric_to_optimize, include=models_to_include
         )
+        tuned_model = pycaret_tune_model(
+            best_model, optimize="F1", return_train_score=True
+        )
 
-        # Save the final model
-        pycaret_save_model(best_model, model_file)
-
-        # Get metrics
-        results = self.get_metrics(best_model, train_x, train_y, test_y, fold_param)
-
+        model_class_name = tuned_model.__class__.__name__
+        pycaret_save_model(tuned_model, model_file)
+        results = self.get_metrics(tuned_model, test_x, test_y, train_y, fold_param)
         train_x_transformed = pycaret_get_config("X_train_transformed")
 
         results["model_id"] = model_id
+        results["model_class_name"] = model_class_name
         metrics_df = pd.DataFrame(
             {
                 "model_id": [results["model_id"]],
@@ -246,7 +254,7 @@ class MLTrainer(ABC):
             train_x_transformed,
             test_x,
             test_y,
-            best_model,
+            tuned_model,
             model_id,
             metrics_df,
             results,

@@ -314,6 +314,7 @@ def _train(
             "input_model_name": entity_var_model_name,
         },
         "model_info": {
+            "model_name": train_results["model_class_name"],
             "file_location": {
                 "stage": stage_name,
                 "file_name": f"{trainer.output_profiles_ml_model}_{model_file_name}",

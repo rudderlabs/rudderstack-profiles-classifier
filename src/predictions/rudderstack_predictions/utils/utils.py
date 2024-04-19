@@ -593,7 +593,9 @@ def plot_top_k_feature_importance(
         if len(shap_values.shape) == 3:
             shap_values = shap_values[:, :, 1]
 
+        model_name = model.__class__.__name__
         shap.plots.beeswarm(shap_values, max_display=top_k_features, show=False)
+        plt.title(f"Feature Importance for trained {model_name}")
         plt.savefig(figure_file, bbox_inches="tight")
 
         return None

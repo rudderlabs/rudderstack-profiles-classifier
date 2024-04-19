@@ -10,6 +10,7 @@ from ..utils import constants
 from pycaret.classification import (
     setup as classification_setup,
     compare_models as classification_compare_models,
+    tune_model as classification_tune_model,
     get_config as classification_get_config,
     save_model as classification_save_model,
     pull as classification_results_pull,
@@ -105,30 +106,32 @@ class ClassificationTrainer(MLTrainer):
             classification_add_metric,
             custom_metrics,
             classification_compare_models,
+            classification_tune_model,
             classification_save_model,
             classification_get_config,
             metric_to_optimize,
             models_to_include,
         )
 
-    def get_metrics(self, model, X_train, y_train, y_test, fold_param) -> dict:
-        model_metrics = classification_results_pull().iloc[0].to_dict()
-        train_metrics = self.get_metrics_classifier(model, X_train, y_train)
+    def get_metrics(self, model, X_test, y_test, y_train, fold_param) -> dict:
+        train_metrics = (
+            classification_results_pull().loc[("CV-Train", "Mean")].to_dict()
+        )
+        val_metrics = classification_results_pull().loc[("CV-Val", "Mean")].to_dict()
+        test_metrics = self.get_metrics_classifier(model, X_test, y_test)
 
-        test_metrics = {}
-        for old_key, new_key in self.metrics_key_mapping.items():
-            test_metrics[new_key] = model_metrics.get(old_key, None)
+        train_metrics = self.map_metrics_keys(train_metrics)
+        val_metrics = self.map_metrics_keys(val_metrics)
 
-        test_metrics["users"] = len(y_test)
-        val_metrics = test_metrics
-        val_metrics["users"] = int(1 / fold_param * len(X_train))
+        val_metrics["users"] = int(1 / fold_param * len(y_train))
+        train_metrics["users"] = len(y_train) - val_metrics["users"]
 
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
             "metrics": {
                 "train": train_metrics,
                 "test": test_metrics,
-                "val": test_metrics,
+                "val": val_metrics,
                 "prob_th": 0,
             },
             "prob_th": 0,
@@ -167,20 +170,18 @@ class ClassificationTrainer(MLTrainer):
     def get_metrics_classifier(
         self,
         model,
-        train_x,
-        train_y,
+        x,
+        y,
     ) -> Tuple:
-        train_pred = classification_predict_model(model, train_x)[
+        train_pred = classification_predict_model(model, x)[
             "prediction_label"
         ].to_numpy()
-        train_pred_proba = classification_predict_model(model, train_x)[
+        train_pred_proba = classification_predict_model(model, x)[
             "prediction_score"
         ].to_numpy()
-        train_y = train_y.to_numpy()
+        y = y.to_numpy()
 
-        train_metrics = self.get_classification_metrics(
-            train_y, train_pred, train_pred_proba
-        )
+        train_metrics = self.get_classification_metrics(y, train_pred, train_pred_proba)
 
         return train_metrics
 

@@ -9,6 +9,7 @@ from ..connectors.Connector import Connector
 from pycaret.regression import (
     setup as regression_setup,
     compare_models as regression_compare_models,
+    tune_model as regression_tune_model,
     get_config as regression_get_config,
     save_model as regression_save_model,
     pull as regression_results_pull,
@@ -74,6 +75,7 @@ class RegressionTrainer(MLTrainer):
             regression_add_metric,
             custom_metrics,
             regression_compare_models,
+            regression_tune_model,
             regression_save_model,
             regression_get_config,
             metric_to_optimize,
@@ -115,17 +117,16 @@ class RegressionTrainer(MLTrainer):
         except Exception as e:
             logger.error(f"Could not generate regression plots. {e}")
 
-    def get_metrics(self, model, X_train, y_train, y_test, fold_param) -> dict:
-        model_metrics = regression_results_pull().iloc[0].to_dict()
-        train_metrics = self.get_metrics_regressor(model, X_train, y_train)
+    def get_metrics(self, model, X_test, y_test, y_train, fold_param) -> dict:
+        train_metrics = regression_results_pull().loc[("CV-Train", "Mean")].to_dict()
+        val_metrics = regression_results_pull().loc[("CV-Val", "Mean")].to_dict()
+        test_metrics = self.get_metrics_regressor(model, X_test, y_test)
 
-        test_metrics = {}
-        for old_key, new_key in self.metrics_key_mapping.items():
-            test_metrics[new_key] = model_metrics.get(old_key, None)
+        train_metrics = self.map_metrics_keys(train_metrics)
+        val_metrics = self.map_metrics_keys(val_metrics)
 
-        test_metrics["users"] = len(y_test)
-        val_metrics = test_metrics
-        val_metrics["users"] = int(1 / fold_param * len(X_train))
+        val_metrics["users"] = int(1 / fold_param * len(y_train))
+        train_metrics["users"] = len(y_train) - val_metrics["users"]
 
         result_dict = {
             "output_model_name": self.output_profiles_ml_model,
@@ -133,7 +134,7 @@ class RegressionTrainer(MLTrainer):
                 "prob_th": 0,
                 "train": train_metrics,
                 "test": test_metrics,
-                "val": test_metrics,
+                "val": val_metrics,
             },
         }
         return result_dict

@@ -21,7 +21,6 @@ pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
 output_label = "OUTPUT_LABEL"
 p_output_tablename = "test_run_can_delete_2"
 entity_key = "user"
-train_input_model_name = "shopify_user_features"
 material_registry_table_name = "MATERIAL_REGISTRY_4"
 
 
@@ -35,7 +34,7 @@ def create_site_config_file(creds, siteconfig_path):
         file.write(yaml_data)
 
 
-def get_latest_entity_var(creds: dict, siteconfig_path: str, project_path: str):
+def get_latest_entity_var(creds: dict, siteconfig_path: str, project_path: str, train_input_model_name: str):
     connector = ConnectorFactory.create(creds, current_dir)
 
     latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(

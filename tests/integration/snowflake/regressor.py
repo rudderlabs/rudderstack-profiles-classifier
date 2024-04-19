@@ -15,6 +15,8 @@ siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
 output_filename = os.path.join(current_dir, "output/output.json")
 output_folder = os.path.join(current_dir, "output")
 
+train_input_model_name = "shopify_user_features"
+
 data = {
     "prediction_horizon_days": pred_horizon_days,
     "features_profiles_model": feature_table_name,
@@ -153,7 +155,7 @@ def test_regressor():
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
     input_model_hash, latest_seq_no = get_latest_entity_var(
-        creds, siteconfig_path, project_path
+        creds, siteconfig_path, project_path, train_input_model_name
     )
 
     train_inputs = [

@@ -137,7 +137,7 @@ def test_regressor():
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
     input_model_hash, latest_seq_no = get_latest_entity_var(
-        creds, siteconfig_path, project_path
+        creds, siteconfig_path, project_path, train_input_model_name
     )
 
     train_inputs = [

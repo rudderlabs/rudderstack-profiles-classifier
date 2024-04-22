@@ -96,8 +96,8 @@ class RudderPB:
 
             try:
                 return json.loads(json_string)
-            except:
-                logger.debug("error while decoding json")
+            except json.JSONDecodeError as e:
+                logger.debug("error while decoding json", e)
                 end_index = end_index - 1
 
     def get_latest_material_hash(

@@ -98,6 +98,7 @@ class RudderPB:
 
         # Replace single quotes with double quotes
         json_string = json_string.replace("'", '"')
+        logger.debug(f"parsing {json_string} as json")
 
         # Parse JSON
         json_data = json.loads(json_string)

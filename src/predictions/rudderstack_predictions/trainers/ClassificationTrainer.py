@@ -192,7 +192,8 @@ class ClassificationTrainer(MLTrainer):
         label_column: str,
     ) -> None:
         try:
-            predictions = classification_predict_model(model, x)["prediction_label"]
+            predictions = classification_predict_model(model, x)["prediction_score"]
+
             y_true = y.to_numpy().reshape(
                 -1,
             )

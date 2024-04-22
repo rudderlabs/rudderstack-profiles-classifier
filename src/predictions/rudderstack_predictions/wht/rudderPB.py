@@ -88,8 +88,8 @@ class RudderPB:
         start_index = stdout.find("{", start_index)
 
         # Find the index of the last valid '}'
-        end_index = len(stdout)-1
-        while end_index > 0: # break the loop when no '}' found in the string
+        end_index = len(stdout) - 1
+        while end_index >= 0:  # break the loop when no '}' found in the string
             end_index = stdout.rfind("}", start_index, end_index)
             json_string = stdout[start_index : end_index + 1]
             json_string = json_string.replace("'", '"')
@@ -98,7 +98,7 @@ class RudderPB:
                 return json.loads(json_string)
             except:
                 logger.debug("error while decoding json")
-                end_index = end_index-1
+                end_index = end_index - 1
 
     def get_latest_material_hash(
         self,

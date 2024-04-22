@@ -6,6 +6,7 @@ from profiles_rudderstack.logger import Logger
 from typing import List
 import re
 
+
 class SnowflakeCortexModel(BaseModelType):
     TypeName = "sf_cortex"  # the name of the model type
 
@@ -16,24 +17,28 @@ class SnowflakeCortexModel(BaseModelType):
             **EntityKeyBuildSpecSchema["properties"],
             "prompt": {"type": "string"},
             "vars": {"type": "array", "items": {"type": "string"}},
-            "llm_model_name": {"type": "string"}
+            "llm_model_name": {"type": "string"},
         },
         "required": ["vars"] + EntityKeyBuildSpecSchema["required"],
-        "additionalProperties": False
+        "additionalProperties": False,
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:
-        return SnowflakeCortexRecipe(self.build_spec["prompt"], self.build_spec["vars"],self.build_spec["llm_model_name"])
+        return SnowflakeCortexRecipe(
+            self.build_spec["prompt"],
+            self.build_spec["vars"],
+            self.build_spec["llm_model_name"],
+        )
 
     def validate(self):
         return super().validate()
 
 
 class SnowflakeCortexRecipe(PyNativeRecipe):
-    def __init__(self, prompt: str, vars: List[str],llm_model_name: str) -> None:
+    def __init__(self, prompt: str, vars: List[str], llm_model_name: str) -> None:
         self.prompt = prompt
         self.vars = vars
         self.logger = Logger("sf_cortex_recipe")
@@ -60,14 +65,13 @@ class SnowflakeCortexRecipe(PyNativeRecipe):
             for var in self.vars
         ]
         prompt_replaced = self.prompt
-        input_indices = re.findall(r'{(\w+)\[(\d+)\]}', prompt_replaced)
+        input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
         for word, index in input_indices:
             index = int(index)
             if 0 <= index < len(input_columns):
-                placeholder = f'{{{word}[{index}]}}'
+                placeholder = f"{{{word}[{index}]}}"
                 col = "' ||" + input_columns[index] + "|| ' "
-                prompt_replaced = prompt_replaced.replace(
-                    placeholder, col)
+                prompt_replaced = prompt_replaced.replace(placeholder, col)
             else:
                 self.logger.error(f"Index {index} out of range for input_columns list.")
 

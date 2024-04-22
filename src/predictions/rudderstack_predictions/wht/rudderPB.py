@@ -89,21 +89,16 @@ class RudderPB:
 
         # Find the index of the last valid '}'
         end_index = len(stdout)-1
-        while end_index != -1: # break the loop when no '}' found in the string
-            last_index = stdout[start_index: end_index+1].rfind("}")
-
-            # Extract the JSON string between the first '{' and the current '}'
-            json_string = stdout[start_index : last_index + 1]
-
-            # Replace single quotes with double quotes
+        while end_index > 0: # break the loop when no '}' found in the string
+            end_index = stdout.rfind("}", start_index, end_index)
+            json_string = stdout[start_index : end_index + 1]
             json_string = json_string.replace("'", '"')
 
-            # Parse JSON
             try:
                 return json.loads(json_string)
-            except json.decoder.JSONDecodeError as e:
+            except:
                 logger.debug("error while decoding json")
-                end_index = last_index-1
+                end_index = end_index-1
 
     def get_latest_material_hash(
         self,

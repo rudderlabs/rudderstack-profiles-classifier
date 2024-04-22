@@ -2,7 +2,7 @@
 import pandas as pd
 from datetime import datetime
 import unittest
-from unittest.mock import Mock, patch, MagicMock, call
+from unittest.mock import Mock, patch, call
 from redshift_connector.cursor import Cursor
 from pandas.core.api import DataFrame as DataFrame
 from src.predictions.rudderstack_predictions.trainers.TrainerFactory import (
@@ -18,13 +18,18 @@ from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import
 from tests.unit.MLTrainer import build_trainer_config
 
 
+class RedshiftConnectorV2(RedshiftConnector):
+    def __init__(self, folder_path):
+        super().__init__({}, folder_path)
+
+    def build_session(self, creds):
+        pass
+
+
 class TestGetMaterialRegistryTable(unittest.TestCase):
     # Returns a filtered material registry table containing only the successfully materialized data.
     def test_returns_filtered_material_registry_table(self):
-        class MockRedshiftConnector(RedshiftConnector):
-            def __init__(self, folder_path):
-                self.folder_path = folder_path
-
+        class MockRedshiftConnector(RedshiftConnectorV2):
             def get_table_as_dataframe(
                 self, cursor: Cursor, table_name: str, **kwargs
             ) -> DataFrame:
@@ -44,7 +49,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         redshift_connector = MockRedshiftConnector(folder_path="data")
         material_registry_table = redshift_connector.get_material_registry_table(
-            session=None, material_registry_table_name=None
+            material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict(
             {"seq_no": [2], "metadata": ['{"complete": {"status": 2}}'], "status": [2]}
@@ -54,10 +59,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
         )
 
     def test_returns_filtered_material_registry_table_empty_resp(self):
-        class MockRedshiftConnector(RedshiftConnector):
-            def __init__(self, folder_path):
-                self.folder_path = folder_path
-
+        class MockRedshiftConnector(RedshiftConnectorV2):
             def get_table_as_dataframe(
                 self, cursor: Cursor, table_name: str, **kwargs
             ) -> DataFrame:
@@ -77,7 +79,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         redshift_connector = MockRedshiftConnector(folder_path="data")
         material_registry_table = redshift_connector.get_material_registry_table(
-            session=None, material_registry_table_name=None
+            material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict({})
         self.assertEqual(
@@ -85,10 +87,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
         )
 
     def test_runs_on_empty_material_registry_table(self):
-        class MockRedshiftConnector(RedshiftConnector):
-            def __init__(self, folder_path):
-                self.folder_path = folder_path
-
+        class MockRedshiftConnector(RedshiftConnectorV2):
             def get_table_as_dataframe(
                 self, cursor: Cursor, table_name: str, **kwargs
             ) -> DataFrame:
@@ -101,7 +100,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
         # Call the get_material_registry_table method
         material_registry_table = redshift_connector.get_material_registry_table(
-            session=None, material_registry_table_name=None
+            material_registry_table_name=None
         )
         expected_registry_table = pd.DataFrame.from_dict({})
         self.assertEqual(
@@ -111,8 +110,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
 
 class TestGetMaterialNames(unittest.TestCase):
     def setUp(self) -> None:
-        self.session_mock = Mock()
-        self.connector = RedshiftConnector("data")
+        self.connector = RedshiftConnectorV2("data")
         self.start_date = "2022-01-01"
         self.end_date = "2022-01-31"
         self.features_profiles_model = "model_name"
@@ -121,9 +119,7 @@ class TestGetMaterialNames(unittest.TestCase):
         self.input_models = ["model1.yaml", "model2.yaml"]
         self.inputs = ["""select * from material_user_var_736465_0"""]
         self.whtService = PythonWHT()
-        self.whtService.init(
-            self.connector, self.session_mock, "siteconfig.yaml", "project_folder"
-        )
+        self.whtService.init(self.connector, "siteconfig.yaml", "project_folder")
 
     def test_fetch_filtered_table(self):
         # Set up the expected input and output
@@ -448,7 +444,7 @@ class TestSelectRelevantColumns(unittest.TestCase):
             }
         )
         training_features_columns = ["COL1", "COL2", "COL3"]
-        redshift_connector = RedshiftConnector("data")
+        redshift_connector = RedshiftConnectorV2("data")
         relevant_columns = redshift_connector.select_relevant_columns(
             table, training_features_columns
         )
@@ -465,7 +461,7 @@ class TestSelectRelevantColumns(unittest.TestCase):
             }
         )
         training_features_columns = ["COL1", "COL2", "COL3"]
-        redshift_connector = RedshiftConnector("data")
+        redshift_connector = RedshiftConnectorV2("data")
         relevant_columns = redshift_connector.select_relevant_columns(
             table, training_features_columns
         )
@@ -483,7 +479,7 @@ class TestSelectRelevantColumns(unittest.TestCase):
             }
         )
         training_features_columns = ["COL1", "COL2", "COL3", "COL5"]
-        redshift_connector = RedshiftConnector("data")
+        redshift_connector = RedshiftConnectorV2("data")
         with self.assertRaises(Exception) as context:
             redshift_connector.select_relevant_columns(table, training_features_columns)
         self.assertIn(
@@ -494,7 +490,7 @@ class TestSelectRelevantColumns(unittest.TestCase):
 
 class TestValidations(unittest.TestCase):
     def setUp(self) -> None:
-        self.connector = RedshiftConnector("data")
+        self.connector = RedshiftConnectorV2("data")
         df = pd.DataFrame.from_dict(
             {
                 "COL1": ["a", "a"],
@@ -590,7 +586,7 @@ class TestValidations(unittest.TestCase):
 
 class TestCheckForClassificationDataRequirement(unittest.TestCase):
     def setUp(self) -> None:
-        self.connector = RedshiftConnector("data")
+        self.connector = RedshiftConnectorV2("data")
 
     @patch(
         "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
@@ -602,7 +598,6 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
     )
     def test_enough_negative_and_total_samples(self):
         """Test when there are enough negative samples"""
-        cursor = MagicMock()
         materials = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name",
@@ -615,12 +610,11 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         self.connector.run_query = Mock(side_effect=[([15],), ([100],)])
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column, 1, "user"
+            materials, label_column, 1, "user"
         )
 
         self.assertTrue(result)
         self.connector.run_query.assert_any_call(
-            cursor,
             """SELECT COUNT(*) FROM (SELECT user
                 FROM feature_table_name) a
                 INNER JOIN (SELECT * FROM label_table_name) b ON a.user = b.user
@@ -638,7 +632,6 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
     )
     def test_insufficient_negative_and_total_samples(self):
         """Test when there are not enough negative samples"""
-        cursor = MagicMock()
         materials = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name",
@@ -651,12 +644,11 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         self.connector.run_query = Mock(side_effect=[([9],), ([80],)])
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column, 1, "user"
+            materials, label_column, 1, "user"
         )
 
         self.assertFalse(result)
         self.connector.run_query.assert_any_call(
-            cursor,
             """SELECT COUNT(*) as count
                 FROM label_table_name""",
             response=True,
@@ -664,7 +656,6 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
     def test_invalid_query_result(self):
         """Test with invalid query result format"""
-        cursor = MagicMock()
         materials = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name",
@@ -679,7 +670,7 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             self.connector.check_for_classification_data_requirement(
-                cursor, materials, label_column, 1, "user"
+                materials, label_column, 1, "user"
             )
 
     @patch(
@@ -692,21 +683,20 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
     )
     def test_empty_materials(self):
         """Test with empty materials list"""
-        cursor = MagicMock()
         materials = []
         label_column = "label"
 
         self.connector.run_query = Mock()
         self.connector.run_query.assert_not_called()
         result = self.connector.check_for_classification_data_requirement(
-            cursor, materials, label_column, 1, "user"
+            materials, label_column, 1, "user"
         )
         self.assertFalse(result)  # No materials, so considered sufficient
 
 
 class TestCheckForRegressionDataRequirement(unittest.TestCase):
     def setUp(self) -> None:
-        self.connector = RedshiftConnector("data")
+        self.connector = RedshiftConnectorV2("data")
 
     @patch(
         "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
@@ -714,7 +704,6 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
     )
     def test_enough_total_samples(self):
         """Test when there are enough negative samples"""
-        cursor = MagicMock()
         materials = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name",
@@ -725,11 +714,10 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
         ]
 
         self.connector.run_query = Mock(return_value=([100],))
-        result = self.connector.check_for_regression_data_requirement(cursor, materials)
+        result = self.connector.check_for_regression_data_requirement(materials)
 
         self.assertTrue(result)
         self.connector.run_query.assert_called_once_with(
-            cursor,
             """SELECT COUNT(*) as count
                 FROM feature_table_name""",
             response=True,
@@ -741,7 +729,6 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
     )
     def test_insufficient_total_samples(self):
         """Test when there are not enough negative samples"""
-        cursor = MagicMock()
         materials = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name",
@@ -752,11 +739,10 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
         ]
 
         self.connector.run_query = Mock(return_value=([49],))
-        result = self.connector.check_for_regression_data_requirement(cursor, materials)
+        result = self.connector.check_for_regression_data_requirement(materials)
 
         self.assertFalse(result)
         self.connector.run_query.assert_called_once_with(
-            cursor,
             """SELECT COUNT(*) as count
                 FROM feature_table_name""",
             response=True,
@@ -764,7 +750,6 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
 
     def test_invalid_query_result(self):
         """Test with invalid query result format"""
-        cursor = MagicMock()
         materials = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name",
@@ -777,7 +762,7 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
         self.connector.run_query = Mock(return_value={"invalid_key": "invalid_value"})
 
         with self.assertRaises(KeyError):
-            self.connector.check_for_regression_data_requirement(cursor, materials)
+            self.connector.check_for_regression_data_requirement(materials)
 
     @patch(
         "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
@@ -785,18 +770,17 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
     )
     def test_empty_materials(self):
         """Test with empty materials list"""
-        cursor = MagicMock()
         materials = []
 
         self.connector.run_query = Mock()
         self.connector.run_query.assert_not_called()
-        result = self.connector.check_for_regression_data_requirement(cursor, materials)
+        result = self.connector.check_for_regression_data_requirement(materials)
         self.assertFalse(result)  # No materials, so considered sufficient
 
 
 class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
     def setUp(self) -> None:
-        self.connector = RedshiftConnector("data")
+        self.connector = RedshiftConnectorV2("data")
         self.materials = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name",
@@ -805,11 +789,8 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
                 label_table_date="2024-02-27 00:00:00",
             ),
         ]
-        self.session = MagicMock()
         self.whtService = PythonWHT()
-        self.whtService.init(
-            self.connector, self.session, "siteconfig.yaml", "project_folder"
-        )
+        self.whtService.init(self.connector, "siteconfig.yaml", "project_folder")
         trainer_input = build_trainer_config()
         self.trainer = TrainerFactory.create(trainer_input)
         self.trainer.materialisation_strategy = "auto"
@@ -870,7 +851,6 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             input_models=self.input_models,
             whtService=self.whtService,
             connector=self.connector,
-            session=self.session,
         )
 
         # Assertions
@@ -903,7 +883,6 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             input_models=self.input_models,
             whtService=self.whtService,
             connector=self.connector,
-            session=self.session,
         )
 
         self.assertEqual(len(result), 1)  # Only one material generated
@@ -959,7 +938,6 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             input_models=self.input_models,
             whtService=self.whtService,
             connector=self.connector,
-            session=self.session,
         )
 
         # Assertions
@@ -981,7 +959,6 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             input_models=self.input_models,
             whtService=self.whtService,
             connector=self.connector,
-            session=self.session,
         )
 
         self.assertEqual(len(result), 1)  # Only one material generated
@@ -989,8 +966,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
 
 class TestValidateHistoricalMaterialsHash(unittest.TestCase):
     def setUp(self) -> None:
-        self.session_mock = Mock()
-        self.connector = RedshiftConnector("data")
+        self.connector = RedshiftConnectorV2("data")
         self.material_table = "material_table"
         self.start_date = "2022-01-01"
         self.end_date = "2022-01-31"
@@ -1002,7 +978,7 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
         self.input_models = ["model1.yaml", "model2.yaml"]
         self.inputs = ["""select * from material_user_var_736465_0"""]
         self.whtService = PythonWHT()
-        self.whtService.init(self.connector, self.session_mock, "", "")
+        self.whtService.init(self.connector, "", "")
         self.connector.get_tables_by_prefix = Mock(return_value=["material_table_1"])
 
     # The method is called with valid arguments and all tables exist in the warehouse registry.
@@ -1025,8 +1001,7 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
 
 class TestArrayTransformation(unittest.TestCase):
     def setUp(self) -> None:
-        self.session_mock = Mock()
-        self.connector = RedshiftConnector("data")
+        self.connector = RedshiftConnectorV2("data")
 
     def test_df_with_array_features(self):
         df_with_array_features = pd.DataFrame.from_dict(

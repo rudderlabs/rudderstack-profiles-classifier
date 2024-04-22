@@ -19,7 +19,8 @@ local_folder = constants.LOCAL_STORAGE_DIR
 
 
 class CommonWarehouseConnector(Connector):
-    def __init__(self, folder_path: str, data_type_mapping: dict) -> None:
+    def __init__(self, creds: dict, folder_path: str, data_type_mapping: dict) -> None:
+        super().__init__(creds)
         self.local_dir = os.path.join(folder_path, local_folder)
         path = Path(self.local_dir)
         path.mkdir(parents=True, exist_ok=True)
@@ -126,23 +127,21 @@ class CommonWarehouseConnector(Connector):
     def compute_udf_name(self, model_path: str) -> None:
         return
 
-    def is_valid_table(self, session, table_name: str) -> bool:
+    def is_valid_table(self, table_name: str) -> bool:
         try:
-            self.run_query(session, f"select * from {table_name} limit 1")
+            self.run_query(f"select * from {table_name} limit 1")
             return True
         except:
             return False
 
     def check_table_entry_in_material_registry(
-        self, session, registry_table_name: str, material: dict
+        self, registry_table_name: str, material: dict
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well
         """
-        material_registry_table = self.get_material_registry_table(
-            session, registry_table_name
-        )
+        material_registry_table = self.get_material_registry_table(registry_table_name)
         result = material_registry_table.loc[
             (material_registry_table["model_name"] == material["model_name"])
             & (material_registry_table["model_hash"] == material["model_hash"])
@@ -151,9 +150,9 @@ class CommonWarehouseConnector(Connector):
         row_count = result.shape[0]
         return row_count != 0
 
-    def get_table(self, session, table_name: str, **kwargs) -> pd.DataFrame:
+    def get_table(self, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the schema as a pandas Dataframe object."""
-        return self.get_table_as_dataframe(session, table_name, **kwargs)
+        return self.get_table_as_dataframe(self.session, table_name, **kwargs)
 
     def _create_get_table_query(self, table_name, **kwargs):
         filter_condition = kwargs.get("filter_condition", "")
@@ -192,7 +191,6 @@ class CommonWarehouseConnector(Connector):
 
     def label_table(
         self,
-        session,
         label_table_name: str,
         label_column: str,
         entity_column: str,
@@ -203,7 +201,7 @@ class CommonWarehouseConnector(Connector):
         def _replace_na(value):
             return np.nan if pd.isna(value) else value
 
-        feature_table = self.get_table(session, label_table_name)
+        feature_table = self.get_table(label_table_name)
         if label_value is not None:
             feature_table = feature_table.applymap(_replace_na)
             feature_table[label_column] = np.where(
@@ -305,10 +303,10 @@ class CommonWarehouseConnector(Connector):
         return high_cardinal_features
 
     def get_default_label_value(
-        self, session, table_name: str, label_column: str, positive_boolean_flags: list
+        self, table_name: str, label_column: str, positive_boolean_flags: list
     ):
         label_value = list()
-        table = self.get_table(session, table_name)
+        table = self.get_table(table_name)
         distinct_labels = table[label_column].unique()
 
         if len(distinct_labels) != 2:
@@ -351,7 +349,6 @@ class CommonWarehouseConnector(Connector):
 
     def join_feature_label_tables(
         self,
-        session,
         registry_table_name: str,
         entity_var_model_name: str,
         model_hash: str,
@@ -359,7 +356,7 @@ class CommonWarehouseConnector(Connector):
         end_time: str,
         prediction_horizon_days: int,
     ) -> Iterable:
-        df = self.get_material_registry_table(session, registry_table_name)
+        df = self.get_material_registry_table(registry_table_name)
         feature_df = self.fetch_filtered_table(
             df,
             entity_var_model_name,
@@ -406,13 +403,12 @@ class CommonWarehouseConnector(Connector):
 
     def get_creation_ts(
         self,
-        session,
         material_table: str,
         model_hash: str,
         entity_key: str,
     ):
         """Retrieves the latest creation timestamp for a specific model hash, and entity key."""
-        redshift_df = self.get_material_registry_table(session, material_table)
+        redshift_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
                 redshift_df.query(f'model_hash == "{model_hash}"')
@@ -430,9 +426,9 @@ class CommonWarehouseConnector(Connector):
         return creation_ts.tz_localize(None)
 
     def get_latest_seq_no_from_registry(
-        self, session, material_table: str, model_hash: str, model_name: str
+        self, material_table: str, model_hash: str, model_name: str
     ) -> int:
-        redshift_df = self.get_material_registry_table(session, material_table)
+        redshift_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
                 redshift_df.query(f'model_hash == "{model_hash}"')
@@ -449,9 +445,9 @@ class CommonWarehouseConnector(Connector):
         return int(seq_no)
 
     def get_model_hash_from_registry(
-        self, session, material_table: str, model_name: str, seq_no: int
+        self, material_table: str, model_name: str, seq_no: int
     ) -> str:
-        material_registry_df = self.get_material_registry_table(session, material_table)
+        material_registry_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
                 material_registry_df.query(f'model_name == "{model_name}"')
@@ -469,10 +465,10 @@ class CommonWarehouseConnector(Connector):
         return model_hash
 
     def get_end_ts(
-        self, session, material_table, model_name: str, model_hash: str, seq_no: int
+        self, material_table, model_name: str, model_hash: str, seq_no: int
     ) -> str:
         """This function will return the end_ts with given model, model name and seq_no."""
-        df = self.get_material_registry_table(session, material_table)
+        df = self.get_material_registry_table(material_table)
 
         try:
             feature_table_info_df = (
@@ -499,7 +495,6 @@ class CommonWarehouseConnector(Connector):
 
     def fetch_staged_file(
         self,
-        session,
         stage_name: str,
         file_name: str,
         target_folder: str,
@@ -535,7 +530,6 @@ class CommonWarehouseConnector(Connector):
 
     def check_for_classification_data_requirement(
         self,
-        session,
         materials: List[constants.TrainTablesInfo],
         label_column: str,
         label_value: str,
@@ -554,14 +548,14 @@ class CommonWarehouseConnector(Connector):
                 INNER JOIN (SELECT * FROM {m.label_table_name}{where_condition}) b ON a.{entity_key} = b.{entity_key}
                 WHERE b.{label_column} != {label_value}"""
 
-            result = self.run_query(session, query_str, response=True)
+            result = self.run_query(query_str, response=True)
 
             if len(result) != 0:
                 total_negative_samples += result[0][0]
 
             query_str = f"""SELECT COUNT(*) as count
                 FROM {m.label_table_name}{where_condition}"""
-            result = self.run_query(session, query_str, response=True)
+            result = self.run_query(query_str, response=True)
 
             if len(result) != 0:
                 total_samples += result[0][0]
@@ -586,7 +580,6 @@ class CommonWarehouseConnector(Connector):
 
     def check_for_regression_data_requirement(
         self,
-        session,
         materials: List[constants.TrainTablesInfo],
         filter_condition: str = None,
     ) -> bool:
@@ -599,7 +592,7 @@ class CommonWarehouseConnector(Connector):
             feature_material = material.feature_table_name
             query_str = f"""SELECT COUNT(*) as count
                 FROM {feature_material}{where_condition}"""
-            result = self.run_query(session, query_str, response=True)
+            result = self.run_query(query_str, response=True)
 
             if len(result) != 0:
                 total_samples += result[0][0]
@@ -717,9 +710,9 @@ class CommonWarehouseConnector(Connector):
     ) -> List:
         return table[column_name].unique()
 
-    def get_tables_by_prefix(self, session, prefix: str):
+    def get_tables_by_prefix(self, prefix: str):
         tables = list()
-        registry_df = self.get_tablenames_from_schema(session)
+        registry_df = self.get_tablenames_from_schema()
 
         registry_df = registry_df[
             registry_df["tablename"].str.lower().str.startswith(f"{prefix.lower()}")
@@ -731,13 +724,12 @@ class CommonWarehouseConnector(Connector):
 
     def get_material_registry_table(
         self,
-        session,
         material_registry_table_name: str,
     ) -> pd.DataFrame:
         """Fetches and filters the material registry table to get only the successful runs. It assumes that the successful runs have a status of 2.
         Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
         """
-        material_registry_table = self.get_table(session, material_registry_table_name)
+        material_registry_table = self.get_table(material_registry_table_name)
 
         def safe_parse_json(entry):
             try:
@@ -833,32 +825,26 @@ class CommonWarehouseConnector(Connector):
             logger.info("Local directory not present")
             pass
 
-    def pre_job_cleanup(self, session) -> None:
+    def pre_job_cleanup(self) -> None:
         pass
 
-    def post_job_cleanup(self, session) -> None:
-        session.close()
+    def post_job_cleanup(self) -> None:
+        self.session.close()
 
     @abstractmethod
     def build_session(self, credentials: dict):
         pass
 
     @abstractmethod
-    def run_query(self, session, query: str, response: bool) -> Optional[Sequence]:
+    def run_query(self, query: str, response: bool) -> Optional[Sequence]:
         pass
 
     @abstractmethod
-    def fetch_table_metadata(self, session, table_name: str) -> List:
+    def get_table_as_dataframe(self, _, table_name: str, **kwargs) -> pd.DataFrame:
         pass
 
     @abstractmethod
-    def get_table_as_dataframe(
-        self, session, table_name: str, **kwargs
-    ) -> pd.DataFrame:
-        pass
-
-    @abstractmethod
-    def get_tablenames_from_schema(self, session) -> pd.DataFrame:
+    def get_tablenames_from_schema(self) -> pd.DataFrame:
         pass
 
     @abstractmethod

@@ -4,9 +4,8 @@ from predict import *
 from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
     RedshiftConnector,
 )
-from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
 import json
-from tests.integration.utils import create_site_config_file
+from tests.integration.utils import *
 import os
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
@@ -22,28 +21,14 @@ folder_path_output_file = os.path.dirname(output_filename)
 
 os.makedirs(output_folder, exist_ok=True)
 
-package_name = "feature_table"
-feature_table_name = "shopify_user_features"
-eligible_users = "days_since_last_seen IS NOT NULL"
-package_name = "feature_table"
-label_column = "days_since_last_seen"
-inputs = [f"packages/{package_name}/models/{feature_table_name}"]
 train_input_model_name = "shopify_user_features"
-output_model_name = "ltv_regression_integration_test"
-pred_horizon_days = 7
-pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
-s3_config = {}
-p_output_tablename = "regressor_integration_test_4"
-entity_key = "user"
-material_registry_table_name = "material_registry_4"
-
 
 data = {
     "prediction_horizon_days": pred_horizon_days,
     "features_profiles_model": feature_table_name,
     "inputs": inputs,
     "eligible_users": eligible_users,
-    "label_column": label_column,
+    "label_column": regressor_label_column,
     "task": "regression",
     "output_profiles_ml_model": output_model_name,
 }
@@ -102,9 +87,9 @@ def validate_training_summary_regression():
         for key in keys:
             innerKeys = ["mean_absolute_error", "mean_squared_error", "r2_score"]
             for innerKey in innerKeys:
-                assert (
-                    metrics[key][innerKey] is not None
-                ), f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+                assert metrics[key][
+                    innerKey
+                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
 def validate_reports_regression():
@@ -128,40 +113,7 @@ def validate_reports_regression():
         raise Exception(f"{missing_files} not found in reports directory")
 
 
-def validate_predictions_df():
-    connector = RedshiftConnector(folder_path_output_file)
-    session = connector.build_session(creds)
-
-    required_columns = [
-        "USER_MAIN_ID",
-        "VALID_AT",
-        pred_column,
-        "MODEL_ID",
-        f"PERCENTILE_{pred_column}",
-    ]
-
-    required_columns_lower = [column.lower() for column in required_columns]
-
-    try:
-        df = connector.get_table_as_dataframe(session, p_output_tablename)
-        columns_in_file = df.columns.tolist()
-        print(columns_in_file)
-    except Exception as e:
-        raise e
-
-    # Check if the required columns are present
-    if not set(required_columns_lower).issubset(columns_in_file):
-        missing_columns = set(required_columns_lower) - set(columns_in_file)
-        raise Exception(f"Miissing columns: {missing_columns} in predictions table.")
-
-    session.close()
-    return True
-
-
 def test_regressor():
-    connector = RedshiftConnector(folder_path_output_file)
-    session = connector.build_session(creds)
-
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_path = os.path.join(current_dir, "sample_project")
     siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
@@ -179,22 +131,9 @@ def test_regressor():
     ]
     reports_folders = [folder for folder in folders if folder.endswith("_reports")]
 
-    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
-        entity_key,
-        siteconfig_path,
-        project_path,
+    input_model_hash, latest_seq_no = get_latest_entity_var(
+        creds, siteconfig_path, project_path, train_input_model_name
     )
-
-    latest_seq_no = connector.get_latest_seq_no_from_registry(
-        session, material_registry_table_name, latest_model_hash, entity_var_model_name
-    )
-
-    input_model_hash = connector.get_model_hash_from_registry(
-        session, material_registry_table_name, train_input_model_name, latest_seq_no
-    )
-
-    # Closing the session immediately after use to avoid multiple open sessions conflict
-    session.close()
 
     train_inputs = [
         f"""SELECT * FROM {creds['schema']}.material_{train_input_model_name}_{input_model_hash}_{latest_seq_no}""",
@@ -230,7 +169,7 @@ def test_regressor():
             predict_config,
             runtime_info,
         )
-        validate_predictions_df()
+        validate_predictions_df_regressor(creds)
 
     except Exception as e:
         raise e

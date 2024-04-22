@@ -37,7 +37,6 @@ def preprocess_and_predict(
     model_path,
     inputs,
     output_tablename,
-    session,
     connector,
     trainer: MLTrainer,
 ):
@@ -69,14 +68,13 @@ def preprocess_and_predict(
         raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 
     whtService = PyNativeWHT(None)
-    whtService.init(connector, session, "", "")
+    whtService.init(connector, "", "")
 
     entity_var_table_name = whtService.compute_material_name(
         input_model_name, model_hash, seq_no
     )
 
     end_ts = connector.get_end_ts(
-        session,
         whtService.get_registry_table_name(),
         input_model_name,
         model_hash,
@@ -85,7 +83,7 @@ def preprocess_and_predict(
 
     logger.debug(f"Pulling data from Entity-Var table - {entity_var_table_name}")
     raw_data = connector.get_table(
-        session, entity_var_table_name, filter_condition=trainer.eligible_users
+        entity_var_table_name, filter_condition=trainer.eligible_users
     )
 
     logger.debug("Transforming timestamp columns.")
@@ -144,7 +142,7 @@ def preprocess_and_predict(
         )  # To make up for the missing column in case of regression
 
         @F.pandas_udtf(
-            session=session,
+            session=connector.session,
             name=udf_name,
             stage_location=stage_name,
             is_permanent=False,
@@ -184,7 +182,7 @@ def preprocess_and_predict(
         def predict_scores_rs(df: pd.DataFrame) -> pd.DataFrame:
             df.columns = features
             predictions = predict_helper(df, model_name)
-            return predictions.round(4)
+            return predictions
 
         prediction_udf = predict_scores_rs
 
@@ -215,7 +213,7 @@ def preprocess_and_predict(
 
     logger.debug("Closing the session")
 
-    connector.post_job_cleanup(session)
+    connector.post_job_cleanup()
     logger.debug("Finished Predict job")
 
 
@@ -259,8 +257,7 @@ if __name__ == "__main__":
     trainer = TrainerFactory.create(args.merged_config)
 
     wh_creds = utils.parse_warehouse_creds(args.wh_creds, args.mode)
-    connector = ConnectorFactory.create(wh_creds["type"], output_dir)
-    session = connector.build_session(wh_creds)
+    connector = ConnectorFactory.create(wh_creds, output_dir)
 
     model_path = os.path.join(output_dir, args.json_output_filename)
 
@@ -270,7 +267,6 @@ if __name__ == "__main__":
         model_path,
         args.inputs,
         args.output_tablename,
-        session=session,
         connector=connector,
         trainer=trainer,
     )

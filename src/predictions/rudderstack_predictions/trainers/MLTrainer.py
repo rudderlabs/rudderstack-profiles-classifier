@@ -107,13 +107,14 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
-    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
+    def prepare_label_table(self, connector: Connector, label_table_name: str):
         pass
 
     @abstractmethod
     def plot_diagnostics(
         self,
         connector: Connector,
+        # session is being passed as argument since "self.session" is not available in Snowpark stored procedure
         session,
         model,
         stage_name: str,
@@ -274,9 +275,7 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
-    def check_min_data_requirement(
-        self, connector: Connector, session, materials
-    ) -> bool:
+    def check_min_data_requirement(self, connector: Connector, materials) -> bool:
         pass
 
     @abstractmethod
@@ -290,11 +289,8 @@ class MLTrainer(ABC):
         input_models: str,
         whtService: PythonWHT,
         connector: Connector,
-        session,
     ):
-        met_data_requirement = self.check_min_data_requirement(
-            connector, session, materials
-        )
+        met_data_requirement = self.check_min_data_requirement(connector, materials)
 
         logger.debug(f"Min data requirement satisfied: {met_data_requirement}")
         logger.debug(
@@ -373,11 +369,11 @@ class MLTrainer(ABC):
             logger.debug(f"new label tables: {[m.label_table_name for m in materials]}")
             if (
                 self.materialisation_strategy == "auto"
-                and self.check_min_data_requirement(connector, session, materials)
+                and self.check_min_data_requirement(connector, materials)
             ):
                 logger.info("Minimum data requirement satisfied.")
                 break
-        if not self.check_min_data_requirement(connector, session, materials):
+        if not self.check_min_data_requirement(connector, materials):
             logger.warning(
                 "Minimum data requirement not satisfied. Model performance may suffer. Try adding more datapoints by including more dates or increasing max_no_of_dates in the config."
             )

@@ -11,7 +11,7 @@ from .CommonWarehouseConnector import CommonWarehouseConnector
 
 
 class BigQueryConnector(CommonWarehouseConnector):
-    def __init__(self, folder_path: str) -> None:
+    def __init__(self, creds, folder_path: str) -> None:
         data_type_mapping = {
             "numeric": {
                 "INT": float,
@@ -37,7 +37,7 @@ class BigQueryConnector(CommonWarehouseConnector):
             "arraytype": {"ARRAY": None},
         }
         self.dtype_utils_mapping = {"numeric": "FLOAT", "categorical": "STRING"}
-        super().__init__(folder_path, data_type_mapping)
+        super().__init__(creds, folder_path, data_type_mapping)
 
     def build_session(self, credentials: dict) -> google.cloud.bigquery.client.Client:
         self.schema = credentials.get("schema", None)
@@ -55,37 +55,33 @@ class BigQueryConnector(CommonWarehouseConnector):
         )
         return session
 
-    def run_query(
-        self, session: google.cloud.bigquery.client.Client, query: str, response=True
-    ) -> Optional[List]:
+    def run_query(self, query: str, response=True) -> Optional[List]:
         """Runs the given query on the bigquery connection and returns a list with Named indices."""
         try:
             if response:
                 return list(
-                    session.query_and_wait(query).to_dataframe().itertuples(index=False)
+                    self.session.query_and_wait(query)
+                    .to_dataframe()
+                    .itertuples(index=False)
                 )
             else:
-                return session.query_and_wait(query)
+                return self.session.query_and_wait(query)
         except Exception as e:
             raise Exception(f"Couldn't run the query: {query}. Error: {str(e)}")
 
     def get_table_as_dataframe(
-        self, session: google.cloud.bigquery.client.Client, table_name: str, **kwargs
+        self, _: google.cloud.bigquery.client.Client, table_name: str, **kwargs
     ) -> pd.DataFrame:
         query = self._create_get_table_query(table_name, **kwargs)
-        return session.query_and_wait(query).to_dataframe()
+        return self.session.query_and_wait(query).to_dataframe()
 
-    def get_tablenames_from_schema(
-        self, session: google.cloud.bigquery.client.Client
-    ) -> pd.DataFrame:
+    def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT table_name as tablename FROM `{self.project_id}.{self.schema}.INFORMATION_SCHEMA.TABLES`;"
-        return session.query_and_wait(query).to_dataframe()
+        return self.session.query_and_wait(query).to_dataframe()
 
-    def fetch_table_metadata(
-        self, session: google.cloud.bigquery.client.Client, table_name: str
-    ) -> List:
+    def fetch_table_metadata(self, table_name: str) -> List:
         """Fetches the schema fields of the given table from the BigQuery schema."""
-        schema = session.get_table(
+        schema = self.session.get_table(
             f"{self.project_id}.{self.schema}.{table_name}"
         ).schema
         return schema

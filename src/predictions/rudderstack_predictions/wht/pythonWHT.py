@@ -24,12 +24,10 @@ class PythonWHT:
     def init(
         self,
         connector: Connector,
-        session,
         site_config_path: str,
         project_folder_path: str,
     ) -> None:
         self.connector = connector
-        self.session = session
         self.site_config_path = site_config_path
         self.project_folder_path = project_folder_path
         self.cached_registry_table_name = ""
@@ -82,7 +80,7 @@ class PythonWHT:
     def get_registry_table_name(self):
         if self.cached_registry_table_name == "":
             material_registry_tables = self.connector.get_tables_by_prefix(
-                self.session, "MATERIAL_REGISTRY"
+                "MATERIAL_REGISTRY"
             )
 
             sorted_material_registry_tables = sorted(
@@ -102,7 +100,6 @@ class PythonWHT:
 
     def get_model_creation_ts(self, model_hash: str, entity_key: str):
         return self.connector.get_creation_ts(
-            self.session,
             self.get_registry_table_name(),
             model_hash,
             entity_key,
@@ -134,7 +131,6 @@ class PythonWHT:
                     material_table_query, int(feature_material_seq_no)
                 )
                 assert self.connector.check_table_entry_in_material_registry(
-                    self.session,
                     self.get_registry_table_name(),
                     self.split_material_name(feature_table_query),
                 ), f"Material table {feature_table_query} does not exist"
@@ -144,7 +140,6 @@ class PythonWHT:
                     material_table_query, int(label_material_seq_no)
                 )
                 assert self.connector.check_table_entry_in_material_registry(
-                    self.session,
                     self.get_registry_table_name(),
                     self.split_material_name(label_table_query),
                 ), f"Material table {label_table_query} does not exist"
@@ -176,10 +171,10 @@ class PythonWHT:
 
         if (
             feature_material_name is not None
-            and not self.connector.is_valid_table(self.session, feature_material_name)
+            and not self.connector.is_valid_table(feature_material_name)
         ) or (
             label_material_name is not None
-            and not self.connector.is_valid_table(self.session, label_material_name)
+            and not self.connector.is_valid_table(label_material_name)
         ):
             return
 
@@ -232,7 +227,6 @@ class PythonWHT:
             each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
         feature_label_df = self.connector.join_feature_label_tables(
-            self.session,
             self.get_registry_table_name(),
             entity_var_model_name,
             model_hash,
@@ -310,8 +304,7 @@ class PythonWHT:
             ):
                 feature_table_name_ = material_info.feature_table_name
                 assert (
-                    self.connector.is_valid_table(self.session, feature_table_name_)
-                    is True
+                    self.connector.is_valid_table(feature_table_name_) is True
                 ), f"Failed to fetch \
                     valid feature_date and label_date because table {feature_table_name_} does not exist in the warehouse"
                 label_date = utils.date_add(
@@ -324,8 +317,7 @@ class PythonWHT:
             ):
                 label_table_name_ = material_info.label_table_name
                 assert (
-                    self.connector.is_valid_table(self.session, label_table_name_)
-                    is True
+                    self.connector.is_valid_table(label_table_name_) is True
                 ), f"Failed to fetch \
                     valid feature_date and label_date because table {label_table_name_} does not exist in the warehouse"
                 feature_date = utils.date_add(

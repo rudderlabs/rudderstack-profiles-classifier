@@ -14,11 +14,10 @@ class PyNativeWHT:
     def init(
         self,
         connector: Connector,
-        session,
         site_config_path: str,
         project_folder_path: str,
     ) -> None:
-        self.pythonWHT.init(connector, session, site_config_path, project_folder_path)
+        self.pythonWHT.init(connector, site_config_path, project_folder_path)
 
     def get_latest_entity_var_table(self, entity_key: str) -> Tuple[str, str, str]:
         model_ref = f"entity/{entity_key}/var_table"

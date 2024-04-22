@@ -10,8 +10,8 @@ class MockPB:
     def run(self, *args):
         return RudderPB().run(*args)
 
-    def show_models(self, *args):
-        return RudderPB().show_models(*args)
+    def show_models(self, arg: dict):
+        return RudderPB().show_models(arg)
 
-    def extract_json_from_stdout(self, *args):
-        return RudderPB().extract_json_from_stdout(*args)
+    def extract_json_from_stdout(self, stdout):
+        return RudderPB().extract_json_from_stdout(stdout)

@@ -46,9 +46,8 @@ class RegressionTrainer(MLTrainer):
     def get_name(self):
         return "regression"
 
-    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
+    def prepare_label_table(self, connector: Connector, label_table_name: str):
         return connector.label_table(
-            session,
             label_table_name,
             self.label_column,
             self.entity_column,
@@ -170,10 +169,8 @@ class RegressionTrainer(MLTrainer):
             feature_table, self.label_column
         ) and connector.validate_label_distinct_values(feature_table, self.label_column)
 
-    def check_min_data_requirement(
-        self, connector: Connector, session, materials
-    ) -> bool:
-        return connector.check_for_regression_data_requirement(session, materials)
+    def check_min_data_requirement(self, connector: Connector, materials) -> bool:
+        return connector.check_for_regression_data_requirement(materials)
 
     def load_model(self, model_file: str):
         return regression_load_model(model_file)

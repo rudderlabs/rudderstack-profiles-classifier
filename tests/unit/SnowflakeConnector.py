@@ -9,10 +9,17 @@ from snowflake.snowpark import Session
 import snowflake.snowpark.types as T
 
 
+class MockSnowflakeConnector(SnowflakeConnector):
+    def __init__(self):
+        super().__init__({})
+
+    def build_session(self, creds):
+        pass
+
+
 class TestLabelTable(unittest.TestCase):
     def setUp(self) -> None:
-        self.session = Session.builder.config("local_testing", True).create()
-        self.connector = SnowflakeConnector()
+        self.connector = MockSnowflakeConnector()
         df = pd.DataFrame.from_dict(
             {
                 "COL1": ["2021-01-01 00:00:00", "2021-01-01 00:00:00"],
@@ -21,7 +28,8 @@ class TestLabelTable(unittest.TestCase):
                 "COL4": ["2021-01-01 00:00:00+00:00", "2021-01-01 00:00:00+00:00"],
             }
         )
-        self.table = self.session.create_dataframe(df)
+        session = Session.builder.config("local_testing", True).create()
+        self.table = session.create_dataframe(df)
         self.connector.get_table = Mock(return_value=self.table)
         self.label_column = "COL2"
         self.entity_column = "COL3"
@@ -29,14 +37,14 @@ class TestLabelTable(unittest.TestCase):
     def test_label_table_returns_only_required_cols(self):
         positive_class = "value1"
         actual = self.connector.label_table(
-            self.session, None, self.label_column, self.entity_column, positive_class
+            None, self.label_column, self.entity_column, positive_class
         )
         self.assertListEqual(actual.columns, [self.entity_column, self.label_column])
 
     def test_label_table_changes_label_value_for_classification(self):
         positive_class = "value1"
         actual = self.connector.label_table(
-            self.session, None, self.label_column, self.entity_column, positive_class
+            None, self.label_column, self.entity_column, positive_class
         )
         actual_label_col_vals = [
             v.as_dict()[self.label_column] for v in actual.collect()
@@ -46,7 +54,7 @@ class TestLabelTable(unittest.TestCase):
 
     def test_label_table_does_not_change_label_value_for_regression(self):
         actual = self.connector.label_table(
-            self.session, None, self.label_column, self.entity_column, None
+            None, self.label_column, self.entity_column, None
         )
         actual_label_col_vals = [
             v.as_dict()[self.label_column] for v in actual.collect()
@@ -58,7 +66,7 @@ class TestLabelTable(unittest.TestCase):
 class TestGenerateTypeHint(unittest.TestCase):
     def setUp(self) -> None:
         self.session = Session.builder.config("local_testing", True).create()
-        self.connector = SnowflakeConnector()
+        self.connector = MockSnowflakeConnector()
 
     # Returns a list of type hints for given pandas DataFrame's fields
     def test_returns_type_hints(self):
@@ -95,8 +103,7 @@ class TestGenerateTypeHint(unittest.TestCase):
 
 class TestSelectRelevantColumns(unittest.TestCase):
     def setUp(self) -> None:
-        self.session = Session.builder.config("local_testing", True).create()
-        self.connector = SnowflakeConnector()
+        self.connector = MockSnowflakeConnector()
         df = pd.DataFrame.from_dict(
             {
                 "COL1": ["a", "b"],
@@ -105,7 +112,8 @@ class TestSelectRelevantColumns(unittest.TestCase):
                 "COL4": ["a1", "b1"],
             }
         )
-        self.table = self.session.create_dataframe(df)
+        session = Session.builder.config("local_testing", True).create()
+        self.table = session.create_dataframe(df)
 
     # Returns a pandas DataFrame with only the columns specified in the training_features_columns dictionary.
     def test_relevant_columns_only(self):
@@ -132,8 +140,7 @@ class TestSelectRelevantColumns(unittest.TestCase):
 
 class TestValidations(unittest.TestCase):
     def setUp(self) -> None:
-        self.session = Session.builder.config("local_testing", True).create()
-        self.connector = SnowflakeConnector()
+        self.connector = MockSnowflakeConnector()
         df = pd.DataFrame.from_dict(
             {
                 "COL1": ["a", "a"],
@@ -142,6 +149,7 @@ class TestValidations(unittest.TestCase):
                 "COL4": ["a1", "b1"],
             }
         )
+        self.session = Session.builder.config("local_testing", True).create()
         self.table = self.session.create_dataframe(df)
 
     # Checks for assertion error if label column is not present in the feature table.

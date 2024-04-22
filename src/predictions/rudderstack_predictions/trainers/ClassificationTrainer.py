@@ -27,13 +27,10 @@ from sklearn.metrics import (
 
 
 class ClassificationTrainer(MLTrainer):
-    def __init__(
-        self, connector: Connector, session, entity_var_model_name: str, **kwargs
-    ):
+    def __init__(self, connector: Connector, entity_var_model_name: str, **kwargs):
         super().__init__(**kwargs)
         if self.label_value is None:
             self.label_value = connector.get_default_label_value(
-                session,
                 entity_var_model_name,
                 self.label_column,
                 constants.POSITIVE_BOOLEAN_FLAGS,
@@ -62,9 +59,8 @@ class ClassificationTrainer(MLTrainer):
     def get_name(self):
         return "classification"
 
-    def prepare_label_table(self, connector: Connector, session, label_table_name: str):
+    def prepare_label_table(self, connector: Connector, label_table_name: str):
         label_table = connector.label_table(
-            session,
             label_table_name,
             self.label_column,
             self.entity_column,
@@ -234,12 +230,10 @@ class ClassificationTrainer(MLTrainer):
             feature_table, self.label_column
         ) and connector.validate_class_proportions(feature_table, self.label_column)
 
-    def check_min_data_requirement(
-        self, connector: Connector, session, materials
-    ) -> bool:
+    def check_min_data_requirement(self, connector: Connector, materials) -> bool:
         label_column = self.label_column
         return connector.check_for_classification_data_requirement(
-            session, materials, label_column, self.label_value
+            materials, label_column, self.label_value
         )
 
     def load_model(self, model_file: str):

@@ -547,7 +547,7 @@ def subprocess_run(args):
         )
     if response.returncode != 0:
         logger.error(f"Error occurred. Exit code:{response.returncode}")
-        logger.error(f"Subprocess Output: {response.stdout}")
+        logger.debug(f"Subprocess Output: {response.stdout}")
         raise Exception(f"Subprocess Error: {response.stderr}")
     return response
 

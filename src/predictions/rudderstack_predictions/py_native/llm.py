@@ -19,7 +19,7 @@ class SnowflakeCortexModel(BaseModelType):
             "vars": {"type": "array", "items": {"type": "string"}},
             "llm_model_name": {"type": "string"},
         },
-        "required": ["vars"] + EntityKeyBuildSpecSchema["required"],
+        "required": ["prompt","vars"] + EntityKeyBuildSpecSchema["required"],
         "additionalProperties": False,
     }
 
@@ -49,52 +49,8 @@ class SnowflakeCortexRecipe(PyNativeRecipe):
         return self.sql, ".sql"
 
     def prepare(self, this: WhtMaterial):
-        if self.llm_model_name == "":
-            self.llm_model_name = "llama2-70b-chat"
-        entity = this.model.entity()
-        entity_key = entity["Name"]  # get entity key
-
-        # input_columns = ', '.join([
-        #     # example - {{user.Var('var1').Model.Name()}} -> returns the col name of the var
-        #     f"{{{{{entity_key}.Var('{var}').Model.Name()}}}}"
-        #     for var in self.vars
-        # ])
-        input_columns = [
-            # example - {{user.Var('var1').Model.Name()}} -> returns the col name of the var
-            f"{{{{{entity_key}.Var('{var}').Model.Name()}}}}"
-            for var in self.vars
-        ]
-        prompt_replaced = self.prompt
-        input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
-        for word, index in input_indices:
-            index = int(index)
-            if 0 <= index < len(input_columns):
-                placeholder = f"{{{word}[{index}]}}"
-                col = "' ||" + input_columns[index] + "|| ' "
-                prompt_replaced = prompt_replaced.replace(placeholder, col)
-            else:
-                self.logger.error(f"Index {index} out of range for input_columns list.")
-
-        # get the var table from a var
-        var_table_ref = f"this.DeRef(makePath({entity_key}.Var('{self.vars[0]}').Model.GetVarTableRef()))"
-
-        # model_creator_sql
-        query_template = f"""
-            {{% macro begin_block() %}}
-                {{% macro selector_sql() %}}
-                    {{% set entityVarTable = {var_table_ref} %}}
-
-                    SELECT *,SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS Gender
-                        FROM {{{{entityVarTable}}}}
-                         LIMIT 10;
-                {{% endmacro %}}
-                {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
-            {{% endmacro %}}
-
-            {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}"""
-
-        # Assigning the SQL query to the class attribute
-        self.sql = this.execute_text_template(query_template)
-
+        self.sql = ""
+        return
     def execute(self, this: WhtMaterial):
-        this.wht_ctx.client.query_sql_without_result(self.sql)
+        result = this.wht_ctx.client.query_sql_with_result(self.sql)
+        return result

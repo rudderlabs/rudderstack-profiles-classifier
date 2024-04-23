@@ -234,7 +234,11 @@ class ClassificationTrainer(MLTrainer):
     def check_min_data_requirement(self, connector: Connector, materials) -> bool:
         label_column = self.label_column
         return connector.check_for_classification_data_requirement(
-            materials, label_column, self.label_value
+            materials,
+            label_column,
+            self.label_value,
+            self.entity_column,
+            self.eligible_users,
         )
 
     def load_model(self, model_file: str):

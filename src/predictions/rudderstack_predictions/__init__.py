@@ -8,4 +8,5 @@ def register_extensions(project):
 
     project.register_model_type(PredictionModel)
     from .py_native.llm import LLMModel
+
     project.register_model_type(LLMModel)

@@ -30,17 +30,53 @@ class Connector(ABC):
         lowercase_list = lambda features: [feature.lower() for feature in features]
         schema_fields = self.fetch_table_metadata(table_name)
 
+        numeric_features = trainer_obj.prep.numeric_pipeline["numeric_columns"]
+        categorical_features = trainer_obj.prep.categorical_pipeline[
+            "categorical_columns"
+        ]
+        arraytype_features = trainer_obj.prep.array_columns
+        timestamp_features = trainer_obj.prep.timestamp_columns
+        user_features = set(
+            numeric_features
+            + categorical_features
+            + arraytype_features
+            + timestamp_features
+        )
+
         numeric_columns = utils.merge_lists_to_unique(
-            self.get_numeric_features(schema_fields, label_column, entity_column),
+            list(
+                set(
+                    self.get_numeric_features(
+                        schema_fields, label_column, entity_column
+                    )
+                )
+                - user_features
+            ),
             trainer_obj.prep.numeric_pipeline["numeric_columns"],
         )
         categorical_columns = utils.merge_lists_to_unique(
-            self.get_stringtype_features(schema_fields, label_column, entity_column),
+            list(
+                set(
+                    self.get_stringtype_features(
+                        schema_fields, label_column, entity_column
+                    )
+                )
+                - user_features
+            ),
             trainer_obj.prep.categorical_pipeline["categorical_columns"],
         )
-        arraytype_columns = self.get_arraytype_columns(
-            schema_fields, label_column, entity_column
+        arraytype_columns = utils.merge_lists_to_unique(
+            list(
+                set(
+                    self.get_arraytype_columns(
+                        schema_fields, label_column, entity_column
+                    )
+                )
+                - user_features
+            ),
+            trainer_obj.prep.array_columns,
         )
+
         timestamp_columns = (
             self.get_timestamp_columns(schema_fields, label_column, entity_column)
             if len(trainer_obj.prep.timestamp_columns) == 0

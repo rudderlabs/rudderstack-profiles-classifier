@@ -78,6 +78,7 @@ class ClassificationTrainer(MLTrainer):
     def train_model(
         self,
         feature_df: pd.DataFrame,
+        input_col_types: dict,
         merged_config: dict,
         model_file: str,
     ):
@@ -96,6 +97,7 @@ class ClassificationTrainer(MLTrainer):
 
         return self._train_model(
             feature_df,
+            input_col_types,
             merged_config,
             model_file,
             classification_setup,
@@ -109,7 +111,7 @@ class ClassificationTrainer(MLTrainer):
             models_to_include,
         )
 
-    def get_metrics(self, model, X_test, y_test, y_train, fold_param) -> dict:
+    def get_metrics(self, model, X_test, y_test, y_train) -> dict:
         train_metrics = (
             classification_results_pull().loc[("CV-Train", "Mean")].to_dict()
         )
@@ -119,7 +121,9 @@ class ClassificationTrainer(MLTrainer):
         train_metrics = self.map_metrics_keys(train_metrics)
         val_metrics = self.map_metrics_keys(val_metrics)
 
-        val_metrics["users"] = int(1 / fold_param * len(y_train))
+        val_metrics["users"] = int(
+            1 / self.prep.imputation_strategy["fold"] * len(y_train)
+        )
         train_metrics["users"] = len(y_train) - val_metrics["users"]
 
         result_dict = {

@@ -29,41 +29,21 @@ data:
       - '2024-01-03,2024-01-09'
   
 preprocessing:
-  # Related to various preprocessing steps of the data
+  # Refer to https://pycaret.readthedocs.io/en/stable/api/classification.html#pycaret.classification.setup for setting up preprocessing params for classification
+  # Refer to https://pycaret.readthedocs.io/en/stable/api/regression.html#pycaret.regression.setup for setting up preprocessing params for regression
 
   timestamp_columns: [] # Timestamp columns get a datediff function applied with the index_timestamp to get days_since_<timestamp_column> features
-
   ignore_features: []
+  numerical_features: [] # List of numerical features. If empty, all numerical features are considered
+  categorical_features: [] # List of categorical features. If empty, all categorical features are considered
 
-  numeric_pipeline:
-    numeric_columns: []
-    pipeline:
-      - name: SimpleImputer
-        # strategy can be any acceptable value of sklearn simpleimputer strategy
-        missing_values: np.nan
-        strategy: constant
-        # fill_value: 0
-        copy: True
-        add_indicator: False
-        # keep_empty_features: False
+  # Imputation Strategy
+  imputation_strategy : 
+    numeric_imputation : "median"
+    categorical_imputation : "mode"
+    fold : 5
+    fold_strategy : "stratifiedkfold"
 
-  categorical_pipeline:
-    categorical_columns: []
-    pipeline:
-      - name: SimpleImputer
-        strategy: constant
-        # if strategy is constant, it expects a fill_value. If that is not returned, it defaults to `unknown`
-        fill_value: unknown
-        copy: True
-        add_indicator: False
-      - name: OneHotEncoder
-        handle_unknown: ignore
-        max_categories: 5 # perform onehot encoding by keeping maximum of these categories per feature. If None, all categories are kept.
-  feature_selectors:
-    # Feature selectors that get applied after normalizing is done. Has to be from `VarianceThreshold`, `GenericUnivariateSelect`, `chi2`, `f_classif`
-    # ToDo: This section is not implemented in the notebook.
-    - name: VarianceThreshold
-      threshold: 0
 
   # Train, test, val split ratios. They must be each between 0 and 1, and sum to 1
   train_size: 0.8

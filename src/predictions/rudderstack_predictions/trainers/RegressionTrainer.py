@@ -57,6 +57,7 @@ class RegressionTrainer(MLTrainer):
     def train_model(
         self,
         feature_df: pd.DataFrame,
+        input_col_types: dict,
         merged_config: dict,
         model_file: str,
     ):
@@ -68,6 +69,7 @@ class RegressionTrainer(MLTrainer):
 
         return self._train_model(
             feature_df,
+            input_col_types,
             merged_config,
             model_file,
             regression_setup,
@@ -116,7 +118,7 @@ class RegressionTrainer(MLTrainer):
         except Exception as e:
             logger.error(f"Could not generate regression plots. {e}")
 
-    def get_metrics(self, model, X_test, y_test, y_train, fold_param) -> dict:
+    def get_metrics(self, model, X_test, y_test, y_train) -> dict:
         train_metrics = regression_results_pull().loc[("CV-Train", "Mean")].to_dict()
         val_metrics = regression_results_pull().loc[("CV-Val", "Mean")].to_dict()
         test_metrics = self.get_metrics_regressor(model, X_test, y_test)
@@ -124,7 +126,9 @@ class RegressionTrainer(MLTrainer):
         train_metrics = self.map_metrics_keys(train_metrics)
         val_metrics = self.map_metrics_keys(val_metrics)
 
-        val_metrics["users"] = int(1 / fold_param * len(y_train))
+        val_metrics["users"] = int(
+            1 / self.prep.imputation_strategy["fold"] * len(y_train)
+        )
         train_metrics["users"] = len(y_train) - val_metrics["users"]
 
         result_dict = {

@@ -35,7 +35,7 @@ class Connector(ABC):
         )
         trainer_obj_numeric_columns = {
             col: self.data_type_mapping["numeric"][col]
-            for col in trainer_obj.prep.numeric_pipeline["numeric_columns"]
+            for col in trainer_obj.prep.numerical_features
         }
         numeric_columns = {**numeric_columns, **trainer_obj_numeric_columns}
 

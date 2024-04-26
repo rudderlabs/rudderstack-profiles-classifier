@@ -34,7 +34,7 @@ class Connector(ABC):
         categorical_features = trainer_obj.prep.categorical_pipeline[
             "categorical_columns"
         ]
-        arraytype_features = trainer_obj.prep.array_columns
+        arraytype_features = trainer_obj.prep.arraytype_columns
         timestamp_features = trainer_obj.prep.timestamp_columns
         user_features = set(
             numeric_features
@@ -54,6 +54,7 @@ class Connector(ABC):
             ),
             trainer_obj.prep.numeric_pipeline["numeric_columns"],
         )
+
         categorical_columns = utils.merge_lists_to_unique(
             list(
                 set(
@@ -74,7 +75,7 @@ class Connector(ABC):
                 )
                 - user_features
             ),
-            trainer_obj.prep.array_columns,
+            trainer_obj.prep.arraytype_columns,
         )
 
         timestamp_columns = (
@@ -88,6 +89,9 @@ class Connector(ABC):
             "arraytype": arraytype_columns,
             "timestamp": timestamp_columns,
         }
+
+        if ignore_features is None:
+            ignore_features = []
 
         for column_type, columns in input_column_types.items():
             input_column_types[column_type] = [

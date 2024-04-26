@@ -33,7 +33,7 @@ preprocessing:
 
   timestamp_columns: [] # Timestamp columns get a datediff function applied with the index_timestamp to get days_since_<timestamp_column> features
   
-  array_columns: []
+  arraytype_columns: []
 
   ignore_features: []
 

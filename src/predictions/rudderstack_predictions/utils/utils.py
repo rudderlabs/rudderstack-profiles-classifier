@@ -65,7 +65,7 @@ class PreprocessorConfig:
     """PreprocessorConfig class is used to store the preprocessor configuration parameters"""
 
     timestamp_columns: List[str]
-    array_columns: List[str]
+    arraytype_columns: List[str]
     ignore_features: List[str]
     numeric_pipeline: dict
     categorical_pipeline: dict

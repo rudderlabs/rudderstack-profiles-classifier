@@ -27,8 +27,4 @@ packages:
     url: "https://github.com/rudderlabs/rudderstack-profiles-corelib/tag/schema_{{best_schema_version}}"
 
 python_requirements:
-  - profiles-cortex # {python_package_name}{optional version constraint}
-# In the url https://github.com/rudderlabs/rudderstack-profiles-corelib/tag/schema_{{best_schema_version}}, {{best_schema_version}} is
-#  a placeholder. The program will figure out the best compatible version.
-# In case you want to check the code in the library, please go to https://github.com/rudderlabs/rudderstack-profiles-corelib/tags
-#  and find the closest tag with version number <= to current schema version
+- rudderstack_predictions

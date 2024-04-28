@@ -9,13 +9,22 @@ models:
         - from: inputs/rsIdentifies
         - from: inputs/rsTracks
         - from: inputs/rsTest
-  - name: sf_cortex_test
-    model_type: sf_cortex
+  - name: llm_gender_prediction
+    model_type: llm_model
     model_spec:
       prompt: "The input field is a name entered by a person. Map it to a single value from the following list of standardised gender titles: [Male,Female,Other]. Return only standardised title, nothing else. {input[0]}"
       entity_key: user
       prompt_inputs:
-        - gender
+        - name
+      llm_model_name: "mistral-7b"
+  - name: llm_profession_prediction
+    model_type: llm_model
+    model_spec:
+      prompt: "The input field is a job title entered by a person. Map it to a single value from the following list of standardised job titles: [Software Engineer, Data Analyst, ML Engineer, Solutions Architect, Others]. Return only standardised title, nothing else. {input[0]}. Do it only if {input[1]} is 'US'"
+      entity_key: user
+      prompt_inputs:
+        - profession
+        - country
       llm_model_name: "mistral-7b"
 
 var_groups:
@@ -23,6 +32,14 @@ var_groups:
     entity_key: user
     vars:
       - entity_var:
-          name: gender
+          name: name
           select: max(first_name)
+          from: inputs/rsTest
+      - entity_var:
+          name: profession
+          select: max(profession)
+          from: inputs/rsTest
+      - entity_var:
+          name: country
+          select: max(country)
           from: inputs/rsTest

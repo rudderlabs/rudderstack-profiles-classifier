@@ -15,7 +15,7 @@ models:
       prompt: "The input field is a name entered by a person. Map it to a single value from the following list of standardised gender titles: [Male,Female,Other]. Return only standardised title, nothing else. {input[0]}"
       entity_key: user
       prompt_inputs:
-        - name
+        - user.var('name')
       llm_model_name: "mistral-7b"
   - name: llm_profession_prediction
     model_type: llm_model
@@ -23,8 +23,8 @@ models:
       prompt: "The input field is a job title entered by a person. Map it to a single value from the following list of standardised job titles: [Software Engineer, Data Analyst, ML Engineer, Solutions Architect, Others]. Return only standardised title, nothing else. {input[0]}. Do it only if {input[1]} is 'US'"
       entity_key: user
       prompt_inputs:
-        - profession
-        - country
+        - user.var('profession')
+        - user.var('country')
       llm_model_name: "mistral-7b"
 
 var_groups:

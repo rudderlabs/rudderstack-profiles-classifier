@@ -36,53 +36,37 @@ class Connector(ABC):
         ]
         config_arraytype_features = trainer_obj.prep.arraytype_columns
         config_timestamp_features = trainer_obj.prep.timestamp_columns
-        user_features = set(
+        config_agg_columns = set(
             config_numeric_features
             + config_categorical_features
             + config_arraytype_features
             + config_timestamp_features
         )
 
-        numeric_columns = utils.merge_lists_to_unique(
-            list(
-                set(
-                    self.get_numeric_features(
-                        schema_fields, label_column, entity_column
-                    )
-                )
-                - user_features
-            ),
-            trainer_obj.prep.numeric_pipeline["numeric_columns"],
+        # The get_all_columns_of_a_type is used to get all the columns of a particular type. Set has been used so that the config_agg_columns can be removed from the inferred columns so that there wont be any duplicates. Finally its converted back to list as we have to return a list of columns.
+        def get_all_columns_of_a_type(get_features, columns):
+            agg_columns = utils.merge_lists_to_unique(
+                list(
+                    set(get_features(schema_fields, label_column, entity_column))
+                    - config_agg_columns
+                ),
+                columns,
+            )
+            return agg_columns
+
+        numeric_columns = get_all_columns_of_a_type(
+            self.get_numeric_features, config_numeric_features
+        )
+        categorical_columns = get_all_columns_of_a_type(
+            self.get_stringtype_features, config_categorical_features
+        )
+        arraytype_columns = get_all_columns_of_a_type(
+            self.get_arraytype_columns, config_arraytype_features
+        )
+        timestamp_columns = get_all_columns_of_a_type(
+            self.get_timestamp_columns, config_timestamp_features
         )
 
-        categorical_columns = utils.merge_lists_to_unique(
-            list(
-                set(
-                    self.get_stringtype_features(
-                        schema_fields, label_column, entity_column
-                    )
-                )
-                - user_features
-            ),
-            trainer_obj.prep.categorical_pipeline["categorical_columns"],
-        )
-        arraytype_columns = utils.merge_lists_to_unique(
-            list(
-                set(
-                    self.get_arraytype_columns(
-                        schema_fields, label_column, entity_column
-                    )
-                )
-                - user_features
-            ),
-            trainer_obj.prep.arraytype_columns,
-        )
-
-        timestamp_columns = (
-            self.get_timestamp_columns(schema_fields, label_column, entity_column)
-            if len(trainer_obj.prep.timestamp_columns) == 0
-            else trainer_obj.prep.timestamp_columns
-        )
         input_column_types = {
             "numeric": numeric_columns,
             "categorical": categorical_columns,

@@ -5,6 +5,7 @@ from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
 from profiles_rudderstack.logger import Logger
 import re
 
+
 class LLMModel(BaseModelType):
     TypeName = "llm_model"  # the name of the model type
 
@@ -29,19 +30,27 @@ class LLMModel(BaseModelType):
         return LLMModelRecipe(self.build_spec)
 
     def validate(self):
-        valid_models = ["mistral-large", "reka-flash", "mixtral-8x7b", "llama2-70b-chat", "mistral-7b", "gemma-7b"]
-        if self.build_spec['llm_model_name'] not in valid_models:
+        valid_models = [
+            "mistral-large",
+            "reka-flash",
+            "mixtral-8x7b",
+            "llama2-70b-chat",
+            "mistral-7b",
+            "gemma-7b",
+        ]
+        if self.build_spec["llm_model_name"] not in valid_models:
             raise ValueError(
-                f"Invalid model name: {self.build_spec['llm_model_name']}. Valid options are: {', '.join(valid_models)}")
+                f"Invalid model name: {self.build_spec['llm_model_name']}. Valid options are: {', '.join(valid_models)}"
+            )
 
         prompt = self.build_spec["prompt"]
-        input_count = prompt.count('{')
+        input_count = prompt.count("{")
         input_lst = self.build_spec["prompt_inputs"]
         prompt_input_count = len(input_lst)
         if input_count != prompt_input_count:
-            raise ValueError(
-                f"Invalid number number of inputs")
+            raise ValueError(f"Invalid number number of inputs")
         return super().validate()
+
 
 class LLMModelRecipe(PyNativeRecipe):
     def __init__(self, build_spec: dict) -> None:
@@ -64,21 +73,24 @@ class LLMModelRecipe(PyNativeRecipe):
             for var in self.prompt_inputs
         ]
 
-        prompt_replaced = self.prompt.replace("'", "''", -1)  # This is to escape single quotes
-        input_indices = re.findall(r'{(\w+)\[(\d+)\]}', prompt_replaced)
+        prompt_replaced = self.prompt.replace(
+            "'", "''", -1
+        )  # This is to escape single quotes
+        input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
         for word, index in input_indices:
             index = int(index)
             if 0 <= index < len(input_columns):
-                placeholder = f'{{{word}[{index}]}}'
+                placeholder = f"{{{word}[{index}]}}"
                 col = "' ||" + input_columns[index] + "|| ' "
                 prompt_replaced = prompt_replaced.replace(placeholder, col)
             else:
-                self.logger.error(
-                    f"Index {index} out of range for input_columns list.")
+                self.logger.error(f"Index {index} out of range for input_columns list.")
 
         # get the var table from a var
         # var_table_ref = f"this.DeRef(makePath({entity_key}.Var('{self.vars[0]}').Model.GetVarTableRef()))"
-        var_table_ref = f"this.DeRef(makePath({self.prompt_inputs[0]}.Model.GetVarTableRef()))"
+        var_table_ref = (
+            f"this.DeRef(makePath({self.prompt_inputs[0]}.Model.GetVarTableRef()))"
+        )
 
         # model_creator_sql
         query_template = f"""
@@ -98,4 +110,3 @@ class LLMModelRecipe(PyNativeRecipe):
 
     def execute(self, this: WhtMaterial):
         this.wht_ctx.client.query_sql_without_result(self.sql)
-

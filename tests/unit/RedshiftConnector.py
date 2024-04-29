@@ -979,8 +979,6 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             connector=self.connector,
         )
 
-        print(f"Total call count pb run {mock_rudderpb_run.call_count}")
-
         # Assertions
         # We should be making only 3 calls to pb run, since one of the material dates is already present
         # in the registry

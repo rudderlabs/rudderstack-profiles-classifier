@@ -394,26 +394,26 @@ class MLTrainer(ABC):
 
             try:
                 # Check wether the materialisation is already present
-                temp_materials = get_material_func(
+                existing_materials = get_material_func(
                     start_date=feature_date,
                     end_date=feature_date,
                     return_partial_pairs=True,
                 )
 
-                if len(temp_materials) > 0:
+                if len(existing_materials) > 0:
                     # Check if any full sequence is exist or not
                     complete_sequences = [
                         sequence
-                        for sequence in temp_materials
+                        for sequence in existing_materials
                         if all(element is not None for element in sequence)
                     ]
 
                     if len(complete_sequences) < 1:
-                        temp_material = temp_materials[0]
-                        if temp_material.feature_table_date is None:
+                        existing_material = existing_materials[0]
+                        if existing_material.feature_table_date is None:
                             whtService.run(feature_package_path, feature_date)
 
-                        if temp_material.label_table_date is None:
+                        if existing_material.label_table_date is None:
                             whtService.run(feature_package_path, label_date)
                 else:
                     for date in [feature_date, label_date]:
@@ -432,8 +432,8 @@ class MLTrainer(ABC):
             # and validate min data requirement again
 
             # For manual strategy, we need to get the materials for the selected dates separately
-            # because the selected dates may not be in the search window. so creating temporary start and end dates
-            # so that we can get the materials for the selected dates.
+            # because the selected dates may not be in the search window. so searching for materials
+            # with "feature_date" as start and end date.
 
             # This logic will be valid for "auto" strategy as well, so we are not handling it separately.
             materials += get_material_func(

@@ -30,17 +30,17 @@ class Connector(ABC):
         lowercase_list = lambda features: [feature.lower() for feature in features]
         schema_fields = self.fetch_table_metadata(table_name)
 
-        numeric_features = trainer_obj.prep.numeric_pipeline["numeric_columns"]
-        categorical_features = trainer_obj.prep.categorical_pipeline[
+        config_numeric_features = trainer_obj.prep.numeric_pipeline["numeric_columns"]
+        config_categorical_features = trainer_obj.prep.categorical_pipeline[
             "categorical_columns"
         ]
-        arraytype_features = trainer_obj.prep.arraytype_columns
-        timestamp_features = trainer_obj.prep.timestamp_columns
+        config_arraytype_features = trainer_obj.prep.arraytype_columns
+        config_timestamp_features = trainer_obj.prep.timestamp_columns
         user_features = set(
-            numeric_features
-            + categorical_features
-            + arraytype_features
-            + timestamp_features
+            config_numeric_features
+            + config_categorical_features
+            + config_arraytype_features
+            + config_timestamp_features
         )
 
         numeric_columns = utils.merge_lists_to_unique(

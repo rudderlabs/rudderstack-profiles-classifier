@@ -74,9 +74,6 @@ class Connector(ABC):
             "timestamp": timestamp_columns,
         }
 
-        if ignore_features is None:
-            ignore_features = []
-
         for column_type, columns in input_column_types.items():
             input_column_types[column_type] = [
                 column

@@ -1135,6 +1135,7 @@ class Testget_input_column_types(unittest.TestCase):
         self.trainer_input = build_trainer_config()
         self.trainer_input["data"]["label_column"] = "COL6"
         self.trainer_input["data"]["entity_column"] = "COL1"
+        self.trainer_input["preprocessing"]["ignore_features"] = []
 
     def test_get_input_column_types(self):
         self.trainer_input["preprocessing"]["timestamp_columns"] = ["COL2"]

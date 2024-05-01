@@ -324,7 +324,10 @@ class SnowflakeConnector(Connector):
         )
 
     def transform_arraytype_features(
-        self, feature_table: snowflake.snowpark.Table, arraytype_features: List[str]
+        self,
+        feature_table: snowflake.snowpark.Table,
+        arraytype_features: List[str],
+        top_k_columns=2,
     ) -> Union[List[str], snowflake.snowpark.Table]:
         """Transforms arraytype features in a snowflake.snowpark.Table by expanding the arraytype features
         as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
@@ -360,14 +363,32 @@ class SnowflakeConnector(Connector):
             )
             grouped_df = exploded_df.groupBy(*exploded_df.columns).count()
 
-            # Extract unique values from the array
+            # Sum up the counts for each unique value
+            total_counts = grouped_df.groupBy("ARRAY_VALUE").agg(
+                F.sum("COUNT").alias("TOTAL_COUNT")
+            )
+
+            # Extract unique values and their respective total counts
             unique_values = [
-                row["ARRAY_VALUE"].strip('"')
-                for row in grouped_df.select("ARRAY_VALUE").distinct().collect()
+                row["ARRAY_VALUE"].strip('"') for row in total_counts.collect()
             ]
+            frequencies = {
+                row["ARRAY_VALUE"].strip('"'): row["TOTAL_COUNT"]
+                for row in total_counts.collect()
+            }
+
+            top_k_columns = min(top_k_columns, len(unique_values))
+            # Sort unique values based on frequency and select the top_k_col values
+            sorted_values = sorted(
+                unique_values, key=lambda x: frequencies[x], reverse=True
+            )
+            other_values = sorted_values[top_k_columns:]
+
+            # New column names
             new_array_column_names = [
-                f"{array_column}_{value}".upper() for value in unique_values
+                f"{array_column}_{value}".upper().strip() for value in unique_values
             ]
+            other_column_name = f"{array_column}_OTHERS".upper()
 
             # Define columns to remove
             columns_to_remove = ["COUNT", "ARRAY_VALUE"]
@@ -389,10 +410,21 @@ class SnowflakeConnector(Connector):
             ).fillna(0)
             joined_df = self.drop_cols(joined_df, arraytype_features)
 
-            # Rename columns with unique values
+            # Rename columns with top values
             for old_name, new_name in zip(unique_values, new_array_column_names):
                 transformed_column_names.append(new_name)
                 joined_df = joined_df.withColumnRenamed(f"'{old_name}'", new_name)
+
+            # Summarize other values into a single column
+            joined_df = joined_df.withColumn(
+                other_column_name,
+                sum(joined_df[f"{array_column}_{col}".upper()] for col in other_values),
+            )
+            transformed_column_names.append(other_column_name)
+
+            joined_df = self.drop_cols(
+                joined_df, [f"{array_column}_{col}".upper() for col in other_values]
+            )
 
             # Append the transformed DataFrame to the list
             transformed_tables.append(joined_df)

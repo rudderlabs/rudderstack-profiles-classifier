@@ -119,7 +119,7 @@ class RegressionTrainer(MLTrainer):
     def get_metrics(self, model, X_test, y_test, y_train, fold_param) -> dict:
         train_metrics = regression_results_pull().loc[("CV-Train", "Mean")].to_dict()
         val_metrics = regression_results_pull().loc[("CV-Val", "Mean")].to_dict()
-        test_metrics = self.get_metrics_regressor(model, X_test, y_test)
+        test_metrics = self._get_metrics_regressor(model, X_test, y_test)
 
         train_metrics = self.map_metrics_keys(train_metrics)
         val_metrics = self.map_metrics_keys(val_metrics)
@@ -138,7 +138,7 @@ class RegressionTrainer(MLTrainer):
         }
         return result_dict
 
-    def get_metrics_regressor(
+    def _get_metrics_regressor(
         self,
         model,
         train_x,

@@ -23,6 +23,7 @@ from sklearn.metrics import (
     average_precision_score,
     precision_recall_fscore_support,
     roc_auc_score,
+    fbeta_score,
 )
 
 
@@ -87,9 +88,15 @@ class ClassificationTrainer(MLTrainer):
                 "name": "roc_auc",
                 "function": roc_auc_score,
                 "greater_is_better": True,
-            }
+            },
+            {
+                "id": "fbeta_score",
+                "name": "fbeta_score",
+                "function": fbeta_score,
+                "greater_is_better": True,
+            },
         ]
-        metric_to_optimize = "F1"
+        metric_to_optimize = "fbeta_score"
         models_to_include = merged_config["model_params"]["models"]["include"][
             "classifiers"
         ]
@@ -114,7 +121,7 @@ class ClassificationTrainer(MLTrainer):
             classification_results_pull().loc[("CV-Train", "Mean")].to_dict()
         )
         val_metrics = classification_results_pull().loc[("CV-Val", "Mean")].to_dict()
-        test_metrics = self.get_metrics_classifier(model, X_test, y_test)
+        test_metrics = self._get_metrics_classifier(model, X_test, y_test)
 
         train_metrics = self.map_metrics_keys(train_metrics)
         val_metrics = self.map_metrics_keys(val_metrics)
@@ -134,7 +141,7 @@ class ClassificationTrainer(MLTrainer):
         }
         return result_dict
 
-    def get_classification_metrics(
+    def _get_classification_metrics(
         self,
         y_true: pd.DataFrame,
         y_pred: pd.DataFrame,
@@ -163,7 +170,7 @@ class ClassificationTrainer(MLTrainer):
         }
         return metrics
 
-    def get_metrics_classifier(
+    def _get_metrics_classifier(
         self,
         model,
         x,
@@ -177,7 +184,9 @@ class ClassificationTrainer(MLTrainer):
         ].to_numpy()
         y = y.to_numpy()
 
-        train_metrics = self.get_classification_metrics(y, train_pred, train_pred_proba)
+        train_metrics = self._get_classification_metrics(
+            y, train_pred, train_pred_proba
+        )
 
         return train_metrics
 

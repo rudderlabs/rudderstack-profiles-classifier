@@ -333,6 +333,7 @@ class SnowflakeConnector(Connector):
         as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
         """
         # Initialize lists to store transformed column names and DataFrames
+
         transformed_column_names = []
         transformed_tables = []
 
@@ -377,7 +378,6 @@ class SnowflakeConnector(Connector):
                 for row in total_counts.collect()
             }
 
-            top_k_columns = min(top_k_columns, len(unique_values))
             # Sort unique values based on frequency and select the top_k_col values
             sorted_values = sorted(
                 unique_values, key=lambda x: frequencies[x], reverse=True
@@ -412,7 +412,8 @@ class SnowflakeConnector(Connector):
 
             # Rename columns with top values
             for old_name, new_name in zip(unique_values, new_array_column_names):
-                transformed_column_names.append(new_name)
+                if old_name not in other_values:
+                    transformed_column_names.append(new_name)
                 joined_df = joined_df.withColumnRenamed(f"'{old_name}'", new_name)
 
             # Summarize other values into a single column
@@ -421,7 +422,6 @@ class SnowflakeConnector(Connector):
                 sum(joined_df[f"{array_column}_{col}".upper()] for col in other_values),
             )
             transformed_column_names.append(other_column_name)
-
             joined_df = self.drop_cols(
                 joined_df, [f"{array_column}_{col}".upper() for col in other_values]
             )
@@ -440,6 +440,7 @@ class SnowflakeConnector(Connector):
         transformed_feature_table = self.drop_cols(
             transformed_feature_table, arraytype_features
         )
+
         return transformed_column_names, transformed_feature_table
 
     def get_default_label_value(

@@ -1035,7 +1035,12 @@ class TestArrayTransformation(unittest.TestCase):
             {
                 "COL1": [1, 2, 3, 4],
                 "COL2": ["value1", "value2", "value3", "value4"],
-                "COL3": [None, ["p1", "p1", "p3", "p4"], ["p1", "p2", "p3", "p3"], []],
+                "COL3": [
+                    ["p1"],
+                    ["p1", "p1", "p3", "p4", "p4", "p4", "p4"],
+                    ["p1", "p2", "p3", "p3", "p1"],
+                    [],
+                ],
                 "COL4": [
                     ["a1", "a2", "a3"],
                     ["a3", "a2", "a3"],
@@ -1060,27 +1065,16 @@ class TestArrayTransformation(unittest.TestCase):
                 "COL1",
                 "COL2",
                 "COL3_P1",
-                "COL3_P2",
-                "COL3_P3",
                 "COL3_P4",
-                "COL4_A1",
+                "COL3_OTHERS",
                 "COL4_A2",
                 "COL4_A3",
-                "COL4_A4",
+                "COL4_OTHERS",
             ],
         )
         self.assertEqual(
             list(transformed_array_features),
-            [
-                "COL3_P1",
-                "COL3_P3",
-                "COL3_P4",
-                "COL3_P2",
-                "COL4_A1",
-                "COL4_A2",
-                "COL4_A3",
-                "COL4_A4",
-            ],
+            ["COL3_P1", "COL3_P4", "COL3_OTHERS", "COL4_A2", "COL4_A3", "COL4_OTHERS"],
         )
 
     def test_df_with_empty_array_features(self):
@@ -1102,8 +1096,12 @@ class TestArrayTransformation(unittest.TestCase):
         )
 
         # Check column names
-        self.assertEqual(list(transformed_df.columns), ["COL1", "COL2"])
-        self.assertEqual(list(transformed_array_features), [])
+        self.assertEqual(
+            list(transformed_df.columns), ["COL1", "COL2", "COL3_OTHERS", "COL4_OTHERS"]
+        )
+        self.assertEqual(
+            list(transformed_array_features), ["COL3_OTHERS", "COL4_OTHERS"]
+        )
 
     def test_df_with_no_array_features(self):
         df_with_no_array_features = pd.DataFrame.from_dict(

@@ -90,7 +90,6 @@ class CommonWarehouseConnector(Connector):
                 f"{array_col_name}_{value}".upper().strip() for value in unique_values
             ]
             other_column_name = f"{array_col_name}_OTHERS".upper()
-            transformed_array_col_names.extend(new_array_column_names)
 
             # Pivot the DataFrame to create new columns for each unique value
             pivoted_df = pd.pivot_table(
@@ -116,6 +115,10 @@ class CommonWarehouseConnector(Connector):
             joined_df[other_column_name] = sum(
                 joined_df[f"{array_col_name}_{col}".upper()] for col in other_values
             )
+
+            for old_name in unique_values:
+                if old_name not in other_values:
+                    transformed_array_col_names.append(rename_dict[old_name])
             transformed_array_col_names.append(other_column_name)
 
             joined_df.drop(

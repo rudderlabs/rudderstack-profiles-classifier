@@ -30,41 +30,50 @@ class Connector(ABC):
         lowercase_list = lambda features: [feature.lower() for feature in features]
         schema_fields = self.fetch_table_metadata(table_name)
 
-        config_numeric_features = trainer_obj.prep.numeric_pipeline["numeric_columns"]
-        config_categorical_features = trainer_obj.prep.categorical_pipeline[
+        config_numeric_columns = trainer_obj.prep.numeric_pipeline["numeric_columns"]
+        config_categorical_columns = trainer_obj.prep.categorical_pipeline[
             "categorical_columns"
         ]
-        config_arraytype_features = trainer_obj.prep.arraytype_columns
-        config_timestamp_features = trainer_obj.prep.timestamp_columns
+        config_arraytype_columns = trainer_obj.prep.arraytype_columns
+        config_timestamp_columns = trainer_obj.prep.timestamp_columns
         config_agg_columns = set(
-            config_numeric_features
-            + config_categorical_features
-            + config_arraytype_features
-            + config_timestamp_features
+            config_numeric_columns
+            + config_categorical_columns
+            + config_arraytype_columns
+            + config_timestamp_columns
         )
 
-        # The get_all_columns_of_a_type is used to get all the columns of a particular type. Set has been used so that the config_agg_columns can be removed from the inferred columns so that there wont be any duplicates. Finally its converted back to list as we have to return a list of columns.
-        def get_all_columns_of_a_type(get_features, columns):
-            agg_columns = utils.merge_lists_to_unique(
+        """The get_columns_of_given_datatype function retrieves all columns of a specified datatype from a dataset. 
+           A set is utilized to eliminate duplicates that may arise from including config_agg_columns in the inferred columns. 
+           Once duplicates are removed, the result is converted back to a list."""
+
+        def get_columns_of_given_datatype(
+            get_datatype_features_fn, config_datatype_columns
+        ):
+            given_datatype_columns = utils.merge_lists_to_unique(
                 list(
-                    set(get_features(schema_fields, label_column, entity_column))
+                    set(
+                        get_datatype_features_fn(
+                            schema_fields, label_column, entity_column
+                        )
+                    )
                     - config_agg_columns
                 ),
-                columns,
+                config_datatype_columns,
             )
-            return agg_columns
+            return given_datatype_columns
 
-        numeric_columns = get_all_columns_of_a_type(
-            self.get_numeric_features, config_numeric_features
+        numeric_columns = get_columns_of_given_datatype(
+            self.get_numeric_features, config_numeric_columns
         )
-        categorical_columns = get_all_columns_of_a_type(
-            self.get_stringtype_features, config_categorical_features
+        categorical_columns = get_columns_of_given_datatype(
+            self.get_stringtype_features, config_categorical_columns
         )
-        arraytype_columns = get_all_columns_of_a_type(
-            self.get_arraytype_columns, config_arraytype_features
+        arraytype_columns = get_columns_of_given_datatype(
+            self.get_arraytype_columns, config_arraytype_columns
         )
-        timestamp_columns = get_all_columns_of_a_type(
-            self.get_timestamp_columns, config_timestamp_features
+        timestamp_columns = get_columns_of_given_datatype(
+            self.get_timestamp_columns, config_timestamp_columns
         )
 
         input_column_types = {

@@ -853,7 +853,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         mock_rudderpb_run.return_value = True
         mock_datetime_to_date_string.side_effect = ["2024-02-20", "2024-02-20"]
         mock_get_feature_package_path.return_value = "feature_package_path"
-        new_materials = self.materials + [
+        new_materials = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name",
                 feature_table_date="2024-02-06 00:00:00",
@@ -862,7 +862,9 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             ),
         ]
 
-        mock_get_material_func = Mock(return_value=new_materials)
+        mock_get_material_func = Mock(
+            side_effect=[[], new_materials, [], new_materials]
+        )
 
         mock_date_add.side_effect = [
             "2024-02-06",
@@ -875,7 +877,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         self.trainer.check_min_data_requirement = Mock(side_effect=[False, True, True])
         result = self.trainer.check_and_generate_more_materials(
             mock_get_material_func,
-            materials=self.materials,
+            materials=self.materials.copy(),
             input_models=self.input_models,
             whtService=self.whtService,
             connector=self.connector,
@@ -886,7 +888,6 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
 
         # Verify calls to mock functions
         mock_get_feature_package_path.assert_called_once_with(self.input_models)
-        mock_datetime_to_date_string.assert_called()  # Called multiple times
         mock_rudderpb_run.assert_called()  # Called twice
 
         mock_dates_proximity_check.assert_called_once_with(
@@ -907,7 +908,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         self.trainer.check_min_data_requirement = Mock(return_value=False)
         result = self.trainer.check_and_generate_more_materials(
             mock_get_material_func,
-            materials=self.materials,
+            materials=self.materials.copy(),
             input_models=self.input_models,
             whtService=self.whtService,
             connector=self.connector,
@@ -932,7 +933,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         mock_datetime_to_date_string,
         mock_get_feature_package_path,
     ):
-        materials_1 = self.materials + [
+        materials_1 = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name_1",
                 feature_table_date="2024-01-01 00:00:00",
@@ -941,7 +942,16 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             ),
         ]
 
-        materials_2 = materials_1 + [
+        materials_2_partial = [
+            TrainTablesInfo(
+                feature_table_name="feature_table_name_2",
+                feature_table_date="2024-02-01 00:00:00",
+                label_table_name=None,
+                label_table_date=None,
+            ),
+        ]
+
+        materials_2 = [
             TrainTablesInfo(
                 feature_table_name="feature_table_name_2",
                 feature_table_date="2024-02-01 00:00:00",
@@ -950,8 +960,10 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
             ),
         ]
 
-        mock_rudderpb_run.side_effect = [True, True, True, True]
-        mock_get_material_func = Mock(side_effect=[materials_1, materials_2])
+        mock_rudderpb_run.side_effect = [True, True, True]
+        mock_get_material_func = Mock(
+            side_effect=[[], materials_1, materials_2_partial, materials_2]
+        )
         mock_get_feature_package_path.return_value = "feature_package_path"
 
         self.trainer.materialisation_dates = [
@@ -962,13 +974,17 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         self.trainer.materialisation_strategy = "manual"
         result = self.trainer.check_and_generate_more_materials(
             mock_get_material_func,
-            materials=self.materials,
+            materials=self.materials.copy(),
             input_models=self.input_models,
             whtService=self.whtService,
             connector=self.connector,
         )
 
         # Assertions
+        # We should be making only 3 calls to pb run, since one of the material dates is already present
+        # in the registry
+        self.assertEqual(mock_rudderpb_run.call_count, 3)  # Three materials generated
+
         self.assertEqual(len(result), 3)  # Three materials generated
 
         # Verify calls to mock functions
@@ -983,7 +999,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
 
         result = self.trainer.check_and_generate_more_materials(
             mock_get_material_func,
-            materials=self.materials,
+            materials=self.materials.copy(),
             input_models=self.input_models,
             whtService=self.whtService,
             connector=self.connector,

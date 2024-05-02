@@ -1,0 +1,52 @@
+# This is a sample file, for detailed reference see: https://rudderlabs.github.io/pywht/
+inputs:
+  - name: rsTest
+    contract:
+      is_optional: false
+      is_event_stream: false
+      with_entity_ids:
+        - user
+      with_columns: [ ]
+    app_defaults:
+      table: RUDDERSTACK_TEST_DB.cortex_test.Bhupi_test_table
+      ids:
+        - select: "id"
+          type: user_id
+          entity: user
+  - name: rsIdentifies
+    contract:
+      is_optional: false
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns: []
+    app_defaults:
+      table: RUDDERSTACK_TEST_DB.SAMPLE_SHOPIFY_DATA.IDENTIFIES
+      occurred_at_col: timestamp
+      ids:
+        - select: "user_id"
+          type: user_id
+          entity: user
+        - select: "anonymous_id"
+          type: anonymous_id
+          entity: user
+        - select: "lower(email)"
+          type: email
+          entity: user
+  - name: rsTracks
+    contract:
+      is_optional: false
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns: []
+    app_defaults:
+      table: RUDDERSTACK_TEST_DB.SAMPLE_SHOPIFY_DATA.TRACKS
+      occurred_at_col: timestamp
+      ids:
+        - select: "user_id"
+          type: user_id
+          entity: user
+        - select: "anonymous_id"
+          type: anonymous_id
+          entity: user

@@ -88,15 +88,9 @@ class ClassificationTrainer(MLTrainer):
                 "name": "roc_auc",
                 "function": roc_auc_score,
                 "greater_is_better": True,
-            },
-            {
-                "id": "fbeta_score",
-                "name": "fbeta_score",
-                "function": fbeta_score,
-                "greater_is_better": True,
-            },
+            }
         ]
-        metric_to_optimize = "fbeta_score"
+        metric_to_optimize = "F1"
         models_to_include = merged_config["model_params"]["models"]["include"][
             "classifiers"
         ]
@@ -121,7 +115,7 @@ class ClassificationTrainer(MLTrainer):
             classification_results_pull().loc[("CV-Train", "Mean")].to_dict()
         )
         val_metrics = classification_results_pull().loc[("CV-Val", "Mean")].to_dict()
-        test_metrics = self._get_metrics_classifier(model, X_test, y_test)
+        test_metrics = self._evaluate_classifier(model, X_test, y_test)
 
         train_metrics = self.map_metrics_keys(train_metrics)
         val_metrics = self.map_metrics_keys(val_metrics)
@@ -146,13 +140,12 @@ class ClassificationTrainer(MLTrainer):
         y_true: pd.DataFrame,
         y_pred: pd.DataFrame,
         y_pred_proba: pd.DataFrame,
-        recall_to_precision_importance: float = 1.0,
     ) -> dict:
         """Returns classification metrics in form of a dict for the given thresold."""
         precision, recall, f1, _ = precision_recall_fscore_support(
             y_true,
             y_pred,
-            beta=recall_to_precision_importance,
+            beta=self.recall_to_precision_importance,
         )
         precision = precision[1]
         recall = recall[1]
@@ -170,22 +163,22 @@ class ClassificationTrainer(MLTrainer):
         }
         return metrics
 
-    def _get_metrics_classifier(
+    def _evaluate_classifier(
         self,
         model,
         x,
         y,
     ) -> Tuple:
-        train_pred = classification_predict_model(model, x)[
-            "prediction_label"
-        ].to_numpy()
-        train_pred_proba = classification_predict_model(model, x)[
-            "prediction_score"
-        ].to_numpy()
+        preds_df = classification_predict_model(model, x, raw_score=True)[[
+            "prediction_label" , "prediction_score_1"]
+        ]
+        
+        preds = preds_df["prediction_label"].to_numpy()
+        preds_proba = preds_df["prediction_score_1"].to_numpy()
         y = y.to_numpy()
 
         train_metrics = self._get_classification_metrics(
-            y, train_pred, train_pred_proba
+            y, preds, preds_proba
         )
 
         return train_metrics

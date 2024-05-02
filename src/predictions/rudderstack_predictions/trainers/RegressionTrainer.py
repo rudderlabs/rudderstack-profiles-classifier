@@ -119,7 +119,7 @@ class RegressionTrainer(MLTrainer):
     def get_metrics(self, model, X_test, y_test, y_train, fold_param) -> dict:
         train_metrics = regression_results_pull().loc[("CV-Train", "Mean")].to_dict()
         val_metrics = regression_results_pull().loc[("CV-Val", "Mean")].to_dict()
-        test_metrics = self._get_metrics_regressor(model, X_test, y_test)
+        test_metrics = self._evaluate_regressor(model, X_test, y_test)
 
         train_metrics = self.map_metrics_keys(train_metrics)
         val_metrics = self.map_metrics_keys(val_metrics)
@@ -138,20 +138,20 @@ class RegressionTrainer(MLTrainer):
         }
         return result_dict
 
-    def _get_metrics_regressor(
+    def _evaluate_regressor(
         self,
         model,
-        train_x,
-        train_y,
+        x,
+        y,
     ):
-        train_pred = regression_predict_model(model, train_x)[
+        preds = regression_predict_model(model, x)[
             "prediction_label"
         ].to_numpy()
 
         train_metrics = {}
 
         for metric_name, metric_func in self.evalution_metrics_map_regressor.items():
-            train_metrics[metric_name] = float(metric_func(train_y, train_pred))
+            train_metrics[metric_name] = float(metric_func(y, preds))
 
         return train_metrics
 

@@ -26,7 +26,6 @@ class LLMModel(BaseModelType):
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:
-        DEFAULT_LLM_MODEL = "llama2-70b-chat"
         return LLMModelRecipe(self.build_spec)
 
     def validate(self):
@@ -40,7 +39,7 @@ class LLMModel(BaseModelType):
         ]
         if self.build_spec["llm_model_name"] not in valid_models:
             raise ValueError(
-                f"Invalid model name: {self.build_spec['llm_model_name']}. Valid options are: {', '.join(valid_models)}"
+                f"Invalid llm model name: {self.build_spec['llm_model_name']}. Valid options are: {', '.join(valid_models)}"
             )
 
         prompt = self.build_spec["prompt"]
@@ -65,11 +64,11 @@ class LLMModelRecipe(PyNativeRecipe):
 
     def prepare(self, this: WhtMaterial):
         entity = this.model.entity()
-        name = this.model.name()
+        column_name = this.model.name()
         if entity is None:
             raise Exception("no entity found for model")
         input_columns = [
-            f"{{{{{var}.Model.Name()}}}}"  # Assuming var is already in the format "user.Var('profession')"
+            f"{{{{{var}.Model.DbObjectNamePrefix()}}}}"  # Assuming var is already in the format "user.Var('profession')"
             for var in self.prompt_inputs
         ]
 
@@ -84,10 +83,8 @@ class LLMModelRecipe(PyNativeRecipe):
                 col = "' ||" + input_columns[index] + "|| ' "
                 prompt_replaced = prompt_replaced.replace(placeholder, col)
             else:
-                self.logger.error(f"Index {index} out of range for input_columns list.")
+                raise ValueError(f"Index {index} out of range for input_columns list.")
 
-        # get the var table from a var
-        # var_table_ref = f"this.DeRef(makePath({entity_key}.Var('{self.vars[0]}').Model.GetVarTableRef()))"
         var_table_ref = (
             f"this.DeRef(makePath({self.prompt_inputs[0]}.Model.GetVarTableRef()))"
         )
@@ -98,7 +95,7 @@ class LLMModelRecipe(PyNativeRecipe):
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
 
-                    SELECT *, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {name} FROM {{{{entityVarTable}}}}
+                    SELECT *, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name} FROM {{{{entityVarTable}}}}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}

@@ -29,6 +29,10 @@ class LLMModel(BaseModelType):
         return LLMModelRecipe(self.build_spec)
 
     def validate(self):
+
+        if self.build_spec["llm_model_name"] == "":
+            self.build_spec["llm_model_name"] = "llama2-70b-chat"
+
         valid_models = [
             "mistral-large",
             "reka-flash",

@@ -29,21 +29,18 @@ class LLMModel(BaseModelType):
         return LLMModelRecipe(self.build_spec)
 
     def validate(self):
-
-        if self.build_spec["llm_model_name"] == "":
-            self.build_spec["llm_model_name"] = "llama2-70b-chat"
-
-        valid_models = [
+        valid_model_inputs = [
             "mistral-large",
             "reka-flash",
             "mixtral-8x7b",
             "llama2-70b-chat",
             "mistral-7b",
             "gemma-7b",
+            "",
         ]
-        if self.build_spec["llm_model_name"] not in valid_models:
+        if self.build_spec["llm_model_name"] not in valid_model_inputs:
             raise ValueError(
-                f"Invalid llm model name: {self.build_spec['llm_model_name']}. Valid options are: {', '.join(valid_models)}"
+                f"Invalid llm model name: {self.build_spec['llm_model_name']}. Valid options are: {', '.join(valid_model_inputs)}"
             )
 
         prompt = self.build_spec["prompt"]
@@ -60,6 +57,8 @@ class LLMModel(BaseModelType):
 
 class LLMModelRecipe(PyNativeRecipe):
     def __init__(self, build_spec: dict) -> None:
+        if build_spec["llm_model_name"] == "":
+            build_spec["llm_model_name"] = "llama2-70b-chat"
         self.prompt = build_spec["prompt"]
         self.prompt_inputs = build_spec["prompt_inputs"]
         self.logger = Logger("llm_model_recipe")
@@ -78,7 +77,7 @@ class LLMModelRecipe(PyNativeRecipe):
             f"{{{{{var}.Model.DbObjectNamePrefix()}}}}"  # Assuming var is already in the format "user.Var('profession')"
             for var in self.prompt_inputs
         ]
-        joined_columns = ", ".join(input_columns)
+        entity_id_column_name = this.model.entity().get("IdColumnName")
         prompt_replaced = self.prompt.replace(
             "'", "''", -1
         )  # This is to escape single quotes
@@ -99,7 +98,7 @@ class LLMModelRecipe(PyNativeRecipe):
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
 
-                    SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name} FROM {{{{entityVarTable}}}}
+                    SELECT {entity_id_column_name}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name} FROM {{{{entityVarTable}}}}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}

@@ -24,6 +24,8 @@ class LLMModel(BaseModelType):
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         super().__init__(build_spec, schema_version, pb_version)
+        if build_spec["llm_model_name"] == "":
+            build_spec["llm_model_name"] = "llama2-70b-chat"
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return LLMModelRecipe(self.build_spec)
@@ -36,7 +38,6 @@ class LLMModel(BaseModelType):
             "llama2-70b-chat",
             "mistral-7b",
             "gemma-7b",
-            "",
         ]
         if self.build_spec["llm_model_name"] not in valid_model_inputs:
             raise ValueError(
@@ -57,8 +58,6 @@ class LLMModel(BaseModelType):
 
 class LLMModelRecipe(PyNativeRecipe):
     def __init__(self, build_spec: dict) -> None:
-        if build_spec["llm_model_name"] == "":
-            build_spec["llm_model_name"] = "llama2-70b-chat"
         self.prompt = build_spec["prompt"]
         self.prompt_inputs = build_spec["prompt_inputs"]
         self.logger = Logger("llm_model_recipe")

@@ -43,11 +43,14 @@ class LLMModel(BaseModelType):
             )
 
         prompt = self.build_spec["prompt"]
-        input_count = prompt.count("{")
         input_lst = self.build_spec["prompt_inputs"]
-        prompt_input_count = len(input_lst)
-        if input_count != prompt_input_count:
-            raise ValueError(f"Invalid number number of inputs")
+        prompt_replaced = prompt.replace("'", "''", -1)
+        input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
+        max_index = max(int(index) for _, index in input_indices)
+        if max_index >= len(input_lst):
+            raise ValueError(
+                f"Maximum index {max_index} is out of range for input_columns list."
+            )
         return super().validate()
 
 
@@ -71,19 +74,16 @@ class LLMModelRecipe(PyNativeRecipe):
             f"{{{{{var}.Model.DbObjectNamePrefix()}}}}"  # Assuming var is already in the format "user.Var('profession')"
             for var in self.prompt_inputs
         ]
-
+        joined_columns = ", ".join(input_columns)
         prompt_replaced = self.prompt.replace(
             "'", "''", -1
         )  # This is to escape single quotes
         input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
         for word, index in input_indices:
             index = int(index)
-            if 0 <= index < len(input_columns):
-                placeholder = f"{{{word}[{index}]}}"
-                col = "' ||" + input_columns[index] + "|| ' "
-                prompt_replaced = prompt_replaced.replace(placeholder, col)
-            else:
-                raise ValueError(f"Index {index} out of range for input_columns list.")
+            placeholder = f"{{{word}[{index}]}}"
+            col = "' ||" + input_columns[index] + "|| ' "
+            prompt_replaced = prompt_replaced.replace(placeholder, col)
 
         var_table_ref = (
             f"this.DeRef(makePath({self.prompt_inputs[0]}.Model.GetVarTableRef()))"
@@ -95,7 +95,7 @@ class LLMModelRecipe(PyNativeRecipe):
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
 
-                    SELECT *, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name} FROM {{{{entityVarTable}}}}
+                    SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name} FROM {{{{entityVarTable}}}}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}

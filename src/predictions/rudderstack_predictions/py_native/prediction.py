@@ -91,12 +91,10 @@ class PredictionRecipe(PyNativeRecipe):
     def execute(self, this: WhtMaterial):
         site_config_path = this.wht_ctx.site_config().get("FilePath")
         whtService = PyNativeWHT(this)
-        # TODO: Get connection from pywht
-        connection_name = whtService.get_active_connection_name(
-            this.base_wht_project.project_path()
+        # TODO: Get creds from pywht
+        creds = whtService.get_credentials(
+            this.base_wht_project.project_path(), site_config_path
         )
-        connection = utils.load_yaml(site_config_path)["connections"][connection_name]
-        creds = connection["outputs"][connection["target"]]
         runtime_info = {"site_config_path": site_config_path}
         config = self.build_spec.get("ml_config", {})
         input_materials = []

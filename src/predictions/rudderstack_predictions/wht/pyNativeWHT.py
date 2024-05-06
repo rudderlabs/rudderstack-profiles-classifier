@@ -68,7 +68,9 @@ class PyNativeWHT:
     def get_input_models(self, inputs: List[str]) -> List[str]:
         return self.pythonWHT.get_input_models(inputs)
 
-    def get_active_connection_name(self, project_path: str) -> str:
-        return utils.load_yaml(os.path.join(project_path, "pb_project.yaml"))[
-            "connection"
-        ]
+    def get_credentials(self, project_path: str, site_config_path: str) -> str:
+        connection_name = utils.load_yaml(
+            os.path.join(project_path, "pb_project.yaml")
+        )["connection"]
+        connection = utils.load_yaml(site_config_path)["connections"][connection_name]
+        return connection["outputs"][connection["target"]]

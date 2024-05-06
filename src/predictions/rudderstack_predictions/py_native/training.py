@@ -89,13 +89,11 @@ class TrainingRecipe(PyNativeRecipe):
 
     def execute(self, this: WhtMaterial):
         whtService = PyNativeWHT(this)
-        # TODO: Get connection from pywht
-        connection_name = whtService.get_active_connection_name(
-            this.base_wht_project.project_path()
-        )
         site_config_path = this.wht_ctx.site_config().get("FilePath")
-        connection = utils.load_yaml(site_config_path)["connections"][connection_name]
-        creds = connection["outputs"][connection["target"]]
+        # TODO: Get creds from pywht
+        creds = whtService.get_credentials(
+            this.base_wht_project.project_path(), site_config_path
+        )
         input_model_refs = self.build_spec.get("inputs", [])
         output_filename = TrainingRecipe.get_output_filepath(this)
         project_folder = this.base_wht_project.project_path()

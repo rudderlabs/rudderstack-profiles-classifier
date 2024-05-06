@@ -117,9 +117,10 @@ class CommonWarehouseConnector(Connector):
         transformed_feature_df = feature_df.copy()
 
         for boolean_column in booleantype_features:
-            transformed_feature_df[boolean_column] = transformed_feature_df[
-                boolean_column
-            ].astype(int)
+            transformed_feature_df[boolean_column].replace(
+                {False: 0, True: 1}, inplace=True
+            )
+
         return transformed_feature_df
 
     def get_merged_table(self, base_table, incoming_table):

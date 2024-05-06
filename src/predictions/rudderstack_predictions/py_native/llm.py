@@ -24,8 +24,6 @@ class LLMModel(BaseModelType):
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         super().__init__(build_spec, schema_version, pb_version)
-        if build_spec["llm_model_name"] == "":
-            build_spec["llm_model_name"] = "llama2-70b-chat"
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return LLMModelRecipe(self.build_spec)

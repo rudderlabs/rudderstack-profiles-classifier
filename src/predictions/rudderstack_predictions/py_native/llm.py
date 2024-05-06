@@ -21,6 +21,7 @@ class LLMModel(BaseModelType):
         "required": ["prompt", "prompt_inputs"] + EntityKeyBuildSpecSchema["required"],
         "additionalProperties": False,
     }
+    DEFAULT_LLM_MODEL = "llama2-70b-chat"
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         super().__init__(build_spec, schema_version, pb_version)
@@ -28,7 +29,7 @@ class LLMModel(BaseModelType):
             self.build_spec["llm_model_name"] == ""
             or self.build_spec["llm_model_name"] == None
         ):
-            self.build_spec["llm_model_name"] = "llama2-70b-chat"
+            self.build_spec["llm_model_name"] = self.DEFAULT_LLM_MODEL
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return LLMModelRecipe(self.build_spec)
@@ -38,7 +39,7 @@ class LLMModel(BaseModelType):
             "mistral-large",
             "reka-flash",
             "mixtral-8x7b",
-            "llama2-70b-chat",
+            self.DEFAULT_LLM_MODEL,
             "mistral-7b",
             "gemma-7b",
         ]

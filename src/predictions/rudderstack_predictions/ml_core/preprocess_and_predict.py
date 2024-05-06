@@ -97,9 +97,7 @@ def preprocess_and_predict(
 
     logger.debug(f"Transforming arraytype columns.")
     _, raw_data = connector.transform_arraytype_features(raw_data, arraytype_columns)
-    _, raw_data = connector.transform_booleantype_features(
-        raw_data, booleantype_columns
-    )
+    raw_data = connector.transform_booleantype_features(raw_data, booleantype_columns)
 
     logger.debug("Boolean Type Columns transformed to numeric")
 

@@ -426,7 +426,7 @@ class SnowflakeConnector(Connector):
 
     def transform_booleantype_features(
         self, feature_table: snowflake.snowpark.Table, booleantype_features: List[str]
-    ) -> Union[List[str], snowflake.snowpark.Table]:
+    ) -> snowflake.snowpark.Table:
         """Transforms booleantype features in a snowflake.snowpark.Table"""
 
         # Initialize a variable to store the original feature table
@@ -436,7 +436,7 @@ class SnowflakeConnector(Connector):
             transformed_feature_table = transformed_feature_table.withColumn(
                 boolean_column, F.col(boolean_column).cast("integer")
             )
-        return booleantype_features, transformed_feature_table
+        return transformed_feature_table
 
     def get_default_label_value(
         self, table_name: str, label_column: str, positive_boolean_flags: list

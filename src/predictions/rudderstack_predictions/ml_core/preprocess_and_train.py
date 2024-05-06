@@ -179,12 +179,10 @@ def preprocess_and_train(
         feature_table, input_column_types["arraytype"]
     )
 
-    (
-        transformed_booleantype_cols,
-        feature_table,
-    ) = connector.transform_booleantype_features(
+    feature_table = connector.transform_booleantype_features(
         feature_table, input_column_types["booleantype"]
     )
+    transformed_booleantype_cols = input_column_types["booleantype"]
     logger.debug("Boolean Type Columns transformed to numeric")
 
     ignore_features = utils.get_all_ignore_features(

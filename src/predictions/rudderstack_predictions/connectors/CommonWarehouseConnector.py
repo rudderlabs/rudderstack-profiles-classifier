@@ -113,14 +113,14 @@ class CommonWarehouseConnector(Connector):
 
     def transform_booleantype_features(
         self, feature_df: pd.DataFrame, booleantype_features: List[str]
-    ) -> Union[List[str], pd.DataFrame]:
+    ) -> pd.DataFrame:
         transformed_feature_df = feature_df.copy()
 
         for boolean_column in booleantype_features:
             transformed_feature_df[boolean_column] = transformed_feature_df[
                 boolean_column
             ].astype(int)
-        return booleantype_features, transformed_feature_df
+        return transformed_feature_df
 
     def get_merged_table(self, base_table, incoming_table):
         return pd.concat([base_table, incoming_table], axis=0, ignore_index=True)

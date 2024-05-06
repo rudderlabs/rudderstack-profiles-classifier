@@ -13,7 +13,6 @@ from sqlalchemy import text
 
 from ...utils.logger import logger
 from .connector_base import ConnectorBase
-import time
 
 
 class RedShiftConnector(ConnectorBase):

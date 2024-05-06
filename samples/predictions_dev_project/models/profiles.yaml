@@ -34,7 +34,7 @@ models:
         - entity_var:
             name: random_boolean_feature
             select: "{{macro_random_bool_feature()}}"
-            description: this feature is created for testing purpose. Remove it later.     
+            description: this feature is created for testing purpose.  
         # LTV features
         - entity_var:
             name: n_orders_completed

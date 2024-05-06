@@ -65,6 +65,7 @@ class PreprocessorConfig:
     """PreprocessorConfig class is used to store the preprocessor configuration parameters"""
 
     timestamp_columns: List[str]
+    arraytype_columns: List[str]
     ignore_features: List[str]
     numeric_pipeline: dict
     categorical_pipeline: dict
@@ -439,7 +440,7 @@ def date_add(reference_date: str, add_days: int) -> str:
 
 def get_abs_date_diff(ref_date1: str, ref_date2: str) -> int:
     """
-    For given two dates (in the format "YYYY-MM-DD") in string format, it will retrun the difference in days
+    For given two dates (in the format "YYYY-MM-DD") in string format, it will return the difference in days
     """
     d1 = datetime.strptime(ref_date1, constants.MATERIAL_DATE_FORMAT)
     d2 = datetime.strptime(ref_date2, constants.MATERIAL_DATE_FORMAT)
@@ -547,7 +548,7 @@ def subprocess_run(args):
         )
     if response.returncode != 0:
         logger.error(f"Error occurred. Exit code:{response.returncode}")
-        logger.error(f"Subprocess Output: {response.stdout}")
+        logger.debug(f"Subprocess Output: {response.stdout}")
         raise Exception(f"Subprocess Error: {response.stderr}")
     return response
 

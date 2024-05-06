@@ -4,7 +4,9 @@ from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
 from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
 
-import pandas as pd
+import yaml
+
+from ..utils import utils
 
 from ..utils import constants
 
@@ -75,7 +77,7 @@ class TrainingRecipe(PyNativeRecipe):
             ".txt",
         )
 
-    def prepare(self, this: WhtMaterial):
+    def register_dependencies(self, this: WhtMaterial):
         for input in self.build_spec["inputs"]:
             this.de_ref(input)
 
@@ -86,24 +88,18 @@ class TrainingRecipe(PyNativeRecipe):
         return f"{folder}/{file_name}"
 
     def execute(self, this: WhtMaterial):
-        import os
-        import yaml
-
-        homedir = os.path.expanduser("~")
-        with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-            creds = yaml.safe_load(f)["connections"]["test"]["outputs"]["redshift"]
+        whtService = PyNativeWHT(this)
+        site_config_path = this.wht_ctx.site_config().get("FilePath")
+        # TODO: Get creds from pywht
+        creds = whtService.get_credentials(
+            this.base_wht_project.project_path(), site_config_path
+        )
         input_model_refs = self.build_spec.get("inputs", [])
         output_filename = TrainingRecipe.get_output_filepath(this)
-        site_config_path = os.getenv("SITE_CONFIG_PATH")
-        project_folder = os.getenv("PROJECT_FOLDER")
-        runtime_info = {}
+        project_folder = this.base_wht_project.project_path()
+        runtime_info = {"is_rudder_backend": this.base_wht_project.is_rudder_backend()}
         config = self.build_spec.get("ml_config", {})
         input_materials = []
-        # TODO
-        # 1. Get project_folder from pywht
-        # 2. Get site_config_path from pywht
-        # 3. Compute creds from site_config_path
-        # 4. Get runtime_info from pywht
         for input in self.build_spec["inputs"]:
             material = this.de_ref(input)
             input_materials.append(material.name())
@@ -116,7 +112,7 @@ class TrainingRecipe(PyNativeRecipe):
             project_folder,
             runtime_info,
             input_model_refs,
-            PyNativeWHT(this),
+            whtService,
             constants.ML_CORE_PYNATIVE_PATH,
             this.name(),
         )

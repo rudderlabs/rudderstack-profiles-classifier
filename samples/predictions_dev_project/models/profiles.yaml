@@ -27,7 +27,14 @@ models:
             select: "{{macro_datediff('{{user.Var(\"max_timestamp_bw_tracks_pages\")}}')}}"
             dependencies:
               - max_timestamp_bw_tracks_pages
-
+        - entity_var:
+            name: is_churned_7_days
+            select: case when {{user.Var("days_since_last_seen")}} > 7 then 1 else 0 end
+            description: Depending on the n value, it specifies if there is any activity observed in the last 7 days.
+        - entity_var:
+            name: random_boolean_feature
+            select: "{{macro_random_bool_feature()}}"
+            description: this feature is created for testing purpose. Remove it later.     
         # LTV features
         - entity_var:
             name: n_orders_completed
@@ -54,4 +61,7 @@ models:
         - total_sessions_till_date
         - n_orders_completed
         - gross_amt_spent_in_past_90_days
+        - is_churned_7_days
+        - random_boolean_feature
+
 

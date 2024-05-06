@@ -13,6 +13,7 @@ from sqlalchemy import text
 
 from ...utils.logger import logger
 from .connector_base import ConnectorBase
+import time
 
 
 class RedShiftConnector(ConnectorBase):
@@ -52,6 +53,7 @@ class RedShiftConnector(ConnectorBase):
                     schema=schema,
                     index=False,
                     if_exists=if_exists,
+                    method="multi",
                 )
             else:
                 logger.info(f"Establishing connection to Redshift")

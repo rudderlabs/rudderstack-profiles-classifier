@@ -61,6 +61,7 @@ def preprocess_and_predict(
     ]
     arraytype_columns = results["column_names"]["input_column_types"]["arraytype"]
     timestamp_columns = results["column_names"]["input_column_types"]["timestamp"]
+    booleantype_columns = results["column_names"]["input_column_types"]["booleantype"]
     ignore_features = results["column_names"]["ignore_features"]
 
     model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
@@ -96,6 +97,11 @@ def preprocess_and_predict(
 
     logger.debug(f"Transforming arraytype columns.")
     _, raw_data = connector.transform_arraytype_features(raw_data, arraytype_columns)
+    _, raw_data = connector.transform_booleantype_features(
+        raw_data, booleantype_columns
+    )
+
+    logger.debug("Boolean Type Columns transformed to numeric")
 
     predict_data = connector.drop_cols(raw_data, ignore_features)
 

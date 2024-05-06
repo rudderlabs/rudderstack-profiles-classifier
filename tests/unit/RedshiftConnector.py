@@ -1139,6 +1139,7 @@ class Testget_input_column_types(unittest.TestCase):
     def test_get_input_column_types(self):
         self.trainer_input["preprocessing"]["timestamp_columns"] = ["COL2"]
         self.trainer_input["preprocessing"]["arraytype_columns"] = ["COL3"]
+        self.trainer_input["preprocessing"]["booleantype_columns"] = ["COL8"]
         self.trainer_input["preprocessing"]["numeric_pipeline"] = {
             "numeric_columns": ["COL4", "COL7"]
         }
@@ -1154,6 +1155,7 @@ class Testget_input_column_types(unittest.TestCase):
             schema_fields(name="COL7", field_type="integer"),
             schema_fields(name="COL2", field_type="date"),
             schema_fields(name="COL3", field_type="array"),
+            schema_fields(name="COL8", field_type="boolean"),
         ]
 
         # Mock the fetch_table_metadata
@@ -1172,6 +1174,7 @@ class Testget_input_column_types(unittest.TestCase):
             "categorical": ["COL5"],
             "arraytype": ["COL3"],
             "timestamp": ["COL2"],
+            "booleantype": ["COL8"],
         }
 
         all_keys = set(expected.keys()).union(output.keys())

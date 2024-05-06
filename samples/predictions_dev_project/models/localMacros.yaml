@@ -30,3 +30,12 @@ macros:
           datediff(day, date({{column}}), GETDATE()) <= {{number_of_days}}
         {% endif %}
       {% endif %}
+  - name: macro_random_bool_feature
+    inputs:
+    value: |
+      {% if warehouse.DatabaseType() == "bigquery" %}
+        RAND()>0.5
+      {% else %}
+        RANDOM()>0.5
+      {% endif %}
+   

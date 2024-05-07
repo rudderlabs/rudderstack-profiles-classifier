@@ -110,15 +110,10 @@ class ClassificationTrainer(MLTrainer):
             models_to_include,
         )
 
-    def get_metrics(self, model, X_test, y_test, y_train, fold_param) -> dict:
-        train_metrics = (
-            classification_results_pull().loc[("CV-Train", "Mean")].to_dict()
-        )
-        val_metrics = classification_results_pull().loc[("CV-Val", "Mean")].to_dict()
+    def get_metrics(self, model, X_test, y_test, X_train, y_train, fold_param) -> dict:
+        train_metrics = self._evaluate_classifier(model, X_train, y_train)
         test_metrics = self._evaluate_classifier(model, X_test, y_test)
-
-        train_metrics = self.map_metrics_keys(train_metrics)
-        val_metrics = self.map_metrics_keys(val_metrics)
+        val_metrics = train_metrics
 
         val_metrics["users"] = int(1 / fold_param * len(y_train))
         train_metrics["users"] = len(y_train) - val_metrics["users"]
@@ -169,17 +164,15 @@ class ClassificationTrainer(MLTrainer):
         x,
         y,
     ) -> Tuple:
-        preds_df = classification_predict_model(model, x, raw_score=True)[[
-            "prediction_label" , "prediction_score_1"]
+        preds_df = classification_predict_model(model, x, raw_score=True)[
+            ["prediction_label", "prediction_score_1"]
         ]
-        
+
         preds = preds_df["prediction_label"].to_numpy()
         preds_proba = preds_df["prediction_score_1"].to_numpy()
         y = y.to_numpy()
 
-        train_metrics = self._get_classification_metrics(
-            y, preds, preds_proba
-        )
+        train_metrics = self._get_classification_metrics(y, preds, preds_proba)
 
         return train_metrics
 

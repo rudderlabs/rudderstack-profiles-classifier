@@ -575,7 +575,7 @@ def plot_lift_chart(y_pred: np.array, y_true: np.array, lift_chart_file: str) ->
 
 def plot_top_k_feature_importance(
     model, train_x, figure_file, top_k_features=20
-) -> pd.DataFrame:
+) -> None:
     try:
         if len(train_x) < 100:
             sample_data = train_x

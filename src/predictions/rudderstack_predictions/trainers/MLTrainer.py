@@ -247,7 +247,9 @@ class MLTrainer(ABC):
 
         model_class_name = tuned_model.__class__.__name__
         pycaret_save_model(tuned_model, model_file)
-        results = self.get_metrics(tuned_model, test_x, test_y, train_y, n_folds)
+        results = self.get_metrics(
+            tuned_model, test_x, test_y, train_x, train_y, n_folds
+        )
         train_x_transformed = pycaret_get_config("X_train_transformed")
 
         results["model_id"] = model_id

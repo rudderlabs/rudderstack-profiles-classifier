@@ -48,7 +48,7 @@ class TestLLMModelValidation(unittest.TestCase):
 
         # Assert
         self.assertTrue(are_equal)
-
+        # Testing the case when prompt maximum index is greater then the size of prompt_inputs
         self.build_spec['prompt'] = "sample prompt {input1[2]} {input2[3]}"
         llm_model = LLMModel(self.build_spec, 53, "v0.11.2")
         mock_re.findall.return_value = [("input1", "2"), ("input2", "3")]

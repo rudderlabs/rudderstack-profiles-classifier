@@ -215,6 +215,9 @@ class MLTrainer(ABC):
         numeric_cols = list(input_col_types["numeric"].keys())
         categorical_cols = list(input_col_types["categorical"].keys())
 
+        n_folds = train_config["model_params"]["fold"]
+        fold_strategy = train_config["model_params"]["fold_strategy"]
+
         # Initialize PyCaret setup for the model with train and test data
         setup = pycaret_model_setup(
             data=train_data,
@@ -222,6 +225,8 @@ class MLTrainer(ABC):
             session_id=42,
             numeric_features=numeric_cols,
             categorical_features=categorical_cols,
+            fold=n_folds,
+            fold_strategy=fold_strategy,
             **self.prep.imputation_strategy,
         )
 
@@ -242,7 +247,7 @@ class MLTrainer(ABC):
 
         model_class_name = tuned_model.__class__.__name__
         pycaret_save_model(tuned_model, model_file)
-        results = self.get_metrics(tuned_model, test_x, test_y, train_y)
+        results = self.get_metrics(tuned_model, test_x, test_y, train_y, n_folds)
         train_x_transformed = pycaret_get_config("X_train_transformed")
 
         results["model_id"] = model_id

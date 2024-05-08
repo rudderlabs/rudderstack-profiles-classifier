@@ -69,7 +69,7 @@ class PreprocessorConfig:
 
     timestamp_columns: List[str]
     ignore_features: List[str]
-    numerical_features: List[str]
+    numeric_features: List[str]
     categorical_features: List[str]
     imputation_strategy: dict
     train_size: float

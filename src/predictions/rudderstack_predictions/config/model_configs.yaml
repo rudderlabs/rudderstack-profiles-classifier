@@ -34,16 +34,13 @@ preprocessing:
 
   timestamp_columns: [] # Timestamp columns get a datediff function applied with the index_timestamp to get days_since_<timestamp_column> features
   ignore_features: []
-  numerical_features: [] # List of numerical features. If empty, all numerical features are considered
+  numeric_features: [] # List of numerical features. If empty, all numerical features are considered
   categorical_features: [] # List of categorical features. If empty, all categorical features are considered
 
   # Imputation Strategy
   imputation_strategy : 
     numeric_imputation : "median"
     categorical_imputation : "mode"
-    fold : 5
-    fold_strategy : "stratifiedkfold"
-
 
   # Train, test, val split ratios. They must be each between 0 and 1, and sum to 1
   train_size: 0.8
@@ -56,6 +53,8 @@ train:
     val_file: val.csv
     label_col_name: label
   model_params:
+    fold_strategy: "stratifiedkfold"
+    fold: 5
     models:
       include :
         classifiers :

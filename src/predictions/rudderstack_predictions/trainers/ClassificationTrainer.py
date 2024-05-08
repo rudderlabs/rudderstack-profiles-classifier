@@ -111,7 +111,7 @@ class ClassificationTrainer(MLTrainer):
             models_to_include,
         )
 
-    def get_metrics(self, model, X_test, y_test, y_train) -> dict:
+    def get_metrics(self, model, X_test, y_test, y_train, n_folds) -> dict:
         train_metrics = (
             classification_results_pull().loc[("CV-Train", "Mean")].to_dict()
         )
@@ -121,9 +121,7 @@ class ClassificationTrainer(MLTrainer):
         train_metrics = self.map_metrics_keys(train_metrics)
         val_metrics = self.map_metrics_keys(val_metrics)
 
-        val_metrics["users"] = int(
-            1 / self.prep.imputation_strategy["fold"] * len(y_train)
-        )
+        val_metrics["users"] = int(1 / n_folds * len(y_train))
         train_metrics["users"] = len(y_train) - val_metrics["users"]
 
         result_dict = {

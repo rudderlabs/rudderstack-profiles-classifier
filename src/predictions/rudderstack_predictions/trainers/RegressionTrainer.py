@@ -118,7 +118,7 @@ class RegressionTrainer(MLTrainer):
         except Exception as e:
             logger.error(f"Could not generate regression plots. {e}")
 
-    def get_metrics(self, model, X_test, y_test, y_train) -> dict:
+    def get_metrics(self, model, X_test, y_test, y_train, n_folds) -> dict:
         train_metrics = regression_results_pull().loc[("CV-Train", "Mean")].to_dict()
         val_metrics = regression_results_pull().loc[("CV-Val", "Mean")].to_dict()
         test_metrics = self.get_metrics_regressor(model, X_test, y_test)
@@ -126,9 +126,7 @@ class RegressionTrainer(MLTrainer):
         train_metrics = self.map_metrics_keys(train_metrics)
         val_metrics = self.map_metrics_keys(val_metrics)
 
-        val_metrics["users"] = int(
-            1 / self.prep.imputation_strategy["fold"] * len(y_train)
-        )
+        val_metrics["users"] = int(1 / n_folds * len(y_train))
         train_metrics["users"] = len(y_train) - val_metrics["users"]
 
         result_dict = {

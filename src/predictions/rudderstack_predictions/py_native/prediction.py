@@ -5,10 +5,13 @@ from profiles_rudderstack.logger import Logger
 from typing import Tuple
 from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
 
+from ..wht.pyNativeWHT import PyNativeWHT
+
 from .training import TrainingRecipe
 
 from ..predict import _predict
 from ..utils import constants
+from ..utils import utils
 
 
 class PredictionModel(BaseModelType):
@@ -75,7 +78,7 @@ class PredictionRecipe(PyNativeRecipe):
             ".txt",
         )
 
-    def prepare(self, this: WhtMaterial):
+    def register_dependencies(self, this: WhtMaterial):
         this.de_ref(self.build_spec["training_model"])
 
     def _get_train_output_filepath(self, this: WhtMaterial):
@@ -86,23 +89,17 @@ class PredictionRecipe(PyNativeRecipe):
         return TrainingRecipe.get_output_filepath(train_material)
 
     def execute(self, this: WhtMaterial):
-        import os
-        import yaml
-
-        homedir = os.path.expanduser("~")
-        with open(os.path.join(homedir, ".pb/siteconfig.yaml"), "r") as f:
-            creds = yaml.safe_load(f)["connections"]["test"]["outputs"]["redshift"]
-        runtime_info = {
-            "site_config_path": os.path.join(homedir, ".pb/siteconfig.yaml")
-        }
+        site_config_path = this.wht_ctx.site_config().get("FilePath")
+        whtService = PyNativeWHT(this)
+        # TODO: Get creds from pywht
+        creds = whtService.get_credentials(
+            this.base_wht_project.project_path(), site_config_path
+        )
+        runtime_info = {"site_config_path": site_config_path}
         config = self.build_spec.get("ml_config", {})
         input_materials = []
         output_tablename = this.name()
         train_output = self._get_train_output_filepath(this)
-        # TODO
-        # 1. Get site_config_path from pywht
-        # 2. Compute creds from site_config_path
-        # 3. Get runtime_info from pywht
         for input in self.build_spec["inputs"]:
             material = this.de_ref(input)
             input_materials.append(material.name())

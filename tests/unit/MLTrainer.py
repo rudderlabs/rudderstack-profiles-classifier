@@ -25,6 +25,7 @@ def build_trainer_config(task="classification"):
     config["data"]["task"] = task
     config["data"]["recall_to_precision_importance"] = 0.0
     config["preprocessing"]["timestamp_columns"] = None
+    config["preprocessing"]["arraytype_columns"] = None
     config["preprocessing"]["ignore_features"] = None
     config["preprocessing"]["numeric_pipeline"] = None
     config["preprocessing"]["categorical_pipeline"] = None

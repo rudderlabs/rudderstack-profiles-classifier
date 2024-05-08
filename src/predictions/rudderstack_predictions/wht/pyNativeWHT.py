@@ -1,4 +1,7 @@
+import os
 from typing import List, Tuple
+
+from ..utils import utils
 
 from ..utils.constants import TrainTablesInfo
 from ..connectors.Connector import Connector
@@ -64,3 +67,10 @@ class PyNativeWHT:
 
     def get_input_models(self, inputs: List[str]) -> List[str]:
         return self.pythonWHT.get_input_models(inputs)
+
+    def get_credentials(self, project_path: str, site_config_path: str) -> str:
+        connection_name = utils.load_yaml(
+            os.path.join(project_path, "pb_project.yaml")
+        )["connection"]
+        connection = utils.load_yaml(site_config_path)["connections"][connection_name]
+        return connection["outputs"][connection["target"]]

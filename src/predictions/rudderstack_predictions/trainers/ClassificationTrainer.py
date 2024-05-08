@@ -24,6 +24,7 @@ from sklearn.metrics import (
     precision_recall_fscore_support,
     roc_auc_score,
     fbeta_score,
+    fbeta_score,
 )
 
 

@@ -34,8 +34,8 @@ macros:
     inputs:
     value: |
       {% if warehouse.DatabaseType() == "bigquery" %}
-        RAND()>0.5
+        case when RAND()>0.5 then TRUE when RAND()<0.3 then FALSE else NULL end
       {% else %}
-        RANDOM()>0.5
+        case when RANDOM()>0.5 then TRUE when RANDOM()<0.3 then FALSE else NULL end
       {% endif %}
    

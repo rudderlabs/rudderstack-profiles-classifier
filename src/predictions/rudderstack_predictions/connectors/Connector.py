@@ -50,15 +50,20 @@ class Connector(ABC):
         def get_columns_of_given_datatype(
             get_datatype_features_fn, config_datatype_columns
         ):
-            given_datatype_columns = get_datatype_features_fn(
+            datatype_features_dict = get_datatype_features_fn(
                 schema_fields, label_column, entity_column
             )
 
-            # Add dummy values for columns in config_datatype_columns
+            given_datatype_columns = {}
+
+            for col, datatype in datatype_features_dict.items():
+                if col not in config_agg_columns:
+                    given_datatype_columns[col] = datatype
+
             for col in config_datatype_columns:
                 given_datatype_columns[col] = next(
                     iter(self.data_type_mapping["numeric"].values())
-                )  # or any other dummy value you prefer
+                )
 
             return given_datatype_columns
 

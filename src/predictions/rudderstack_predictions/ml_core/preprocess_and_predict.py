@@ -24,6 +24,7 @@ from ..utils.S3Utils import S3Utils
 from ..trainers.MLTrainer import MLTrainer
 from ..connectors.ConnectorFactory import ConnectorFactory
 
+from collections import defaultdict
 from functools import partial
 from typing import List, Tuple, Dict
 from sklearn.preprocessing import FunctionTransformer
@@ -39,8 +40,15 @@ def build_data_prep_pipeline(steps: List[Tuple[callable, Dict]]) -> Pipeline:
     Builds the data preparation pipeline.
     """
     pipeline_steps = []
+    func_name_counts = defaultdict(lambda: 0)
+
     for step in steps:
         func_name = step[0].__name__
+
+        # We want name to be unique for each function
+        func_name = f"{func_name}_{func_name_counts[func_name]}"
+        func_name_counts[func_name] += 1
+
         transformation_step = FunctionTransformer(
             func=step[0],
             kw_args=step[1],

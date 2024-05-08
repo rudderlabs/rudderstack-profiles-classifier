@@ -44,10 +44,9 @@ def build_data_prep_pipeline(steps: List[Tuple[callable, Dict]]) -> Pipeline:
 
     for step in steps:
         func_name = step[0].__name__
-
-        # We want name to be unique for each function
-        func_name = f"{func_name}_{func_name_counts[func_name]}"
         func_name_counts[func_name] += 1
+
+        func_name = f"{func_name}_{func_name_counts[func_name]}"
 
         transformation_step = FunctionTransformer(
             func=step[0],

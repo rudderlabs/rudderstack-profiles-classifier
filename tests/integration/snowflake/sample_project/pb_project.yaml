@@ -5,4 +5,4 @@ model_folders:
   - models
 packages:
   - name: feature_table
-    url: git@github.com:rudderlabs/profiles-features-integration-test.git
+    url: https://github.com/rudderlabs/profiles-features-integration-test.git

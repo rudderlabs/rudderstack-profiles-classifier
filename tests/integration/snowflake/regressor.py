@@ -6,7 +6,7 @@ from tests.integration.utils import *
 import os
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-creds["schema"] = "PROFILES_INTEGRATION_TEST"
+creds["schema"] = "AMBUJ"
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))

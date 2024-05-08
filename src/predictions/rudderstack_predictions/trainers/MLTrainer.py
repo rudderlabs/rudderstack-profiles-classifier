@@ -212,8 +212,10 @@ class MLTrainer(ABC):
             test_data,
         ) = self.prepare_data(feature_df)
 
-        numeric_cols = list(input_col_types["numeric"].keys())
-        categorical_cols = list(input_col_types["categorical"].keys())
+        numeric_cols = [col.upper() for col in list(input_col_types["numeric"].keys())]
+        categorical_cols = [
+            col.upper() for col in list(input_col_types["categorical"].keys())
+        ]
 
         n_folds = train_config["model_params"]["fold"]
         fold_strategy = train_config["model_params"]["fold_strategy"]

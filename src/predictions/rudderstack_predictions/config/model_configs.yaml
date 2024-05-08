@@ -33,6 +33,9 @@ preprocessing:
   # Refer to https://pycaret.readthedocs.io/en/stable/api/regression.html#pycaret.regression.setup for setting up preprocessing params for regression
 
   timestamp_columns: [] # Timestamp columns get a datediff function applied with the index_timestamp to get days_since_<timestamp_column> features
+  
+  arraytype_columns: []
+
   ignore_features: []
   numeric_features: [] # List of numerical features. If empty, all numerical features are considered
   categorical_features: [] # List of categorical features. If empty, all categorical features are considered

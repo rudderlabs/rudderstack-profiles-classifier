@@ -68,6 +68,7 @@ class PreprocessorConfig:
     """PreprocessorConfig class is used to store the preprocessor configuration parameters"""
 
     timestamp_columns: List[str]
+    arraytype_columns: List[str]
     ignore_features: List[str]
     numeric_features: List[str]
     categorical_features: List[str]
@@ -290,7 +291,7 @@ def date_add(reference_date: str, add_days: int) -> str:
 
 def get_abs_date_diff(ref_date1: str, ref_date2: str) -> int:
     """
-    For given two dates (in the format "YYYY-MM-DD") in string format, it will retrun the difference in days
+    For given two dates (in the format "YYYY-MM-DD") in string format, it will return the difference in days
     """
     d1 = datetime.strptime(ref_date1, constants.MATERIAL_DATE_FORMAT)
     d2 = datetime.strptime(ref_date2, constants.MATERIAL_DATE_FORMAT)

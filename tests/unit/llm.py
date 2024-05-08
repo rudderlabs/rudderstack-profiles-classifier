@@ -12,7 +12,7 @@ class TestLLMModelValidation(unittest.TestCase):
     schema_ver = 53
     pb_version = "v0.11.2"
 
-    @patch('tennr.re')
+    @patch('re')
     def test_llm_model_name(self, mock_re):
         # Defining Schema
         build_spec = {
@@ -33,7 +33,7 @@ class TestLLMModelValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             llm_model.validate()
 
-    @patch('tennr.re')
+    @patch('re')
     def test_max_index_prompt_inputs(self, mock_re):
         # Mocking LLMModel class
         llm_model = LLMModel(self.build_spec, 53, "v0.11.2")

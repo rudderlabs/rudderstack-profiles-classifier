@@ -153,6 +153,7 @@ def _train(
         def train_and_store_model_results_sf(
             session: snowflake.snowpark.Session,
             feature_table_name: str,
+            input_column_types: dict,
             train_config: dict,
             metrics_table: str,
         ) -> dict:
@@ -186,6 +187,7 @@ def _train(
                 results,
             ) = trainer.train_model(
                 feature_df,
+                input_column_types,
                 train_config,
                 model_file,
             )

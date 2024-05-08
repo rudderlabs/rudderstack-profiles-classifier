@@ -24,6 +24,7 @@ from sklearn.metrics import (
     precision_recall_fscore_support,
     roc_auc_score,
     fbeta_score,
+    fbeta_score,
 )
 
 
@@ -79,6 +80,7 @@ class ClassificationTrainer(MLTrainer):
     def train_model(
         self,
         feature_df: pd.DataFrame,
+        input_col_types: dict,
         merged_config: dict,
         model_file: str,
     ):
@@ -97,6 +99,7 @@ class ClassificationTrainer(MLTrainer):
 
         return self._train_model(
             feature_df,
+            input_col_types,
             merged_config,
             model_file,
             classification_setup,
@@ -110,12 +113,12 @@ class ClassificationTrainer(MLTrainer):
             models_to_include,
         )
 
-    def get_metrics(self, model, X_test, y_test, X_train, y_train, fold_param) -> dict:
+    def get_metrics(self, model, X_test, y_test, X_train, y_train, n_folds) -> dict:
         train_metrics = self._evaluate_classifier(model, X_train, y_train)
         test_metrics = self._evaluate_classifier(model, X_test, y_test)
         val_metrics = train_metrics
 
-        val_metrics["users"] = int(1 / fold_param * len(y_train))
+        val_metrics["users"] = int(1 / n_folds * len(y_train))
         train_metrics["users"] = len(y_train) - val_metrics["users"]
 
         result_dict = {

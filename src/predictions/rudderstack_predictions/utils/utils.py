@@ -70,9 +70,9 @@ class PreprocessorConfig:
     timestamp_columns: List[str]
     arraytype_columns: List[str]
     ignore_features: List[str]
-    numeric_pipeline: dict
-    categorical_pipeline: dict
-    feature_selectors: dict
+    numeric_features: List[str]
+    categorical_features: List[str]
+    imputation_strategy: dict
     train_size: float
 
 

@@ -24,6 +24,7 @@ model_file_name = constants.MODEL_FILE_NAME
 
 def train_and_store_model_results(
     feature_df: pd.DataFrame,
+    input_column_types: dict,
     train_config: dict,
     metrics_table: str,
     **kwargs,
@@ -57,7 +58,7 @@ def train_and_store_model_results(
     feature_df.columns = [col.upper() for col in feature_df.columns]
 
     train_x, test_x, test_y, pipe, model_id, metrics_df, results = trainer.train_model(
-        feature_df, train_config, model_file
+        feature_df, input_column_types, train_config, model_file
     )
     logger.info(f"Generating plots and saving them to the output directory.")
     trainer.plot_diagnostics(
@@ -218,6 +219,7 @@ def preprocess_and_train(
         train_results_json = connector.call_procedure(
             train_procedure,
             filtered_feature_table,
+            input_column_types,
             train_config,
             metrics_table,
             connector=connector,

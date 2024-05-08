@@ -1129,12 +1129,8 @@ class Testget_input_column_types(unittest.TestCase):
     def test_get_input_column_types(self):
         self.trainer_input["preprocessing"]["timestamp_columns"] = ["COL2"]
         self.trainer_input["preprocessing"]["arraytype_columns"] = ["COL3"]
-        self.trainer_input["preprocessing"]["numeric_pipeline"] = {
-            "numeric_columns": ["COL4", "COL7"]
-        }
-        self.trainer_input["preprocessing"]["categorical_pipeline"] = {
-            "categorical_columns": ["COL5"]
-        }
+        self.trainer_input["preprocessing"]["numeric_features"] = ["COL4", "COL7"]
+        self.trainer_input["preprocessing"]["categorical_features"] = ["COL5"]
         self.trainer = TrainerFactory.create(self.trainer_input)
 
         schema_fields = namedtuple("schema_field", ["name", "field_type"])

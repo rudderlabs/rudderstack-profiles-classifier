@@ -19,7 +19,7 @@ folder_path_output_file = os.path.dirname(output_filename)
 
 os.makedirs(output_folder, exist_ok=True)
 
-train_input_model_name = "predictions_dev_features"
+train_input_model_name = "shopify_user_features"
 
 data = {
     "prediction_horizon_days": pred_horizon_days,

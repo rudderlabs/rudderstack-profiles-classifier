@@ -40,7 +40,10 @@ class CommonWarehouseConnector(Connector):
         return train_function(*args, **kwargs)
 
     def transform_arraytype_features(
-        self, feature_df: pd.DataFrame, arraytype_features: List[str], top_k_columns=2
+        self,
+        feature_df: pd.DataFrame,
+        arraytype_features: List[str],
+        top_k_array_categories,
     ) -> Union[List[str], pd.DataFrame]:
         """Transforms arraytype features in a pandas DataFrame by expanding the arraytype features
         as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
@@ -75,13 +78,13 @@ class CommonWarehouseConnector(Connector):
             )
 
             unique_values = grouped_df["ARRAY_VALUE"].dropna().unique()
-            top_k_columns = min(top_k_columns, len(unique_values))
+            top_k_array_categories = min(top_k_array_categories, len(unique_values))
 
             # Select top k most frequent values
             top_values = (
                 grouped_df.groupby("ARRAY_VALUE")["COUNT"]
                 .sum()
-                .nlargest(top_k_columns)
+                .nlargest(top_k_array_categories)
                 .index
             )
             other_values = set(grouped_df["ARRAY_VALUE"]) - set(top_values)

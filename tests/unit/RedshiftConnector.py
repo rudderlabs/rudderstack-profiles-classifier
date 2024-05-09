@@ -1029,9 +1029,7 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
 class TestArrayTransformation(unittest.TestCase):
     def setUp(self) -> None:
         self.connector = RedshiftConnectorV2("data")
-
-    def test_df_with_array_features(self):
-        df_with_array_features = pd.DataFrame.from_dict(
+        self.df_with_array_features = pd.DataFrame.from_dict(
             {
                 "COL1": [1, 2, 3, 4],
                 "COL2": ["value1", "value2", "value3", "value4"],
@@ -1049,13 +1047,16 @@ class TestArrayTransformation(unittest.TestCase):
                 ],
             }
         )
-        arraytype_features = ["COL3", "COL4"]
+        self.arraytype_features = ["COL3", "COL4"]
 
+    def test_df_with_array_features(self):
         (
             transformed_array_features,
             transformed_df,
         ) = self.connector.transform_arraytype_features(
-            df_with_array_features, arraytype_features
+            self.df_with_array_features,
+            self.arraytype_features,
+            top_k_array_categories=2,
         )
 
         # Check column names
@@ -1077,6 +1078,50 @@ class TestArrayTransformation(unittest.TestCase):
             ["COL3_P1", "COL3_P4", "COL3_OTHERS", "COL4_A2", "COL4_A3", "COL4_OTHERS"],
         )
 
+    def test_max_categories(self):
+        (
+            transformed_array_features,
+            transformed_df,
+        ) = self.connector.transform_arraytype_features(
+            self.df_with_array_features,
+            self.arraytype_features,
+            top_k_array_categories=10,
+        )
+
+        # Check column names
+        self.assertEqual(
+            list(transformed_df.columns),
+            [
+                "COL1",
+                "COL2",
+                "COL3_P1",
+                "COL3_P2",
+                "COL3_P3",
+                "COL3_P4",
+                "COL3_OTHERS",
+                "COL4_A1",
+                "COL4_A2",
+                "COL4_A3",
+                "COL4_A4",
+                "COL4_OTHERS",
+            ],
+        )
+        self.assertEqual(
+            list(transformed_array_features),
+            [
+                "COL3_P1",
+                "COL3_P3",
+                "COL3_P4",
+                "COL3_P2",
+                "COL3_OTHERS",
+                "COL4_A1",
+                "COL4_A2",
+                "COL4_A3",
+                "COL4_A4",
+                "COL4_OTHERS",
+            ],
+        )
+
     def test_df_with_empty_array_features(self):
         df_with_empty_array_features = pd.DataFrame.from_dict(
             {
@@ -1092,7 +1137,7 @@ class TestArrayTransformation(unittest.TestCase):
             transformed_array_features,
             transformed_df,
         ) = self.connector.transform_arraytype_features(
-            df_with_empty_array_features, arraytype_features
+            df_with_empty_array_features, arraytype_features, top_k_array_categories=2
         )
 
         # Check column names
@@ -1118,7 +1163,7 @@ class TestArrayTransformation(unittest.TestCase):
             transformed_array_features,
             transformed_df,
         ) = self.connector.transform_arraytype_features(
-            df_with_no_array_features, arraytype_features
+            df_with_no_array_features, arraytype_features, top_k_array_categories=2
         )
 
         # Check column names

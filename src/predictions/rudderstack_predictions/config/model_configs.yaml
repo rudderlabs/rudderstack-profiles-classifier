@@ -30,7 +30,7 @@ data:
   
 preprocessing:
   # Related to various preprocessing steps of the data
-
+  top_k_array_categories: 2
   timestamp_columns: [] # Timestamp columns get a datediff function applied with the index_timestamp to get days_since_<timestamp_column> features
 
   ignore_features: []

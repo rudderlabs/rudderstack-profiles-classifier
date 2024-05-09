@@ -176,7 +176,9 @@ def preprocess_and_train(
     )
 
     transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
-        feature_table, input_column_types["arraytype"]
+        feature_table,
+        input_column_types["arraytype"],
+        trainer.prep.top_k_array_categories,
     )
 
     ignore_features = utils.get_all_ignore_features(

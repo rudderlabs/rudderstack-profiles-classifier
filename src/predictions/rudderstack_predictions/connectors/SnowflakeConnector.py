@@ -327,7 +327,7 @@ class SnowflakeConnector(Connector):
         self,
         feature_table: snowflake.snowpark.Table,
         arraytype_features: List[str],
-        top_k_columns=2,
+        top_k_array_categories,
     ) -> Union[List[str], snowflake.snowpark.Table]:
         """Transforms arraytype features in a snowflake.snowpark.Table by expanding the arraytype features
         as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
@@ -382,7 +382,7 @@ class SnowflakeConnector(Connector):
             sorted_values = sorted(
                 unique_values, key=lambda x: frequencies[x], reverse=True
             )
-            other_values = sorted_values[top_k_columns:]
+            other_values = sorted_values[top_k_array_categories:]
 
             # New column names
             new_array_column_names = [

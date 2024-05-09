@@ -72,6 +72,7 @@ class PreprocessorConfig:
     train_size: float
     test_size: float
     val_size: float
+    top_k_array_categories: int
 
 
 @dataclass

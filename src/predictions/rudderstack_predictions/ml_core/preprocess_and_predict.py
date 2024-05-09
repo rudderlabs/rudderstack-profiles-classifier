@@ -95,7 +95,9 @@ def preprocess_and_predict(
         raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
 
     logger.debug(f"Transforming arraytype columns.")
-    _, raw_data = connector.transform_arraytype_features(raw_data, arraytype_columns)
+    _, raw_data = connector.transform_arraytype_features(
+        raw_data, arraytype_columns, trainer.prep.top_k_array_categories
+    )
 
     predict_data = connector.drop_cols(raw_data, ignore_features)
 

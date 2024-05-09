@@ -699,7 +699,7 @@ class SnowflakeConnector(Connector):
 
         for m in materials:
             feature_table = self.get_table(
-                session, m.feature_table_name, filter_condition=filter_condition
+                m.feature_table_name, filter_condition=filter_condition
             )
 
             label_table = self.get_table(

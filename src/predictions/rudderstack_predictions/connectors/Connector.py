@@ -30,22 +30,52 @@ class Connector(ABC):
         lowercase_list = lambda features: [feature.lower() for feature in features]
         schema_fields = self.fetch_table_metadata(table_name)
 
-        numeric_columns = utils.merge_lists_to_unique(
-            self.get_numeric_features(schema_fields, label_column, entity_column),
-            trainer_obj.prep.numeric_pipeline["numeric_columns"],
+        config_numeric_columns = trainer_obj.prep.numeric_pipeline["numeric_columns"]
+        config_categorical_columns = trainer_obj.prep.categorical_pipeline[
+            "categorical_columns"
+        ]
+        config_arraytype_columns = trainer_obj.prep.arraytype_columns
+        config_timestamp_columns = trainer_obj.prep.timestamp_columns
+        config_agg_columns = set(
+            config_numeric_columns
+            + config_categorical_columns
+            + config_arraytype_columns
+            + config_timestamp_columns
         )
-        categorical_columns = utils.merge_lists_to_unique(
-            self.get_stringtype_features(schema_fields, label_column, entity_column),
-            trainer_obj.prep.categorical_pipeline["categorical_columns"],
+
+        """The get_columns_of_given_datatype function retrieves all columns of a specified datatype from a dataset. 
+           A set is utilized to eliminate duplicates that may arise from including config_agg_columns in the inferred columns. 
+           Once duplicates are removed, the result is converted back to a list."""
+
+        def get_columns_of_given_datatype(
+            get_datatype_features_fn, config_datatype_columns
+        ):
+            given_datatype_columns = utils.merge_lists_to_unique(
+                list(
+                    set(
+                        get_datatype_features_fn(
+                            schema_fields, label_column, entity_column
+                        )
+                    )
+                    - config_agg_columns
+                ),
+                config_datatype_columns,
+            )
+            return given_datatype_columns
+
+        numeric_columns = get_columns_of_given_datatype(
+            self.get_numeric_features, config_numeric_columns
         )
-        arraytype_columns = self.get_arraytype_columns(
-            schema_fields, label_column, entity_column
+        categorical_columns = get_columns_of_given_datatype(
+            self.get_stringtype_features, config_categorical_columns
         )
-        timestamp_columns = (
-            self.get_timestamp_columns(schema_fields, label_column, entity_column)
-            if len(trainer_obj.prep.timestamp_columns) == 0
-            else trainer_obj.prep.timestamp_columns
+        arraytype_columns = get_columns_of_given_datatype(
+            self.get_arraytype_columns, config_arraytype_columns
         )
+        timestamp_columns = get_columns_of_given_datatype(
+            self.get_timestamp_columns, config_timestamp_columns
+        )
+
         input_column_types = {
             "numeric": numeric_columns,
             "categorical": categorical_columns,

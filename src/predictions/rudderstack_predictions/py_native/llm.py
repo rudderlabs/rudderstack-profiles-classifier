@@ -47,6 +47,20 @@ class LLMModel(BaseModelType):
 
         prompt = self.build_spec["prompt"]
         input_lst = self.build_spec["prompt_inputs"]
+        model_name = self.build_spec["llm_model_name"]
+        model_limits = {
+            "mistral-large": 32000,
+            "reka-flash": 100000,
+            "mixtral-8x7b": 32000,
+            "llama2-70b-chat": 4096,
+            "mistral-7b": 32000,
+            "gemma-7b": 8000,
+        }
+        prompt_tokens = len(prompt.split())
+        if prompt_tokens > model_limits[model_name]:
+            raise ValueError(
+                f"The prompt exceeds the token limit for model '{model_name}'. Maximum allowed tokens: {model_limits[model_name]}"
+            )
         prompt_replaced = prompt.replace("'", "''", -1)
         input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
         max_index = max(int(index) for _, index in input_indices)

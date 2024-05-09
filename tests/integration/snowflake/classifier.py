@@ -25,8 +25,6 @@ data = {
     "label_column": classifier_label_column,
     "task": "classification",
     "output_profiles_ml_model": output_model_name,
-    "train_start_dt": "2024-02-08",
-    "train_end_dt": "2024-02-09",
 }
 
 train_config = {"data": data}

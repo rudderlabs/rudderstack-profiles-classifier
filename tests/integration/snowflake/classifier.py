@@ -7,7 +7,7 @@ from tests.integration.utils import *
 import os
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-creds["schema"] = "AMBUJ"
+creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(current_dir, "sample_project")

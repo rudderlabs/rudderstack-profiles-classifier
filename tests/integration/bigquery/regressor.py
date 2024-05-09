@@ -10,7 +10,7 @@ import json
 from tests.integration.utils import *
 
 creds = json.loads(os.environ["BIGQUERY_SITE_CONFIG"])
-creds["schema"] = "PROFILES_INTEGRATION_TEST"
+creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(current_dir, "sample_project")
@@ -31,8 +31,6 @@ data = {
     "label_column": regressor_label_column,
     "task": "regression",
     "output_profiles_ml_model": output_model_name,
-    "train_start_dt": "2024-03-06",
-    "train_end_dt": "2024-03-13",
 }
 
 train_config = {"data": data}

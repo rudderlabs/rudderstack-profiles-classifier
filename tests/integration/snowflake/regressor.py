@@ -6,7 +6,7 @@ from tests.integration.utils import *
 import os
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-creds["schema"] = "AMBUJ"
+creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -25,8 +25,6 @@ data = {
     "label_column": regressor_label_column,
     "task": "regression",
     "output_profiles_ml_model": output_model_name,
-    "train_start_dt": "2024-02-08",
-    "train_end_dt": "2024-02-09",
 }
 
 train_config = {"data": data}

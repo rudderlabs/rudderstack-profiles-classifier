@@ -8,7 +8,7 @@ import json
 from tests.integration.utils import *
 import os
 
-creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
+creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG_V2"])
 creds["schema"] = "classifier_integration_test"
 
 

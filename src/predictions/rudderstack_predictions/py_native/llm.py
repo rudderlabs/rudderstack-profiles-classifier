@@ -32,22 +32,6 @@ class LLMModel(BaseModelType):
         return LLMModelRecipe(self.build_spec)
 
     def validate(self):
-        valid_model_inputs = [
-            "mistral-large",
-            "reka-flash",
-            "mixtral-8x7b",
-            self.DEFAULT_LLM_MODEL,
-            "mistral-7b",
-            "gemma-7b",
-        ]
-        if self.build_spec["llm_model_name"] not in valid_model_inputs:
-            raise ValueError(
-                f"Invalid llm model name: {self.build_spec['llm_model_name']}. Valid options are: {', '.join(valid_model_inputs)}"
-            )
-
-        prompt = self.build_spec["prompt"]
-        input_lst = self.build_spec["prompt_inputs"]
-        model_name = self.build_spec["llm_model_name"]
         model_limits = {
             "mistral-large": 32000,
             "reka-flash": 100000,
@@ -56,6 +40,15 @@ class LLMModel(BaseModelType):
             "mistral-7b": 32000,
             "gemma-7b": 8000,
         }
+        if self.build_spec["llm_model_name"] not in model_limits:
+            raise ValueError(
+                f"Invalid llm model name: {self.build_spec['llm_model_name']}. Valid options are: {', '.join(model_limits.keys())}"
+            )
+
+        prompt = self.build_spec["prompt"]
+        input_lst = self.build_spec["prompt_inputs"]
+        model_name = self.build_spec["llm_model_name"]
+
         prompt_tokens = len(prompt.split())
         if prompt_tokens > model_limits[model_name]:
             raise ValueError(

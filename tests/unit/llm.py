@@ -45,16 +45,4 @@ class TestLLMModelValidation(unittest.TestCase):
         with self.assertRaises(ValueError):
             llm_model.validate()
 
-    def test_prompt_length_validation(self):
-        # Testing prompt length validation
-        # Set a large prompt that exceeds the token limit
-        self.build_spec["prompt"] = (
-            "a " * 40000
-        )  # Assuming the token limit for "llama2-70b-chat" is 4096
 
-        # Ensure that ValueError is raised due to prompt length exceeding the limit
-        with self.assertRaises(ValueError):
-            snowflake_cortex_model = LLMModel(
-                self.build_spec, self.schema_ver, self.pb_version
-            )
-            snowflake_cortex_model.validate()

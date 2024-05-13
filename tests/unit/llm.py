@@ -1,59 +1,57 @@
 import unittest
-from unittest.mock import patch
 from src.predictions.rudderstack_predictions.py_native.llm import LLMModel
 
 
 class TestLLMModelValidation(unittest.TestCase):
-    build_spec = {
-        "prompt": "sample prompt input{[0]}",
-        "prompt_inputs": ["input1", "input2"],
-        "llm_model_name": None,
-    }
-    schema_ver = 53
-    pb_version = "v0.11.2"
-
-    @patch("src.predictions.rudderstack_predictions.py_native.llm.re")
-    def test_llm_model_name(self, mock_re):
-        # Defining Schema
-        build_spec = {
+    def setUp(self):
+        self.build_spec = {
             "prompt": "sample prompt input{[0]}",
             "prompt_inputs": ["input1", "input2"],
-            "llm_model_name": None,
+            "llm_model_name": None
         }
+        self.schema_ver = 53
+        self.pb_version = "v0.11.2"
+
+    def test_llm_model_name(self):
+        # Defining Schema
         # Testing empty model name
-        llm_model = LLMModel(build_spec, self.schema_ver, self.pb_version)
-        mock_re.findall.return_value = [("input1", "0"), ("input2", "1")]
+        llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
         llm_model.validate()
 
         default_llm_model_name = "llama2-70b-chat"
-        self.assertEqual(default_llm_model_name, build_spec["llm_model_name"])
+        self.assertEqual(default_llm_model_name, self.build_spec["llm_model_name"])
+
         # Testing invalid model name
-        build_spec["llm_model_name"] = "invalid_model"
-        llm_model = LLMModel(build_spec, self.schema_ver, self.pb_version)
+        self.build_spec['llm_model_name'] = "invalid_model"
+        llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
         with self.assertRaises(ValueError):
             llm_model.validate()
 
-    @patch("src.predictions.rudderstack_predictions.py_native.llm.re")
-    def test_max_index_prompt_inputs(self, mock_re):
-        # Mocking LLMModel class
-        llm_model = LLMModel(self.build_spec, 53, "v0.11.2")
-        input_indices = mock_re.findall.return_value = [
-            ("input1", "0"),
-            ("input2", "1"),
-        ]
-        max_index_direct = len(self.build_spec["prompt_inputs"]) - 1
-        # Validate the SnowflakeCortexModel
+    def test_max_index_prompt_inputs(self):
+        # Testing max index prompt inputs
+        # First, test with valid indices
+        self.build_spec['prompt'] = "sample prompt"
+        llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
         llm_model.validate()
 
-        # Get the max index calculated by SnowflakeCortexModel
-        max_index_snowflake = max(int(index) for _, index in input_indices)
-        are_equal = max_index_direct == max_index_snowflake
+        # Testing the case for correct maximum index
+        self.build_spec['prompt'] = "sample prompt {input1[0]} {input2[1]}"
+        llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
+        llm_model.validate()
 
-        # Assert
-        self.assertTrue(are_equal)
-        # Testing the case when prompt maximum index is greater then the size of prompt_inputs
-        self.build_spec["prompt"] = "sample prompt {input1[2]} {input2[3]}"
-        llm_model = LLMModel(self.build_spec, 53, "v0.11.2")
-        mock_re.findall.return_value = [("input1", "2"), ("input2", "3")]
+        # Now, test with invalid indices
+        self.build_spec['prompt'] = "sample prompt {input1[2]} {input2[3]}"
+        llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
         with self.assertRaises(ValueError):
             llm_model.validate()
+
+    def test_prompt_length_validation(self):
+        # Testing prompt length validation
+        # Set a large prompt that exceeds the token limit
+        self.build_spec["prompt"] = "a " * 40000  # Assuming the token limit for "llama2-70b-chat" is 4096
+
+        # Ensure that ValueError is raised due to prompt length exceeding the limit
+        with self.assertRaises(ValueError):
+            snowflake_cortex_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
+            snowflake_cortex_model.validate()
+

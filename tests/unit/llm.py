@@ -44,5 +44,3 @@ class TestLLMModelValidation(unittest.TestCase):
         llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
         with self.assertRaises(ValueError):
             llm_model.validate()
-
-

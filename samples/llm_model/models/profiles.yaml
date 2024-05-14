@@ -8,11 +8,10 @@ models:
       edge_sources:
         - from: inputs/rsIdentifies
         - from: inputs/rsTracks
-        - from: inputs/rsTest
   - name: llm_gender_prediction
     model_type: llm_model
     model_spec:
-      prompt: "The input field is a name entered by a person. Map it to a single value from the following list of standardised gender titles: [Male,Female,Other]. Return only standardised title, nothing else. {input[0]}"
+      prompt: "What is generally the most common gender of the name {input[0]}? Male, Female, or Unknown? Return only a single word, nothing else."
       entity_key: user
       prompt_inputs:
         - user.Var('name')
@@ -20,11 +19,10 @@ models:
   - name: llm_profession_prediction
     model_type: llm_model
     model_spec:
-      prompt: "The input field is a job title entered by a person. Map it to a single value from the following list of standardised job titles: [Software Engineer, Data Analyst, ML Engineer, Solutions Architect, Others]. Return only standardised title, nothing else. {input[0]}. Do it only if {input[1]} is 'US'"
+      prompt: "The input field is a job title entered by a person. Map it to a single value from the following list of standardised job titles: [Software Engineer, Data Analyst, ML Engineer, Solutions Architect, Others]. Return only standardised title, nothing else. {input[0]}"
       entity_key: user
       prompt_inputs:
         - user.Var('profession')
-        - user.Var('country')
       llm_model_name: "mistral-7b"
 
 var_groups:
@@ -32,14 +30,10 @@ var_groups:
     entity_key: user
     vars:
       - entity_var:
-          name: name
-          select: max(first_name)
-          from: inputs/rsTest
-      - entity_var:
           name: profession
-          select: max(profession)
-          from: inputs/rsTest
+          select: any_value(case when random() <0.25 then 'data analyst' when random() < 0.5 then 'sde' when random() < 0.75 then 'sde2' else 'market analyst' end )
+          from: inputs/rsIdentifies
       - entity_var:
-          name: country
-          select: max(country)
-          from: inputs/rsTest
+          name: name
+          select: any_value(first_name)
+          from: inputs/rsIdentifies

@@ -1,0 +1,30 @@
+# Project name
+name: llm_gender_prediction
+# Project's yaml schema version
+schema_version: 53
+# WH Connection to use.
+connection: cortex_test
+# Whether to allow inputs having no timestamps,
+# if true, data without timestamps are included when running models
+include_untimed: true
+# Model folders to use.
+model_folders:
+  - models
+# Entities in this project and their ids.
+
+# The id types are inherited from the library package listed below.
+#  To add / extend filters, check out the section on extends in id_types in documentation.
+entities:
+  - name: user
+    id_stitcher: models/user_id_stitcher
+    id_types:
+      - user_id
+      - anonymous_id
+      - email
+# lib packages can be imported in project signifying that this project inherits its properties from there
+packages:
+  - name: corelib
+    url: "https://github.com/rudderlabs/rudderstack-profiles-corelib/tag/schema_{{best_schema_version}}"
+
+python_requirements:
+- rudderstack_predictions

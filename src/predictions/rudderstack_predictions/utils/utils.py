@@ -65,6 +65,8 @@ class PreprocessorConfig:
     """PreprocessorConfig class is used to store the preprocessor configuration parameters"""
 
     timestamp_columns: List[str]
+    arraytype_columns: List[str]
+    booleantype_columns: List[str]
     ignore_features: List[str]
     numeric_pipeline: dict
     categorical_pipeline: dict
@@ -278,15 +280,21 @@ def get_feature_table_column_types(
     label_column: str,
     entity_column: str,
     transformed_arraytype_cols: List[str],
+    transformed_booleantype_cols: List[str],
 ):
     feature_table_column_types = {"numeric": [], "categorical": []}
     uppercase_columns = lambda columns: [col.upper() for col in columns]
 
     # Add the trannsformed array type cols to numeric cols
-    for col in transformed_arraytype_cols:
-        input_column_types["numeric"].append(col)
+    # coomenting the below as this might lead to a change in input column types. ideally only feature table should change
+    # for col in transformed_arraytype_cols:
+    #     input_column_types["numeric"].append(col)
 
-    upper_numeric_input_cols = uppercase_columns(input_column_types["numeric"])
+    upper_numeric_input_cols = (
+        uppercase_columns(input_column_types["numeric"])
+        + uppercase_columns(transformed_arraytype_cols)
+        + uppercase_columns(transformed_booleantype_cols)
+    )
     upper_timestamp_input_cols = uppercase_columns(input_column_types["timestamp"])
     upper_feature_table_numeric_cols = merge_lists_to_unique(
         upper_numeric_input_cols, upper_timestamp_input_cols
@@ -439,7 +447,7 @@ def date_add(reference_date: str, add_days: int) -> str:
 
 def get_abs_date_diff(ref_date1: str, ref_date2: str) -> int:
     """
-    For given two dates (in the format "YYYY-MM-DD") in string format, it will retrun the difference in days
+    For given two dates (in the format "YYYY-MM-DD") in string format, it will return the difference in days
     """
     d1 = datetime.strptime(ref_date1, constants.MATERIAL_DATE_FORMAT)
     d2 = datetime.strptime(ref_date2, constants.MATERIAL_DATE_FORMAT)

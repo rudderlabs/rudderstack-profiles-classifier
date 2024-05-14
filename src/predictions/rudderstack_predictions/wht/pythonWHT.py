@@ -158,6 +158,7 @@ class PythonWHT:
         model_hash,
         inputs,
         materials,
+        return_partial_pairs: bool = False,
     ):
         feature_material_name, label_material_name = None, None
         if table_row.FEATURE_SEQ_NO is not None:
@@ -169,16 +170,38 @@ class PythonWHT:
                 entity_var_model_name, model_hash, table_row.LABEL_SEQ_NO
             )
 
+        found_feature_material = False
+        found_label_material = False
+
+        if feature_material_name is not None and self.connector.is_valid_table(
+            feature_material_name
+        ):
+            found_feature_material = True
+
+        if label_material_name is not None and self.connector.is_valid_table(
+            label_material_name
+        ):
+            found_label_material = True
+
+        # Both not found in the warehouse (no point in including invalid pairs)
+        if not found_feature_material and not found_label_material:
+            return
+
+        # One of them is not found in the warehouse and we don't want to include invalid pairs
+        # Other possibilities are:
+        # feature found + label found + return_partial_pairs = Final result
+        #  True         + False       + False                 = Exit
+        #  False        + True        + False                 = Exit
+        #  True         + False       + True                  = Continue
+        #  False        + True        + True                  = Continue
+        #  True         + True        + False                 = Continue
         if (
-            feature_material_name is not None
-            and not self.connector.is_valid_table(feature_material_name)
-        ) or (
-            label_material_name is not None
-            and not self.connector.is_valid_table(label_material_name)
+            not (found_feature_material and found_label_material)
+            and not return_partial_pairs
         ):
             return
 
-        # Iterate over inputs and validate meterial names
+        # Iterate over inputs and validate material names
         validation_flag = True
         for input_material_query in inputs:
             if not self._validate_historical_materials_hash(
@@ -218,6 +241,7 @@ class PythonWHT:
         model_hash: str,
         prediction_horizon_days: int,
         inputs: List[str],
+        return_partial_pairs: bool = False,
     ) -> List[TrainTablesInfo]:
         """Generates material names as list containing feature table name and label table name
             required to create the training model and their corresponding training dates.
@@ -234,6 +258,7 @@ class PythonWHT:
             end_time,
             prediction_horizon_days,
         )
+
         materials = list()
         for row in feature_label_df:
             self._fetch_valid_historic_materials(
@@ -242,7 +267,9 @@ class PythonWHT:
                 model_hash,
                 inputs,
                 materials,
+                return_partial_pairs,
             )
+
         return materials
 
     def _generate_training_materials(
@@ -369,6 +396,7 @@ class PythonWHT:
         prediction_horizon_days: int,
         input_models: List[str],
         inputs: List[str],
+        return_partial_pairs: bool = False,
     ) -> List[TrainTablesInfo]:
         """
         Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
@@ -399,6 +427,11 @@ class PythonWHT:
             prediction_horizon_days,
             inputs,
         )
+
+        # If we want to include partial pairs, we dont need to look for full valid sequences
+        if return_partial_pairs:
+            return materials
+
         if len(get_complete_sequences(materials)) == 0:
             self._generate_training_materials(
                 materials,

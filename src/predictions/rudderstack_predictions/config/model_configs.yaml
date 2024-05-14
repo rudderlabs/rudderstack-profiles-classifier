@@ -32,6 +32,10 @@ preprocessing:
   # Related to various preprocessing steps of the data
 
   timestamp_columns: [] # Timestamp columns get a datediff function applied with the index_timestamp to get days_since_<timestamp_column> features
+  
+  arraytype_columns: []
+
+  booleantype_columns: []
 
   ignore_features: []
 

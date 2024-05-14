@@ -25,9 +25,9 @@ jobs:
     - name: Run classifier test
       run: python -m unittest tests/integration/redshift/classifier.py
       env:
-          REDSHIFT_SITE_CONFIG: ${{secrets.REDSHIFT_SITE_CONFIG_V2}}
+          REDSHIFT_SITE_CONFIG: ${{secrets.REDSHIFT_SITE_CONFIG}}
 
     - name: Run regressor test
       run: python -m unittest tests/integration/redshift/regressor.py
       env:
-          REDSHIFT_SITE_CONFIG: ${{secrets.REDSHIFT_SITE_CONFIG_V2}}
+          REDSHIFT_SITE_CONFIG: ${{secrets.REDSHIFT_SITE_CONFIG}}

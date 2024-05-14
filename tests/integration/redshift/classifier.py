@@ -8,7 +8,7 @@ import os
 
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
-creds["schema"] = "rs_profiles_3"
+creds["schema"] = "profiles_new1"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(current_dir, "sample_project")

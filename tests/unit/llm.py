@@ -27,8 +27,8 @@ class TestLLMModelValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             llm_model.validate()
         self.assertEqual(
-        str(context.exception),
-        "Invalid llm model name: invalid_model. Valid options are: mistral-large, reka-flash, mixtral-8x7b, llama2-70b-chat, mistral-7b, gemma-7b"
+            str(context.exception),
+            "Invalid llm model name: invalid_model. Valid options are: mistral-large, reka-flash, mixtral-8x7b, llama2-70b-chat, mistral-7b, gemma-7b",
         )
 
     def test_max_index_prompt_inputs(self):
@@ -49,6 +49,6 @@ class TestLLMModelValidation(unittest.TestCase):
         with self.assertRaises(ValueError) as context:
             llm_model.validate()
         self.assertEqual(
-        str(context.exception),
-        "Maximum index 3 is out of range for input_columns list."
+            str(context.exception),
+            "Maximum index 3 is out of range for input_columns list.",
         )

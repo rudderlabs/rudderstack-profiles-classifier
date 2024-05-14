@@ -3,7 +3,6 @@
 """Module for handling various warehouse connections"""
 
 from typing import Union
-
 from .redshift_base_connector import RedShiftConnector
 from .bigquery_base_connector import BigqueryConnector
 

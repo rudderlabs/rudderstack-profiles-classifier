@@ -34,7 +34,7 @@ class LLMModel(BaseModelType):
     def validate(self):
         model_limits = {
             "snowflake-arctic": 4096,
-            "reka-core":32000,
+            "reka-core": 32000,
             "mistral-large": 32000,
             "reka-flash": 100000,
             "mixtral-8x7b": 32000,

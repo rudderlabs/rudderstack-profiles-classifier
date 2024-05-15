@@ -58,6 +58,8 @@ SNOWFLAKE_TRAINING_PACKAGES = [
     "matplotlib==3.7.1",
     "seaborn==0.12.0",
     "scikit-plot==0.3.7",
+    "plotly==5.22.0",
+    "kaleido==0.2.1",
 ]
 
 

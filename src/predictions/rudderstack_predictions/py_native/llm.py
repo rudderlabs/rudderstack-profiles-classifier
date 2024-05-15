@@ -33,17 +33,17 @@ class LLMModel(BaseModelType):
 
     def validate(self):
         model_limits = {
+            "snowflake-arctic": 4096,
+            "reka-core":32000,
             "mistral-large": 32000,
             "reka-flash": 100000,
             "mixtral-8x7b": 32000,
+            "llama3-8b": 8000,
+            "llama3-70b": 8000,
             "llama2-70b-chat": 4096,
             "mistral-7b": 32000,
             "gemma-7b": 8000,
         }
-        if self.build_spec["llm_model_name"] not in model_limits:
-            raise ValueError(
-                f"Invalid llm model name: {self.build_spec['llm_model_name']}. Valid options are: {', '.join(model_limits.keys())}"
-            )
 
         prompt = self.build_spec["prompt"]
         input_lst = self.build_spec["prompt_inputs"]

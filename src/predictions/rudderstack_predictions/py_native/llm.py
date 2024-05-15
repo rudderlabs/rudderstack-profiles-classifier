@@ -49,7 +49,11 @@ class LLMModel(BaseModelType):
         input_lst = self.build_spec["prompt_inputs"]
         prompt_replaced = prompt.replace("'", "''", -1)
         input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
-        max_index = max(int(index) for _, index in input_indices)
+        if len(input_indices) == 0:
+            max_index = 0
+        else:
+            max_index = max(int(index) for _, index in input_indices)
+
         if max_index >= len(input_lst):
             raise ValueError(
                 f"Maximum index {max_index} is out of range for input_columns list."

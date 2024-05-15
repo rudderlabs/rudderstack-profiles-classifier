@@ -63,14 +63,14 @@ def train_and_store_model_results(
     train_x, test_x, test_y, pipe, model_id, metrics_df, results = trainer.train_model(
         feature_df, categorical_columns, numeric_columns, train_config, model_file
     )
-    logger.info(f"Generating plots and saving them to the output directory.")
+    logger.info("Generating plots and saving them to the output directory.")
     trainer.plot_diagnostics(
         connector, connector.session, pipe, None, test_x, test_y, trainer.label_column
     )
     figure_file = connector.join_file_path(
         trainer.figure_names["feature-importance-chart"]
     )
-    logger.info(f"Generating feature importance plot")
+    logger.info("Generating feature importance plot")
     utils.plot_top_k_feature_importance(
         pipe,
         train_x,

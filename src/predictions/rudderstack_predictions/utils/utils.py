@@ -2,6 +2,8 @@ from functools import reduce
 import math
 import re
 import warnings
+import plotly.graph_objects as go
+
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
 warnings.filterwarnings("ignore", category=FutureWarning)
@@ -634,39 +636,131 @@ def regression_evaluation_plot(y_pred, y_true, regression_chart_file, num_bins=1
     plt.clf()
 
 
+# def plot_roc_auc_curve(y_pred, y_true, roc_auc_file) -> None:
+#     fpr, tpr, _ = roc_curve(y_true, y_pred)
+#     roc_auc = auc(fpr, tpr)
+#     sns.set(style="ticks", context="notebook")
+#     plt.figure(figsize=(8, 6))
+#     plt.plot(fpr, tpr, color="b", label=f"ROC AUC = {roc_auc:.2f}", linewidth=2)
+#     plt.plot([0, 1], [0, 1], color="gray", linestyle="--", linewidth=2)
+#     plt.title("ROC Curve (Test Data)")
+#     plt.xlabel("False Positive Rate")
+#     plt.ylabel("True Positive Rate")
+#     plt.legend(loc="lower right")
+#     sns.despine()
+#     plt.grid(True)
+#     plt.savefig(roc_auc_file)
+#     plt.clf()
+
+
 def plot_roc_auc_curve(y_pred, y_true, roc_auc_file) -> None:
     fpr, tpr, _ = roc_curve(y_true, y_pred)
     roc_auc = auc(fpr, tpr)
-    sns.set(style="ticks", context="notebook")
-    plt.figure(figsize=(8, 6))
-    plt.plot(fpr, tpr, color="b", label=f"ROC AUC = {roc_auc:.2f}", linewidth=2)
-    plt.plot([0, 1], [0, 1], color="gray", linestyle="--", linewidth=2)
-    plt.title("ROC Curve (Test Data)")
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.legend(loc="lower right")
-    sns.despine()
-    plt.grid(True)
-    plt.savefig(roc_auc_file)
-    plt.clf()
 
+    trace0 = go.Scatter(x=fpr, y=tpr, mode="lines", name=f"ROC AUC = {roc_auc:.2f}")
+
+    trace1 = go.Scatter(
+        x=[0, 1], y=[0, 1], mode="lines", name="Random", line=dict(dash="dash")
+    )
+
+    layout = go.Layout(
+        title="ROC Curve (Test Data)",
+        xaxis=dict(title="False Positive Rate"),
+        yaxis=dict(title="True Positive Rate"),
+        showlegend=True,
+        legend=dict(orientation="v", yanchor="bottom", y=0.02, xanchor="right", x=0.98),
+    )
+
+    fig = go.Figure(data=[trace0, trace1], layout=layout)
+    fig.write_image(roc_auc_file)
+    fig.write_html(
+        roc_auc_file.replace(".png", ".html"), include_plotlyjs=False, full_html=False
+    )
+
+
+# def plot_pr_auc_curve(y_pred, y_true, pr_auc_file) -> None:
+#     precision, recall, _ = precision_recall_curve(y_true, y_pred)
+#     pr_auc = auc(recall, precision)
+#     sns.set(style="ticks", context="notebook")
+#     plt.figure(figsize=(8, 6))
+#     plt.plot(recall, precision, color="b", label=f"PR AUC = {pr_auc:.2f}", linewidth=2)
+#     plt.ylim([int(min(precision) * 20) / 20, 1.0])
+#     plt.xlim([int(min(recall) * 20) / 20, 1.0])
+#     plt.title("Precision-Recall Curve (Test data)")
+#     plt.xlabel("Recall")
+#     plt.ylabel("Precision")
+#     plt.legend(loc="lower left")
+#     sns.despine()
+#     plt.grid(True)
+#     plt.savefig(pr_auc_file)
+#     plt.clf()
 
 def plot_pr_auc_curve(y_pred, y_true, pr_auc_file) -> None:
     precision, recall, _ = precision_recall_curve(y_true, y_pred)
     pr_auc = auc(recall, precision)
-    sns.set(style="ticks", context="notebook")
-    plt.figure(figsize=(8, 6))
-    plt.plot(recall, precision, color="b", label=f"PR AUC = {pr_auc:.2f}", linewidth=2)
-    plt.ylim([int(min(precision) * 20) / 20, 1.0])
-    plt.xlim([int(min(recall) * 20) / 20, 1.0])
-    plt.title("Precision-Recall Curve (Test data)")
-    plt.xlabel("Recall")
-    plt.ylabel("Precision")
-    plt.legend(loc="lower left")
-    sns.despine()
-    plt.grid(True)
-    plt.savefig(pr_auc_file)
-    plt.clf()
+
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(x=recall, y=precision, mode='lines', name=f'PR AUC = {pr_auc:.2f}'))
+    fig.update_layout(
+        title="Precision-Recall Curve (Test data)",
+        xaxis_title="Recall",
+        yaxis_title="Precision",
+        yaxis=dict(range=[int(min(precision) * 20) / 20, 1.0]),
+        xaxis=dict(range=[int(min(recall) * 20) / 20, 1.0])
+    )
+    fig.write_image(pr_auc_file)
+    fig.write_html(
+        pr_auc_file.replace(".png", ".html"), include_plotlyjs=False, full_html=False
+    )
+
+
+# def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
+#     """Generates a lift chart for a binary classification model."""
+#     data = pd.DataFrame()
+#     data["label"] = y_true
+#     data["pred"] = y_pred
+# 
+#     sorted_indices = np.argsort(data["pred"].values, kind="heapsort")[::-1]
+#     cumulative_actual = np.cumsum(data["label"][sorted_indices].values)
+#     cumulative_percentage = np.linspace(0, 1, len(cumulative_actual) + 1)
+# 
+#     sns.set(style="ticks", context="notebook")
+#     plt.figure(figsize=(8, 6))
+#     sns.lineplot(
+#         x=cumulative_percentage * 100,
+#         y=np.array([0] + list(100 * cumulative_actual / cumulative_actual[-1])),
+#         linewidth=2,
+#         color="b",
+#         label="Model Lift curve",
+#     )
+#     sns.despine()
+#     plt.plot(
+#         [0, 100 * data["label"].mean()],
+#         [0, 100],
+#         color="red",
+#         linestyle="--",
+#         label="Best Case",
+#         linewidth=1.5,
+#     )
+#     plt.plot(
+#         [0, 100],
+#         [0, 100],
+#         color="black",
+#         linestyle="--",
+#         label="Baseline",
+#         linewidth=1.5,
+#     )
+# 
+#     plt.title("Cumulative Gain Curve")
+#     plt.xlabel("Percentage of Predicted Target Users")
+#     plt.ylabel("Percent of Actual Target Users")
+#     plt.ylim([0, 100])
+#     plt.xlim([0, 100])
+#     plt.legend()
+#     plt.grid(True)
+#     plt.savefig(lift_chart_file)
+#     plt.clf()
 
 
 def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
@@ -679,42 +773,50 @@ def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
     cumulative_actual = np.cumsum(data["label"][sorted_indices].values)
     cumulative_percentage = np.linspace(0, 1, len(cumulative_actual) + 1)
 
-    sns.set(style="ticks", context="notebook")
-    plt.figure(figsize=(8, 6))
-    sns.lineplot(
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(
         x=cumulative_percentage * 100,
         y=np.array([0] + list(100 * cumulative_actual / cumulative_actual[-1])),
-        linewidth=2,
-        color="b",
-        label="Model Lift curve",
-    )
-    sns.despine()
-    plt.plot(
-        [0, 100 * data["label"].mean()],
-        [0, 100],
-        color="red",
-        linestyle="--",
-        label="Best Case",
-        linewidth=1.5,
-    )
-    plt.plot(
-        [0, 100],
-        [0, 100],
-        color="black",
-        linestyle="--",
-        label="Baseline",
-        linewidth=1.5,
+        mode='lines',
+        name='Model Lift curve',
+        line=dict(color='blue', width=2)
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=[0, 100 * data["label"].mean()],
+        y=[0, 100],
+        mode='lines',
+        name='Best Case',
+        line=dict(color='red', width=1.5, dash='dash')
+    ))
+
+    fig.add_trace(go.Scatter(
+        x=[0, 100],
+        y=[0, 100],
+        mode='lines',
+        name='Baseline',
+        line=dict(color='black', width=1.5, dash='dash')
+    ))
+
+    fig.update_layout(
+        title="Cumulative Gain Curve",
+        xaxis_title="Percentage of Predicted Target Users",
+        yaxis_title="Percent of Actual Target Users",
+        yaxis=dict(range=[0, 100]),
+        xaxis=dict(range=[0, 100]),
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01
+        )
     )
 
-    plt.title("Cumulative Gain Curve")
-    plt.xlabel("Percentage of Predicted Target Users")
-    plt.ylabel("Percent of Actual Target Users")
-    plt.ylim([0, 100])
-    plt.xlim([0, 100])
-    plt.legend()
-    plt.grid(True)
-    plt.savefig(lift_chart_file)
-    plt.clf()
+    fig.write_image(lift_chart_file)
+    fig.write_html(
+        lift_chart_file.replace(".png", ".html"), include_plotlyjs=False, full_html=False
+    )
 
 
 def plot_top_k_feature_importance(
@@ -762,14 +864,34 @@ def plot_top_k_feature_importance(
         by=["feature_importance_vals"], ascending=False, inplace=True
     )
 
-    ax = shap_importance[:top_k_features][::-1].plot(
-        kind="barh", figsize=(8, 6), color="#86bf91", width=0.3
+    # ax = shap_importance[:top_k_features][::-1].plot(
+    #     kind="barh", figsize=(8, 6), color="#86bf91", width=0.3
+    # )
+    # ax.set_xlabel(x_label)
+    # ax.set_ylabel("Feature Name")
+    # plt.title(f"Top {top_k_features} Important Features")
+    # plt.savefig(figure_file, bbox_inches="tight")
+    # plt.clf()
+
+    fig = go.Figure(data=[
+        go.Bar(
+            y=shap_importance.index[:top_k_features][::-1],
+            x=shap_importance["feature_importance_vals"][:top_k_features][::-1],
+            orientation='h'
+        )
+    ])
+
+    fig.update_layout(
+        title=f"Top {top_k_features} Important Features",
+        xaxis_title=x_label,
+        yaxis_title="Feature Name",
+        autosize=False
     )
-    ax.set_xlabel(x_label)
-    ax.set_ylabel("Feature Name")
-    plt.title(f"Top {top_k_features} Important Features")
-    plt.savefig(figure_file, bbox_inches="tight")
-    plt.clf()
+
+    fig.write_image(figure_file)
+    fig.write_html(
+        figure_file.replace(".png", ".html"), include_plotlyjs=False, full_html=False
+    )
 
 
 def fetch_staged_file(

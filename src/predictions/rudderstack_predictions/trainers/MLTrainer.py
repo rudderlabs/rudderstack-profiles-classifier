@@ -117,7 +117,7 @@ class MLTrainer(ABC):
 
         Raises:
             ValueError: If num_params_name is invalid for numeric pipeline
-            ValueError: If cat_params_name is invalid for catagorical pipeline
+            ValueError: If cat_params_name is invalid for categorical pipeline
 
         Returns:
             _type_: preprocessing pipeline

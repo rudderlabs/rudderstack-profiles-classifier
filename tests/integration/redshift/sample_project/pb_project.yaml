@@ -5,4 +5,4 @@ model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/profiles-shopify-features/tree/redshift-integration-test-features
+    url: https://github.com/rudderlabs/profiles-shopify-features/tree/redshift_dev

@@ -54,6 +54,7 @@ class RedShiftConnector(ConnectorBase):
                     schema=schema,
                     index=False,
                     if_exists=if_exists,
+                    method="multi",
                 )
             else:
                 logger.info(f"Establishing connection to Redshift")

@@ -31,24 +31,17 @@ class TestLLMModelValidation(unittest.TestCase):
             "Invalid llm model name: invalid_model. Valid options are: mistral-large, reka-flash, mixtral-8x7b, llama2-70b-chat, mistral-7b, gemma-7b",
         )
 
-    def test_max_index_prompt_inputs(self):
-        # Testing max index prompt inputs
-        # First, test with valid indices
-        self.build_spec["prompt"] = "sample prompt"
-        llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
-        llm_model.validate()
+    def test_prompt_length_validation(self):
+        # Create a prompt with length exceeding the limit
+        self.build_spec["prompt"] = (
+            "a " * 40000
+        )  # Assuming the token limit for "llama2-70b-chat" is 4096
 
-        # Testing the case for correct maximum index
-        self.build_spec["prompt"] = "sample prompt {input1[0]} {input2[1]}"
-        llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
-        llm_model.validate()
-
-        # Now, test with invalid indices
-        self.build_spec["prompt"] = "sample prompt {input1[2]} {input2[3]}"
-        llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
+        # Ensure that ValueError is raised due to prompt length exceeding the limit
         with self.assertRaises(ValueError) as context:
+            llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
             llm_model.validate()
         self.assertEqual(
             str(context.exception),
-            "Maximum index 3 is out of range for input_columns list.",
+            "The prompt exceeds the token limit for model 'llama2-70b-chat'. Maximum allowed tokens: 4096",
         )

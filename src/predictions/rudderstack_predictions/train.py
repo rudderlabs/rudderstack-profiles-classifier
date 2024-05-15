@@ -218,6 +218,12 @@ def _train(
                     top_k_features=20,
                 )
                 connector.save_file(session, figure_file, stage_name, overwrite=True)
+                connector.save_file(
+                    session,
+                    figure_file.replace(".png", ".html"),
+                    stage_name,
+                    overwrite=True,
+                )
             except Exception as e:
                 logger.error(f"Could not generate plots {e}")
 
@@ -345,6 +351,9 @@ def _train(
     for figure_name in trainer.figure_names.values():
         try:
             connector.fetch_staged_file(stage_name, figure_name, target_path)
+            connector.fetch_staged_file(
+                stage_name, figure_name.replace(".png", ".html"), target_path
+            )
         except:
             logger.warning(f"Could not fetch {figure_name}")
 

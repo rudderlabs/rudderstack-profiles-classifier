@@ -566,38 +566,83 @@ def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
         .reset_index()
     )
 
-    sns.set(style="ticks", context="notebook")
-    plt.figure(figsize=(8, 6))
-    plt.scatter(deciles_agg["Predicted"], deciles_agg["Actual"], color="b", alpha=0.5)
-    plt.plot(
-        [deciles_agg["Predicted"].min(), deciles_agg["Predicted"].max()],
-        [deciles_agg["Predicted"].min(), deciles_agg["Predicted"].max()],
-        color="r",
-        linestyle="--",
-        linewidth=2,
+    fig = go.Figure()
+
+    # Add scatter plot
+    fig.add_trace(
+        go.Scatter(
+            x=deciles_agg["Predicted"],
+            y=deciles_agg["Actual"],
+            mode="markers",
+            marker=dict(color="blue", opacity=0.5),
+        )
     )
-    plt.title(f"Y-Actual vs Y-Predicted (Deciles) for {label_column}")
-    plt.xlabel(f"Mean Predicted {label_column}")
-    plt.ylabel(f"Mean Actual {label_column}")
-    sns.despine()
-    plt.grid(True)
-    plt.savefig(deciles_file)
-    plt.clf()
+
+    # Add line plot
+    fig.add_trace(
+        go.Scatter(
+            x=[deciles_agg["Predicted"].min(), deciles_agg["Predicted"].max()],
+            y=[deciles_agg["Predicted"].min(), deciles_agg["Predicted"].max()],
+            mode="lines",
+            line=dict(color="red", dash="dash"),
+        )
+    )
+
+    fig.update_layout(
+        title=f"Y-Actual vs Y-Predicted (Deciles) for {label_column}",
+        xaxis_title=f"Mean Predicted {label_column}",
+        yaxis_title=f"Mean Actual {label_column}",
+        margin=dict(l=50, r=50, b=100, t=100, pad=4),
+        paper_bgcolor="White",
+    )
+
+    fig.write_image(deciles_file)
+    fig.write_html(
+        deciles_file.replace(".png", ".html"), include_plotlyjs=False, full_html=False
+    )
 
 
 def plot_regression_residuals(y_pred, y_true, residuals_file):
     residuals = y_true - y_pred
-    sns.set(style="ticks", context="notebook")
-    plt.figure(figsize=(8, 6))
-    plt.scatter(y_pred, residuals, color="b", alpha=0.5)
-    plt.axhline(y=0, color="r", linestyle="--", linewidth=2)
-    plt.title("Residuals Plot (Test data)")
-    plt.xlabel("Predicted Values")
-    plt.ylabel("Residuals")
-    sns.despine()
-    plt.grid(True)
-    plt.savefig(residuals_file)
-    plt.clf()
+
+    fig = go.Figure()
+
+    # Add scatter plot
+    fig.add_trace(
+        go.Scatter(
+            x=y_pred,
+            y=residuals,
+            mode="markers",
+            marker=dict(color="blue", opacity=0.5),
+        )
+    )
+
+    # Add horizontal line at y=0
+    fig.add_shape(
+        type="line",
+        x0=min(y_pred),
+        y0=0,
+        x1=max(y_pred),
+        y1=0,
+        line=dict(
+            color="red",
+            width=2,
+            dash="dash",
+        ),
+    )
+
+    fig.update_layout(
+        title="Residuals Plot (Test data)",
+        xaxis_title="Predicted Values",
+        yaxis_title="Residuals",
+        margin=dict(l=50, r=50, b=100, t=100, pad=4),
+        paper_bgcolor="White",
+    )
+
+    fig.write_image(residuals_file)
+    fig.write_html(
+        residuals_file.replace(".png", ".html"), include_plotlyjs=False, full_html=False
+    )
 
 
 def regression_evaluation_plot(y_pred, y_true, regression_chart_file, num_bins=10):
@@ -616,41 +661,44 @@ def regression_evaluation_plot(y_pred, y_true, regression_chart_file, num_bins=1
         for decile in deciles
     ]
 
-    # Plot the results
-    plt.plot(
-        percentage_targeted,
-        percentage_covered,
-        marker="o",
-        linestyle="-",
-        label="Regression Evaluation",
+    fig = go.Figure()
+
+    # Add the regression evaluation plot
+    fig.add_trace(
+        go.Scatter(
+            x=percentage_targeted,
+            y=percentage_covered,
+            mode="lines+markers",
+            name="Regression Evaluation",
+        )
     )
 
-    # Plot the base case line
-    plt.plot([0, 100], [0, 100], linestyle="--", color="gray", label="Base Case")
+    # Add the base case line
+    fig.add_trace(
+        go.Scatter(
+            x=[0, 100],
+            y=[0, 100],
+            mode="lines",
+            name="Base Case",
+            line=dict(dash="dash", color="gray"),
+        )
+    )
 
-    plt.xlabel("Percentage of Data Targeted")
-    plt.ylabel("Percentage of Target Data Covered")
-    plt.title("Regression Evaluation Plot")
-    plt.legend()
-    plt.savefig(regression_chart_file)
-    plt.clf()
+    fig.update_layout(
+        title="Regression Evaluation Plot",
+        xaxis_title="Percentage of Data Targeted",
+        yaxis_title="Percentage of Target Data Covered",
+        margin=dict(l=50, r=50, b=100, t=100, pad=4),
+        paper_bgcolor="White",
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+    )
 
-
-# def plot_roc_auc_curve(y_pred, y_true, roc_auc_file) -> None:
-#     fpr, tpr, _ = roc_curve(y_true, y_pred)
-#     roc_auc = auc(fpr, tpr)
-#     sns.set(style="ticks", context="notebook")
-#     plt.figure(figsize=(8, 6))
-#     plt.plot(fpr, tpr, color="b", label=f"ROC AUC = {roc_auc:.2f}", linewidth=2)
-#     plt.plot([0, 1], [0, 1], color="gray", linestyle="--", linewidth=2)
-#     plt.title("ROC Curve (Test Data)")
-#     plt.xlabel("False Positive Rate")
-#     plt.ylabel("True Positive Rate")
-#     plt.legend(loc="lower right")
-#     sns.despine()
-#     plt.grid(True)
-#     plt.savefig(roc_auc_file)
-#     plt.clf()
+    fig.write_image(regression_chart_file)
+    fig.write_html(
+        regression_chart_file.replace(".png", ".html"),
+        include_plotlyjs=False,
+        full_html=False,
+    )
 
 
 def plot_roc_auc_curve(y_pred, y_true, roc_auc_file) -> None:
@@ -678,89 +726,26 @@ def plot_roc_auc_curve(y_pred, y_true, roc_auc_file) -> None:
     )
 
 
-# def plot_pr_auc_curve(y_pred, y_true, pr_auc_file) -> None:
-#     precision, recall, _ = precision_recall_curve(y_true, y_pred)
-#     pr_auc = auc(recall, precision)
-#     sns.set(style="ticks", context="notebook")
-#     plt.figure(figsize=(8, 6))
-#     plt.plot(recall, precision, color="b", label=f"PR AUC = {pr_auc:.2f}", linewidth=2)
-#     plt.ylim([int(min(precision) * 20) / 20, 1.0])
-#     plt.xlim([int(min(recall) * 20) / 20, 1.0])
-#     plt.title("Precision-Recall Curve (Test data)")
-#     plt.xlabel("Recall")
-#     plt.ylabel("Precision")
-#     plt.legend(loc="lower left")
-#     sns.despine()
-#     plt.grid(True)
-#     plt.savefig(pr_auc_file)
-#     plt.clf()
-
 def plot_pr_auc_curve(y_pred, y_true, pr_auc_file) -> None:
     precision, recall, _ = precision_recall_curve(y_true, y_pred)
     pr_auc = auc(recall, precision)
 
     fig = go.Figure()
 
-    fig.add_trace(go.Scatter(x=recall, y=precision, mode='lines', name=f'PR AUC = {pr_auc:.2f}'))
+    fig.add_trace(
+        go.Scatter(x=recall, y=precision, mode="lines", name=f"PR AUC = {pr_auc:.2f}")
+    )
     fig.update_layout(
         title="Precision-Recall Curve (Test data)",
         xaxis_title="Recall",
         yaxis_title="Precision",
         yaxis=dict(range=[int(min(precision) * 20) / 20, 1.0]),
-        xaxis=dict(range=[int(min(recall) * 20) / 20, 1.0])
+        xaxis=dict(range=[int(min(recall) * 20) / 20, 1.0]),
     )
     fig.write_image(pr_auc_file)
     fig.write_html(
         pr_auc_file.replace(".png", ".html"), include_plotlyjs=False, full_html=False
     )
-
-
-# def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
-#     """Generates a lift chart for a binary classification model."""
-#     data = pd.DataFrame()
-#     data["label"] = y_true
-#     data["pred"] = y_pred
-# 
-#     sorted_indices = np.argsort(data["pred"].values, kind="heapsort")[::-1]
-#     cumulative_actual = np.cumsum(data["label"][sorted_indices].values)
-#     cumulative_percentage = np.linspace(0, 1, len(cumulative_actual) + 1)
-# 
-#     sns.set(style="ticks", context="notebook")
-#     plt.figure(figsize=(8, 6))
-#     sns.lineplot(
-#         x=cumulative_percentage * 100,
-#         y=np.array([0] + list(100 * cumulative_actual / cumulative_actual[-1])),
-#         linewidth=2,
-#         color="b",
-#         label="Model Lift curve",
-#     )
-#     sns.despine()
-#     plt.plot(
-#         [0, 100 * data["label"].mean()],
-#         [0, 100],
-#         color="red",
-#         linestyle="--",
-#         label="Best Case",
-#         linewidth=1.5,
-#     )
-#     plt.plot(
-#         [0, 100],
-#         [0, 100],
-#         color="black",
-#         linestyle="--",
-#         label="Baseline",
-#         linewidth=1.5,
-#     )
-# 
-#     plt.title("Cumulative Gain Curve")
-#     plt.xlabel("Percentage of Predicted Target Users")
-#     plt.ylabel("Percent of Actual Target Users")
-#     plt.ylim([0, 100])
-#     plt.xlim([0, 100])
-#     plt.legend()
-#     plt.grid(True)
-#     plt.savefig(lift_chart_file)
-#     plt.clf()
 
 
 def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
@@ -775,29 +760,35 @@ def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
 
     fig = go.Figure()
 
-    fig.add_trace(go.Scatter(
-        x=cumulative_percentage * 100,
-        y=np.array([0] + list(100 * cumulative_actual / cumulative_actual[-1])),
-        mode='lines',
-        name='Model Lift curve',
-        line=dict(color='blue', width=2)
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=cumulative_percentage * 100,
+            y=np.array([0] + list(100 * cumulative_actual / cumulative_actual[-1])),
+            mode="lines",
+            name="Model Lift curve",
+            line=dict(color="blue", width=2),
+        )
+    )
 
-    fig.add_trace(go.Scatter(
-        x=[0, 100 * data["label"].mean()],
-        y=[0, 100],
-        mode='lines',
-        name='Best Case',
-        line=dict(color='red', width=1.5, dash='dash')
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=[0, 100 * data["label"].mean()],
+            y=[0, 100],
+            mode="lines",
+            name="Best Case",
+            line=dict(color="red", width=1.5, dash="dash"),
+        )
+    )
 
-    fig.add_trace(go.Scatter(
-        x=[0, 100],
-        y=[0, 100],
-        mode='lines',
-        name='Baseline',
-        line=dict(color='black', width=1.5, dash='dash')
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=[0, 100],
+            y=[0, 100],
+            mode="lines",
+            name="Baseline",
+            line=dict(color="black", width=1.5, dash="dash"),
+        )
+    )
 
     fig.update_layout(
         title="Cumulative Gain Curve",
@@ -805,17 +796,14 @@ def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
         yaxis_title="Percent of Actual Target Users",
         yaxis=dict(range=[0, 100]),
         xaxis=dict(range=[0, 100]),
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01
-        )
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
     )
 
     fig.write_image(lift_chart_file)
     fig.write_html(
-        lift_chart_file.replace(".png", ".html"), include_plotlyjs=False, full_html=False
+        lift_chart_file.replace(".png", ".html"),
+        include_plotlyjs=False,
+        full_html=False,
     )
 
 
@@ -864,28 +852,21 @@ def plot_top_k_feature_importance(
         by=["feature_importance_vals"], ascending=False, inplace=True
     )
 
-    # ax = shap_importance[:top_k_features][::-1].plot(
-    #     kind="barh", figsize=(8, 6), color="#86bf91", width=0.3
-    # )
-    # ax.set_xlabel(x_label)
-    # ax.set_ylabel("Feature Name")
-    # plt.title(f"Top {top_k_features} Important Features")
-    # plt.savefig(figure_file, bbox_inches="tight")
-    # plt.clf()
-
-    fig = go.Figure(data=[
-        go.Bar(
-            y=shap_importance.index[:top_k_features][::-1],
-            x=shap_importance["feature_importance_vals"][:top_k_features][::-1],
-            orientation='h'
-        )
-    ])
+    fig = go.Figure(
+        data=[
+            go.Bar(
+                y=shap_importance.index[:top_k_features][::-1],
+                x=shap_importance["feature_importance_vals"][:top_k_features][::-1],
+                orientation="h",
+            )
+        ]
+    )
 
     fig.update_layout(
         title=f"Top {top_k_features} Important Features",
         xaxis_title=x_label,
         yaxis_title="Feature Name",
-        autosize=False
+        autosize=False,
     )
 
     fig.write_image(figure_file)

@@ -42,8 +42,6 @@ class LocalProcessor(Processor):
             "--metrics_table",
             metrics_table,
         ]
-        print("commands --------- ")
-        print(" ".join(commands))
         response_for_train = utils.subprocess_run(commands)
         if response_for_train.returncode != 0:
             raise Exception(

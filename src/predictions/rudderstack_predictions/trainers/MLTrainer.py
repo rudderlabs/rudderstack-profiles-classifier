@@ -583,14 +583,32 @@ class ClassificationTrainer(MLTrainer):
             roc_auc_file = connector.join_file_path(self.figure_names["roc-auc-curve"])
             utils.plot_roc_auc_curve(y_pred, y_true, roc_auc_file)
             connector.save_file(session, roc_auc_file, stage_name, overwrite=True)
+            connector.save_file(
+                session,
+                roc_auc_file.replace(".png", ".html"),
+                stage_name,
+                overwrite=True,
+            )
 
             pr_auc_file = connector.join_file_path(self.figure_names["pr-auc-curve"])
             utils.plot_pr_auc_curve(y_pred, y_true, pr_auc_file)
             connector.save_file(session, pr_auc_file, stage_name, overwrite=True)
+            connector.save_file(
+                session,
+                pr_auc_file.replace(".png", ".html"),
+                stage_name,
+                overwrite=True,
+            )
 
             lift_chart_file = connector.join_file_path(self.figure_names["lift-chart"])
             utils.plot_lift_chart(y_pred, y_true, lift_chart_file)
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
+            connector.save_file(
+                session,
+                lift_chart_file.replace(".png", ".html"),
+                stage_name,
+                overwrite=True,
+            )
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")
         pass
@@ -762,15 +780,28 @@ class RegressionTrainer(MLTrainer):
             y_true = y[label_column.upper()]
             utils.plot_regression_residuals(y_pred, y_true, residuals_file)
             connector.save_file(session, residuals_file, stage_name, overwrite=True)
+            connector.save_file(
+                session,
+                residuals_file.replace(".png", ".html"),
+                stage_name,
+                overwrite=True,
+            )
 
             deciles_file = connector.join_file_path(self.figure_names["deciles-plot"])
             utils.plot_regression_deciles(y_pred, y_true, deciles_file, label_column)
             connector.save_file(session, deciles_file, stage_name, overwrite=True)
+            connector.save_file(
+                session,
+                deciles_file.replace(".png", ".html"),
+                stage_name,
+                overwrite=True,
+            )
 
             # For future reference
             # regression_chart_file = connector.join_file_path(self.figure_names['regression-lift-chart'])
             # utils.regression_evaluation_plot(y_pred, y_true, regression_chart_file)
             # connector.save_file(session, regression_chart_file, stage_name, overwrite=True)
+            # connector.save_file(session, regression_chart_file.replace(".png", ".html"),, stage_name, overwrite=True)
 
         except Exception as e:
             logger.error(f"Could not generate plots. {e}")

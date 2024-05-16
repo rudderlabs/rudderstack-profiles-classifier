@@ -755,6 +755,9 @@ class CommonWarehouseConnector(Connector):
         Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
         """
         material_registry_table = self.get_table(material_registry_table_name)
+        material_registry_table = material_registry_table.sort_values(
+            by="creation_ts", ascending=False
+        )
 
         def safe_parse_json(entry):
             try:

@@ -1,7 +1,7 @@
 import unittest
 
 from src.predictions.rudderstack_predictions.ml_core.preprocess_and_predict import (
-    build_data_prep_pipeline,
+    prepare_data_prep_pipeline,
     data_prep_wrapper_func,
 )
 
@@ -10,7 +10,7 @@ class TestBuildDataPrepPipeline(unittest.TestCase):
     def test_empty_steps(self):
         """Tests building a pipeline with an empty steps list."""
         steps = []
-        pipeline = build_data_prep_pipeline(steps)
+        pipeline = prepare_data_prep_pipeline(steps)
         self.assertEqual(pipeline.steps, [])
 
     def test_single_step(self):
@@ -21,7 +21,7 @@ class TestBuildDataPrepPipeline(unittest.TestCase):
 
         step = (mock_func, {})
         steps = [step]
-        pipeline = build_data_prep_pipeline(steps)
+        pipeline = prepare_data_prep_pipeline(steps)
 
         result = pipeline.fit_transform("input_data")
         self.assertEqual(result, "input_data_transformed")
@@ -38,7 +38,7 @@ class TestBuildDataPrepPipeline(unittest.TestCase):
         step1 = (mock_func1, {})
         step2 = (mock_func2, {})
         steps = [step1, step2]
-        pipeline = build_data_prep_pipeline(steps)
+        pipeline = prepare_data_prep_pipeline(steps)
 
         result = pipeline.fit_transform(3)
         self.assertEqual(result, 7)

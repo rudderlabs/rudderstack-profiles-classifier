@@ -129,7 +129,7 @@ def prepare_feature_table(
         return feature_table
     except Exception as e:
         print(
-            "Exception occured while preparing feature table. Please check the logs for more details"
+            "Exception occurred while preparing feature table. Please check the logs for more details"
         )
         raise e
 

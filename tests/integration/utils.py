@@ -39,7 +39,11 @@ def get_latest_entity_var(
 ):
     connector = ConnectorFactory.create(creds, current_dir)
 
-    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash()
+    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
+        entity_key,
+        siteconfig_path,
+        project_path,
+    )
 
     latest_seq_no = connector.get_latest_seq_no_from_registry(
         material_registry_table_name,

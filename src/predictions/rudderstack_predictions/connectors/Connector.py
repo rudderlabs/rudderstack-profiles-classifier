@@ -42,11 +42,6 @@ class Connector(ABC):
             + config_arraytype_features
             + config_timestamp_features
             + config_booleantype_features
-            config_numeric_features
-            + config_categorical_features
-            + config_arraytype_features
-            + config_timestamp_features
-            + config_booleantype_features
         )
 
         """The get_columns_of_given_datatype function retrieves all columns of a specified datatype from a dataset. 

@@ -112,6 +112,7 @@ def validate_column_names_in_output_json():
             "categorical": [],
             "arraytype": [],
             "timestamp": [],
+            "booleantype": [],
         },
         "ignore_features": [],
         "feature_table_column_types": {"numeric": [], "categorical": []},

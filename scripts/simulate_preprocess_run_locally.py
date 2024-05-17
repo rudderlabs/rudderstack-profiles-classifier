@@ -29,7 +29,7 @@ connection_name = os.getenv("SITE_CONN_NAME", None)
 # You can get these two vars from `ps -ef | grep preprocess_and_train` command when the parent process (simulate_pb_run or pb run) is running and the code enters training part.
 # Or they can be hardcoded based on the run.
 material_names = '[["Material_user_var_table_7f41ca02_55", "2024-04-04", "Material_user_var_table_7f41ca02_63", "2024-04-11"], ["Material_user_var_table_7f41ca02_62", "2024-04-05", "Material_user_var_table_7f41ca02_60", "2024-04-12"], ["Material_user_var_table_7f41ca02_62", "2024-04-05", "Material_user_var_table_7f41ca02_61", "2024-04-12"]]'
-input_column_types = '{"numeric": {"total_revenue": "INTEGER", "days_since_last_seen": "INTEGER", "days_since_payment": "INTEGER", "win_ratio": "NUMERIC"}, "categorical": {}, "arraytype": {}, "timestamp": {"last_used_day": "DATE", "last_payment_day": "DATE"}}'
+input_column_types = '{"numeric": {"total_revenue": "INTEGER", "days_since_last_seen": "INTEGER", "days_since_payment": "INTEGER", "win_ratio": "NUMERIC"}, "categorical": {}, "arraytype": {},"booleantype": {}, "timestamp": {"last_used_day": "DATE", "last_payment_day": "DATE"}}'
 
 # output folder path. Can leave as is or modify.
 output_dir = "output/dev/seq_no/3"

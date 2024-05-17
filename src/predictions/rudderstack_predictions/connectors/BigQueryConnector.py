@@ -24,11 +24,11 @@ class BigQueryConnector(CommonWarehouseConnector):
                 "BIGDECIMAL",
                 "NUMERIC",
                 "FLOAT",
-                "BOOLEAN",
             ),
             "categorical": ("STRING", "JSON"),
             "timestamp": ("DATE", "TIME", "DATETIME", "TIMESTAMP", "INTERVAL"),
             "arraytype": ("ARRAY",),
+            "booleantype": ("BOOLEAN", "BOOL"),
         }
         super().__init__(creds, folder_path, data_type_mapping)
 

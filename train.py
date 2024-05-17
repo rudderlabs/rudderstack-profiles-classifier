@@ -20,7 +20,7 @@ def train(
     project_folder: str = None,
     runtime_info: dict = None,
 ) -> None:
-    input_models = ["models/predictions_dev_features"]
+    input_models = None
     _train(
         creds,
         inputs,

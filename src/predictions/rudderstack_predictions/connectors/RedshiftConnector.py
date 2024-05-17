@@ -24,7 +24,7 @@ class RedshiftConnector(CommonWarehouseConnector):
                 "real": int,
                 "double precision": int,
             },
-            "categorical": {"str": str},
+            "categorical": {"str": str, "character varying": str},
             "timestamp": {
                 "timestamp without time zone": None,
                 "date": None,

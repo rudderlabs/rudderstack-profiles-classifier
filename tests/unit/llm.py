@@ -30,7 +30,6 @@ class TestLLMModelValidation(unittest.TestCase):
             str(context.exception),
             "Invalid llm model name: invalid_model. Valid options are: mistral-large, reka-flash, mixtral-8x7b, llama2-70b-chat, mistral-7b, gemma-7b",
         )
-
     def test_prompt_length_validation(self):
         # Create a prompt with length exceeding the limit
         self.build_spec["prompt"] = (

@@ -26,7 +26,7 @@ data = {
     "features_profiles_model": feature_table_name,
     "inputs": inputs,
     "eligible_users": "1=1",
-    "label_column": "total_sessions_till_date",
+    "label_column": classifier_label_column,
     "task": "classification",
     "output_profiles_ml_model": output_model_name,
 }

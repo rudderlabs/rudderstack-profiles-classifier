@@ -68,7 +68,7 @@ def preprocess_and_predict(
     seq_no = None
 
     try:
-        seq_no = int(inputs[0].split("_")[-1])
+        seq_no = int(utils.extract_seq_no_from_select_query(inputs[0]))
     except Exception as e:
         raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
 

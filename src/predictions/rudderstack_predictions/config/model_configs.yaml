@@ -36,6 +36,8 @@ preprocessing:
   
   arraytype_columns: []
 
+  booleantype_columns: []
+
   ignore_features: []
   numeric_features: [] # List of numerical features. If empty, all numerical features are considered
   categorical_features: [] # List of categorical features. If empty, all categorical features are considered

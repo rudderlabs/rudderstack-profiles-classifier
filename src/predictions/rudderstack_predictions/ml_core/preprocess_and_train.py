@@ -168,7 +168,15 @@ def preprocess_and_train(
         trainer.entity_column,
         cardinal_feature_threshold,
     )
-    logger.debug(f"High cardinality features detected: {high_cardinal_features}")
+    logger.info(
+        f"Following features are detected as having high cardinality, and will be ignored for training: {high_cardinal_features}"
+    )
+
+    feature_table = connector.transform_booleantype_features(
+        feature_table, list(input_column_types["booleantype"].keys())
+    )
+    transformed_booleantype_cols = list(input_column_types["booleantype"].keys())
+    logger.debug("Boolean Type Columns transformed to numeric")
 
     ignore_features = utils.get_all_ignore_features(
         feature_table,
@@ -191,6 +199,7 @@ def preprocess_and_train(
         trainer.label_column,
         trainer.entity_column,
         transformed_arraytype_cols,
+        transformed_booleantype_cols,
         connector.dtype_utils_mapping,
     )
     logger.debug(f"Feature_table column types detected: {feature_table_column_types}")

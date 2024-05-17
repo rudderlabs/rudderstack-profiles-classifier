@@ -111,6 +111,18 @@ class CommonWarehouseConnector(Connector):
 
         return transformed_array_col_names, transformed_feature_df
 
+    def transform_booleantype_features(
+        self, feature_df: pd.DataFrame, booleantype_features: List[str]
+    ) -> pd.DataFrame:
+        transformed_feature_df = feature_df.copy()
+
+        for boolean_column in booleantype_features:
+            transformed_feature_df[boolean_column].replace(
+                {False: 0, True: 1}, inplace=True
+            )
+
+        return transformed_feature_df
+
     def get_merged_table(self, base_table, incoming_table):
         return pd.concat([base_table, incoming_table], axis=0, ignore_index=True)
 
@@ -277,6 +289,19 @@ class CommonWarehouseConnector(Connector):
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["timestamp"],
+            label_column,
+            entity_column,
+        )
+
+    def get_booleantype_columns(
+        self,
+        schema_fields: List,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        return self.fetch_given_data_type_columns(
+            schema_fields,
+            self.data_type_mapping["booleantype"],
             label_column,
             entity_column,
         )

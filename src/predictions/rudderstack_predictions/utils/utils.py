@@ -12,20 +12,9 @@ from pycaret.classification import predict_model as classification_predict_model
 from pycaret.regression import predict_model as regression_predict_model
 
 from sklearn.metrics import (
-    precision_recall_fscore_support,
-    roc_auc_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    accuracy_score,
-    average_precision_score,
-    average_precision_score,
     auc,
     roc_curve,
     precision_recall_curve,
-    mean_absolute_error,
-    mean_squared_error,
-    r2_score,
 )
 
 from sklearn.model_selection import train_test_split
@@ -69,6 +58,7 @@ class PreprocessorConfig:
 
     timestamp_columns: List[str]
     arraytype_columns: List[str]
+    booleantype_columns: List[str]
     ignore_features: List[str]
     numeric_features: List[str]
     categorical_features: List[str]
@@ -148,11 +138,15 @@ def get_feature_table_column_types(
     label_column: str,
     entity_column: str,
     transformed_arraytype_cols: List[str],
+    transformed_booleantype_cols: List[str],
     dtype_mapping: dict,
 ):
     feature_table_column_types = {}
 
     for col in transformed_arraytype_cols:
+        input_column_types["numeric"][col] = dtype_mapping["numeric"]
+
+    for col in transformed_booleantype_cols:
         input_column_types["numeric"][col] = dtype_mapping["numeric"]
 
     for col in input_column_types["timestamp"]:

@@ -273,6 +273,7 @@ def _train(
     )
     # material_names, training_dates
     train_table_pairs = get_material_names_partial(start_date=start_date)
+
     # Generate new materials for training data
     try:
         train_table_pairs = trainer.check_and_generate_more_materials(

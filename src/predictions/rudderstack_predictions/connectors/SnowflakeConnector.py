@@ -49,6 +49,9 @@ class SnowflakeConnector(Connector):
             "arraytype": {
                 "ArrayType": T.ArrayType(),
             },
+            "booleantype": {
+                "BooleanType": T.BooleanType(),
+            },
         }
         self.dtype_utils_mapping = {
             "numeric": "DecimalType",
@@ -350,6 +353,19 @@ class SnowflakeConnector(Connector):
             entity_column,
         )
 
+    def get_booleantype_columns(
+        self,
+        schema_fields: List,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        return self.fetch_given_data_type_columns(
+            schema_fields,
+            self.data_type_mapping["booleantype"],
+            label_column,
+            entity_column,
+        )
+
     def transform_arraytype_features(
         self, feature_table: snowflake.snowpark.Table, arraytype_features: List[str]
     ) -> Union[List[str], snowflake.snowpark.Table]:
@@ -436,6 +452,20 @@ class SnowflakeConnector(Connector):
             transformed_feature_table, arraytype_features
         )
         return transformed_column_names, transformed_feature_table
+
+    def transform_booleantype_features(
+        self, feature_table: snowflake.snowpark.Table, booleantype_features: List[str]
+    ) -> snowflake.snowpark.Table:
+        """Transforms booleantype features in a snowflake.snowpark.Table"""
+
+        # Initialize a variable to store the original feature table
+        transformed_feature_table = feature_table
+
+        for boolean_column in booleantype_features:
+            transformed_feature_table = transformed_feature_table.withColumn(
+                boolean_column, F.col(boolean_column).cast("integer")
+            )
+        return transformed_feature_table
 
     def get_default_label_value(
         self, table_name: str, label_column: str, positive_boolean_flags: list

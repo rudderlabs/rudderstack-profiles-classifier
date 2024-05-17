@@ -35,6 +35,7 @@ class BigQueryConnector(CommonWarehouseConnector):
                 "INTERVAL": None,
             },
             "arraytype": {"ARRAY": None},
+            "booleantype": {"BOOLEAN": None, "BOOL": None},
         }
         self.dtype_utils_mapping = {"numeric": "FLOAT", "categorical": "STRING"}
         super().__init__(creds, folder_path, data_type_mapping)

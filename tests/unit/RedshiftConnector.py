@@ -2,6 +2,7 @@
 import unittest
 import pandas as pd
 import numpy as np
+import numpy as np
 from datetime import datetime
 from collections import namedtuple
 from unittest.mock import Mock, patch, call

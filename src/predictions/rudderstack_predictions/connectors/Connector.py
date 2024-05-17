@@ -27,6 +27,7 @@ class Connector(ABC):
         ignore_features: List[str],
     ) -> Dict:
         """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp, booleantype) for a given table."""
+        """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp, booleantype) for a given table."""
         lowercase_list = lambda features: [feature.lower() for feature in features]
         schema_fields = self.fetch_table_metadata(table_name)
 
@@ -36,6 +37,11 @@ class Connector(ABC):
         config_timestamp_features = trainer_obj.prep.timestamp_columns
         config_booleantype_features = trainer_obj.prep.booleantype_columns
         config_agg_columns = set(
+            config_numeric_features
+            + config_categorical_features
+            + config_arraytype_features
+            + config_timestamp_features
+            + config_booleantype_features
             config_numeric_features
             + config_categorical_features
             + config_arraytype_features
@@ -256,6 +262,24 @@ class Connector(ABC):
 
     @abstractmethod
     def get_timestamp_columns(
+        self,
+        schema_fields: List,
+        label_column: str,
+        entity_column: str,
+    ) -> Dict:
+        pass
+
+    @abstractmethod
+    def get_booleantype_columns(
+        self,
+        schema_fields: List,
+        label_column: str,
+        entity_column: str,
+    ) -> Dict:
+        pass
+
+    @abstractmethod
+    def get_booleantype_columns(
         self,
         schema_fields: List,
         label_column: str,

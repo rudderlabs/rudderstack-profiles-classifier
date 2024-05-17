@@ -59,6 +59,7 @@ class PreprocessorConfig:
     timestamp_columns: List[str]
     arraytype_columns: List[str]
     booleantype_columns: List[str]
+    booleantype_columns: List[str]
     ignore_features: List[str]
     numeric_features: List[str]
     categorical_features: List[str]

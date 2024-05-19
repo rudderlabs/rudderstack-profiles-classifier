@@ -50,10 +50,11 @@ class LLMModel(BaseModelType):
         model_name = self.build_spec["llm_model_name"]
 
         prompt_tokens = len(prompt.split())
-        if prompt_tokens > model_limits[model_name]:
-            raise ValueError(
-                f"The prompt exceeds the token limit for model '{model_name}'. Maximum allowed tokens: {model_limits[model_name]}"
-            )
+        if model_name in model_limits:
+            if prompt_tokens > model_limits[model_name]:
+                raise ValueError(
+                    f"The prompt exceeds the token limit for model '{model_name}'. Maximum allowed tokens: {model_limits[model_name]}"
+                )
         prompt_replaced = prompt.replace("'", "''", -1)
         input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
         if len(input_indices) == 0:

@@ -8,7 +8,7 @@ from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
 SCHEMA_NAME = "CLASSIFIER_INTEGRATION_TEST"
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(current_dir, "..", "sample_project")
+project_path = os.path.join(current_dir, "sample_project")
 siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
 output_filename = os.path.join(current_dir, "output/output.json")
 output_folder = os.path.join(current_dir, "output")

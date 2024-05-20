@@ -1,6 +1,7 @@
 import os
 from train import *
 import shutil
+import time
 from predict import *
 from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
 from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
@@ -10,18 +11,11 @@ import json
 from tests.integration.utils import *
 
 creds = json.loads(os.environ["BIGQUERY_SITE_CONFIG"])
-creds["schema"] = "PROFILES_INTEGRATION_TEST"
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(current_dir, "sample_project")
-siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
-output_filename = os.path.join(current_dir, "output/output.json")
-output_folder = os.path.join(current_dir, "output")
-folder_path_output_file = os.path.dirname(output_filename)
+creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
 
 os.makedirs(output_folder, exist_ok=True)
 
-train_input_model_name = "predictions_dev_features"
+train_input_model_name = "shopify_user_features"
 
 data = {
     "prediction_horizon_days": pred_horizon_days,
@@ -31,8 +25,6 @@ data = {
     "label_column": regressor_label_column,
     "task": "regression",
     "output_profiles_ml_model": output_model_name,
-    "train_start_dt": "2024-03-06",
-    "train_end_dt": "2024-03-13",
 }
 
 train_config = {"data": data}
@@ -75,10 +67,7 @@ def cleanup_reports(reports_folders):
 
 
 def validate_training_summary_regression():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(
-        current_dir, "output/train_reports", "training_summary.json"
-    )
+    file_path = os.path.join(output_folder, "train_reports", "training_summary.json")
     with open(file_path, "r") as file:
         json_data = json.load(file)
         timestamp = json_data["timestamp"]
@@ -95,8 +84,7 @@ def validate_training_summary_regression():
 
 
 def validate_reports_regression():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    reports_directory = os.path.join(current_dir, "output/train_reports")
+    reports_directory = os.path.join(output_folder, "train_reports")
     expected_files = [
         "01-feature-importance-chart",
         "02-residuals-chart",
@@ -116,13 +104,7 @@ def validate_reports_regression():
 
 
 def test_regressor():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_path = os.path.join(current_dir, "sample_project")
-    siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
-    output_filename = os.path.join(current_dir, "output/output.json")
-    output_folder = os.path.join(current_dir, "output")
-
-    os.makedirs(output_folder, exist_ok=True)
+    st = time.time()
 
     create_site_config_file(creds, siteconfig_path)
 
@@ -179,6 +161,11 @@ def test_regressor():
     finally:
         cleanup_pb_project(project_path, siteconfig_path)
         cleanup_reports(reports_folders)
+
+    et = time.time()
+    # get the execution time
+    elapsed_time = et - st
+    print("Execution time:", elapsed_time, "seconds")
 
 
 test_regressor()

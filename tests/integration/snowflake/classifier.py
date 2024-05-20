@@ -8,13 +8,7 @@ import os
 
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-creds["schema"] = "PROFILES_INTEGRATION_TEST"
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(current_dir, "sample_project")
-siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
-output_filename = os.path.join(current_dir, "output/output.json")
-output_folder = os.path.join(current_dir, "output")
+creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
 
 train_input_model_name = "shopify_user_features"
 
@@ -26,8 +20,6 @@ data = {
     "label_column": classifier_label_column,
     "task": "classification",
     "output_profiles_ml_model": output_model_name,
-    "train_start_dt": "2024-02-08",
-    "train_end_dt": "2024-02-09",
 }
 
 train_config = {"data": data}
@@ -73,10 +65,7 @@ def cleanup_reports(reports_folders):
 
 
 def validate_training_summary():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(
-        current_dir, "output/train_reports", "training_summary.json"
-    )
+    file_path = os.path.join(output_folder, "train_reports", "training_summary.json")
     with open(file_path, "r") as file:
         json_data = json.load(file)
         timestamp = json_data["timestamp"]
@@ -106,8 +95,7 @@ def validate_training_summary():
 
 
 def validate_reports():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    reports_directory = os.path.join(current_dir, "output/train_reports")
+    reports_directory = os.path.join(output_folder, "train_reports")
     expected_files = [
         "01-feature-importance-chart",
         "02-test-lift-chart",

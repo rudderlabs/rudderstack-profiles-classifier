@@ -1,8 +1,0 @@
-schema_version: 49
-connection: test
-include_untimed: true
-model_folders:
-  - models
-packages:
-  - name: feature_table
-    url: https://github.com/rudderlabs/profiles-shopify-features/tree/redshift_dev

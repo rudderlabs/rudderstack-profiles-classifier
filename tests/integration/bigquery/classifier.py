@@ -8,7 +8,7 @@ import json
 
 
 creds = json.loads(os.environ["BIGQUERY_SITE_CONFIG"])
-creds["schema"] = SCHEMA_NAME
+creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
 
 os.makedirs(output_folder, exist_ok=True)
 
@@ -64,9 +64,7 @@ def cleanup_reports(reports_folders):
 
 
 def validate_training_summary():
-    file_path = os.path.join(
-        output_folder, "train_reports", "training_summary.json"
-    )
+    file_path = os.path.join(output_folder, "train_reports", "training_summary.json")
     with open(file_path, "r") as file:
         json_data = json.load(file)
         timestamp = json_data["timestamp"]

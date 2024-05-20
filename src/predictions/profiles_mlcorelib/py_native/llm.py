@@ -111,16 +111,16 @@ class LLMModelRecipe(PyNativeRecipe):
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
-                        WITH distinct_names AS (
+                        WITH distinct_attribute AS (
                         SELECT DISTINCT {joined_columns}
                         FROM {{{{entityVarTable}}}}
-                    ), predicted_gender AS (
+                    ), predicted_attribute AS (
                         SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name},
-                        FROM distinct_names
+                        FROM distinct_attribute
                     )
                         SELECT a.{entity_id_column_name}, b.{column_name}
                         FROM {{{{entityVarTable}}}} a
-                        LEFT JOIN predicted_gender b ON {join_condition}
+                        LEFT JOIN predicted_attribute b ON {join_condition}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}

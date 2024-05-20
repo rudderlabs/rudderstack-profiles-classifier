@@ -103,18 +103,27 @@ class LLMModelRecipe(PyNativeRecipe):
         var_table_ref = (
             f"this.DeRef(makePath({self.prompt_inputs[0]}.Model.GetVarTableRef()))"
         )
+        joined_columns = ", ".join(input_columns)
+        join_condition = " AND ".join([f"a.{col} = b.{col}" for col in input_columns])
 
         # model_creator_sql
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
-
-                    SELECT {entity_id_column_name}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name} FROM {{{{entityVarTable}}}}
+                        WITH distinct_names AS (
+                        SELECT DISTINCT {joined_columns}
+                        FROM {{{{entityVarTable}}}}
+                    ), predicted_gender AS (
+                        SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name},
+                        FROM distinct_names
+                    )
+                        SELECT a.{entity_id_column_name}, b.{column_name}
+                        FROM {{{{entityVarTable}}}} a
+                        LEFT JOIN predicted_gender b ON {join_condition}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}
-
             {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}"""
 
         self.sql = this.execute_text_template(query_template)

@@ -7,14 +7,7 @@ from tests.integration.utils import *
 import os
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
-
-
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(current_dir, "..", "sample_project")
-siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
-output_filename = os.path.join(current_dir, "output/output.json")
-output_folder = os.path.join(current_dir, "output")
+creds["schema"] = SCHEMA_NAME
 
 train_input_model_name = "shopify_user_features"
 

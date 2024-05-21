@@ -8,7 +8,7 @@ import json
 
 
 creds = json.loads(os.environ["BIGQUERY_SITE_CONFIG"])
-creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
+creds["schema"] = "AMBUJ"
 
 os.makedirs(output_folder, exist_ok=True)
 

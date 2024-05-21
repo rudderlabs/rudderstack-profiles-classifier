@@ -8,7 +8,7 @@ import os
 
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
-creds["schema"] = "classifier_integration_test"
+creds["schema"] = "ambuj"
 
 os.makedirs(output_folder, exist_ok=True)
 

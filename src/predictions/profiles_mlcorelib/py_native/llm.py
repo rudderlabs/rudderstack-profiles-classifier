@@ -103,9 +103,11 @@ class LLMModelRecipe(PyNativeRecipe):
         var_table_ref = (
             f"this.DeRef(makePath({self.prompt_inputs[0]}.Model.GetVarTableRef()))"
         )
-        # Joined_columns used to create a comma seperated string
+        # Joined_columns used to create a comma seperated string in order to mention
+        # all the columns that are used as input in the query.
         joined_columns = ", ".join(input_columns)
-        # Join condition to join the predicted column to the original table
+        # Join condition to join the predicted column to the original table in order to mention
+        # all the column that are being used in the input columns list.
         join_condition = " AND ".join([f"a.{col} = b.{col}" for col in input_columns])
 
         # model_creator_sql
@@ -113,7 +115,8 @@ class LLMModelRecipe(PyNativeRecipe):
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
-                    # Common Table Expression (CTE) to get distinct values of specified columns
+                    # Common Table Expression (CTE) to get distinct values of specified columns in order to
+                    # reduce the number of api calls for the llm model.
                         WITH distinct_attribute AS (
                         SELECT DISTINCT {joined_columns}
                         FROM {{{{entityVarTable}}}}
@@ -124,7 +127,8 @@ class LLMModelRecipe(PyNativeRecipe):
                     )
                         SELECT a.{entity_id_column_name}, b.{column_name}
                         FROM {{{{entityVarTable}}}} a
-                        # Perform a LEFT JOIN between the original table and the predicted attributes
+                        # Perform a LEFT JOIN between the original table and the predicted attributes to fill all the 
+                        # attribute value with their corresponding predicted value.
                         LEFT JOIN predicted_attribute b ON {join_condition}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}

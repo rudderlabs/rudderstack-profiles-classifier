@@ -7,7 +7,7 @@ from tests.integration.utils import *
 import os
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-creds["schema"] = "AMBUJ"
+creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
 train_input_model_name = "shopify_user_features"
 

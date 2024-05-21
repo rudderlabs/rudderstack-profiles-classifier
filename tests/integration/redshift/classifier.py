@@ -8,7 +8,7 @@ import os
 
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
-creds["schema"] = "ambuj"
+creds["schema"] = "profiles_integration_test"
 
 os.makedirs(output_folder, exist_ok=True)
 

@@ -103,7 +103,9 @@ class LLMModelRecipe(PyNativeRecipe):
         var_table_ref = (
             f"this.DeRef(makePath({self.prompt_inputs[0]}.Model.GetVarTableRef()))"
         )
+        # Joined_columns used to create a comma seperated string
         joined_columns = ", ".join(input_columns)
+        # Join condition to join the predicted column to the original table
         join_condition = " AND ".join([f"a.{col} = b.{col}" for col in input_columns])
 
         # model_creator_sql
@@ -111,15 +113,18 @@ class LLMModelRecipe(PyNativeRecipe):
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
+                    # Common Table Expression (CTE) to get distinct values of specified columns
                         WITH distinct_attribute AS (
                         SELECT DISTINCT {joined_columns}
                         FROM {{{{entityVarTable}}}}
-                    ), predicted_attribute AS (
+                    ), # CTE to get predicted attributes using the specified model
+                    predicted_attribute AS (
                         SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name},
                         FROM distinct_attribute
                     )
                         SELECT a.{entity_id_column_name}, b.{column_name}
                         FROM {{{{entityVarTable}}}} a
+                        # Perform a LEFT JOIN between the original table and the predicted attributes
                         LEFT JOIN predicted_attribute b ON {join_condition}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
@@ -127,7 +132,7 @@ class LLMModelRecipe(PyNativeRecipe):
             {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}"""
 
         self.sql = this.execute_text_template(query_template)
-        return
+        return 
 
     def execute(self, this: WhtMaterial):
         this.wht_ctx.client.query_sql_without_result(self.sql)

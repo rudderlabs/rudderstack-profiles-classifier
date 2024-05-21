@@ -35,6 +35,8 @@ preprocessing:
   
   arraytype_columns: []
 
+  booleantype_columns: []
+
   ignore_features: []
 
   numeric_pipeline:

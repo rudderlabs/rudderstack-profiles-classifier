@@ -31,6 +31,7 @@ class RedshiftConnector(CommonWarehouseConnector):
                 "time without time zone",
             ),
             "arraytype": ("array",),
+            "booleantype": ("boolean", "bool"),
         }
         super().__init__(creds, folder_path, data_type_mapping)
 

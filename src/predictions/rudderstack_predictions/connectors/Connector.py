@@ -26,54 +26,50 @@ class Connector(ABC):
         entity_column: str,
         ignore_features: List[str],
     ) -> Dict:
-        """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp) for a given table."""
+        """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp, booleantype) for a given table."""
         lowercase_list = lambda features: [feature.lower() for feature in features]
         schema_fields = self.fetch_table_metadata(table_name)
 
-        config_numeric_columns = trainer_obj.prep.numeric_pipeline["numeric_columns"]
-        config_categorical_columns = trainer_obj.prep.categorical_pipeline[
+        config_numeric_features = trainer_obj.prep.numeric_pipeline["numeric_columns"]
+        config_categorical_features = trainer_obj.prep.categorical_pipeline[
             "categorical_columns"
         ]
-        config_arraytype_columns = trainer_obj.prep.arraytype_columns
-        config_timestamp_columns = trainer_obj.prep.timestamp_columns
+        config_arraytype_features = trainer_obj.prep.arraytype_columns
+        config_timestamp_features = trainer_obj.prep.timestamp_columns
+        config_booleantype_features = trainer_obj.prep.booleantype_columns
         config_agg_columns = set(
-            config_numeric_columns
-            + config_categorical_columns
-            + config_arraytype_columns
-            + config_timestamp_columns
+            config_numeric_features
+            + config_categorical_features
+            + config_arraytype_features
+            + config_timestamp_features
+            + config_booleantype_features
         )
 
-        """The get_columns_of_given_datatype function retrieves all columns of a specified datatype from a dataset. 
-           A set is utilized to eliminate duplicates that may arise from including config_agg_columns in the inferred columns. 
-           Once duplicates are removed, the result is converted back to a list."""
-
-        def get_columns_of_given_datatype(
-            get_datatype_features_fn, config_datatype_columns
-        ):
-            given_datatype_columns = utils.merge_lists_to_unique(
+        # The get_all_columns_of_a_type is used to get all the columns of a particular type. Set has been used so that the config_agg_columns can be removed from the inferred columns so that there wont be any duplicates. Finally its converted back to list as we have to return a list of columns.
+        def get_all_columns_of_a_type(get_features, columns):
+            agg_columns = utils.merge_lists_to_unique(
                 list(
-                    set(
-                        get_datatype_features_fn(
-                            schema_fields, label_column, entity_column
-                        )
-                    )
+                    set(get_features(schema_fields, label_column, entity_column))
                     - config_agg_columns
                 ),
-                config_datatype_columns,
+                columns,
             )
-            return given_datatype_columns
+            return agg_columns
 
-        numeric_columns = get_columns_of_given_datatype(
-            self.get_numeric_features, config_numeric_columns
+        numeric_columns = get_all_columns_of_a_type(
+            self.get_numeric_features, config_numeric_features
         )
-        categorical_columns = get_columns_of_given_datatype(
-            self.get_stringtype_features, config_categorical_columns
+        categorical_columns = get_all_columns_of_a_type(
+            self.get_stringtype_features, config_categorical_features
         )
-        arraytype_columns = get_columns_of_given_datatype(
-            self.get_arraytype_columns, config_arraytype_columns
+        arraytype_columns = get_all_columns_of_a_type(
+            self.get_arraytype_columns, config_arraytype_features
         )
-        timestamp_columns = get_columns_of_given_datatype(
-            self.get_timestamp_columns, config_timestamp_columns
+        timestamp_columns = get_all_columns_of_a_type(
+            self.get_timestamp_columns, config_timestamp_features
+        )
+        booleantype_columns = get_all_columns_of_a_type(
+            self.get_booleantype_columns, config_booleantype_features
         )
 
         input_column_types = {
@@ -81,7 +77,11 @@ class Connector(ABC):
             "categorical": categorical_columns,
             "arraytype": arraytype_columns,
             "timestamp": timestamp_columns,
+            "booleantype": booleantype_columns,
         }
+
+        if ignore_features is None:
+            ignore_features = []
 
         for column_type, columns in input_column_types.items():
             input_column_types[column_type] = [
@@ -108,6 +108,10 @@ class Connector(ABC):
     def transform_arraytype_features(
         self, feature_table, input_column_types, top_k_array_categories
     ):
+        pass
+
+    @abstractmethod
+    def transform_booleantype_features(self, feature_table, input_column_types):
         pass
 
     @abstractmethod
@@ -243,6 +247,15 @@ class Connector(ABC):
 
     @abstractmethod
     def get_timestamp_columns(
+        self,
+        schema_fields: List,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        pass
+
+    @abstractmethod
+    def get_booleantype_columns(
         self,
         schema_fields: List,
         label_column: str,

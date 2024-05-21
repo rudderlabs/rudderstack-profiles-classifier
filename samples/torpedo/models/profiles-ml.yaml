@@ -1,0 +1,45 @@
+models:
+  - name: &model_name_7_days churn_7_days_model_top_5k_with_context_traits_user_id
+    model_type: python_model
+    model_spec:
+      occurred_at_col: insert_ts
+      entity_key: user
+      validity_time: 24h # 1 day
+      py_repo_url: https://github.com/rudderlabs/rudderstack-profiles-classifier.git
+
+      train:
+        file_extension: .json
+        file_validity: 168h # If the last trained model is older than this, then the model will be trained again,
+        inputs: &inputs_7_days
+          - models/user_profile_with_context_traits_user_id # inputs to materialise the required data for model
+        config:
+          data: &model_data_configs_7_days
+            label_column: is_churned_7_days # Name of column for which we want to find predictions
+            label_value: 1 # Value of label column for which prediction is generated
+            prediction_horizon_days: 7 # Number of days in future for which we want to predict
+            output_profiles_ml_model: *model_name_7_days # Name of output model based on current model to dinstinguish between multiple models
+            eligible_users: "user_main_id in (select distinct(user_main_id) from (select user_main_id, total_revenue from `wynn-qa-1-6182d.unity_prod_2.user_profile_with_context_traits_user_id` order by total_revenue desc limit 5000))"
+            inputs: *inputs_7_days
+
+          
+          #preprocessing: &model_prep_configs_7_days
+          #  ignore_features:
+          #    - user_email
+          #    - first_name
+          #    - last_name
+
+      predict:
+        inputs: *inputs_7_days
+        config:
+          data: *model_data_configs_7_days # Use the same config as training
+          #preprocessing: *model_prep_configs_7_days # Use the same config as training
+          outputs:
+            column_names:
+              percentile: &percentile_name_7_days percentile_churn_score_7_days # Name of column in output table having percentile score
+              score: churn_score_7_days # Name of column in output table having probabilistic score
+            feature_meta_data: &feature_meta_data_7_days
+              features:
+                - name: *percentile_name_7_days
+                  description: 'Percentile of churn score. Higher the percentile, higher the probability of churn'
+
+      <<: *feature_meta_data_7_days

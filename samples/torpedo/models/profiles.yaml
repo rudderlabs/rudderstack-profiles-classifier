@@ -1,0 +1,226 @@
+# This is a sample file, for detailed reference see: https://rudderlabs.github.io/pywht/
+models:
+  - name: user_id_stitcher
+    model_type: id_stitcher
+    model_spec:
+      validity_time: 24h # 1 day
+      entity_key: user
+      edge_sources:
+        - from: inputs/rsIdentifies
+        - from: inputs/rsTracks
+        - from: inputs/rsSpinResult
+        - from: inputs/rsRevenue
+  - name: user_profile_with_context_traits_user_id
+    model_type: feature_table_model
+    model_spec:
+      validity_time: 24h
+      entity_key: user
+      features:
+        - total_bet
+        - total_win
+        - total_spins
+        - total_distinct_games
+        - total_jackpot
+        - win_ratio
+        - coin_balance
+        - last_payment_day
+        - total_revenue
+        - last_used_day
+        - days_since_payment
+        - count_of_auto_spin_selection
+        - count_of_battle_player_spins_ended
+        - count_of_battle_spin_result
+        - count_of_bingo_reward_claim_event
+        - count_of_blackjack_result
+        - count_of_buy_product_click
+        - count_of_claim_invitational_tournament_reward
+        - count_of_claim_mini_tournament_reward
+        - count_of_claim_tournament_reward
+        - count_of_clan_revenue_share
+        - count_of_daily_rewards_claim
+        - count_of_deep_link_rewarded
+        - count_of_not_enough_credit
+        - count_of_offer_buy_click
+        - count_of_offer_dismiss_click
+        - count_of_offer_displayed
+        - count_of_product_offer_buy_click
+        - count_of_quest_claim
+        - count_of_quest_item_claim
+        - count_of_hyper_bonus_click
+        - count_of_quest_button_click
+        - count_of_sent_gift
+        - is_churned_7_days
+
+var_groups:
+  - name: user_vars
+    entity_key: user
+    vars:
+      - entity_var:
+          name: total_bet
+          select: sum(bet_amount)
+          from: inputs/rsSpinResult
+      - entity_var:
+          name: total_win
+          select: sum(cast(win_amount as numeric))
+          from: inputs/rsSpinResult
+      - entity_var:
+          name: total_spins
+          select: sum(no_of_spin)
+          from: inputs/rsSpinResult
+      - entity_var:
+          name: total_distinct_games
+          select: count(distinct(game_name))
+          from: inputs/rsSpinResult
+      - entity_var:
+          name: total_jackpot
+          select: sum(jackpot_win_amount)
+          from: inputs/rsSpinResult
+      - entity_var: 
+          name: win_ratio
+          select: '{{user.Var("total_win")}}/{{user.Var("total_bet")}}'
+      - entity_var:
+          name: coin_balance
+          select: first_value(coin_balance)
+          window:
+            order_by:
+              - sent_at desc
+            frame_clause: ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+          from: inputs/rsRevenue
+      - entity_var:
+          name: last_payment_day
+          select: max(cast(sent_at as date))
+          from: inputs/rsRevenue
+          where: sent_at between '2020-01-01' and '2030-12-31'
+      - entity_var:
+          name: total_revenue
+          select: sum(total_payments)
+          from: inputs/rsRevenue
+      - entity_var:
+          name: last_used_day
+          select: max(cast(sent_at as date))
+          from: inputs/rsTracks
+          where: sent_at between '2020-01-01' and '2030-12-31'
+      - entity_var:
+          name: days_since_payment
+          select: 'date_diff({{user.Var("last_used_day")}},{{user.Var("last_payment_day")}},day)'
+      - entity_var:
+          name: count_of_auto_spin_selection
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'auto_spin_selection'
+      - entity_var:
+          name: count_of_battle_player_spins_ended
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'battle_player_spins_ended'
+      - entity_var:
+          name: count_of_battle_spin_result
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'battle_spin_result'
+      - entity_var:
+          name: count_of_bingo_reward_claim_event
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'bingo_reward_claim_event'
+      - entity_var:
+          name: count_of_blackjack_result
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'blackjack_result'
+      - entity_var:
+          name: count_of_buy_product_click
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'buy_product_click'
+      - entity_var:
+          name: count_of_claim_invitational_tournament_reward
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'claim_invitational_tournament_reward'      
+      - entity_var:
+          name: count_of_claim_mini_tournament_reward
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'claim_mini_tournament_reward'  
+      - entity_var:
+          name: count_of_claim_tournament_reward
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'claim_tournament_reward'  
+      - entity_var:
+          name: count_of_clan_revenue_share
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'clan_revenue_share'
+      - entity_var:
+          name: count_of_daily_rewards_claim
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'daily_rewards_claim'
+      - entity_var:
+          name: count_of_deep_link_rewarded
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'deep_link_rewarded'
+      - entity_var:
+          name: count_of_not_enough_credit
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'not_enough_credit'         
+      - entity_var:
+          name: count_of_offer_buy_click
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'offer_buy_click'
+      - entity_var:
+          name: count_of_offer_dismiss_click
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'offer_dismiss_click'
+      - entity_var:
+          name: count_of_offer_displayed
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'offer_displayed'              
+      - entity_var:
+          name: count_of_product_offer_buy_click
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'product_offer_buy_click'
+      - entity_var:
+          name: count_of_quest_claim
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'quest_claim'
+      - entity_var:
+          name: count_of_quest_item_claim
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'quest_item_claim'
+      - entity_var:
+          name: count_of_hyper_bonus_click
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'hyper_bonus_click'
+      - entity_var:
+          name: count_of_hyper_bonus_purchase
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'hyper_bonus_purchase'
+      - entity_var:
+          name: count_of_quest_button_click
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'quest_button_click'
+      - entity_var:
+          name: count_of_sent_gift
+          select: count(*)
+          from: inputs/rsTracks
+          where: event = 'sent_gift'  
+      - entity_var:
+          name: days_since_last_seen
+          select: "{{macro_datediff('{{user.Var(\"last_used_day\")}}')}}"
+      - entity_var:
+          name: is_churned_7_days
+          select: case when {{user.Var("days_since_last_seen")}} >= 7 then 1 else 0 end

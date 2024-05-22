@@ -51,4 +51,4 @@ jobs:
         working-directory: src/predictions
         run: |
           git push origin ${VERSION} 
-          gh release create ${VERSION} --generate-notes *.tar.gz *.whl
+          gh release create ${VERSION} --generate-notes dist/*.tar.gz dist/*.whl

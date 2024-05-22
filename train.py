@@ -11,7 +11,6 @@ from rudderstack_predictions.wht.pythonWHT import PythonWHT
 from rudderstack_predictions.utils import constants
 
 
-
 def train(
     creds: dict,
     inputs: str,

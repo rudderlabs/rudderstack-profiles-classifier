@@ -52,7 +52,8 @@ jobs:
 
       - name: bump version PR
         run: |
-          git push origin $(echo ${GITHUB_REF#refs/heads/}):release-${VERSION}
+          git checkout -b release-${VERSION}
+          git push origin release-${VERSION}
           gh pr create --title "chore: bump version to ${{ env.VERSION }}" \
             --base main --head release-${VERSION} \
             --assignee "${{ github.event.pull_request.user.login }}"

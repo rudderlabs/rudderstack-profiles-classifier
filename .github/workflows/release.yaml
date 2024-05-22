@@ -50,5 +50,5 @@ jobs:
       - name: push tag and create release
         working-directory: src/predictions
         run: |
-          git push origin pmrl-577-release-gha
+          git push origin prml-577-release-gha
           gh release create ${VERSION} --generate-notes dist/*.tar.gz dist/*.whl

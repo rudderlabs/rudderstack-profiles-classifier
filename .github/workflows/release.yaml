@@ -35,10 +35,7 @@ jobs:
           git config --global user.name "devops-github-rudderstack"
           
       - name: set version and create tag
-        run: |
-          VERS=$VERSION make update_version
-          git add . && git commit -m "chore: release ${VERSION}"
-          git tag -a ${VERSION} -m "release ${VERSION}"
+        run: git tag -a ${VERSION} -m "release ${VERSION}"
       
       - name: install dependencies
         run: pip3 install wheel setuptools

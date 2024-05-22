@@ -1,17 +1,20 @@
 name: release
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Release version'
-        required: true
-        type: string
+  # workflow_dispatch:
+  #   inputs:
+  #     version:
+  #       description: 'Release version'
+  #       required: true
+  #       type: string
+  pull_request:
+    branches:
+      - main
 jobs:
   release:
     name: release
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ inputs.version }}
+      VERSION: 0.1.0-rc1
       GH_TOKEN: ${{ secrets.PAT }}
     steps:
       - name: checkout branch to be released

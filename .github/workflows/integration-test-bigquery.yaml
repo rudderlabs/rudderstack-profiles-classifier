@@ -3,7 +3,7 @@ name: Integration Test - BigQuery
 on:
   pull_request:
     branches:
-      - main1
+      - main
 
 jobs:
   integration-test-bigquery:

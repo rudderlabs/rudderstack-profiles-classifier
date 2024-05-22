@@ -1,27 +1,25 @@
 name: release
 on:
-  # workflow_dispatch:
-  #   inputs:
-  #     version:
-  #       description: 'Release version'
-  #       required: true
-  #       type: string
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        type: string
+
 jobs:
   release:
     name: release
     runs-on: ubuntu-latest
     env:
-      VERSION: 0.1.0-rc1
+      VERSION: ${{ inputs.version }}
       GH_TOKEN: ${{ secrets.PAT }}
     steps:
       - name: checkout branch to be released
         uses: actions/checkout@v4
         with:
           # Release from the main branch
-          ref: prml-577-release-gha
+          ref: main
           fetch-depth: 0
       
       - name: setup python
@@ -50,5 +48,5 @@ jobs:
       - name: push tag and create release
         working-directory: src/predictions
         run: |
-          git push origin prml-577-release-gha --tags
+          git push origin main --tags
           gh release create ${VERSION} --generate-notes dist/*.tar.gz dist/*.whl

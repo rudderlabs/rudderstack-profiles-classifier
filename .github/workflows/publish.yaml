@@ -1,19 +1,24 @@
 name: publish
+# on:
+#   workflow_dispatch:
+#     inputs:
+#       version:
+#         description: 'Version to be published'
+#         required: true
+#         type: string
+
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to be published'
-        required: true
-        type: string
+  pull_request:
+    branches:
+      - main
       
 jobs:
   profiles-mlcorelib:
     name: publish profiles-mlcorelib
     runs-on: ubuntu-latest
     env:
-      VERSION: ${{ inputs.release }}
-      GH_TOKEN: ${{ secrets.PAT }}
+      VERSION: 0.1.0
+      # GH_TOKEN: ${{ secrets.PAT }}
     environment:
       name: ${{ inputs.environment }}
       url: https://pypi.org/p/profiles-mlcorelib

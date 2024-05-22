@@ -3,7 +3,7 @@ name: Integration Test - Redshift
 on:
   pull_request:
     branches:
-      - main
+      - main1
 
 jobs:
   integration-test-redshift:

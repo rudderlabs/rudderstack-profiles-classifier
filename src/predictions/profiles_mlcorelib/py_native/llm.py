@@ -136,7 +136,7 @@ class LLMModelRecipe(PyNativeRecipe):
             {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}"""
 
         self.sql = this.execute_text_template(query_template)
-        return 
+        return
 
     def execute(self, this: WhtMaterial):
         this.wht_ctx.client.query_sql_without_result(self.sql)

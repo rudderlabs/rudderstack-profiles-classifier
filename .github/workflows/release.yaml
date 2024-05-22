@@ -35,8 +35,11 @@ jobs:
           git config --global user.name "devops-github-rudderstack"
           
       - name: set version and create tag
-        run: git tag -a ${VERSION} -m "release ${VERSION}"
-      
+        run: |
+          VERSION=$VERSION make version
+          git add . && git commit -m "chore: release ${VERSION}"
+          git tag -a ${VERSION} -m "release ${VERSION}"
+
       - name: install dependencies
         run: pip3 install wheel setuptools
       
@@ -44,13 +47,8 @@ jobs:
         working-directory: src/predictions
         run: python setup.py sdist bdist_wheel
       
-      - name: prepare dist archives
-        run: |
-          ls
-          mkdir -p dist
-          tar -czvf dist/profiles_mlcorelib_dist_${VERSION}.tar.gz -C profiles_mlcorelib dist
-      
       - name: push tag and create release
+        working-directory: src/predictions
         run: |
           git push origin ${VERSION} 
-          gh release create ${VERSION} --generate-notes ./dist/*.tar.gz profiles_mlcorelib/dist/*.whl
+          gh release create ${VERSION} --generate-notes *.tar.gz *.whl

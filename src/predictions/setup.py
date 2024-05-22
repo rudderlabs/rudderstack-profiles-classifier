@@ -1,10 +1,10 @@
 from setuptools import setup, find_packages
+from version import version
 
 setup(
-    name="rudderstack_predictions",
-    version="0.1.0",
-    author="RudderStack",
-    description="TODO",
+    name="profiles_mlcorelib",
+    version=version,
+    author="rudderstack",
     packages=find_packages(),
     install_requires=[
         "profiles_rudderstack>=0.11.1",

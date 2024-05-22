@@ -32,24 +32,36 @@ class LLMModel(BaseModelType):
         return LLMModelRecipe(self.build_spec)
 
     def validate(self):
-        valid_model_inputs = [
-            "mistral-large",
-            "reka-flash",
-            "mixtral-8x7b",
-            self.DEFAULT_LLM_MODEL,
-            "mistral-7b",
-            "gemma-7b",
-        ]
-        if self.build_spec["llm_model_name"] not in valid_model_inputs:
-            raise ValueError(
-                f"Invalid llm model name: {self.build_spec['llm_model_name']}. Valid options are: {', '.join(valid_model_inputs)}"
-            )
+        model_limits = {
+            "snowflake-arctic": 4096,
+            "reka-core": 32000,
+            "mistral-large": 32000,
+            "reka-flash": 100000,
+            "mixtral-8x7b": 32000,
+            "llama3-8b": 8000,
+            "llama3-70b": 8000,
+            "llama2-70b-chat": 4096,
+            "mistral-7b": 32000,
+            "gemma-7b": 8000,
+        }
 
         prompt = self.build_spec["prompt"]
         input_lst = self.build_spec["prompt_inputs"]
+        model_name = self.build_spec["llm_model_name"]
+
+        prompt_tokens = len(prompt.split())
+        if model_name in model_limits:
+            if prompt_tokens > model_limits[model_name]:
+                raise ValueError(
+                    f"The prompt exceeds the token limit for model '{model_name}'. Maximum allowed tokens: {model_limits[model_name]}"
+                )
         prompt_replaced = prompt.replace("'", "''", -1)
         input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
-        max_index = max(int(index) for _, index in input_indices)
+        if len(input_indices) == 0:
+            max_index = 0
+        else:
+            max_index = max(int(index) for _, index in input_indices)
+
         if max_index >= len(input_lst):
             raise ValueError(
                 f"Maximum index {max_index} is out of range for input_columns list."

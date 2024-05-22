@@ -60,6 +60,7 @@ class Preprocessor:
 
         self.add_step("add_days_diff")
         self.add_step("transform_arraytype_features", pick_nth_result=1)
+        self.add_step("transform_booleantype_features")
         self.add_step("drop_cols")
 
     def add_step(self, func_name: str, pick_nth_result: int = None):

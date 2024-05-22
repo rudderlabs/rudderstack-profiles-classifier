@@ -61,7 +61,6 @@ jobs:
             --assignee "${{ github.actor }}"
       
       - name: push tag and create release
-        working-directory: src/predictions
         run: |
           git push origin tag ${VERSION}
-          gh release create ${VERSION} --generate-notes dist/*.tar.gz dist/*.whl
+          gh release create ${VERSION} --generate-notes dist/*.tar.gz src/predictions/dist/*.whl

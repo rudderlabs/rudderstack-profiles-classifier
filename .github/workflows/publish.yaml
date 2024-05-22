@@ -19,9 +19,6 @@ jobs:
     env:
       VERSION: 0.1.0
       GH_TOKEN: ${{ secrets.PAT }}
-    environment:
-      name: ${{ inputs.environment }}
-      url: https://pypi.org/p/profiles-mlcorelib
     permissions:
       id-token: write
     steps:

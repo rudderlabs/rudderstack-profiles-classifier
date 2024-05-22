@@ -10,7 +10,7 @@ setup(
     classifiers=[
         "Programming Language :: Python :: 3",
         "Intended Audience :: Developers",
-        "License :: OSI Approved :: MIT License"
+        "License :: OSI Approved :: MIT License",
     ],
     install_requires=[
         "profiles_rudderstack>=0.11.1",

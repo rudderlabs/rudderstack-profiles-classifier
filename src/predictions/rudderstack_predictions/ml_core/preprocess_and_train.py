@@ -13,6 +13,7 @@ from ..trainers.TrainerFactory import TrainerFactory
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
+from .preprocessor import Preprocessor
 from ..utils import utils
 from ..utils.logger import logger
 from ..utils import constants
@@ -98,6 +99,8 @@ def prepare_feature_table(
     to numeric for creating a single table with user features and label."""
     connector = kwargs.get("connector", None)
     trainer = kwargs.get("trainer", None)
+    preprocessor = kwargs.get("preprocessor", None)
+
     try:
         feature_table_name = train_table_pair.feature_table_name
         label_table_name = train_table_pair.label_table_name
@@ -116,12 +119,16 @@ def prepare_feature_table(
                 feature_table_name, filter_condition=default_user_shortlisting
             )
 
-        feature_table = connector.drop_cols(feature_table, [trainer.label_column])
-
-        for col in timestamp_columns:
-            feature_table = connector.add_days_diff(
-                feature_table, col, col, feature_table_dt
+        transformations_info = [("drop_cols", {"col_list": [trainer.label_column]})]
+        transformations_info += [
+            (
+                "add_days_diff",
+                {"new_col": col, "time_col": col, "end_ts": feature_table_dt},
             )
+            for col in timestamp_columns
+        ]
+
+        feature_table, _ = preprocessor.transform(feature_table, transformations_info)
         label_table = trainer.prepare_label_table(connector, label_table_name)
         feature_table = connector.join_feature_table_label_table(
             feature_table, label_table, trainer.entity_column, "inner"
@@ -149,6 +156,8 @@ def preprocess_and_train(
     train_config = merged_config["train"]
 
     feature_table = None
+    preprocessor = Preprocessor(connector)
+
     logger.info("Preparing training dataset using the past snapshot tables:")
     for train_table_pair in train_table_pairs:
         logger.info(
@@ -157,6 +166,7 @@ def preprocess_and_train(
         feature_table_instance = prepare_feature_table(
             train_table_pair,
             input_column_types["timestamp"],
+            preprocessor=preprocessor,
             connector=connector,
             trainer=trainer,
         )
@@ -175,17 +185,24 @@ def preprocess_and_train(
         f"Following features are detected as having high cardinality, and will be ignored for training: {high_cardinal_features}"
     )
 
-    transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
-        feature_table, input_column_types["arraytype"]
-    )
-
     ignore_features = utils.get_all_ignore_features(
         feature_table,
         trainer.prep.ignore_features,
         high_cardinal_features,
     )
     logger.info(f"List of all features to be ignored: {ignore_features}")
-    feature_table = connector.drop_cols(feature_table, ignore_features)
+
+    transformation_info = [
+        (
+            "transform_arraytype_features",
+            {"arraytype_features": input_column_types["arraytype"]},
+        ),
+        ("drop_cols", {"col_list": ignore_features}),
+    ]
+    feature_table, transform_results = preprocessor.transform(
+        feature_table, transformation_info
+    )
+    transformed_arraytype_cols = transform_results["transform_arraytype_features"][0]
 
     logger.debug("Fetching feature table column types")
     feature_table_column_types = utils.get_feature_table_column_types(

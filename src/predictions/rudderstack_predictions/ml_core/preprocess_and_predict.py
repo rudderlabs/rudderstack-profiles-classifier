@@ -12,7 +12,7 @@ from typing import Any
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 
-from .preprocess import build_data_prep_pipeline
+from .preprocessor import Preprocessor
 from ..trainers.TrainerFactory import TrainerFactory
 
 from ..wht.pyNativeWHT import PyNativeWHT
@@ -86,20 +86,23 @@ def preprocess_and_predict(
         seq_no,
     )
 
-    data_prep_pipeline = build_data_prep_pipeline(
-        connector,
-        array_type_columns=arraytype_columns,
-        timestamp_columns=timestamp_columns,
-        ignore_features=ignore_features,
-        end_ts=end_ts
-    )
-
     logger.debug(f"Pulling data from Entity-Var table - {entity_var_table_name}")
     raw_data = connector.get_table(
         entity_var_table_name, filter_condition=trainer.eligible_users
     )
 
-    predict_data = data_prep_pipeline.fit_transform(raw_data)
+    preprocessor = Preprocessor(connector)
+    transformation_info = [
+        ("add_days_diff", {"new_col": col, "time_col": col, "end_ts": end_ts})
+        for col in timestamp_columns
+    ]
+
+    transformation_info += [
+        ("transform_arraytype_features", {"arraytype_features": arraytype_columns}),
+        ("drop_cols", {"col_list": ignore_features}),
+    ]
+
+    predict_data, _ = preprocessor.transform(raw_data, transformation_info)
 
     required_features_upper_case = set(
         [

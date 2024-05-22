@@ -100,7 +100,10 @@ def preprocess_and_predict(
 
     transformation_info += [
         ("transform_arraytype_features", {"arraytype_features": arraytype_columns}),
-        ("transform_booleantype_features", {"booleantype_features": booleantype_columns}),
+        (
+            "transform_booleantype_features",
+            {"booleantype_features": booleantype_columns},
+        ),
         ("drop_cols", {"col_list": ignore_features}),
     ]
 

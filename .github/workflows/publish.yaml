@@ -17,10 +17,13 @@ jobs:
     name: publish profiles-mlcorelib
     runs-on: ubuntu-latest
     env:
-      VERSION: 0.1.0
+      VERSION: '0.1.0'
       GH_TOKEN: ${{ secrets.PAT }}
     permissions:
       id-token: write
+    environment:
+      name: 'pypi-prod'
+      url: https://pypi.org/p/profiles-mlcorelib
     steps:
       - name: download
         shell: bash

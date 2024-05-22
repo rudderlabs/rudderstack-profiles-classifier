@@ -3,7 +3,7 @@ name: Integration Test - Snowflake
 on:
   pull_request:
     branches:
-      - main1
+      - main
 
 jobs:
   integration-test-snowflake:

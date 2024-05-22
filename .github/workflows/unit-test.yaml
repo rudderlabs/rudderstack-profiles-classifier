@@ -3,7 +3,7 @@ name: Format and Unit tests
 on:
   pull_request:
     branches:
-      - main1
+      - main
 
 jobs:
   unit-test:

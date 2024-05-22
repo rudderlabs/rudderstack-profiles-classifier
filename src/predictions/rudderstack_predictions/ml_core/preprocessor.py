@@ -53,7 +53,6 @@ def connector_transformation_step(
 
 
 class Preprocessor:
-
     def __init__(self, connector):
         self.connector = connector
         self.pipeline_steps = {}

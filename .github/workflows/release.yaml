@@ -44,9 +44,18 @@ jobs:
       - name: build wheel
         working-directory: src/predictions
         run: python setup.py sdist bdist_wheel
+
+      - name: bump version PR
+        run: |
+          git checkout -b release-${VERSION}
+          git push origin release-${VERSION}
+          gh pr create --title "chore: bump version to ${{ env.VERSION }}" \
+            --body "This PR updates the version file with the latest release version" \
+            --base main --head release-${VERSION} \
+            --assignee "${{ github.event.pull_request.user.login }}"
       
       - name: push tag and create release
         working-directory: src/predictions
         run: |
-          git push origin main --tags
+          git push origin tag ${VERSION}
           gh release create ${VERSION} --generate-notes dist/*.tar.gz dist/*.whl

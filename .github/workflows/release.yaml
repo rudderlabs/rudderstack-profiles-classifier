@@ -46,6 +46,7 @@ jobs:
       
       - name: prepare dist archives
         run: |
+          ls
           mkdir -p dist
           tar -czvf dist/profiles_mlcorelib_dist_${VERSION}.tar.gz -C profiles_mlcorelib dist
       

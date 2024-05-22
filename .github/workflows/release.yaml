@@ -44,6 +44,12 @@ jobs:
       - name: build wheel
         working-directory: src/predictions
         run: python setup.py sdist bdist_wheel
+      
+      - name: prepare dist archives
+        shell: bash
+        run: |
+          mkdir -p dist
+          tar -czvf dist/profiles_mlcorelib_dist_${VERSION}.tar.gz -C profiles_mlcorelib dist
 
       - name: bump version PR
         run: |

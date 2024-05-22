@@ -1,23 +1,18 @@
 name: publish
-# on:
-#   workflow_dispatch:
-#     inputs:
-#       version:
-#         description: 'Version to be published'
-#         required: true
-#         type: string
-
 on:
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to be published'
+        required: true
+        type: string
       
 jobs:
   profiles-mlcorelib:
     name: publish profiles-mlcorelib
     runs-on: ubuntu-latest
     env:
-      VERSION: '0.1.0'
+      VERSION: ${{ inputs.version }}
       GH_TOKEN: ${{ secrets.PAT }}
     permissions:
       id-token: write

@@ -52,9 +52,9 @@ jobs:
 
       - name: bump version PR
         run: |
-          git push origin "release-${{VERSION}}"
-          gh pr create --title "chore: bump version to ${{VERSION}}" \
-            --base main --head "release-${{ VERSION }}" \
+          git push origin "release-${{ env.VERSION }}"
+          gh pr create --title "chore: bump version to ${{ env.VERSION }}" \
+            --base main --head "release-${{ env.VERSION }}" \
             --assignee "${{ github.event.pull_request.user.login }}"
       
       - name: push tag and create release

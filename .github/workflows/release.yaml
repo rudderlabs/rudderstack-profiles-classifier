@@ -43,7 +43,7 @@ jobs:
       
       - name: build wheel
         working-directory: src/predictions
-        run: python setup.py sdist bdist_wheel
+        run: python setup.py bdist_wheel
       
       - name: prepare dist archives
         shell: bash

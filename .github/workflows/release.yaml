@@ -55,6 +55,7 @@ jobs:
           git checkout -b release-${VERSION}
           git push origin release-${VERSION}
           gh pr create --title "chore: bump version to ${{ env.VERSION }}" \
+            --body "This PR updates the version file with the latest release version" \
             --base main --head release-${VERSION} \
             --assignee "${{ github.event.pull_request.user.login }}"
       

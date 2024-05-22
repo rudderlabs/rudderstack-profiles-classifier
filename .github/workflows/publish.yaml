@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VERSION: 0.1.0
-      # GH_TOKEN: ${{ secrets.PAT }}
+      GH_TOKEN: ${{ secrets.PAT }}
     environment:
       name: ${{ inputs.environment }}
       url: https://pypi.org/p/profiles-mlcorelib

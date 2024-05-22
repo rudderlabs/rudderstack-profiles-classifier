@@ -12,6 +12,7 @@ from typing import Any
 import snowflake.snowpark.types as T
 import snowflake.snowpark.functions as F
 
+from .preprocessor import Preprocessor
 from ..trainers.TrainerFactory import TrainerFactory
 
 from ..wht.pyNativeWHT import PyNativeWHT
@@ -91,17 +92,22 @@ def preprocess_and_predict(
         entity_var_table_name, filter_condition=trainer.eligible_users
     )
 
-    logger.debug("Transforming timestamp columns.")
-    for col in timestamp_columns:
-        raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
+    preprocessor = Preprocessor(connector)
+    transformation_info = [
+        ("add_days_diff", {"new_col": col, "time_col": col, "end_ts": end_ts})
+        for col in timestamp_columns
+    ]
 
-    logger.debug(f"Transforming arraytype columns.")
-    _, raw_data = connector.transform_arraytype_features(raw_data, arraytype_columns)
-    raw_data = connector.transform_booleantype_features(raw_data, booleantype_columns)
+    transformation_info += [
+        ("transform_arraytype_features", {"arraytype_features": arraytype_columns}),
+        (
+            "transform_booleantype_features",
+            {"booleantype_features": booleantype_columns},
+        ),
+        ("drop_cols", {"col_list": ignore_features}),
+    ]
 
-    logger.debug("Boolean Type Columns transformed to numeric")
-
-    predict_data = connector.drop_cols(raw_data, ignore_features)
+    predict_data, _ = preprocessor.transform(raw_data, transformation_info)
 
     required_features_upper_case = set(
         [

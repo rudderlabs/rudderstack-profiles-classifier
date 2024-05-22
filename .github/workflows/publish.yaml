@@ -28,7 +28,7 @@ jobs:
       - name: download
         shell: bash
         run: |
-          gh release download ${VERSION} --repo github.com/rudderlabs/rudderstack-profiles-classifier --pattern "profiles_mlcorelib-${VERSION}.*.whl"
+          gh release download ${VERSION} --repo github.com/rudderlabs/rudderstack-profiles-classifier --pattern "profiles_mlcorelib-${VERSION}-*.whl"
       - name: publish
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

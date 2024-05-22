@@ -64,6 +64,11 @@ def preprocess_and_predict(
     booleantype_columns = results["column_names"]["input_column_types"]["booleantype"]
     ignore_features = results["column_names"]["ignore_features"]
 
+    transformed_arraytype_columns = {
+        word: [item for item in numeric_columns if item.startswith(word)]
+        for word in arraytype_columns
+    }
+
     model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
     seq_no = None
 
@@ -97,7 +102,10 @@ def preprocess_and_predict(
 
     logger.debug(f"Transforming arraytype columns.")
     _, raw_data = connector.transform_arraytype_features(
-        raw_data, arraytype_columns, trainer.prep.top_k_array_categories
+        raw_data,
+        arraytype_columns,
+        trainer.prep.top_k_array_categories,
+        predict_arraytype_features=transformed_arraytype_columns,
     )
     raw_data = connector.transform_booleantype_features(raw_data, booleantype_columns)
 

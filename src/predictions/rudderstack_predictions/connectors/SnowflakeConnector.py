@@ -342,12 +342,15 @@ class SnowflakeConnector(Connector):
         feature_table: snowflake.snowpark.Table,
         arraytype_features: List[str],
         top_k_array_categories,
+        **kwargs,
     ) -> Union[List[str], snowflake.snowpark.Table]:
         """Transforms arraytype features in a snowflake.snowpark.Table by expanding the arraytype features
         as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
         """
-        # Initialize lists to store transformed column names and DataFrames
 
+        predict_arraytype_features = kwargs.get("predict_arraytype_features", {})
+
+        # Initialize lists to store transformed column names and DataFrames
         transformed_column_names = []
         transformed_tables = []
 
@@ -397,6 +400,15 @@ class SnowflakeConnector(Connector):
                 unique_values, key=lambda x: frequencies[x], reverse=True
             )
             other_values = sorted_values[top_k_array_categories:]
+
+            predict_top_values = predict_arraytype_features.get(array_column, [])
+            if predict_top_values:
+                top_values = [
+                    item[len(array_column) :].strip("_").lower()
+                    for item in predict_top_values
+                    if "OTHERS" not in item
+                ]
+                other_values = [val for val in unique_values if val not in top_values]
 
             # New column names
             new_array_column_names = [

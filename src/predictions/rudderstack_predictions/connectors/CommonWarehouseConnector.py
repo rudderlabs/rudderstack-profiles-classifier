@@ -44,10 +44,14 @@ class CommonWarehouseConnector(Connector):
         feature_df: pd.DataFrame,
         arraytype_features: List[str],
         top_k_array_categories,
+        **kwargs,
     ) -> Union[List[str], pd.DataFrame]:
         """Transforms arraytype features in a pandas DataFrame by expanding the arraytype features
         as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
         """
+
+        predict_arraytype_features = kwargs.get("predict_arraytype_features", {})
+
         transformed_dfs = []
         transformed_feature_df = feature_df.copy()
         transformed_array_col_names = []
@@ -87,6 +91,15 @@ class CommonWarehouseConnector(Connector):
                 .nlargest(top_k_array_categories)
                 .index
             )
+
+            predict_top_values = predict_arraytype_features.get(array_col_name, [])
+            if predict_top_values:
+                top_values = [
+                    item[len(array_col_name) :].strip("_").lower()
+                    for item in predict_top_values
+                    if "OTHERS" not in item
+                ]
+
             other_values = set(grouped_df["ARRAY_VALUE"]) - set(top_values)
 
             new_array_column_names = [

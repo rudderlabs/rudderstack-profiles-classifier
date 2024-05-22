@@ -6,6 +6,12 @@ setup(
     version=version,
     author="rudderstack",
     packages=find_packages(),
+    long_description_content_type="text/markdown",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License"
+    ],
     install_requires=[
         "profiles_rudderstack>=0.11.1",
         "cachetools>=5.3.2",

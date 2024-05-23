@@ -103,18 +103,36 @@ class LLMModelRecipe(PyNativeRecipe):
         var_table_ref = (
             f"this.DeRef(makePath({self.prompt_inputs[0]}.Model.GetVarTableRef()))"
         )
+        # Joined_columns used to create a comma seperated string in order to mention
+        # all the columns that are used as input in the query.
+        joined_columns = ", ".join(input_columns)
+        # Join condition to join the predicted column to the original table in order to mention
+        # all the column that are being used in the input columns list.
+        join_condition = " AND ".join([f"a.{col} = b.{col}" for col in input_columns])
 
         # model_creator_sql
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
-
-                    SELECT {entity_id_column_name}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name} FROM {{{{entityVarTable}}}}
+                    # Common Table Expression (CTE) to get distinct values of specified columns in order to
+                    # reduce the number of api calls for the llm model.
+                        WITH distinct_attribute AS (
+                        SELECT DISTINCT {joined_columns}
+                        FROM {{{{entityVarTable}}}}
+                    ), # CTE to get predicted attributes using the specified model
+                    predicted_attribute AS (
+                        SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name},
+                        FROM distinct_attribute
+                    )
+                        SELECT a.{entity_id_column_name}, b.{column_name}
+                        FROM {{{{entityVarTable}}}} a
+                        # Perform a LEFT JOIN between the original table and the predicted attributes to fill all the 
+                        # attribute value with their corresponding predicted value.
+                        LEFT JOIN predicted_attribute b ON {join_condition}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}
-
             {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}"""
 
         self.sql = this.execute_text_template(query_template)

@@ -129,17 +129,6 @@ class LLMModelRecipe(PyNativeRecipe):
                         # Perform a LEFT JOIN between the original table and the predicted attributes to fill all the 
                         # attribute value with their corresponding predicted value.
                         LEFT JOIN predicted_attribute b ON {join_condition}
-
-                        WITH distinct_names AS (
-                        SELECT DISTINCT {joined_columns}
-                        FROM {{{{entityVarTable}}}}
-                    ), predicted_gender AS (
-                        SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name},
-                        FROM distinct_names
-                    )
-                        SELECT a.{entity_id_column_name}, b.{column_name}
-                        FROM {{{{entityVarTable}}}} a
-                        LEFT JOIN predicted_gender b ON {join_condition}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}

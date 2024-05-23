@@ -1,7 +1,11 @@
 from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
-from profiles_rudderstack.schema import EntityKeyBuildSpecSchema,FeatureDetailsBuildSpecSchema,EntityIdsBuildSpecSchema
+from profiles_rudderstack.schema import (
+    EntityKeyBuildSpecSchema,
+    FeatureDetailsBuildSpecSchema,
+    EntityIdsBuildSpecSchema,
+)
 from profiles_rudderstack.logger import Logger
 import re
 

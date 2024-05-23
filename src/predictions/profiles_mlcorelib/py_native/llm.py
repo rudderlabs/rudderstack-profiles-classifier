@@ -1,7 +1,7 @@
 from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
-from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
+from profiles_rudderstack.schema import EntityKeyBuildSpecSchema,FeatureDetailsBuildSpecSchema,EntityIdsBuildSpecSchema
 from profiles_rudderstack.logger import Logger
 import re
 
@@ -14,6 +14,8 @@ class LLMModel(BaseModelType):
         "type": "object",
         "properties": {
             **EntityKeyBuildSpecSchema["properties"],
+            **FeatureDetailsBuildSpecSchema["properties"],
+            **EntityIdsBuildSpecSchema["properties"],
             "prompt": {"type": "string"},
             "prompt_inputs": {"type": "array", "items": {"type": "string"}},
             "llm_model_name": {"type": ["string", "null"]},
@@ -80,7 +82,7 @@ class LLMModelRecipe(PyNativeRecipe):
     def describe(self, this: WhtMaterial):
         return self.sql, ".sql"
 
-    def prepare(self, this: WhtMaterial):
+    def register_dependencies(self, this: WhtMaterial):
         entity = this.model.entity()
         column_name = this.model.name()
         if entity is None:

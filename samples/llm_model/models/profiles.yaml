@@ -16,6 +16,12 @@ models:
       prompt_inputs:
         - user.Var('name')
       llm_model_name: "mistral-7b"
+      features:
+        - name: llm_gender_prediction
+      ids:
+        - select: "user_main_id"
+          type: user_id
+          entity: user
   - name: llm_profession_prediction
     model_type: llm_model
     model_spec:
@@ -24,6 +30,12 @@ models:
       prompt_inputs:
         - user.Var('profession')
       llm_model_name: "mistral-7b"
+      features:
+        - name: llm_profession_prediction
+      ids:
+        - select: "user_main_id"
+          type: user_id
+          entity: user
 
 var_groups:
   - name: default_vars

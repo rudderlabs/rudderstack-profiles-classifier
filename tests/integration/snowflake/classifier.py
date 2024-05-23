@@ -8,7 +8,7 @@ import os
 
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
+creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
 train_input_model_name = "shopify_user_features"
 

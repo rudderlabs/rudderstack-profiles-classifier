@@ -1,1 +1,1 @@
-include rudderstack_predictions/config/model_configs.yaml
+include profiles_mlcorelib/config/model_configs.yaml

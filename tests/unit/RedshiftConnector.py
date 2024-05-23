@@ -834,12 +834,8 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
     @patch("src.predictions.profiles_mlcorelib.utils.utils.date_add")
     @patch("src.predictions.profiles_mlcorelib.utils.utils.dates_proximity_check")
     @patch("src.predictions.profiles_mlcorelib.utils.utils.get_abs_date_diff")
-    @patch(
-        "src.predictions.profiles_mlcorelib.utils.utils.get_feature_package_path"
-    )
-    @patch(
-        "src.predictions.profiles_mlcorelib.utils.utils.datetime_to_date_string"
-    )
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.get_feature_package_path")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.datetime_to_date_string")
     @patch("src.predictions.profiles_mlcorelib.wht.rudderPB.RudderPB.run")
     def test_generate_new_materials_auto_strategy(
         self,
@@ -917,15 +913,9 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
 
         self.assertEqual(len(result), 1)  # Only one material generated
 
-    @patch(
-        "src.predictions.profiles_mlcorelib.utils.utils.get_feature_package_path"
-    )
-    @patch(
-        "src.predictions.profiles_mlcorelib.utils.utils.datetime_to_date_string"
-    )
-    @patch(
-        "src.predictions.profiles_mlcorelib.utils.utils.generate_new_training_dates"
-    )
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.get_feature_package_path")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.datetime_to_date_string")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.generate_new_training_dates")
     @patch("src.predictions.profiles_mlcorelib.wht.rudderPB.RudderPB.run")
     def test_generate_new_materials_manual_strategy(
         self,

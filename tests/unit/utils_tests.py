@@ -1,8 +1,8 @@
 import unittest
 from unittest.mock import patch
-from src.predictions.rudderstack_predictions.wht.pythonWHT import PythonWHT
+from src.predictions.profiles_mlcorelib.wht.pythonWHT import PythonWHT
 
-from src.predictions.rudderstack_predictions.utils.utils import (
+from src.predictions.profiles_mlcorelib.utils.utils import (
     dates_proximity_check,
     datetime_to_date_string,
     generate_new_training_dates,
@@ -155,7 +155,7 @@ class TestDateDiff(unittest.TestCase):
 
 class TestDatesProximityCheck(unittest.TestCase):
     @patch(
-        "src.predictions.rudderstack_predictions.utils.utils.get_abs_date_diff"
+        "src.predictions.profiles_mlcorelib.utils.utils.get_abs_date_diff"
     )  # Mock the date_diff function
     def test_no_date_within_distance(self, mock_date_diff):
         """Test when no date is within the specified distance"""
@@ -165,7 +165,7 @@ class TestDatesProximityCheck(unittest.TestCase):
         )
         self.assertTrue(result)
 
-    @patch("src.predictions.rudderstack_predictions.utils.utils.get_abs_date_diff")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.get_abs_date_diff")
     def test_date_within_distance(self, mock_date_diff):
         """Test when a date is within the specified distance"""
         mock_date_diff.side_effect = [4, 15, 20]
@@ -174,7 +174,7 @@ class TestDatesProximityCheck(unittest.TestCase):
         )
         self.assertFalse(result)
 
-    @patch("src.predictions.rudderstack_predictions.utils.utils.get_abs_date_diff")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.get_abs_date_diff")
     def test_empty_date_list(self, mock_date_diff):
         """Test with an empty date list"""
         mock_date_diff.side_effect = []  # No calls to date_diff expected
@@ -183,9 +183,9 @@ class TestDatesProximityCheck(unittest.TestCase):
 
 
 class TestGenerateNewTrainingDates(unittest.TestCase):
-    @patch("src.predictions.rudderstack_predictions.utils.utils.date_add")
-    @patch("src.predictions.rudderstack_predictions.utils.utils.dates_proximity_check")
-    @patch("src.predictions.rudderstack_predictions.utils.utils.get_abs_date_diff")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.date_add")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.dates_proximity_check")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.get_abs_date_diff")
     def test_no_training_dates(
         self, mock_get_abs_date_diff, mock_dates_proximity_check, mock_date_add
     ):
@@ -212,9 +212,9 @@ class TestGenerateNewTrainingDates(unittest.TestCase):
             ("2024-02-16", "2024-02-23"),
         )
 
-    @patch("src.predictions.rudderstack_predictions.utils.utils.date_add")
-    @patch("src.predictions.rudderstack_predictions.utils.utils.dates_proximity_check")
-    @patch("src.predictions.rudderstack_predictions.utils.utils.get_abs_date_diff")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.date_add")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.dates_proximity_check")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.get_abs_date_diff")
     def test_find_valid_feature_date(
         self, mock_get_abs_date_diff, mock_dates_proximity_check, mock_date_add
     ):
@@ -249,7 +249,7 @@ class TestGenerateNewTrainingDates(unittest.TestCase):
 
         self.assertEqual(result, ("2024-02-11", "2024-02-18"))
 
-    @patch("src.predictions.rudderstack_predictions.utils.utils.get_abs_date_diff")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.get_abs_date_diff")
     def test_invalid_max_feature_date(self, mock_date_diff):
         """Test with invalid max_feature_date format"""
         max_feature_date = "invalid_date_format"

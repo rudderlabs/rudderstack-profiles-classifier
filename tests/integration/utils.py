@@ -1,9 +1,9 @@
 import os
 import yaml
-from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
+from src.predictions.profiles_mlcorelib.connectors.ConnectorFactory import (
     ConnectorFactory,
 )
-from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
+from src.predictions.profiles_mlcorelib.wht.rudderPB import RudderPB
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(current_dir, "sample_project")

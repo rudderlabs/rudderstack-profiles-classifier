@@ -7,8 +7,8 @@ sys.path.append(
 
 # If path starts with the "src" directory, Snowflake throws an error: No module named 'src'
 
-from rudderstack_predictions.predict import _predict
-from rudderstack_predictions.utils import constants
+from profiles_mlcorelib.predict import _predict
+from profiles_mlcorelib.utils import constants
 
 
 def predict(

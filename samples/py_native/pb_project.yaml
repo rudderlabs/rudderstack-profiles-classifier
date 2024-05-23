@@ -29,4 +29,4 @@ id_types:
       - type: exclude
         value: "test@company.com"
 python_requirements:
-  - rudderstack_predictions==0.1.0
+  - profiles_mlcorelib==0.1.0

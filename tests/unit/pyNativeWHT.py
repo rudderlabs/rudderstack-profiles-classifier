@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, Mock
 
-from src.predictions.rudderstack_predictions.wht.pyNativeWHT import PyNativeWHT
+from src.predictions.profiles_mlcorelib.wht.pyNativeWHT import PyNativeWHT
 
 
 class TestPyNativeWHT(unittest.TestCase):

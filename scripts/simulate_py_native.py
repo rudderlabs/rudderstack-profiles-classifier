@@ -6,10 +6,10 @@ import yaml
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from src.predictions.rudderstack_predictions.wht.pyNativeWHT import PyNativeWHT
-from src.predictions.rudderstack_predictions.utils import constants
-from src.predictions.rudderstack_predictions.train import _train
-from src.predictions.rudderstack_predictions.predict import _predict
+from src.predictions.profiles_mlcorelib.wht.pyNativeWHT import PyNativeWHT
+from src.predictions.profiles_mlcorelib.utils import constants
+from src.predictions.profiles_mlcorelib.train import _train
+from src.predictions.profiles_mlcorelib.predict import _predict
 
 
 class EntityVarTable:

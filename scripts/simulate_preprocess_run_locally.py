@@ -6,15 +6,15 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 os.chdir("../")
 import json
 
-from src.predictions.rudderstack_predictions.ml_core.preprocess_and_train import (
+from src.predictions.profiles_mlcorelib.ml_core.preprocess_and_train import (
     preprocess_and_train,
     train_and_store_model_results,
 )
-from src.predictions.rudderstack_predictions.utils import utils, constants
-from src.predictions.rudderstack_predictions.trainers.TrainerFactory import (
+from src.predictions.profiles_mlcorelib.utils import utils, constants
+from src.predictions.profiles_mlcorelib.trainers.TrainerFactory import (
     TrainerFactory,
 )
-from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
+from src.predictions.profiles_mlcorelib.connectors.ConnectorFactory import (
     ConnectorFactory,
 )
 from dotenv import load_dotenv  # pip3 install python-dotenv
@@ -39,7 +39,7 @@ siteconfig_path = os.path.join(home_dir, ".pb/siteconfig.yaml")
 siteconfig = utils.load_yaml(siteconfig_path)
 python_path = siteconfig["py_models"]["python_path"]
 default_config = utils.load_yaml(
-    "src/predictions/rudderstack_predictions/config/model_configs.yaml"
+    "src/predictions/profiles_mlcorelib/config/model_configs.yaml"
 )
 input_model = utils.load_yaml(profiles_yaml_path)
 assert (
@@ -55,7 +55,7 @@ params = [
     python_path,
     "-u",
     "-m",
-    "src.predictions.rudderstack_predictions.ml_core.preprocess_and_train",
+    "src.predictions.profiles_mlcorelib.ml_core.preprocess_and_train",
     "--material_names",
     material_names,
     "--merged_config",

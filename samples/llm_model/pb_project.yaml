@@ -27,4 +27,4 @@ packages:
     url: "https://github.com/rudderlabs/rudderstack-profiles-corelib/tag/schema_{{best_schema_version}}"
 
 python_requirements:
-- rudderstack_predictions
+- profiles_mlcorelib

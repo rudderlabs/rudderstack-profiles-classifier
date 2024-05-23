@@ -1,11 +1,17 @@
 from setuptools import setup, find_packages
+from version import version
 
 setup(
-    name="rudderstack_predictions",
-    version="0.1.0",
-    author="RudderStack",
-    description="TODO",
+    name="profiles_mlcorelib",
+    version=version,
+    author="rudderstack",
     packages=find_packages(),
+    long_description_content_type="text/markdown",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Intended Audience :: Developers",
+        "License :: OSI Approved :: MIT License",
+    ],
     install_requires=[
         "profiles_rudderstack>=0.11.1",
         "cachetools>=5.3.2",

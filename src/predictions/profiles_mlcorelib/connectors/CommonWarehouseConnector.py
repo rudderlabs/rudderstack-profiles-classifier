@@ -114,14 +114,10 @@ class CommonWarehouseConnector(Connector):
     def transform_booleantype_features(
         self, feature_df: pd.DataFrame, booleantype_features: List[str]
     ) -> pd.DataFrame:
-        transformed_feature_df = feature_df.copy()
-
         for boolean_column in booleantype_features:
-            transformed_feature_df[boolean_column].replace(
-                {False: 0, True: 1}, inplace=True
-            )
+            feature_df[boolean_column] = feature_df[boolean_column].astype(float)
 
-        return transformed_feature_df
+        return feature_df
 
     def get_merged_table(self, base_table, incoming_table):
         return pd.concat([base_table, incoming_table], axis=0, ignore_index=True)
@@ -215,7 +211,7 @@ class CommonWarehouseConnector(Connector):
 
         feature_table = self.get_table(label_table_name)
         if label_value is not None:
-            feature_table = feature_table.applymap(_replace_na)
+            feature_table[label_column] = feature_table[label_column].apply(_replace_na)
             feature_table[label_column] = np.where(
                 feature_table[label_column] == label_value, 1, 0
             )

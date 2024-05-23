@@ -10,27 +10,18 @@ import json
 creds = json.loads(os.environ["BIGQUERY_SITE_CONFIG"])
 creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
-current_dir = os.path.dirname(os.path.abspath(__file__))
-project_path = os.path.join(current_dir, "sample_project")
-siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
-output_filename = os.path.join(current_dir, "output/output.json")
-output_folder = os.path.join(current_dir, "output")
-folder_path_output_file = os.path.dirname(output_filename)
-
 os.makedirs(output_folder, exist_ok=True)
 
-train_input_model_name = "predictions_dev_features"
+train_input_model_name = "shopify_user_features"
 
 data = {
     "prediction_horizon_days": pred_horizon_days,
     "features_profiles_model": feature_table_name,
     "inputs": inputs,
     "eligible_users": "1=1",
-    "label_column": "total_sessions_till_date",
+    "label_column": classifier_label_column,
     "task": "classification",
     "output_profiles_ml_model": output_model_name,
-    "train_start_dt": "2024-03-06",
-    "train_end_dt": "2024-03-13",
 }
 
 train_config = {"data": data}
@@ -73,10 +64,7 @@ def cleanup_reports(reports_folders):
 
 
 def validate_training_summary():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    file_path = os.path.join(
-        current_dir, "output/train_reports", "training_summary.json"
-    )
+    file_path = os.path.join(output_folder, "train_reports", "training_summary.json")
     with open(file_path, "r") as file:
         json_data = json.load(file)
         timestamp = json_data["timestamp"]
@@ -106,8 +94,7 @@ def validate_training_summary():
 
 
 def validate_reports():
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    reports_directory = os.path.join(current_dir, "output/train_reports")
+    reports_directory = os.path.join(output_folder, "train_reports")
     expected_files = [
         "01-feature-importance-chart",
         "02-test-lift-chart",

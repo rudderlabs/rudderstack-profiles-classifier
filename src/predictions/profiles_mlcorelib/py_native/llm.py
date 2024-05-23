@@ -32,21 +32,29 @@ class LLMModel(BaseModelType):
         return LLMModelRecipe(self.build_spec)
 
     def validate(self):
-        valid_model_inputs = [
-            "mistral-large",
-            "reka-flash",
-            "mixtral-8x7b",
-            self.DEFAULT_LLM_MODEL,
-            "mistral-7b",
-            "gemma-7b",
-        ]
-        if self.build_spec["llm_model_name"] not in valid_model_inputs:
-            raise ValueError(
-                f"Invalid llm model name: {self.build_spec['llm_model_name']}. Valid options are: {', '.join(valid_model_inputs)}"
-            )
+        model_limits = {
+            "snowflake-arctic": 4096,
+            "reka-core": 32000,
+            "mistral-large": 32000,
+            "reka-flash": 100000,
+            "mixtral-8x7b": 32000,
+            "llama3-8b": 8000,
+            "llama3-70b": 8000,
+            "llama2-70b-chat": 4096,
+            "mistral-7b": 32000,
+            "gemma-7b": 8000,
+        }
 
         prompt = self.build_spec["prompt"]
         input_lst = self.build_spec["prompt_inputs"]
+        model_name = self.build_spec["llm_model_name"]
+
+        prompt_tokens = len(prompt.split())
+        if model_name in model_limits:
+            if prompt_tokens > model_limits[model_name]:
+                raise ValueError(
+                    f"The prompt exceeds the token limit for model '{model_name}'. Maximum allowed tokens: {model_limits[model_name]}"
+                )
         prompt_replaced = prompt.replace("'", "''", -1)
         input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
         if len(input_indices) == 0:
@@ -95,18 +103,36 @@ class LLMModelRecipe(PyNativeRecipe):
         var_table_ref = (
             f"this.DeRef(makePath({self.prompt_inputs[0]}.Model.GetVarTableRef()))"
         )
+        # Joined_columns used to create a comma seperated string in order to mention
+        # all the columns that are used as input in the query.
+        joined_columns = ", ".join(input_columns)
+        # Join condition to join the predicted column to the original table in order to mention
+        # all the column that are being used in the input columns list.
+        join_condition = " AND ".join([f"a.{col} = b.{col}" for col in input_columns])
 
         # model_creator_sql
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
-
-                    SELECT {entity_id_column_name}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name} FROM {{{{entityVarTable}}}}
+                    # Common Table Expression (CTE) to get distinct values of specified columns in order to
+                    # reduce the number of api calls for the llm model.
+                        WITH distinct_attribute AS (
+                        SELECT DISTINCT {joined_columns}
+                        FROM {{{{entityVarTable}}}}
+                    ), # CTE to get predicted attributes using the specified model
+                    predicted_attribute AS (
+                        SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name},
+                        FROM distinct_attribute
+                    )
+                        SELECT a.{entity_id_column_name}, b.{column_name}
+                        FROM {{{{entityVarTable}}}} a
+                        # Perform a LEFT JOIN between the original table and the predicted attributes to fill all the 
+                        # attribute value with their corresponding predicted value.
+                        LEFT JOIN predicted_attribute b ON {join_condition}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}
-
             {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}"""
 
         self.sql = this.execute_text_template(query_template)

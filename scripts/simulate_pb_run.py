@@ -14,7 +14,7 @@ load_dotenv()
 import train as T
 import predict as P
 
-from src.predictions.rudderstack_predictions.utils.logger import logger
+from src.predictions.profiles_mlcorelib.utils.logger import logger
 
 
 if __name__ == "__main__":

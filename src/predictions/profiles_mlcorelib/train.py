@@ -261,6 +261,12 @@ def _train(
     )
     logger.debug(f"Input column types detected: {input_column_types}")
 
+    try:
+        feature_data_min_date_diff = trainer.feature_data_min_date_diff
+    except AttributeError:
+        # Default feature dates minimum difference
+        feature_data_min_date_diff = 3
+
     logger.info("Getting past data for training")
     get_material_names_partial = partial(
         whtService.get_material_names,
@@ -270,6 +276,7 @@ def _train(
         prediction_horizon_days=trainer.prediction_horizon_days,
         input_models=absolute_input_models,
         inputs=inputs,
+        feature_data_min_date_diff=feature_data_min_date_diff,
     )
     # material_names, training_dates
     train_table_pairs = get_material_names_partial(start_date=start_date)

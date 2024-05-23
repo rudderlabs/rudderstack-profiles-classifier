@@ -868,6 +868,7 @@ class SnowflakeConnector(Connector):
         """
         material_registry_table = (
             self.get_table(material_registry_table_name)
+            .sort(F.col("creation_ts").desc())
             .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
             .filter(F.col("status") == 2)
         )

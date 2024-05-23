@@ -6,6 +6,7 @@ from profiles_rudderstack.schema import (
     FeatureDetailsBuildSpecSchema,
     EntityIdsBuildSpecSchema,
 )
+from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
 from profiles_rudderstack.logger import Logger
 import re
 
@@ -109,10 +110,11 @@ class LLMModelRecipe(PyNativeRecipe):
         var_table_ref = (
             f"this.DeRef(makePath({self.prompt_inputs[0]}.Model.GetVarTableRef()))"
         )
-        # all the column that are being used in the input columns list.
-
+        # Joined_columns used to create a comma seperated string in order to mention
+        # all the columns that are used as input in the query.
         joined_columns = ", ".join(input_columns)
         # Join condition to join the predicted column to the original table in order to mention
+        # all the column that are being used in the input columns list.
         join_condition = " AND ".join([f"a.{col} = b.{col}" for col in input_columns])
 
         # model_creator_sql

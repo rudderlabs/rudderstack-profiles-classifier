@@ -45,6 +45,13 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
                             "null",
                             "{}",
                         ],
+                        "creation_ts": [
+                            "2022-01-01 00:00:00",
+                            "2022-01-02 00:00:00",
+                            "2022-01-03 00:00:00",
+                            "2022-01-04 00:00:00",
+                            "2022-01-05 00:00:00",
+                        ],
                     }
                 )
                 return material_registry_table
@@ -75,6 +82,13 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
                             "null",
                             "{}",
                         ],
+                        "creation_ts": [
+                            "2022-01-01 00:00:00",
+                            "2022-01-02 00:00:00",
+                            "2022-01-03 00:00:00",
+                            "2022-01-04 00:00:00",
+                            "2022-01-05 00:00:00",
+                        ],
                     }
                 )
                 return material_registry_table
@@ -94,7 +108,7 @@ class TestGetMaterialRegistryTable(unittest.TestCase):
                 self, cursor: Cursor, table_name: str, **kwargs
             ) -> DataFrame:
                 material_registry_table = pd.DataFrame.from_dict(
-                    {"seq_no": [], "metadata": []}
+                    {"seq_no": [], "metadata": [], "creation_ts": []}
                 )
                 return material_registry_table
 
@@ -149,6 +163,12 @@ class TestGetMaterialNames(unittest.TestCase):
                     convert_to_timestamp("2022-01-31 08:29:25"),
                 ],
                 "seq_no": [13, 14, 15, 16],
+                "creation_ts": [
+                    convert_to_timestamp("2022-01-01 00:00:00"),
+                    convert_to_timestamp("2022-01-01 00:00:00"),
+                    convert_to_timestamp("2022-01-01 00:00:00"),
+                    convert_to_timestamp("2022-01-01 00:00:00"),
+                ],
             }
         )
         expected_result = pd.DataFrame(

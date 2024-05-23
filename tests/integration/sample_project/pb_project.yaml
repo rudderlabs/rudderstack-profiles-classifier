@@ -5,4 +5,4 @@ model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/profiles-features-integration-test/tree/feature/prml-514-enrich-input-tables-in-integration-tests-to-capture-failure
+    url: https://github.com/rudderlabs/profiles-features-integration-test

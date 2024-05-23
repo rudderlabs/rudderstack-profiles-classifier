@@ -8,14 +8,14 @@ from collections import namedtuple
 from unittest.mock import Mock, patch, call
 from redshift_connector.cursor import Cursor
 from pandas.core.api import DataFrame as DataFrame
-from src.predictions.rudderstack_predictions.trainers.TrainerFactory import (
+from src.predictions.profiles_mlcorelib.trainers.TrainerFactory import (
     TrainerFactory,
 )
-from src.predictions.rudderstack_predictions.wht.pythonWHT import PythonWHT
+from src.predictions.profiles_mlcorelib.wht.pythonWHT import PythonWHT
 
-import src.predictions.rudderstack_predictions.utils.utils as utils
-from src.predictions.rudderstack_predictions.utils.constants import TrainTablesInfo
-from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
+import src.predictions.profiles_mlcorelib.utils.utils as utils
+from src.predictions.profiles_mlcorelib.utils.constants import TrainTablesInfo
+from src.predictions.profiles_mlcorelib.connectors.RedshiftConnector import (
     RedshiftConnector,
 )
 from tests.unit.MLTrainer import build_trainer_config
@@ -517,11 +517,11 @@ class TestValidations(unittest.TestCase):
 
     # Checks if no:of columns in the feature table is less than 3, then it raises an exception.
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
+        "src.predictions.profiles_mlcorelib.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
         new=1.0,
     )
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MAX_LABEL_PROPORTION",
+        "src.predictions.profiles_mlcorelib.utils.constants.CLASSIFIER_MAX_LABEL_PROPORTION",
         new=0.0,
     )
     def test_expects_error_if_label_ratios_are_bad_classification(self):
@@ -551,11 +551,11 @@ class TestValidations(unittest.TestCase):
             )
 
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
+        "src.predictions.profiles_mlcorelib.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
         new=0.05,
     )
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MAX_LABEL_PROPORTION",
+        "src.predictions.profiles_mlcorelib.utils.constants.CLASSIFIER_MAX_LABEL_PROPORTION",
         new=0.95,
     )
     def test_passes_for_good_data_classification(self):
@@ -571,7 +571,7 @@ class TestValidations(unittest.TestCase):
         self.assertTrue(self.connector.validate_class_proportions(table, "COL1"))
 
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES",
+        "src.predictions.profiles_mlcorelib.utils.constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES",
         new=3,
     )
     def test_passes_for_good_data_regression(self):
@@ -592,11 +592,11 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         self.connector = RedshiftConnectorV2("data")
 
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        "src.predictions.profiles_mlcorelib.utils.constants.MIN_NUM_OF_SAMPLES",
         new=90,
     )
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
+        "src.predictions.profiles_mlcorelib.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
         new=0.01,
     )
     def test_enough_negative_and_total_samples(self):
@@ -626,11 +626,11 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
         )
 
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        "src.predictions.profiles_mlcorelib.utils.constants.MIN_NUM_OF_SAMPLES",
         new=90,
     )
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
+        "src.predictions.profiles_mlcorelib.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
         new=0.01,
     )
     def test_insufficient_negative_and_total_samples(self):
@@ -677,11 +677,11 @@ class TestCheckForClassificationDataRequirement(unittest.TestCase):
             )
 
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        "src.predictions.profiles_mlcorelib.utils.constants.MIN_NUM_OF_SAMPLES",
         new=100,
     )
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
+        "src.predictions.profiles_mlcorelib.utils.constants.CLASSIFIER_MIN_LABEL_PROPORTION",
         new=0.01,
     )
     def test_empty_materials(self):
@@ -702,7 +702,7 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
         self.connector = RedshiftConnectorV2("data")
 
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        "src.predictions.profiles_mlcorelib.utils.constants.MIN_NUM_OF_SAMPLES",
         new=90,
     )
     def test_enough_total_samples(self):
@@ -727,7 +727,7 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
         )
 
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        "src.predictions.profiles_mlcorelib.utils.constants.MIN_NUM_OF_SAMPLES",
         new=90,
     )
     def test_insufficient_total_samples(self):
@@ -768,7 +768,7 @@ class TestCheckForRegressionDataRequirement(unittest.TestCase):
             self.connector.check_for_regression_data_requirement(materials)
 
     @patch(
-        "src.predictions.rudderstack_predictions.utils.constants.MIN_NUM_OF_SAMPLES",
+        "src.predictions.profiles_mlcorelib.utils.constants.MIN_NUM_OF_SAMPLES",
         new=100,
     )
     def test_empty_materials(self):
@@ -805,16 +805,12 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         self.trainer.materialisation_dates = []
         self.input_models = "model_name"
 
-    @patch("src.predictions.rudderstack_predictions.utils.utils.date_add")
-    @patch("src.predictions.rudderstack_predictions.utils.utils.dates_proximity_check")
-    @patch("src.predictions.rudderstack_predictions.utils.utils.get_abs_date_diff")
-    @patch(
-        "src.predictions.rudderstack_predictions.utils.utils.get_feature_package_path"
-    )
-    @patch(
-        "src.predictions.rudderstack_predictions.utils.utils.datetime_to_date_string"
-    )
-    @patch("src.predictions.rudderstack_predictions.wht.rudderPB.RudderPB.run")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.date_add")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.dates_proximity_check")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.get_abs_date_diff")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.get_feature_package_path")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.datetime_to_date_string")
+    @patch("src.predictions.profiles_mlcorelib.wht.rudderPB.RudderPB.run")
     def test_generate_new_materials_auto_strategy(
         self,
         mock_rudderpb_run,
@@ -891,16 +887,10 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
 
         self.assertEqual(len(result), 1)  # Only one material generated
 
-    @patch(
-        "src.predictions.rudderstack_predictions.utils.utils.get_feature_package_path"
-    )
-    @patch(
-        "src.predictions.rudderstack_predictions.utils.utils.datetime_to_date_string"
-    )
-    @patch(
-        "src.predictions.rudderstack_predictions.utils.utils.generate_new_training_dates"
-    )
-    @patch("src.predictions.rudderstack_predictions.wht.rudderPB.RudderPB.run")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.get_feature_package_path")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.datetime_to_date_string")
+    @patch("src.predictions.profiles_mlcorelib.utils.utils.generate_new_training_dates")
+    @patch("src.predictions.profiles_mlcorelib.wht.rudderPB.RudderPB.run")
     def test_generate_new_materials_manual_strategy(
         self,
         mock_rudderpb_run,

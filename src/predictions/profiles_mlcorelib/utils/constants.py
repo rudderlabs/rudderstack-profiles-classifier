@@ -29,8 +29,8 @@ K8S_TIMEOUT_IN_SEC = 120
 LOCAL_MODE = "local"
 WAREHOUSE_MODE = "native-warehouse"
 RUDDERSTACK_MODE = "rudderstack-infra"
-ML_CORE_PYTHON_PATH = "src.predictions.rudderstack_predictions.ml_core"
-ML_CORE_PYNATIVE_PATH = "rudderstack_predictions.ml_core"
+ML_CORE_PYTHON_PATH = "src.predictions.profiles_mlcorelib.ml_core"
+ML_CORE_PYNATIVE_PATH = "profiles_mlcorelib.ml_core"
 MIN_PB_VERSION = 53
 
 PRED_OUTPUT_DF_COLUMNS = {

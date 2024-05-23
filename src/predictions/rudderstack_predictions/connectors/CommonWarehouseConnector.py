@@ -93,12 +93,14 @@ class CommonWarehouseConnector(Connector):
             )
 
             predict_top_values = predict_arraytype_features.get(array_col_name, [])
-            if predict_top_values:
+            if len(predict_top_values) != 0:
                 top_values = [
                     item[len(array_col_name) :].strip("_").lower()
                     for item in predict_top_values
                     if "OTHERS" not in item
                 ]
+
+                unique_values = list(set(unique_values) | set(top_values))
 
             other_values = set(grouped_df["ARRAY_VALUE"]) - set(top_values)
 
@@ -115,7 +117,10 @@ class CommonWarehouseConnector(Connector):
                 values="COUNT",
                 fill_value=0,
             ).reset_index()
-            pivoted_df.columns.name = None
+
+            for value in unique_values:
+                if value not in pivoted_df.columns:
+                    pivoted_df[value] = 0
 
             # Join with rows having empty or null arrays, and fill NaN values with 0
             joined_df = empty_list_rows.merge(

@@ -6,7 +6,6 @@ from profiles_rudderstack.schema import (
     FeatureDetailsBuildSpecSchema,
     EntityIdsBuildSpecSchema,
 )
-from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
 from profiles_rudderstack.logger import Logger
 import re
 
@@ -122,20 +121,20 @@ class LLMModelRecipe(PyNativeRecipe):
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
-                    # Common Table Expression (CTE) to get distinct values of specified columns in order to
-                    # reduce the number of api calls for the llm model.
+                    -- Common Table Expression (CTE) to get distinct values of specified columns in order to
+                    -- reduce the number of api calls for the llm model.
                         WITH distinct_attribute AS (
                         SELECT DISTINCT {joined_columns}
                         FROM {{{{entityVarTable}}}}
-                    ), # CTE to get predicted attributes using the specified model
+                    ), -- CTE to get predicted attributes using the specified model
                     predicted_attribute AS (
                         SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name},
                         FROM distinct_attribute
                     )
                         SELECT a.{entity_id_column_name}, b.{column_name}
                         FROM {{{{entityVarTable}}}} a
-                        # Perform a LEFT JOIN between the original table and the predicted attributes to fill all the 
-                        # attribute value with their corresponding predicted value.
+                        -- Perform a LEFT JOIN between the original table and the predicted attributes to fill all the 
+                        -- attribute value with their corresponding predicted value.
                         LEFT JOIN predicted_attribute b ON {join_condition}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}

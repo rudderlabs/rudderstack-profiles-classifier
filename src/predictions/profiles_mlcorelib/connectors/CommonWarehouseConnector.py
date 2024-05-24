@@ -129,12 +129,12 @@ class CommonWarehouseConnector(Connector):
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:
-        # mode = (
-        #     constants.RUDDERSTACK_MODE
-        #     if is_rudder_backend
-        #     else user_preference_order_infra[0]
-        # )
-        return constants.LOCAL_MODE
+        mode = (
+            constants.RUDDERSTACK_MODE
+            if is_rudder_backend
+            else user_preference_order_infra[0]
+        )
+        return mode
 
     def compute_udf_name(self, model_path: str) -> None:
         return

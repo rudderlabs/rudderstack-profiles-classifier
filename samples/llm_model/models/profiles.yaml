@@ -30,12 +30,7 @@ models:
       prompt_inputs:
         - user.Var('profession')
       llm_model_name: "mistral-7b"
-      features:
-        - name: llm_profession_prediction
-      ids:
-        - select: "user_main_id"
-          type: user_id
-          entity: user
+
 
 var_groups:
   - name: default_vars

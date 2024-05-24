@@ -45,9 +45,9 @@ class RedShiftConnector(ConnectorBase):
         logger.debug("Redshift write_to_table")
 
         try:
-            # Instead of checking aws_access_key_id key, we could have also checked for either access_key_secret or aws_session_token key
+            # Instead of checking access_key_id key, we could have also checked for either access_key_secret or aws_session_token key
             # The assumption is either all the three keys are present or none of them are present
-            if not self.s3_config or not self.s3_config.get("aws_access_key_id", None):
+            if not self.s3_config or not self.s3_config.get("access_key_id", None):
                 df.to_sql(
                     name=table_name.lower(),
                     con=self.engine,

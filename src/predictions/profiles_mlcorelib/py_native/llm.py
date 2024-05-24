@@ -1,11 +1,8 @@
 from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
-from profiles_rudderstack.schema import (
-    EntityKeyBuildSpecSchema,
-    FeatureDetailsBuildSpecSchema,
-    EntityIdsBuildSpecSchema,
-)
+from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
+
 from profiles_rudderstack.logger import Logger
 import re
 
@@ -18,8 +15,6 @@ class LLMModel(BaseModelType):
         "type": "object",
         "properties": {
             **EntityKeyBuildSpecSchema["properties"],
-            **FeatureDetailsBuildSpecSchema["properties"],
-            **EntityIdsBuildSpecSchema["properties"],
             "prompt": {"type": "string"},
             "prompt_inputs": {"type": "array", "items": {"type": "string"}},
             "llm_model_name": {"type": ["string", "null"]},
@@ -121,13 +116,13 @@ class LLMModelRecipe(PyNativeRecipe):
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
-                    -- Common Table Expression (CTE) to get distinct values of specified columns in order to
+                     -- Common Table Expression (CTE) to get distinct values of specified columns in order to
                     -- reduce the number of api calls for the llm model.
                         WITH distinct_attribute AS (
                         SELECT DISTINCT {joined_columns}
                         FROM {{{{entityVarTable}}}}
-                    ), -- CTE to get predicted attributes using the specified model
-                    predicted_attribute AS (
+                    ), predicted_attribute AS (
+                    -- CTE to get predicted attributes using the specified model
                         SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name},
                         FROM distinct_attribute
                     )

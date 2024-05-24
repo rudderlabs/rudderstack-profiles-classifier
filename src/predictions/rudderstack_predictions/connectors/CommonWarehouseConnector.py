@@ -118,7 +118,7 @@ class CommonWarehouseConnector(Connector):
                 fill_value=0,
             ).reset_index()
 
-            for value in unique_values:
+            for value in top_values:
                 if value not in pivoted_df.columns:
                     pivoted_df[value] = 0
 

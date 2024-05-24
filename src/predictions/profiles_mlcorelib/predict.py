@@ -77,6 +77,7 @@ def _predict(
         s3_config = presets["s3"]
 
     if mode == constants.RUDDERSTACK_MODE:
+        logger.debug("Generating temporary credentials for S3 bucket access")
         s3_creds = S3Utils.get_temporary_credentials(s3_config["role_arn"])
         s3_config["access_key_id"] = s3_creds["access_key_id"]
         s3_config["access_key_secret"] = s3_creds["access_key_secret"]

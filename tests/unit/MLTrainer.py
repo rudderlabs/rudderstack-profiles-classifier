@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock
-from src.predictions.rudderstack_predictions.trainers.MLTrainer import *
-from src.predictions.rudderstack_predictions.trainers.TrainerFactory import (
+from src.predictions.profiles_mlcorelib.trainers.MLTrainer import *
+from src.predictions.profiles_mlcorelib.trainers.TrainerFactory import (
     TrainerFactory,
 )
 

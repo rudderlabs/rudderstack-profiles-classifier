@@ -2,14 +2,15 @@ import unittest
 
 from datetime import datetime
 from unittest.mock import patch, Mock
-from src.predictions.rudderstack_predictions.wht.pythonWHT import PythonWHT
+from src.predictions.profiles_mlcorelib.wht.pythonWHT import PythonWHT
+from src.predictions.profiles_mlcorelib.utils.constants import TrainTablesInfo
 
 
 class TestGetInputModels(unittest.TestCase):
     def setUp(self) -> None:
         self.pythonWHT = PythonWHT()
 
-    @patch("src.predictions.rudderstack_predictions.wht.rudderPB.RudderPB.show_models")
+    @patch("src.predictions.profiles_mlcorelib.wht.rudderPB.RudderPB.show_models")
     def test_get_input_models(self, mock_rudderpb_show_models):
         original_input_models = [
             "Material_user_var_table1_54ddc22a_383",
@@ -77,7 +78,7 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         ]
 
     @patch(
-        "src.predictions.rudderstack_predictions.wht.pythonWHT.PythonWHT._validate_historical_materials_hash"
+        "src.predictions.profiles_mlcorelib.wht.pythonWHT.PythonWHT._validate_historical_materials_hash"
     )
     def test_all_data_present_and_valid(self, mock_validate_historical_materials_hash):
         # Mock dependencies
@@ -107,7 +108,7 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         self.assertEqual(len(materials), 1)
 
     @patch(
-        "src.predictions.rudderstack_predictions.wht.pythonWHT.PythonWHT._validate_historical_materials_hash"
+        "src.predictions.profiles_mlcorelib.wht.pythonWHT.PythonWHT._validate_historical_materials_hash"
     )
     def test_missing_sequence_number(self, mock_compute_material_name):
         connector = MockConnector()
@@ -162,3 +163,30 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
 
         # Assertions
         self.assertEqual(len(materials), 0)
+
+
+class TestGetPastMaterialsWithValidDateRange(unittest.TestCase):
+    def setUp(self):
+        self.materials = [
+            TrainTablesInfo(
+                "feature_table_1", "2024-05-16", "label_table_1", "2024-05-23"
+            ),
+            TrainTablesInfo("feature_table_2", "None", "label_table_2", "2024-05-24"),
+            TrainTablesInfo("feature_table_3", "2024-05-19", "label_table_3", "None"),
+            TrainTablesInfo("feature_table_4", "None", "label_table_4", "None"),
+        ]
+        self.pythonWHT = PythonWHT()
+
+    def test_valid_materials(self):
+        valid_materials = self.pythonWHT.get_past_materials_with_valid_date_range(
+            self.materials, 7, 3
+        )
+        self.assertEqual(len(valid_materials), 2)
+        self.assertEqual(valid_materials[0].feature_table_name, "feature_table_1")
+        self.assertEqual(valid_materials[1].feature_table_name, "feature_table_3")
+
+    def test_empty_materials(self):
+        valid_materials = self.pythonWHT.get_past_materials_with_valid_date_range(
+            [], 1, 1
+        )
+        self.assertEqual(len(valid_materials), 0)

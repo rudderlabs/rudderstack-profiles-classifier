@@ -2,7 +2,7 @@ from train import *
 import shutil
 import time
 from predict import *
-from src.predictions.rudderstack_predictions.connectors.RedshiftConnector import (
+from src.predictions.profiles_mlcorelib.connectors.RedshiftConnector import (
     RedshiftConnector,
 )
 import json
@@ -10,7 +10,7 @@ from tests.integration.utils import *
 import os
 
 creds = json.loads(os.environ["REDSHIFT_SITE_CONFIG"])
-creds["schema"] = "classifier_integration_test"
+creds["schema"] = "profiles_integration_test"
 
 os.makedirs(output_folder, exist_ok=True)
 

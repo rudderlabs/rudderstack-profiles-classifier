@@ -1,5 +1,5 @@
 import unittest
-from src.predictions.rudderstack_predictions.py_native.llm import LLMModel
+from src.predictions.profiles_mlcorelib.py_native.llm import LLMModel
 
 
 class TestLLMModelValidation(unittest.TestCase):

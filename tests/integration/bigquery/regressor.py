@@ -3,15 +3,15 @@ from train import *
 import shutil
 import time
 from predict import *
-from src.predictions.rudderstack_predictions.wht.rudderPB import RudderPB
-from src.predictions.rudderstack_predictions.connectors.ConnectorFactory import (
+from src.predictions.profiles_mlcorelib.wht.rudderPB import RudderPB
+from src.predictions.profiles_mlcorelib.connectors.ConnectorFactory import (
     ConnectorFactory,
 )
 import json
 from tests.integration.utils import *
 
 creds = json.loads(os.environ["BIGQUERY_SITE_CONFIG"])
-creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
+creds["schema"] = "PROFILES_INTEGRATION_TEST"
 
 os.makedirs(output_folder, exist_ok=True)
 

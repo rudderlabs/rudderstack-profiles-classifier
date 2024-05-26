@@ -1,0 +1,31 @@
+name: publish
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to be published'
+        required: true
+        type: string
+      
+jobs:
+  profiles-mlcorelib:
+    name: publish profiles-mlcorelib
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ secrets.PAT }}
+    permissions:
+      id-token: write
+    environment:
+      name: 'pypi-prod'
+      url: https://pypi.org/p/profiles-mlcorelib
+    steps:
+      - name: download
+        shell: bash
+        run: |
+          gh release download ${VERSION} --repo github.com/rudderlabs/rudderstack-profiles-classifier --pattern "profiles_mlcorelib_dist_${VERSION}.tar.gz" -O ./dist.tar.gz
+          tar -zxvf dist.tar.gz
+      - name: publish
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://upload.pypi.org/legacy/

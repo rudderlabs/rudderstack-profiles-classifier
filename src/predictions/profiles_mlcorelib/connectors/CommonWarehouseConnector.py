@@ -171,12 +171,12 @@ class CommonWarehouseConnector(Connector):
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:
-        # mode = (
-        #     constants.RUDDERSTACK_MODE
-        #     if is_rudder_backend
-        #     else user_preference_order_infra[0]
-        # )
-        return constants.LOCAL_MODE
+        mode = (
+            constants.RUDDERSTACK_MODE
+            if is_rudder_backend
+            else user_preference_order_infra[0]
+        )
+        return mode
 
     def compute_udf_name(self, model_path: str) -> None:
         return
@@ -257,7 +257,7 @@ class CommonWarehouseConnector(Connector):
 
         feature_table = self.get_table(label_table_name)
         if label_value is not None:
-            feature_table = feature_table.applymap(_replace_na)
+            feature_table[label_column] = feature_table[label_column].apply(_replace_na)
             feature_table[label_column] = np.where(
                 feature_table[label_column] == label_value, 1, 0
             )
@@ -797,6 +797,9 @@ class CommonWarehouseConnector(Connector):
         Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
         """
         material_registry_table = self.get_table(material_registry_table_name)
+        material_registry_table = material_registry_table.sort_values(
+            by="creation_ts", ascending=False
+        )
 
         def safe_parse_json(entry):
             try:

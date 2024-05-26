@@ -337,6 +337,86 @@ class SnowflakeConnector(Connector):
             entity_column,
         )
 
+    def generate_pivot_df(
+        self,
+        feature_table,
+        array_column,
+        top_k_array_categories,
+        predict_arraytype_features,
+        group_by_cols,
+    ):
+        # Explode the array and group by columns
+        exploded_df = feature_table.select(
+            *group_by_cols, F.explode(array_column).alias("ARRAY_VALUE")
+        )
+        grouped_df = exploded_df.groupBy(*exploded_df.columns).count()
+
+        # Sum up the counts for each unique value
+        total_counts = grouped_df.groupBy("ARRAY_VALUE").agg(
+            F.sum("COUNT").alias("TOTAL_COUNT")
+        )
+
+        # Extract unique values and their respective total counts
+        unique_values = [
+            row["ARRAY_VALUE"].strip('"') for row in total_counts.collect()
+        ]
+        frequencies = {
+            row["ARRAY_VALUE"].strip('"'): row["TOTAL_COUNT"]
+            for row in total_counts.collect()
+        }
+
+        # Sort unique values based on frequency and select the top_k_col values
+        sorted_values = sorted(
+            unique_values, key=lambda x: frequencies[x], reverse=True
+        )
+        top_values = sorted_values[:top_k_array_categories]
+        other_values = sorted_values[top_k_array_categories:]
+
+        predict_top_values = predict_arraytype_features.get(array_column, [])
+        if predict_top_values:
+            top_values = [
+                item[len(array_column) :].strip("_").lower()
+                for item in predict_top_values
+                if "OTHERS" not in item
+            ]
+            unique_values = list(set(unique_values) | set(top_values))
+            other_values = [val for val in unique_values if val not in top_values]
+
+        # Define columns to remove
+        columns_to_remove = ["COUNT", "ARRAY_VALUE"]
+        grouped_df_cols = [
+            col for col in grouped_df.columns if col not in columns_to_remove
+        ]
+
+        # Pivot the DataFrame to create new columns for each unique value
+        pivoted_df = (
+            grouped_df.groupBy(grouped_df_cols)
+            .pivot("ARRAY_VALUE", unique_values)
+            .sum("COUNT")
+            .na.fill(0)
+        )
+
+        return pivoted_df, unique_values, top_values, other_values
+
+    def rename_joined_df(
+        self,
+        array_column,
+        unique_values,
+        other_values,
+        joined_df,
+        transformed_column_names,
+    ):
+        # New column names
+        new_array_column_names = [
+            f"{array_column}_{value}".upper().strip() for value in unique_values
+        ]
+        for old_name, new_name in zip(unique_values, new_array_column_names):
+            if old_name not in other_values:
+                transformed_column_names.append(new_name)
+            joined_df = joined_df.withColumnRenamed(f"'{old_name}'", new_name)
+
+        return joined_df, transformed_column_names
+
     def transform_arraytype_features(
         self,
         feature_table: snowflake.snowpark.Table,
@@ -364,6 +444,7 @@ class SnowflakeConnector(Connector):
 
         # Loop through each array type feature
         for array_column in arraytype_features:
+            other_column_name = f"{array_column}_OTHERS".upper()
             # Identify rows with empty or null arrays
             empty_array_rows = feature_table.filter(F.col(array_column) == [])
             null_array_value_rows = feature_table.filter(F.col(array_column).isNull())
@@ -373,61 +454,60 @@ class SnowflakeConnector(Connector):
 
             # Skip to the next array type feature if all rows have empty or null arrays
             if merged_empty_rows.count() == feature_table.count():
+                if predict_arraytype_features.get(array_column):
+                    (
+                        pivoted_df,
+                        unique_values,
+                        top_values,
+                        other_values,
+                    ) = self.generate_pivot_df(
+                        feature_table,
+                        array_column,
+                        top_k_array_categories,
+                        predict_arraytype_features,
+                        group_by_cols,
+                    )
+
+                    for value in top_values:
+                        if value not in [
+                            col.strip("\"'") for col in pivoted_df.columns
+                        ]:
+                            pivoted_df = pivoted_df.withColumn(value, F.lit(0))
+
+                    # Rename columns with top values
+                    (
+                        intermediate_transformed_table,
+                        transformed_column_names,
+                    ) = self.rename_joined_df(
+                        array_column,
+                        unique_values,
+                        other_values,
+                        pivoted_df,
+                        transformed_column_names,
+                    )
+
+                intermediate_transformed_table = feature_table.withColumn(
+                    other_column_name,
+                    F.lit(0),
+                )
+
+                transformed_column_names.append(other_column_name)
+                transformed_tables.append(intermediate_transformed_table)
+
                 continue
 
-            # Explode the array and group by columns
-            exploded_df = feature_table.select(
-                *group_by_cols, F.explode(array_column).alias("ARRAY_VALUE")
-            )
-            grouped_df = exploded_df.groupBy(*exploded_df.columns).count()
-
-            # Sum up the counts for each unique value
-            total_counts = grouped_df.groupBy("ARRAY_VALUE").agg(
-                F.sum("COUNT").alias("TOTAL_COUNT")
-            )
-
-            # Extract unique values and their respective total counts
-            unique_values = [
-                row["ARRAY_VALUE"].strip('"') for row in total_counts.collect()
-            ]
-            frequencies = {
-                row["ARRAY_VALUE"].strip('"'): row["TOTAL_COUNT"]
-                for row in total_counts.collect()
-            }
-
-            # Sort unique values based on frequency and select the top_k_col values
-            sorted_values = sorted(
-                unique_values, key=lambda x: frequencies[x], reverse=True
-            )
-            other_values = sorted_values[top_k_array_categories:]
-
-            predict_top_values = predict_arraytype_features.get(array_column, [])
-            if predict_top_values:
-                top_values = [
-                    item[len(array_column) :].strip("_").lower()
-                    for item in predict_top_values
-                    if "OTHERS" not in item
-                ]
-                other_values = [val for val in unique_values if val not in top_values]
-
-            # New column names
-            new_array_column_names = [
-                f"{array_column}_{value}".upper().strip() for value in unique_values
-            ]
-            other_column_name = f"{array_column}_OTHERS".upper()
-
-            # Define columns to remove
-            columns_to_remove = ["COUNT", "ARRAY_VALUE"]
-            grouped_df_cols = [
-                col for col in grouped_df.columns if col not in columns_to_remove
-            ]
-
-            # Pivot the DataFrame to create new columns for each unique value
-            pivoted_df = (
-                grouped_df.groupBy(grouped_df_cols)
-                .pivot("ARRAY_VALUE", unique_values)
-                .sum("COUNT")
-                .na.fill(0)
+            # Get the unique values, top values, and other values
+            (
+                pivoted_df,
+                unique_values,
+                top_values,
+                other_values,
+            ) = self.generate_pivot_df(
+                feature_table,
+                array_column,
+                top_k_array_categories,
+                predict_arraytype_features,
+                group_by_cols,
             )
 
             # Join with rows having empty or null arrays, and fill NaN values with 0
@@ -437,15 +517,20 @@ class SnowflakeConnector(Connector):
             joined_df = self.drop_cols(joined_df, arraytype_features)
 
             # Rename columns with top values
-            for old_name, new_name in zip(unique_values, new_array_column_names):
-                if old_name not in other_values:
-                    transformed_column_names.append(new_name)
-                joined_df = joined_df.withColumnRenamed(f"'{old_name}'", new_name)
+            joined_df, transformed_column_names = self.rename_joined_df(
+                array_column,
+                unique_values,
+                other_values,
+                joined_df,
+                transformed_column_names,
+            )
 
             # Summarize other values into a single column
             joined_df = joined_df.withColumn(
                 other_column_name,
-                sum(joined_df[f"{array_column}_{col}".upper()] for col in other_values),
+                sum(joined_df[f"{array_column}_{col}".upper()] for col in other_values)
+                if len(other_values) != 0
+                else F.lit(0),
             )
             transformed_column_names.append(other_column_name)
             joined_df = self.drop_cols(

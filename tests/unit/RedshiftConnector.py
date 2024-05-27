@@ -1398,6 +1398,122 @@ class TestArrayTransformation(unittest.TestCase):
             sorted(transformed_df_predict_case_2.columns),
         )
 
+    def test_array_df_train_and_predict_3(self):
+        # Test for case 1
+        train_max_categroies_df_case_1 = pd.DataFrame.from_dict(
+            {
+                "INDEX": [1, 2, 3, 4],
+                "ARRAY_COL": [
+                    ["c", "c", "b"],
+                    ["a", "d", "d"],
+                    ["k", "j", "l"],
+                    ["g", "h", "i"],
+                ],
+            }
+        )
+
+        predict_max_categroies_df_case_1 = pd.DataFrame.from_dict(
+            {
+                "INDEX": [1, 2, 3, 4],
+                "ARRAY_COL": [
+                    ["C", "C", "B"],
+                    ["A", "D", "D"],
+                    ["K", "J", "L"],
+                    ["G", "H", "I"],
+                ],
+            }
+        )
+
+        arraytype_features = ["ARRAY_COL"]
+
+        (
+            transformed_array_features_train_case_1,
+            transformed_df_train_case_1,
+        ) = self.connector.transform_arraytype_features(
+            train_max_categroies_df_case_1, arraytype_features, top_k_array_categories=2
+        )
+
+        train_arraytype_cols = {
+            word: [
+                item
+                for item in transformed_array_features_train_case_1
+                if item.startswith(word)
+            ]
+            for word in arraytype_features
+        }
+
+        (
+            transformed_array_features_predict_case_1,
+            transformed_df_predict_case_1,
+        ) = self.connector.transform_arraytype_features(
+            predict_max_categroies_df_case_1,
+            arraytype_features,
+            top_k_array_categories=2,
+            predict_arraytype_features=train_arraytype_cols,
+        )
+
+        self.assertEqual(
+            list(set(transformed_df_train_case_1.columns)),
+            list(set(transformed_df_predict_case_1.columns)),
+        )
+
+        # Test for case 2
+        train_max_categroies_df_case_2 = pd.DataFrame.from_dict(
+            {
+                "INDEX": [1, 2, 3, 4],
+                "ARRAY_COL": [
+                    ["C", "C", "B"],
+                    ["A", "D", "D"],
+                    ["K", "J", "L"],
+                    ["G", "H", "I"],
+                ],
+            }
+        )
+
+        predict_max_categroies_df_case_2 = pd.DataFrame.from_dict(
+            {
+                "INDEX": [1, 2, 3, 4],
+                "ARRAY_COL": [
+                    ["c", "c", "b"],
+                    ["a", "d", "d"],
+                    ["k", "j", "l"],
+                    ["g", "h", "i"],
+                ],
+            }
+        )
+
+        arraytype_features = ["ARRAY_COL"]
+
+        (
+            transformed_array_features_train_case_2,
+            transformed_df_train_case_2,
+        ) = self.connector.transform_arraytype_features(
+            train_max_categroies_df_case_2, arraytype_features, top_k_array_categories=2
+        )
+
+        train_arraytype_cols = {
+            word: [
+                item
+                for item in transformed_array_features_train_case_2
+                if item.startswith(word)
+            ]
+            for word in arraytype_features
+        }
+
+        (
+            transformed_array_features_predict_case_2,
+            transformed_df_predict_case_2,
+        ) = self.connector.transform_arraytype_features(
+            predict_max_categroies_df_case_2,
+            arraytype_features,
+            top_k_array_categories=2,
+            predict_arraytype_features=train_arraytype_cols,
+        )
+        self.assertEqual(
+            sorted(transformed_df_train_case_2.columns),
+            sorted(transformed_df_predict_case_2.columns),
+        )
+
 
 class Testget_input_column_types(unittest.TestCase):
     def setUp(self) -> None:

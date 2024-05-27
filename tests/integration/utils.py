@@ -17,6 +17,8 @@ def get_pynative_output_folder():
         connection_name,
         "seq_no",
     )
+    if not os.path.exists(seq_no_dir):
+        return None
     items = os.listdir(seq_no_dir)
     directories = [
         item for item in items if os.path.isdir(os.path.join(seq_no_dir, item))
@@ -28,7 +30,6 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(current_dir, "sample_project")
 pynative_project = os.path.join(current_dir, "..", "..", "samples", "py_native")
 connection_name = "test"
-pynative_output_folder = get_pynative_output_folder()
 siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
 output_filename = os.path.join(current_dir, "output/output.json")
 output_folder = os.path.join(current_dir, "output")

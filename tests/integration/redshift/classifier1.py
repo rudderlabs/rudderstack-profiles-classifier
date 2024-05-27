@@ -25,7 +25,7 @@ def cleanup_reports(reports_folders):
         shutil.rmtree(folder_path)
 
 
-def validate_training_summary():
+def validate_training_summary(pynative_output_folder: str):
     file_path = os.path.join(
         pynative_output_folder, "train_reports", "training_summary.json"
     )
@@ -85,7 +85,7 @@ def validate_column_names_in_output_json():
                 ), f"Missing subkey {subkey} under key: {key} in output json file."
 
 
-def validate_reports():
+def validate_reports(pynative_output_folder: str):
     reports_directory = os.path.join(pynative_output_folder, "train_reports")
     expected_files = [
         "01-feature-importance-chart",
@@ -126,14 +126,16 @@ def test_classification():
             "20",
         ]
         subprocess.run(pb_args)
-        validate_training_summary()
-        validate_reports()
+        pynative_output_folder = get_pynative_output_folder()
+        validate_training_summary(pynative_output_folder)
+        validate_reports(pynative_output_folder)
         validate_column_names_in_output_json()
 
     except Exception as e:
         raise e
     finally:
         cleanup_pb_project(project_path, siteconfig_path)
+        pynative_output_folder = get_pynative_output_folder()
         folders = [
             os.path.join(pynative_output_folder, folder)
             for folder in os.listdir(pynative_output_folder)

@@ -117,7 +117,6 @@ def test_classification():
             "run",
             "-p",
             pynative_project,
-            "--migrate_on_load=True",
             "-c",
             siteconfig_path,
             "--concurrency",

@@ -19,8 +19,9 @@ jobs:
         python-version: 3.10.13
         cache: 'pip'
 
-    - name: Install mlcorelib
-      run: git+https://github.com/rudderlabs/rudderstack-profiles-classifier#subdirectory=src/predictions
+    - name: Install local mlcorelib
+      working-directory: src/predictions
+      run: pip3 install .
 
     - name: Run classifier test
       run: python -m unittest tests/integration/redshift/classifier1.py

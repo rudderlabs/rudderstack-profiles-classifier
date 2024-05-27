@@ -360,6 +360,7 @@ class SnowflakeConnector(Connector):
         unique_values = [
             row["ARRAY_VALUE"].strip('"') for row in total_counts.collect()
         ]
+
         frequencies = {
             row["ARRAY_VALUE"].strip('"'): row["TOTAL_COUNT"]
             for row in total_counts.collect()
@@ -396,26 +397,55 @@ class SnowflakeConnector(Connector):
             .na.fill(0)
         )
 
+        for value in top_values:
+            if value not in [col.strip("\"'") for col in pivoted_df.columns]:
+                pivoted_df = pivoted_df.withColumn(value, F.lit(0))
+
         return pivoted_df, unique_values, top_values, other_values
 
     def rename_joined_df(
         self,
         array_column,
-        unique_values,
+        top_values,
         other_values,
         joined_df,
         transformed_column_names,
+        other_column_name,
     ):
-        # New column names
-        new_array_column_names = [
-            f"{array_column}_{value}".upper().strip() for value in unique_values
-        ]
-        for old_name, new_name in zip(unique_values, new_array_column_names):
-            if old_name not in other_values:
-                transformed_column_names.append(new_name)
-            joined_df = joined_df.withColumnRenamed(f"'{old_name}'", new_name)
+        joined_df = joined_df.withColumn(
+            other_column_name,
+            sum(joined_df[f"'{col}'"] for col in other_values)
+            if len(other_values) != 0
+            else F.lit(0),
+        )
+        transformed_column_names.append(other_column_name)
 
-        return joined_df, transformed_column_names
+        # Clean up the column names by stripping quotes and remove columns that are in other_values
+        cleaned_columns = set(
+            col.strip("\"'")
+            for col in joined_df.columns
+            if col.strip("\"'") not in other_values
+        )
+        required_cols = list(
+            cleaned_columns.union([other_column_name]).union(top_values)
+        )
+
+        # Filter DataFrame to only include columns that match top_values
+        filtered_df = joined_df.select(
+            *[col for col in joined_df.columns if col.strip("\"'") in required_cols]
+        )
+
+        # Generate new column names for the top values
+        new_array_column_names = [
+            f"{array_column}_{value}".upper().strip() for value in top_values
+        ]
+
+        # Rename columns
+        for old_name, new_name in zip(top_values, new_array_column_names):
+            transformed_column_names.append(new_name)
+            filtered_df = filtered_df.withColumnRenamed(f"'{old_name}'", new_name)
+
+        return filtered_df, transformed_column_names
 
     def transform_arraytype_features(
         self,
@@ -444,6 +474,10 @@ class SnowflakeConnector(Connector):
 
         # Loop through each array type feature
         for array_column in arraytype_features:
+            feature_table = feature_table.withColumn(
+                array_column, F.expr(f"transform({array_column}, x -> lower(x))")
+            )
+
             other_column_name = f"{array_column}_OTHERS".upper()
             # Identify rows with empty or null arrays
             empty_array_rows = feature_table.filter(F.col(array_column) == [])
@@ -469,22 +503,17 @@ class SnowflakeConnector(Connector):
                         group_by_cols,
                     )
 
-                    for value in top_values:
-                        if value not in [
-                            col.strip("\"'") for col in pivoted_df.columns
-                        ]:
-                            pivoted_df = pivoted_df.withColumn(value, F.lit(0))
-
                     # Rename columns with top values
                     (
                         intermediate_transformed_table,
                         transformed_column_names,
                     ) = self.rename_joined_df(
                         array_column,
-                        unique_values,
+                        top_values,
                         other_values,
                         pivoted_df,
                         transformed_column_names,
+                        other_column_name,
                     )
 
                 intermediate_transformed_table = (
@@ -522,22 +551,11 @@ class SnowflakeConnector(Connector):
             # Rename columns with top values
             joined_df, transformed_column_names = self.rename_joined_df(
                 array_column,
-                unique_values,
+                top_values,
                 other_values,
                 joined_df,
                 transformed_column_names,
-            )
-
-            # Summarize other values into a single column
-            joined_df = joined_df.withColumn(
                 other_column_name,
-                sum(joined_df[f"{array_column}_{col}".upper()] for col in other_values)
-                if len(other_values) != 0
-                else F.lit(0),
-            )
-            transformed_column_names.append(other_column_name)
-            joined_df = self.drop_cols(
-                joined_df, [f"{array_column}_{col}".upper() for col in other_values]
             )
 
             # Append the transformed DataFrame to the list

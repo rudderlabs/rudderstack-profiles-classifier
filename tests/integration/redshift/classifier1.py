@@ -120,8 +120,6 @@ def test_classification():
             "--migrate_on_load=True",
             "-c",
             siteconfig_path,
-            "--seq_no",
-            "68",
             "--concurrency",
             "20",
         ]

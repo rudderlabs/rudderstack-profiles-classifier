@@ -17,14 +17,16 @@ def cleanup_pb_project(project_path, siteconfig_path):
             shutil.rmtree(dir_path)
     os.remove(siteconfig_path)
 
+
 def assert_training_artefacts():
     output_folder = get_pynative_output_folder()
     files = os.listdir(output_folder)
-    regex = re.compile('Material_training_model_.+_training_file')
+    regex = re.compile("Material_training_model_.+_training_file")
     for file in files:
         if regex.match(file):
             return True
     raise Exception("Training file in output folder not found")
+
 
 def run_project():
     create_site_config_file(creds, siteconfig_path)
@@ -45,5 +47,6 @@ def run_project():
         raise e
     finally:
         cleanup_pb_project(project_path, siteconfig_path)
+
 
 run_project()

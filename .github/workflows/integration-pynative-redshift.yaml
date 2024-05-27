@@ -1,9 +1,10 @@
 name: Integration Pynative - Redshift
 
 on:
-  pull_request:
-    branches:
-      - main
+  workflow_run:
+    workflows: ["Format and Unit tests"]
+    types:
+      - completed
 
 jobs:
   integration-test-redshift:
@@ -24,6 +25,6 @@ jobs:
       run: pip3 install .
 
     - name: Run classifier test
-      run: python -m unittest tests/integration/redshift/classifier1.py
+      run: python -m unittest tests/integration/redshift/pynative.py
       env:
           REDSHIFT_SITE_CONFIG: ${{secrets.REDSHIFT_SITE_CONFIG_V2}}

@@ -454,6 +454,7 @@ class SnowflakeConnector(Connector):
 
             # Skip to the next array type feature if all rows have empty or null arrays
             if merged_empty_rows.count() == feature_table.count():
+                intermediate_transformed_table = feature_table
                 if predict_arraytype_features.get(array_column):
                     (
                         pivoted_df,
@@ -486,9 +487,11 @@ class SnowflakeConnector(Connector):
                         transformed_column_names,
                     )
 
-                intermediate_transformed_table = feature_table.withColumn(
-                    other_column_name,
-                    F.lit(0),
+                intermediate_transformed_table = (
+                    intermediate_transformed_table.withColumn(
+                        other_column_name,
+                        F.lit(0),
+                    )
                 )
 
                 transformed_column_names.append(other_column_name)

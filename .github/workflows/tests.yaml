@@ -41,6 +41,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: unit-test
 
+    strategy:
+      matrix:
+        warehouse:
+          - test: tests/integration/redshift/pynative.py
+            site_config: ${{secrets.REDSHIFT_SITE_CONFIG_V2}}
+          - test: tests/integration/bigquery/pynative.py
+            site_config: ${{secrets.BIGQUERY_SITE_CONFIG}}
+
     steps:
     - name: Check out code
       uses: actions/checkout@v4
@@ -55,7 +63,7 @@ jobs:
       working-directory: src/predictions
       run: pip3 install .
 
-    - name: Run classifier test
-      run: python -m unittest tests/integration/redshift/pynative.py
+    - name: Run pynative integration test
+      run: python -m unittest ${{matrix.warehouse.test}}
       env:
-          REDSHIFT_SITE_CONFIG: ${{secrets.REDSHIFT_SITE_CONFIG_V2}}
+          SITE_CONFIG: ${{matrix.warehouse.site_config}}

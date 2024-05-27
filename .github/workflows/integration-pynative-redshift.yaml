@@ -1,9 +1,9 @@
-name: Integration Test - Redshift
+name: Integration Pynative - Redshift
 
 on:
   pull_request:
     branches:
-      - main1
+      - main
 
 jobs:
   integration-test-redshift:
@@ -19,15 +19,10 @@ jobs:
         python-version: 3.10.13
         cache: 'pip'
 
-    - name: Install dependencies
-      run: pip install -r tests/integration/requirements.txt
+    - name: Install mlcorelib
+      run: git+https://github.com/rudderlabs/rudderstack-profiles-classifier#subdirectory=src/predictions
 
     - name: Run classifier test
-      run: python -m unittest tests/integration/redshift/classifier.py
-      env:
-          REDSHIFT_SITE_CONFIG: ${{secrets.REDSHIFT_SITE_CONFIG_V2}}
-
-    - name: Run regressor test
-      run: python -m unittest tests/integration/redshift/regressor.py
+      run: python -m unittest tests/integration/redshift/classifier1.py
       env:
           REDSHIFT_SITE_CONFIG: ${{secrets.REDSHIFT_SITE_CONFIG_V2}}

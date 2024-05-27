@@ -5,8 +5,30 @@ from src.predictions.profiles_mlcorelib.connectors.ConnectorFactory import (
 )
 from src.predictions.profiles_mlcorelib.wht.rudderPB import RudderPB
 
+
+def get_pynative_output_folder():
+    seq_no_dir = os.path.join(
+        current_dir,
+        "..",
+        "..",
+        "samples",
+        "py_native",
+        "output",
+        connection_name,
+        "seq_no",
+    )
+    items = os.listdir(seq_no_dir)
+    directories = [
+        item for item in items if os.path.isdir(os.path.join(seq_no_dir, item))
+    ]
+    return os.path.join(seq_no_dir, directories[0], "run")
+
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_path = os.path.join(current_dir, "sample_project")
+pynative_project = os.path.join(current_dir, "..", "..", "samples", "py_native")
+connection_name = "test"
+pynative_output_folder = get_pynative_output_folder()
 siteconfig_path = os.path.join(project_path, "siteconfig.yaml")
 output_filename = os.path.join(current_dir, "output/output.json")
 output_folder = os.path.join(current_dir, "output")
@@ -31,7 +53,9 @@ material_registry_table_name = "MATERIAL_REGISTRY_4"
 
 def create_site_config_file(creds, siteconfig_path):
     json_data = {
-        "connections": {"test": {"target": "test", "outputs": {"test": creds}}},
+        "connections": {
+            connection_name: {"target": "test", "outputs": {"test": creds}}
+        },
         "py_models": {"credentials_presets": None},
     }
     yaml_data = yaml.dump(json_data, default_flow_style=False)

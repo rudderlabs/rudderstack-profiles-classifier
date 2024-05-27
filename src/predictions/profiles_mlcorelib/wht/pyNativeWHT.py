@@ -43,15 +43,17 @@ class PyNativeWHT:
         prediction_horizon_days: int,
         input_models: List[str],
         inputs: List[str],
+        feature_data_min_date_diff: int,
     ) -> List[TrainTablesInfo]:
         return self.pythonWHT.get_material_names(
-            start_date,
-            end_date,
-            entity_var_model_name,
-            model_hash,
-            prediction_horizon_days,
-            input_models,
-            inputs,
+            start_date=start_date,
+            end_date=end_date,
+            entity_var_model_name=entity_var_model_name,
+            model_hash=model_hash,
+            prediction_horizon_days=prediction_horizon_days,
+            input_models=input_models,
+            inputs=inputs,
+            feature_data_min_date_diff=feature_data_min_date_diff,
         )
 
     def run(self, feature_package_path: str, date: str):

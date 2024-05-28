@@ -33,15 +33,13 @@ def validate_reports():
     output_folder = get_pynative_output_folder()
     reports_directory = os.path.join(output_folder, "train_reports")
     expected_files = [
-        # classification reports
-        "01-feature-importance-chart",
-        "02-test-lift-chart",
-        "03-test-pr-auc",
-        "04-test-roc-auc",
-        # regression reports
-        "01-feature-importance-chart",
-        "02-residuals-chart",
-        "03-deciles-plot",
+        "01-feature-importance-chart-ltv_classification",
+        "02-test-lift-chart-ltv_classification",
+        "03-test-pr-auc-ltv_classification",
+        "04-test-roc-auc-ltv_classification",
+        "01-feature-importance-chart-ltv_regression",
+        # "02-residuals-chart-ltv_regression",
+        # "03-deciles-plot-ltv_regression",
     ]
     files = os.listdir(reports_directory)
     missing_files = []

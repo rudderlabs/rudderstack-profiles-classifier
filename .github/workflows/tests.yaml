@@ -70,4 +70,4 @@ jobs:
     - name: Run pynative integration test
       run: python -m unittest ${{matrix.warehouse.test}}
       env:
-          SITE_CONFIG: ${{secrets.${{matrix.warehouse.site_config}}}}
+          SITE_CONFIG: ${{secrets[matrix.warehouse.site_config]}}

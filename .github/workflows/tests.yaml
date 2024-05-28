@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   unit-test:
     runs-on: ubuntu-latest
@@ -66,4 +70,4 @@ jobs:
     - name: Run pynative integration test
       run: python -m unittest ${{matrix.warehouse.test}}
       env:
-          SITE_CONFIG: ${{secrets.{{matrix.warehouse.site_config}}}}
+          SITE_CONFIG: ${{secrets.${{matrix.warehouse.site_config}}}}

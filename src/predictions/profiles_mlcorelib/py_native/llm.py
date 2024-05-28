@@ -83,13 +83,19 @@ class LLMModelRecipe(PyNativeRecipe):
     def prepare(self, this: WhtMaterial):
         entity = this.model.entity()
         column_name = this.model.name()
-        if entity is None:
-            raise Exception("no entity found for model")
-        input_columns = [
-            f"{{{{{var}.Model.DbObjectNamePrefix()}}}}"  # Assuming var is already in the format "user.Var('profession')"
-            for var in self.prompt_inputs
-        ]
         entity_id_column_name = this.model.entity().get("IdColumnName")
+        input_columns = []
+
+        for var in self.prompt_inputs:
+            column_name = var.get("select")
+            if column_name:
+                input_columns.append(column_name)
+            else:
+                print("Invalid entry found in prompt_inputs: 'select' key is missing")
+        print(input_columns)
+        table_name = self.prompt_inputs[0].get("from")
+        material = this.de_ref(table_name)
+        var_table_material = material.name()
         prompt_replaced = self.prompt.replace(
             "'", "''", -1
         )  # This is to escape single quotes
@@ -100,9 +106,6 @@ class LLMModelRecipe(PyNativeRecipe):
             col = "' ||" + input_columns[index] + "|| ' "
             prompt_replaced = prompt_replaced.replace(placeholder, col)
 
-        var_table_ref = (
-            f"this.DeRef(makePath({self.prompt_inputs[0]}.Model.GetVarTableRef()))"
-        )
         # Joined_columns used to create a comma seperated string in order to mention
         # all the columns that are used as input in the query.
         joined_columns = ", ".join(input_columns)
@@ -114,7 +117,7 @@ class LLMModelRecipe(PyNativeRecipe):
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
-                    {{% set entityVarTable = {var_table_ref} %}}
+                    {{% set entityVarTable = {var_table_material} %}}
                     -- Common Table Expression (CTE) to get distinct values of specified columns in order to
                     -- reduce the number of api calls for the llm model.
                         WITH distinct_attribute AS (

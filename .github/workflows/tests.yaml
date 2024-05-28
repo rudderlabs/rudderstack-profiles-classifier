@@ -45,9 +45,9 @@ jobs:
       matrix:
         warehouse:
           - test: tests/integration/redshift/pynative.py
-            site_config: secrets.REDSHIFT_SITE_CONFIG_V2
+            site_config: REDSHIFT_SITE_CONFIG_V2
           - test: tests/integration/bigquery/pynative.py
-            site_config: secrets.BIGQUERY_SITE_CONFIG
+            site_config: BIGQUERY_SITE_CONFIG
 
     steps:
     - name: Check out code
@@ -66,4 +66,4 @@ jobs:
     - name: Run pynative integration test
       run: python -m unittest ${{matrix.warehouse.test}}
       env:
-          SITE_CONFIG: ${{matrix.warehouse.site_config}}
+          SITE_CONFIG: ${{secrets.{{warehouse.site_config}}}}

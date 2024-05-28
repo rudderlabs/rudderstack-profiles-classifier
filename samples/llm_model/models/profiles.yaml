@@ -20,7 +20,7 @@ models:
         - name: llm_gender_prediction
       ids:
         - select: "user_main_id"
-          type: user_id
+          type: rudder_id
           entity: user
   - name: llm_profession_prediction
     model_type: llm_model
@@ -34,7 +34,7 @@ models:
         - name: llm_profession_prediction
       ids:
         - select: "user_main_id"
-          type: user_id
+          type: rudder_id
           entity: user
 
 var_groups:

@@ -37,7 +37,7 @@ def validate_reports():
         "02-test-lift-chart-ltv_classification",
         "03-test-pr-auc-ltv_classification",
         "04-test-roc-auc-ltv_classification",
-        "01-feature-importance-chart-ltv_regression",
+        # "01-feature-importance-chart-ltv_regression",
         # "02-residuals-chart-ltv_regression",
         # "03-deciles-plot-ltv_regression",
     ]

@@ -17,9 +17,10 @@ class LLMModel(BaseModelType):
             "prompt": {"type": "string"},
             "prompt_inputs": {"type": "array", "items": {"type": "string"}},
             "llm_model_name": {"type": ["string", "null"]},
-            "run_for_top_k_distinct": {"type": "integer"}
+            "run_for_top_k_distinct": {"type": "integer"},
         },
-        "required": ["prompt", "prompt_inputs","run_for_top_k_distinct"] + EntityKeyBuildSpecSchema["required"],
+        "required": ["prompt", "prompt_inputs", "run_for_top_k_distinct"]
+        + EntityKeyBuildSpecSchema["required"],
         "additionalProperties": False,
     }
     DEFAULT_LLM_MODEL = "llama2-70b-chat"

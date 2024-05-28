@@ -12,15 +12,13 @@ models:
   - name: llm_gender_prediction
     model_type: llm_model
     model_spec:
-      prompt: "Following are the titles and links to top 100 pages on RudderStack website in JSON format : {sql_inputs[0]} . You are a sales development representative. What is generally the most common gender of the name {var_inputs[0]}? Male, Female, or Unknown? Return only a single word, nothing else."
+      prompt: "What is generally the most common gender of the name {var_inputs[0]}? Male, Female, or Unknown? Return only a single word, nothing else."
       entity_key: user
       var_inputs:
         - user.Var('name')
-      sql_inputs:
-        - "select title, url from predictions_dev_project.pages where timestamp > dateadd(month,-3,current_date()) group by title, url order by count(*) desc limit 10"
       llm_model_name: "mistral-7b"
   
-  - name: llm_profession_prediction_with_sql
+  - name: llm_profession_prediction
     model_type: llm_model
     model_spec:
       prompt: "Following are the titles and links to top 100 pages on RudderStack website in JSON format : {sql_inputs[0]} . You are a sales development representative. The input field is a job title entered by a person. Map it to a single value from the following list of standardised job titles: [Software Engineer, Data Analyst, ML Engineer, Solutions Architect, Others]. Return only standardised title, nothing else. {var_inputs[0]}"

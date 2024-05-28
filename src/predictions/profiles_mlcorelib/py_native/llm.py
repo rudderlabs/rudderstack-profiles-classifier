@@ -19,14 +19,16 @@ class LLMModel(BaseModelType):
             "sql_inputs": {"type": "array", "items": {"type": "string"}},
             "llm_model_name": {"type": ["string", "null"]},
         },
-        "required": ["prompt", "var_inputs", "sql_inputs"]
-        + EntityKeyBuildSpecSchema["required"],
+        "required": ["prompt", "var_inputs"] + EntityKeyBuildSpecSchema["required"],
         "additionalProperties": False,
     }
+    DEFAULT_SQL_INPUTS = []
     DEFAULT_LLM_MODEL = "llama2-70b-chat"
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         super().__init__(build_spec, schema_version, pb_version)
+        if "sql_inputs" not in self.build_spec:
+            self.build_spec["sql_inputs"] = self.DEFAULT_SQL_INPUTS
         if self.build_spec["llm_model_name"] == None:
             self.build_spec["llm_model_name"] = self.DEFAULT_LLM_MODEL
 
@@ -60,22 +62,22 @@ class LLMModel(BaseModelType):
                 )
         prompt_replaced = prompt.replace("'", "''", -1)
         input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
-        max_var_inputs_index, max_sql_inputs_index = 0, 0
+        max_var_inputs_index, max_sql_inputs_index = -1, -1
         if len(input_indices) > 0:
             max_var_inputs_index = max(
                 (int(index) for word, index in input_indices if word == "var_inputs"),
-                default=0,
+                default=-1,
             )
             max_sql_inputs_index = max(
                 (int(index) for word, index in input_indices if word == "sql_inputs"),
-                default=0,
+                default=-1,
             )
 
-        if max_var_inputs_index > len(var_input_lst):
+        if max_var_inputs_index >= len(var_input_lst):
             raise ValueError(
                 f"Maximum index {max_var_inputs_index} is out of range for var_inputs list."
             )
-        if max_sql_inputs_index > len(sql_inputs_lst):
+        if max_sql_inputs_index >= len(sql_inputs_lst):
             raise ValueError(
                 f"Maximum index {max_sql_inputs_index} is out of range for sql_inputs list."
             )
@@ -104,7 +106,7 @@ class LLMModelRecipe(PyNativeRecipe):
             for var in self.var_inputs
         ]
         sql_inputs_df = None
-        if not this.wht_ctx.is_null_ctx:
+        if not this.wht_ctx.is_null_ctx and len(self.sql_inputs) > 0:
             sql_inputs_df = [
                 this.wht_ctx.client.query_sql_with_result(sql_query).to_json(
                     orient="records"

@@ -63,17 +63,19 @@ class LLMModel(BaseModelType):
         max_var_inputs_index, max_sql_inputs_index = 0, 0
         if len(input_indices) > 0:
             max_var_inputs_index = max(
-                int(index) for word, index in input_indices if word == "var_inputs"
+                (int(index) for word, index in input_indices if word == "var_inputs"),
+                default=0,
             )
             max_sql_inputs_index = max(
-                int(index) for word, index in input_indices if word == "sql_inputs"
+                (int(index) for word, index in input_indices if word == "sql_inputs"),
+                default=0,
             )
 
-        if max_var_inputs_index >= len(var_input_lst):
+        if max_var_inputs_index > len(var_input_lst):
             raise ValueError(
                 f"Maximum index {max_var_inputs_index} is out of range for var_inputs list."
             )
-        if max_sql_inputs_index >= len(sql_inputs_lst):
+        if max_sql_inputs_index > len(sql_inputs_lst):
             raise ValueError(
                 f"Maximum index {max_sql_inputs_index} is out of range for sql_inputs list."
             )

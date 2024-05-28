@@ -19,6 +19,7 @@ def cleanup_pb_project(project_path, siteconfig_path):
 
 
 def assert_training_artefacts():
+    validate_reports()
     output_folder = get_pynative_output_folder()
     files = os.listdir(output_folder)
     regex = re.compile("Material_training_model_.+_training_file")
@@ -26,6 +27,33 @@ def assert_training_artefacts():
         if regex.match(file):
             return True
     raise Exception("Training file in output folder not found")
+
+
+def validate_reports():
+    output_folder = get_pynative_output_folder()
+    reports_directory = os.path.join(output_folder, "train_reports")
+    expected_files = [
+        # classification reports
+        "01-feature-importance-chart",
+        "02-test-lift-chart",
+        "03-test-pr-auc",
+        "04-test-roc-auc",
+        # regression reports
+        "01-feature-importance-chart",
+        "02-residuals-chart",
+        "03-deciles-plot",
+    ]
+    files = os.listdir(reports_directory)
+    missing_files = []
+    for expected_file in expected_files:
+        found = False
+        for file_name in files:
+            if expected_file in file_name:
+                found = True
+        if not found:
+            missing_files.append(expected_file)
+    if len(missing_files) > 0:
+        raise Exception(f"{missing_files} not found in reports directory")
 
 
 def run_project():

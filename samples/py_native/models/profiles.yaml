@@ -4,38 +4,24 @@ models:
     model_spec:
       occurred_at_col: insert_ts
       entity_key: user
-      validity_time: 24h
       inputs:
-        - entity/user/is_churned_7_days
+        - packages/feature_table/models/shopify_user_features
       ml_config:
         data:
           label_column: is_churned_7_days
           prediction_horizon_days: 7
-  - name: prediction_model
-    model_type: prediction_model
-    model_spec:
-      occurred_at_col: insert_ts
-      entity_key: user
-      validity_time: 24h
-      inputs:
-        - entity/user/is_churned_7_days
-      training_model: models/training_model
-      ml_config:
-        data:
-          label_column: is_churned_7_days
-          prediction_horizon_days: 7
-
-var_groups:
-  - name: default_vars
-    entity_key: user
-    vars:
-      - entity_var:
-            name: is_churned_7_days
-            select: case when {{user.Var("days_since_last_seen")}} > 200 then 1 else 0 end
-      - entity_var:
-            name: days_since_last_seen
-            select: "{{macro_datediff('{{user.Var(\"max_timestamp_bw_tracks_pages\")}}')}}"
-      - entity_var:
-            name: max_timestamp_bw_tracks_pages
-            select: max(timestamp)
-            from: inputs/rsTracks
+          eligible_users: 1=1
+          output_profiles_ml_model: ltv_classification_integration_test
+# - name: prediction_model
+#   model_type: prediction_model
+#   model_spec:
+#     occurred_at_col: insert_ts
+#     entity_key: user
+#     training_model: models/training_model
+#     inputs:
+#       - packages/feature_table/models/shopify_user_features
+#     ml_config:
+#       data:
+#         label_column: is_churned_7_days
+#         prediction_horizon_days: 7
+#         output_profiles_ml_model: ltv_classification_integration_test

@@ -95,7 +95,8 @@ class LLMModelRecipe(PyNativeRecipe):
         print(input_columns)
         table_name = self.prompt_inputs[0].get("from")
         material = this.de_ref(table_name)
-        var_table_material = material.name()
+        # var_table_material = material.name()
+        var_table_material = "this.DeRef('inputs/rsIdentifies')"
         prompt_replaced = self.prompt.replace(
             "'", "''", -1
         )  # This is to escape single quotes

@@ -19,7 +19,8 @@ class LLMModel(BaseModelType):
             "sql_inputs": {"type": "array", "items": {"type": "string"}},
             "llm_model_name": {"type": ["string", "null"]},
         },
-        "required": ["prompt", "var_inputs", "sql_inputs"] + EntityKeyBuildSpecSchema["required"],
+        "required": ["prompt", "var_inputs", "sql_inputs"]
+        + EntityKeyBuildSpecSchema["required"],
         "additionalProperties": False,
     }
     DEFAULT_LLM_MODEL = "llama2-70b-chat"
@@ -61,8 +62,12 @@ class LLMModel(BaseModelType):
         input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
         max_var_inputs_index, max_sql_inputs_index = 0, 0
         if len(input_indices) > 0:
-            max_var_inputs_index = max(int(index) for word, index in input_indices if word == "var_inputs")
-            max_sql_inputs_index = max(int(index) for word, index in input_indices if word == "sql_inputs")
+            max_var_inputs_index = max(
+                int(index) for word, index in input_indices if word == "var_inputs"
+            )
+            max_sql_inputs_index = max(
+                int(index) for word, index in input_indices if word == "sql_inputs"
+            )
 
         if max_var_inputs_index >= len(var_input_lst):
             raise ValueError(
@@ -99,7 +104,9 @@ class LLMModelRecipe(PyNativeRecipe):
         sql_inputs_df = None
         if not this.wht_ctx.is_null_ctx:
             sql_inputs_df = [
-                this.wht_ctx.client.query_sql_with_result(sql_query).to_json(orient="records")
+                this.wht_ctx.client.query_sql_with_result(sql_query).to_json(
+                    orient="records"
+                )
                 for sql_query in self.sql_inputs
             ]
         entity_id_column_name = this.model.entity().get("IdColumnName")
@@ -112,9 +119,9 @@ class LLMModelRecipe(PyNativeRecipe):
             placeholder = f"{{{word}[{index}]}}"
             replacement_prompt = ""
             if word == "var_inputs":
-                replacement_prompt = "' ||" + input_columns[index] + "|| ' " 
+                replacement_prompt = "' ||" + input_columns[index] + "|| ' "
             elif word == "sql_inputs" and sql_inputs_df:
-                replacement_prompt = sql_inputs_df[index] 
+                replacement_prompt = sql_inputs_df[index]
             prompt_replaced = prompt_replaced.replace(placeholder, replacement_prompt)
 
         var_table_ref = (

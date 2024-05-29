@@ -19,8 +19,7 @@ class LLMModel(BaseModelType):
             "llm_model_name": {"type": ["string", "null"]},
             "run_for_top_k_distinct": {"type": "integer"},
         },
-        "required": ["prompt", "prompt_inputs", "run_for_top_k_distinct"]
-        + EntityKeyBuildSpecSchema["required"],
+        "required": ["prompt", "prompt_inputs"] + EntityKeyBuildSpecSchema["required"],
         "additionalProperties": False,
     }
     DEFAULT_LLM_MODEL = "llama2-70b-chat"
@@ -113,18 +112,23 @@ class LLMModelRecipe(PyNativeRecipe):
         # all the column that are being used in the input columns list.
         join_condition = " AND ".join([f"a.{col} = b.{col}" for col in input_columns])
 
+        limit_top_k = (
+            f"ORDER BY frequency DESC LIMIT {self.k_distinct_values}"
+            if self.k_distinct_values
+            else ""
+        )
+
         # model_creator_sql
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
-                    -- Common Table Expression (CTE) to get the top k distinct values of specified columns based on their frequency
+                    -- Common Table Expression (CTE) to get the distinct values of specified columns based on their frequency
                     WITH top_k_distinct_attribute AS (
                         SELECT {joined_columns}, COUNT(*) AS frequency
                         FROM {{{{entityVarTable}}}}
                         GROUP BY {joined_columns}
-                        ORDER BY frequency DESC
-                        LIMIT {self.k_distinct_values}
+                        {limit_top_k}
                     ), predicted_attribute AS (
                         -- CTE to get predicted attributes using the specified model for the top k distinct values
                         SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name}
@@ -138,8 +142,7 @@ class LLMModelRecipe(PyNativeRecipe):
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}
-            {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}
-        """
+            {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}"""
 
         self.sql = this.execute_text_template(query_template)
         return

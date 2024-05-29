@@ -4,10 +4,6 @@ from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
 from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
 
-import yaml
-
-from ..utils import utils
-
 from ..utils import constants
 
 from ..wht.pyNativeWHT import PyNativeWHT

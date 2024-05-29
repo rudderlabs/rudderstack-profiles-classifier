@@ -5,4 +5,4 @@ model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/profiles-features-integration-test
+    url: https://github.com/rudderlabs/profiles-features-integration-test/tag/schema_{{best_schema_version}}

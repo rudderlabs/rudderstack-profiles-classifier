@@ -1,4 +1,4 @@
-name: Format and Unit tests
+name: Tests
 
 on:
   pull_request:
@@ -36,3 +36,26 @@ jobs:
 
     - name: Run tests
       run: python -m unittest tests/unit/*.py
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: unit-test
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.10.13
+        cache: 'pip'
+
+    - name: Install local mlcorelib
+      working-directory: src/predictions
+      run: pip3 install .
+
+    - name: Run classifier test
+      run: python -m unittest tests/integration/redshift/pynative.py
+      env:
+          REDSHIFT_SITE_CONFIG: ${{secrets.REDSHIFT_SITE_CONFIG_V2}}

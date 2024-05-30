@@ -229,6 +229,10 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
+    def get_prev_pred_metrics(self, y_true, y_pred):
+        pass
+
+    @abstractmethod
     def prepare_training_summary(
         self, model_results: dict, model_timestamp: str
     ) -> dict:
@@ -617,6 +621,15 @@ class ClassificationTrainer(MLTrainer):
         }
         return result_dict
 
+    def get_prev_pred_metrics(self, y_true, y_pred):
+        metrics = trainer_utils.get_classification_metrics(
+            y_true,
+            y_pred,
+            recall_to_precision_importance=self.recall_to_precision_importance,
+            binary_predictions=True,
+        )
+        return metrics
+
     def prepare_training_summary(
         self, model_results: dict, model_timestamp: str
     ) -> dict:
@@ -787,6 +800,10 @@ class RegressionTrainer(MLTrainer):
             "metrics": model_metrics,
         }
         return result_dict
+
+    def get_prev_pred_metrics(self, y_true, y_pred):
+        metrics = trainer_utils.get_regression_metrics(y_true, y_pred)
+        return metrics
 
     def prepare_training_summary(
         self, model_results: dict, model_timestamp: str

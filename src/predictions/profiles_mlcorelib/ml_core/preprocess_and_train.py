@@ -145,7 +145,7 @@ def preprocess_and_train(
     connector = kwargs.get("connector", None)
     trainer = kwargs.get("trainer", None)
     min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
-    cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESOLD
+    cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESHOLD
     train_config = merged_config["train"]
 
     feature_table = None

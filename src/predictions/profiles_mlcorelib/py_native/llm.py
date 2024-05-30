@@ -36,7 +36,7 @@ class LLMModel(BaseModelType):
             "llm_model_name": {"type": ["string", "null"]},
             "run_for_top_k_distinct": {"type": ["integer", "null"]},
         },
-        "required": ["prompt", "prompt_inputs"] + EntityKeyBuildSpecSchema["required"],
+        "required": ["prompt"] + EntityKeyBuildSpecSchema["required"],
         "additionalProperties": False,
     }
     DEFAULT_LLM_MODEL = "llama2-70b-chat"
@@ -44,11 +44,13 @@ class LLMModel(BaseModelType):
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         if "ids" not in build_spec:
             build_spec["ids"] = []
-
+            entity_key = build_spec["entity_key"]
+            # TODO - select should be computed from the entity object
             build_spec["ids"].append(
-                {"select": "user_main_id", "type": "rudder_id", "entity": "user"}
+                {"select": "user_main_id", "type": "rudder_id", "entity": entity_key}
             )
         super().__init__(build_spec, schema_version, pb_version)
+
         if self.build_spec["llm_model_name"] == None:
             self.build_spec["llm_model_name"] = self.DEFAULT_LLM_MODEL
 
@@ -87,24 +89,45 @@ class LLMModel(BaseModelType):
         else:
             max_index = max(int(index) for _, index in input_indices)
 
-        if type(var_inputs) is not type(None) and max_index >= len(var_inputs):
+        validation_inputs = var_inputs if var_inputs is not None else table_inputs
+
+        if validation_inputs is not None and max_index >= len(validation_inputs):
             raise ValueError(
-                f"Maximum index {max_index} is out of range for var_inputs list."
+                f"Maximum index {max_index} is out of range for the inputs list."
             )
-        if type(table_inputs) is not type(None) and max_index >= len(table_inputs):
-            raise ValueError(
-                f"Maximum index {max_index} is out of range for table_inputs list."
-            )
+
+        if table_inputs:
+            for var in table_inputs:
+                input_column_name = var.get("select")
+                if not input_column_name:
+                    raise ValueError("Missing 'select' statement in table_inputs.")
+        if table_inputs:
+            from_tables = set()
+            for var in table_inputs:
+                table_name = var.get("from")
+                if table_name:
+                    from_tables.add(table_name)
+                else:
+                    raise ValueError("Missing 'from' statement in table_inputs.")
+
+            if len(from_tables) > 1:
+                raise ValueError(
+                    "Multiple different table names found in table_inputs."
+                )
+
         return super().validate()
 
 
 class LLMModelRecipe(PyNativeRecipe):
     def __init__(self, build_spec: dict) -> None:
         self.prompt = build_spec["prompt"]
-        self.var_inputs = build_spec["var_inputs"] if build_spec["var_inputs"] else None
-        self.table_inputs = (
-            build_spec["table_inputs"] if build_spec["table_inputs"] else None
-        )
+        if build_spec["var_inputs"]:
+            print("var_inputs")
+            self.var_inputs = build_spec["var_inputs"]
+            self.table_inputs = None
+        else:
+            self.var_inputs = None
+            self.table_inputs = build_spec["table_inputs"]
         self.logger = Logger("llm_model_recipe")
         self.llm_model_name = build_spec["llm_model_name"]
         self.k_distinct_values = (
@@ -117,21 +140,40 @@ class LLMModelRecipe(PyNativeRecipe):
     def describe(self, this: WhtMaterial):
         return self.sql, ".sql"
 
-    def query_template_360(
+    def query_template_creator(
         self,
-        var_table_ref,
-        limit_top_k,
-        prompt_replaced,
+        input_material_template,
         column_name,
         entity_id_column_name,
-        join_condition,
-        joined_columns,
+        input_columns_vars,
     ):
+        limit_top_k = (
+            f"ORDER BY frequency DESC LIMIT {self.k_distinct_values}"
+            if self.k_distinct_values
+            else ""
+        )
+        prompt_replaced = self.prompt.replace(
+            "'", "''", -1
+        )  # This is to escape single quotes
+        input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
+        for word, index in input_indices:
+            index = int(index)
+            placeholder = f"{{{word}[{index}]}}"
+            col = "' ||" + input_columns_vars[index] + "|| ' "
+            prompt_replaced = prompt_replaced.replace(placeholder, col)
+        # Joined_columns used to create a comma seperated string in order to mention
+        # all the columns that are used as input in the query.
+        joined_columns = ", ".join(input_columns_vars)
+        # Join condition to join the predicted column to the original table in order to mention
+        # all the column that are being used in the input columns list.
+        join_condition = " AND ".join(
+            [f"a.{col} = b.{col}" for col in input_columns_vars]
+        )
         # model_creator_sql
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
-                    {{% set entityVarTable = {var_table_ref} %}}
+                    {{% set entityVarTable = {input_material_template} %}}
                     -- Common Table Expression (CTE) to get the distinct values of specified columns based on their frequency
                     WITH top_k_distinct_attribute AS (
                         SELECT {joined_columns}, COUNT(*) AS frequency
@@ -145,7 +187,7 @@ class LLMModelRecipe(PyNativeRecipe):
                     )
                     SELECT a.{entity_id_column_name}, b.{column_name}
                     FROM {{{{entityVarTable}}}} a
-                    -- Perform a LEFT JOIN between the original table and the predicted attributes to fill all the 
+                    -- Perform a LEFT JOIN between the original table and the predicted attributes to fill all the
                     -- attribute values with their corresponding predicted value.
                     LEFT JOIN predicted_attribute b ON {join_condition}
                 {{% endmacro %}}
@@ -156,97 +198,49 @@ class LLMModelRecipe(PyNativeRecipe):
 
     def register_dependencies(self, this: WhtMaterial):
         entity_id_column_name = this.model.entity().get("IdColumnName")
-        limit_top_k = (
-            f"ORDER BY frequency DESC LIMIT {self.k_distinct_values}"
-            if self.k_distinct_values
-            else ""
-        )
+        column_name = this.model.name()
+
         if self.var_inputs:
-            var_table_ref = (
+            var_table_material_template = (
                 f"this.DeRef(makePath({self.var_inputs[0]}.Model.GetVarTableRef()))"
             )
             entity = this.model.entity()
-            column_name = this.model.name()
             if entity is None:
                 raise Exception("no entity found for model")
             input_columns_vars = [
                 f"{{{{{var}.Model.DbObjectNamePrefix()}}}}"  # Assuming var is already in the format "user.Var('profession')"
                 for var in self.var_inputs
             ]
-            prompt_replaced = self.prompt.replace(
-                "'", "''", -1
-            )  # This is to escape single quotes
-            input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
-            for word, index in input_indices:
-                index = int(index)
-                placeholder = f"{{{word}[{index}]}}"
-                col = "' ||" + input_columns_vars[index] + "|| ' "
-                prompt_replaced = prompt_replaced.replace(placeholder, col)
 
-            # Joined_columns used to create a comma seperated string in order to mention
-            # all the columns that are used as input in the query.
-            joined_columns = ", ".join(input_columns_vars)
-            # Join condition to join the predicted column to the original table in order to mention
-            # all the column that are being used in the input columns list.
-            join_condition = " AND ".join(
-                [f"a.{col} = b.{col}" for col in input_columns_vars]
-            )
-
-            query_template = LLMModelRecipe.query_template_360(
+            query_template = LLMModelRecipe.query_template_creator(
                 self,
-                var_table_ref,
-                limit_top_k,
-                prompt_replaced,
+                var_table_material_template,
                 column_name,
                 entity_id_column_name,
-                join_condition,
-                joined_columns,
+                input_columns_vars,
             )
             self.sql = this.execute_text_template(query_template)
 
         elif self.table_inputs:
-            table_column_name = this.model.name()
+            predicted_column_name = column_name
             table_columns = []
             for var in self.table_inputs:
-                column_name = var.get("select")
-                if column_name:
-                    table_columns.append(column_name)
-                else:
-                    print(
-                        "Invalid entry found in prompt_inputs: 'select' key is missing"
-                    )
+                input_column_name = var.get("select")
+                if input_column_name:
+                    table_columns.append(input_column_name)
+
             table_name = self.table_inputs[0].get("from")
-            prompt_replaced = self.prompt.replace(
-                "'", "''", -1
-            )  # This is to escape single quotes
-            input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
-            for word, index in input_indices:
-                index = int(index)
-                if 0 <= index < len(table_columns):
-                    placeholder = f"{{{word}[{index}]}}"
-                    col = "' ||" + table_columns[index] + "|| ' "
-                    prompt_replaced = prompt_replaced.replace(placeholder, col)
-                else:
-                    self.logger.error(
-                        f"Index {index} out of range for input_columns list."
-                    )
-            dereferencing_string = f"{table_name}/var_Table/{entity_id_column_name}"
-            column = this.de_ref(dereferencing_string)
-            table_reference_string = f"{table_name}/var_Table"
-            var_table_ref = f"this.DeRef('{table_reference_string}')"
-            joined_columns = ", ".join(table_columns)
-            join_condition = " AND ".join(
-                [f"a.{col} = b.{col}" for col in table_columns]
+            entity_id_column_material = this.de_ref(
+                f"{table_name}/var_Table/{entity_id_column_name}"
             )
-            query_template = LLMModelRecipe.query_template_360(
+            var_table_material_template = f"this.DeRef('{f'{table_name}/var_Table'}')"
+
+            query_template = LLMModelRecipe.query_template_creator(
                 self,
-                var_table_ref,
-                limit_top_k,
-                prompt_replaced,
-                table_column_name,
+                var_table_material_template,
+                predicted_column_name,
                 entity_id_column_name,
-                join_condition,
-                joined_columns,
+                table_columns,
             )
             self.sql = this.execute_text_template(query_template)
 

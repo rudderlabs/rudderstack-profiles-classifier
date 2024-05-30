@@ -13,17 +13,27 @@ models:
     model_spec:
       prompt: "What is generally the most common gender of the name {input[0]}? Male, Female, or Unknown? Return only a single word, nothing else."
       entity_key: user
-      prompt_inputs:
-        - user.Var('name')
-      llm_model_name: "mistral-7b"
+      var_inputs:
+#        - user.Var('name')
+      table_inputs:
+        - select: first_name
+          from: inputs/rsIdentifies
+      llm_model_name: "llama2-70b-chat"
+      run_for_top_k_distinct:
+      features:
+        - name: llm_gender_prediction
   - name: llm_profession_prediction
     model_type: llm_model
     model_spec:
       prompt: "The input field is a job title entered by a person. Map it to a single value from the following list of standardised job titles: [Software Engineer, Data Analyst, ML Engineer, Solutions Architect, Others]. Return only standardised title, nothing else. {input[0]}"
       entity_key: user
-      prompt_inputs:
+      var_inputs:
         - user.Var('profession')
-      llm_model_name: "mistral-7b"
+      table_inputs:
+      llm_model_name: "llama2-70b-chat"
+      run_for_top_k_distinct: 5
+      features:
+        - name: llm_profession_prediction
 
 var_groups:
   - name: default_vars

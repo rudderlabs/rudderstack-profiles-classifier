@@ -18,6 +18,7 @@ class LLMModel(BaseModelType):
             "var_inputs": {"type": "array", "items": {"type": "string"}},
             "sql_inputs": {"type": "array", "items": {"type": "string"}},
             "llm_model_name": {"type": ["string", "null"]},
+            "run_for_top_k_distinct": {"type": "integer"},
         },
         "required": ["prompt", "var_inputs"] + EntityKeyBuildSpecSchema["required"],
         "additionalProperties": False,
@@ -91,6 +92,7 @@ class LLMModelRecipe(PyNativeRecipe):
         self.sql_inputs = build_spec["sql_inputs"]
         self.logger = Logger("llm_model_recipe")
         self.llm_model_name = build_spec["llm_model_name"]
+        self.k_distinct_values = build_spec["run_for_top_k_distinct"]
         self.sql = ""
 
     def describe(self, this: WhtMaterial):
@@ -138,26 +140,33 @@ class LLMModelRecipe(PyNativeRecipe):
         # all the column that are being used in the input columns list.
         join_condition = " AND ".join([f"a.{col} = b.{col}" for col in input_columns])
 
+        limit_top_k = (
+            f"ORDER BY frequency DESC LIMIT {self.k_distinct_values}"
+            if self.k_distinct_values
+            else ""
+        )
+
         # model_creator_sql
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
-                    -- Common Table Expression (CTE) to get distinct values of specified columns in order to
-                    -- reduce the number of api calls for the llm model.
-                        WITH distinct_attribute AS (
-                        SELECT DISTINCT {joined_columns}
+                    -- Common Table Expression (CTE) to get the distinct values of specified columns based on their frequency
+                    WITH top_k_distinct_attribute AS (
+                        SELECT {joined_columns}, COUNT(*) AS frequency
                         FROM {{{{entityVarTable}}}}
-                    ), -- CTE to get predicted attributes using the specified model
-                    predicted_attribute AS (
-                        SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name},
-                        FROM distinct_attribute
+                        GROUP BY {joined_columns}
+                        {limit_top_k}
+                    ), predicted_attribute AS (
+                        -- CTE to get predicted attributes using the specified model for the top k distinct values
+                        SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name}
+                        FROM top_k_distinct_attribute
                     )
-                        SELECT a.{entity_id_column_name}, b.{column_name}
-                        FROM {{{{entityVarTable}}}} a
-                        -- Perform a LEFT JOIN between the original table and the predicted attributes to fill all the 
-                        -- attribute value with their corresponding predicted value.
-                        LEFT JOIN predicted_attribute b ON {join_condition}
+                    SELECT a.{entity_id_column_name}, b.{column_name}
+                    FROM {{{{entityVarTable}}}} a
+                    -- Perform a LEFT JOIN between the original table and the predicted attributes to fill all the 
+                    -- attribute values with their corresponding predicted value.
+                    LEFT JOIN predicted_attribute b ON {join_condition}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}

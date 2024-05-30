@@ -104,7 +104,7 @@ class PredictionRecipe(PyNativeRecipe):
             creds,
             train_output,
             input_materials,
-            standardize_ref_name(this.name()),
+            standardize_ref_name(creds["type"], this.name()),
             config,
             runtime_info,
             constants.ML_CORE_PYNATIVE_PATH,

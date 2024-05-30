@@ -112,5 +112,5 @@ class TrainingRecipe(PyNativeRecipe):
             input_model_refs,
             whtService,
             constants.ML_CORE_PYNATIVE_PATH,
-            standardize_ref_name(this.name()),
+            standardize_ref_name(creds["type"], this.name()),
         )

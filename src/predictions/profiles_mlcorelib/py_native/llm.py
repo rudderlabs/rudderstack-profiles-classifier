@@ -129,7 +129,10 @@ class LLMModelRecipe(PyNativeRecipe):
                 )
                 return replaced_prompt
 
-            var_inputs_prompt_replaced, eligible_users_prompt_replaced = task_prompt, eligible_users_prompt
+            var_inputs_prompt_replaced, eligible_users_prompt_replaced = (
+                task_prompt,
+                eligible_users_prompt,
+            )
             for word, index in var_inputs_indices:
                 replacement_prompt = ""
                 index = int(index)
@@ -201,7 +204,11 @@ class LLMModelRecipe(PyNativeRecipe):
             else ""
         )
 
-        filtered_entity_var_str = f"WHERE {eligible_users_prompt_replaced}" if eligible_users_prompt_replaced else ""
+        filtered_entity_var_str = (
+            f"WHERE {eligible_users_prompt_replaced}"
+            if eligible_users_prompt_replaced
+            else ""
+        )
         filtered_entity_var_table_cte = f"WITH filtered_entity_var_table AS (SELECT * FROM entity_var_table {filtered_entity_var_str})"
 
         # model_creator_sql

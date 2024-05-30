@@ -27,6 +27,7 @@ class TestPyNativeWHT(unittest.TestCase):
             "7",
             ["entity/user/is_churned"],
             ["material_{model_name}_{hash}_{seq_no}"],
+            3,
         )
         self.pyNativeWHT.pythonWHT.get_material_names.assert_called_once_with(
             "2021-10-10",
@@ -36,6 +37,8 @@ class TestPyNativeWHT(unittest.TestCase):
             "7",
             ["entity/user/is_churned"],
             ["material_{model_name}_{hash}_{seq_no}"],
+            False,
+            3,
         )
 
     def test_get_latest_entity_var_table(self):

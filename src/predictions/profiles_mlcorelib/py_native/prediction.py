@@ -11,7 +11,6 @@ from .training import TrainingRecipe
 
 from ..predict import _predict
 from ..utils import constants
-from ..utils import utils
 
 
 class PredictionModel(BaseModelType):
@@ -45,10 +44,7 @@ class PredictionModel(BaseModelType):
                 "required": ["data"],
             },
         },
-        "required": [
-            "training_model",
-            "ml_config",
-        ]
+        "required": ["training_model", "ml_config", "inputs"]
         + EntityKeyBuildSpecSchema["required"],
     }
 

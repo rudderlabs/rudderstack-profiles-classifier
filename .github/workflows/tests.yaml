@@ -1,0 +1,73 @@
+name: Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  unit-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.10.13
+        cache: 'pip'
+    
+    - name: Install formatter
+      run: pip install black==23.12.1
+
+    - name: Check format
+      run: black --check . 
+
+    - name: Install dependencies
+      run: pip install -r tests/integration/requirements.txt
+
+    - name: Compile core train
+      run: python -m src.predictions.profiles_mlcorelib.ml_core.preprocess_and_train --mode ci
+
+    - name: Compile core predict
+      run: python -m src.predictions.profiles_mlcorelib.ml_core.preprocess_and_predict --mode ci
+
+    - name: Run tests
+      run: python -m unittest tests/unit/*.py
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: unit-test
+
+    strategy:
+      matrix:
+        warehouse:
+          - test: tests/integration/redshift/pynative.py
+            site_config: REDSHIFT_SITE_CONFIG_V2
+          - test: tests/integration/bigquery/pynative.py
+            site_config: BIGQUERY_SITE_CONFIG
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.10.13
+        cache: 'pip'
+
+    - name: Install local mlcorelib
+      working-directory: src/predictions
+      run: pip3 install .
+
+    - name: Run pynative integration test
+      run: python -m unittest ${{matrix.warehouse.test}}
+      env:
+          SITE_CONFIG: ${{secrets[matrix.warehouse.site_config]}}

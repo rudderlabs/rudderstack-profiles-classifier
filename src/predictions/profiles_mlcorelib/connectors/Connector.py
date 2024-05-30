@@ -105,7 +105,9 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def transform_arraytype_features(self, feature_table, input_column_types):
+    def transform_arraytype_features(
+        self, feature_table, input_column_types, top_k_array_categoriesm, **kwargs
+    ):
         pass
 
     @abstractmethod

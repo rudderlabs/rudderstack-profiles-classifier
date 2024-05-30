@@ -5,6 +5,8 @@ from profiles_rudderstack.logger import Logger
 from typing import Tuple
 from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
 
+from .warehouse import standardize_ref_name
+
 from ..wht.pyNativeWHT import PyNativeWHT
 
 from .training import TrainingRecipe
@@ -94,7 +96,6 @@ class PredictionRecipe(PyNativeRecipe):
         runtime_info = {"site_config_path": site_config_path}
         config = self.build_spec.get("ml_config", {})
         input_materials = []
-        output_tablename = this.name()
         train_output = self._get_train_output_filepath(this)
         for input in self.build_spec["inputs"]:
             material = this.de_ref(input)
@@ -103,7 +104,7 @@ class PredictionRecipe(PyNativeRecipe):
             creds,
             train_output,
             input_materials,
-            output_tablename,
+            standardize_ref_name(this.name()),
             config,
             runtime_info,
             constants.ML_CORE_PYNATIVE_PATH,

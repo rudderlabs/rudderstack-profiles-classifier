@@ -79,7 +79,7 @@ def assert_training_artefacts():
     validate_reports()
     output_folder = get_pynative_output_folder()
     files = os.listdir(output_folder)
-    model1Regex = re.compile("Material_training_model_.+_training_file")
+    model1Regex = re.compile("Material_traininG_model_.+_training_file")
     model2Regex = re.compile("Material_training_regression_model_.+_training_file")
     count = 0
     for file in files:

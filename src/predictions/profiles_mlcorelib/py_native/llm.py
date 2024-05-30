@@ -129,7 +129,6 @@ class LLMModelRecipe(PyNativeRecipe):
             def _replace_inputs_references(
                 word, index, original_prompt, replacement_prompt
             ):
-                index = int(index)
                 placeholder = f"{{{word}[{index}]}}"
                 replaced_prompt = original_prompt.replace(
                     placeholder, replacement_prompt
@@ -138,6 +137,7 @@ class LLMModelRecipe(PyNativeRecipe):
 
             for word, index in var_inputs_indices:
                 replacement_prompt = ""
+                index = int(index)
                 if word == "var_inputs":
                     replacement_prompt = "' ||" + input_columns[index] + "|| ' "
                 elif word == "sql_inputs" and sql_inputs_df:
@@ -148,6 +148,7 @@ class LLMModelRecipe(PyNativeRecipe):
 
             for word, index in eligible_users_indices:
                 replacement_prompt = ""
+                index = int(index)
                 if word == "var_inputs":
                     replacement_prompt = input_columns[index]
                 eligible_users_prompt_replaced = _replace_inputs_references(

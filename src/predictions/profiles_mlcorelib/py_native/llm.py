@@ -25,7 +25,7 @@ class LLMModel(BaseModelType):
         "additionalProperties": False,
     }
     DEFAULT_VALUES = {
-        "eligible_users": "1=1",
+        "eligible_users": "",
         "sql_inputs": [],
         "llm_model_name": "llama2-70b-chat",
         "run_for_top_k_distinct": 10,
@@ -34,7 +34,7 @@ class LLMModel(BaseModelType):
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         super().__init__(build_spec, schema_version, pb_version)
         for key in ("eligible_users", "sql_inputs", "llm_model_name"):
-            if key not in self.build_spec or self.build_spec[key] == None:
+            if key not in self.build_spec or self.build_spec[key] is None:
                 self.build_spec[key] = self.DEFAULT_VALUES[key]
 
     def get_material_recipe(self) -> PyNativeRecipe:
@@ -110,19 +110,13 @@ class LLMModelRecipe(PyNativeRecipe):
 
     def register_dependencies(self, this: WhtMaterial):
         def _get_index_list(text_input):
-            text_input_replaced = text_input.replace(
-                "'", "''", -1
-            )  # This is to escape single quotes
-            return (
-                re.findall(r"{(\w+)\[(\d+)\]}", text_input_replaced),
-                text_input_replaced,
-            )
+            return re.findall(r"{(\w+)\[(\d+)\]}", text_input)
 
         def _replace_placeholders(
             var_inputs_indices,
             eligible_users_indices,
-            var_inputs_prompt_replaced,
-            eligible_users_prompt_replaced,
+            task_prompt,
+            eligible_users_prompt,
             input_columns,
             sql_inputs_df=None,
         ):
@@ -135,6 +129,7 @@ class LLMModelRecipe(PyNativeRecipe):
                 )
                 return replaced_prompt
 
+            var_inputs_prompt_replaced, eligible_users_prompt_replaced = task_prompt, eligible_users_prompt
             for word, index in var_inputs_indices:
                 replacement_prompt = ""
                 index = int(index)
@@ -143,7 +138,7 @@ class LLMModelRecipe(PyNativeRecipe):
                 elif word == "sql_inputs" and sql_inputs_df:
                     replacement_prompt = sql_inputs_df[index]
                 var_inputs_prompt_replaced = _replace_inputs_references(
-                    word, index, var_inputs_prompt_replaced, replacement_prompt
+                    word, index, task_prompt, replacement_prompt
                 )
 
             for word, index in eligible_users_indices:
@@ -152,7 +147,7 @@ class LLMModelRecipe(PyNativeRecipe):
                 if word == "var_inputs":
                     replacement_prompt = input_columns[index]
                 eligible_users_prompt_replaced = _replace_inputs_references(
-                    word, index, eligible_users_prompt_replaced, replacement_prompt
+                    word, index, eligible_users_prompt, replacement_prompt
                 )
 
             return var_inputs_prompt_replaced, eligible_users_prompt_replaced
@@ -175,10 +170,8 @@ class LLMModelRecipe(PyNativeRecipe):
             ]
         entity_id_column_name = this.model.entity().get("IdColumnName")
 
-        var_inputs_indices, var_inputs_prompt_replaced = _get_index_list(self.prompt)
-        eligible_users_indices, eligible_users_prompt_replaced = _get_index_list(
-            self.eligible_users
-        )
+        var_inputs_indices = _get_index_list(self.prompt)
+        eligible_users_indices = _get_index_list(self.eligible_users)
 
         (
             var_inputs_prompt_replaced,
@@ -186,8 +179,8 @@ class LLMModelRecipe(PyNativeRecipe):
         ) = _replace_placeholders(
             var_inputs_indices,
             eligible_users_indices,
-            var_inputs_prompt_replaced,
-            eligible_users_prompt_replaced,
+            self.prompt,
+            self.eligible_users,
             input_columns,
             sql_inputs_df,
         )
@@ -208,17 +201,16 @@ class LLMModelRecipe(PyNativeRecipe):
             else ""
         )
 
+        filtered_entity_var_str = f"WHERE {eligible_users_prompt_replaced}" if eligible_users_prompt_replaced else ""
+        filtered_entity_var_table_cte = f"WITH filtered_entity_var_table AS (SELECT * FROM entity_var_table {filtered_entity_var_str})"
+
         # model_creator_sql
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {var_table_ref} %}}
                     -- Common Table Expression (CTE) to get the distinct values of specified columns based on their frequency
-                    WITH filtered_entity_var_table AS(
-                        SELECT *
-                        FROM {{{{entityVarTable}}}}
-                        WHERE {eligible_users_prompt_replaced}
-                    ), top_k_distinct_attribute AS (
+                    {filtered_entity_var_table_cte}, top_k_distinct_attribute AS (
                         SELECT {joined_columns}, COUNT(*) AS frequency
                         FROM filtered_entity_var_table
                         GROUP BY {joined_columns}

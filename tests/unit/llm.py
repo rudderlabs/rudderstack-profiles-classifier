@@ -5,7 +5,8 @@ from src.predictions.profiles_mlcorelib.py_native.llm import LLMModel
 class TestLLMModelValidation(unittest.TestCase):
     def setUp(self):
         self.build_spec = {
-            "prompt": "sample prompt input{[0]}",
+            "prompt": "sample prompt {var_inputs[0]}",
+            "eligible_users": "1=1",
             "var_inputs": ["input1", "input2"],
             "sql_inputs": ["query1", "query2"],
             "llm_model_name": None,
@@ -62,6 +63,30 @@ class TestLLMModelValidation(unittest.TestCase):
         self.assertEqual(
             str(context.exception),
             "Maximum index 3 is out of range for sql_inputs list.",
+        )
+
+    def test_max_index_eligible_users(self):
+        # Testing max index sql inputs
+        # First, test with valid indices
+        self.build_spec["prompt"] = "sample prompt"
+        llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
+        llm_model.validate()
+
+        # Testing the case for correct maximum index
+        self.build_spec["prompt"] = "sample prompt {sql_inputs[0]} {var_inputs[1]}"
+        self.build_spec["eligible_users"] = "sample eligible users {var_inputs[1]}"
+        llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
+        llm_model.validate()
+
+        # Now, test with invalid indices
+        self.build_spec["prompt"] = "sample prompt {sql_inputs[0]}"
+        self.build_spec["eligible_users"] = "sample eligible users {var_inputs[2]}"
+        llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
+        with self.assertRaises(ValueError) as context:
+            llm_model.validate()
+        self.assertEqual(
+            str(context.exception),
+            "Maximum index 2 is out of range for var_inputs list.",
         )
 
     def test_prompt_length_validation(self):

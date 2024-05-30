@@ -1,8 +1,10 @@
 import os
+import re
 import yaml
 from src.predictions.profiles_mlcorelib.connectors.ConnectorFactory import (
     ConnectorFactory,
 )
+import shutil
 from src.predictions.profiles_mlcorelib.wht.rudderPB import RudderPB
 
 
@@ -62,6 +64,56 @@ def create_site_config_file(creds, siteconfig_path):
     yaml_data = yaml.dump(json_data, default_flow_style=False)
     with open(siteconfig_path, "w") as file:
         file.write(yaml_data)
+
+
+def cleanup_pb_project(project_path, siteconfig_path):
+    directories = ["migrations", "output"]
+    for directory in directories:
+        dir_path = os.path.join(project_path, directory)
+        if os.path.exists(dir_path):
+            shutil.rmtree(dir_path)
+    os.remove(siteconfig_path)
+
+
+def assert_training_artefacts():
+    validate_reports()
+    output_folder = get_pynative_output_folder()
+    files = os.listdir(output_folder)
+    model1Regex = re.compile("Material_training_model_.+_training_file")
+    model2Regex = re.compile("Material_training_regression_model_.+_training_file")
+    count = 0
+    for file in files:
+        if model1Regex.match(file):
+            count = count + 1
+        if model2Regex.match(file):
+            count = count + 1
+    if count != 2:
+        raise Exception(f"{count} training files found in output folder. Expected 2.")
+
+
+def validate_reports():
+    output_folder = get_pynative_output_folder()
+    reports_directory = os.path.join(output_folder, "train_reports")
+    expected_files = [
+        "01-feature-importance-chart-ltv_classification",
+        "02-test-lift-chart-ltv_classification",
+        "03-test-pr-auc-ltv_classification",
+        "04-test-roc-auc-ltv_classification",
+        "01-feature-importance-chart-ltv_regression",
+        "02-residuals-chart-ltv_regression",
+        "03-deciles-plot-ltv_regression",
+    ]
+    files = os.listdir(reports_directory)
+    missing_files = []
+    for expected_file in expected_files:
+        found = False
+        for file_name in files:
+            if expected_file in file_name:
+                found = True
+        if not found:
+            missing_files.append(expected_file)
+    if len(missing_files) > 0:
+        raise Exception(f"{missing_files} not found in reports directory")
 
 
 def get_latest_entity_var(

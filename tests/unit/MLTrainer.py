@@ -33,6 +33,7 @@ def build_trainer_config():
     config["preprocessing"]["train_size"] = None
     config["preprocessing"]["test_size"] = None
     config["preprocessing"]["val_size"] = None
+    config["preprocessing"]["top_k_array_categories"] = None
     config["outputs"]["column_names"] = None
     config["outputs"]["feature_meta_data"] = None
 

@@ -209,7 +209,7 @@ class LLMModelRecipe(PyNativeRecipe):
             if eligible_users_prompt_replaced
             else ""
         )
-        filtered_entity_var_table_cte = f"WITH filtered_entity_var_table AS (SELECT * FROM entity_var_table {filtered_entity_var_str})"
+        filtered_entity_var_table_cte = f"WITH filtered_entity_var_table AS (SELECT * FROM {{{{entityVarTable}}}} {filtered_entity_var_str})"
 
         # model_creator_sql
         query_template = f"""

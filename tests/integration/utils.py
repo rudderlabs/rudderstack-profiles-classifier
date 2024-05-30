@@ -23,7 +23,8 @@ def get_pynative_output_folder():
         return None
     items = os.listdir(seq_no_dir)
     directories = [
-        item for item in items if os.path.isdir(os.path.join(seq_no_dir, item))
+        # This logic will fail if there are multiple sequence numbers
+        item for item in items if os.path.isdir(os.path.join(seq_no_dir, item)) and item != "latest"
     ]
     return os.path.join(seq_no_dir, directories[0], "run")
 

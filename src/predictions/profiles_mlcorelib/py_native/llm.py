@@ -98,7 +98,7 @@ class LLMModelRecipe(PyNativeRecipe):
     def describe(self, this: WhtMaterial):
         return self.sql, ".sql"
 
-    def prepare(self, this: WhtMaterial):
+    def register_dependencies(self, this: WhtMaterial):
         entity = this.model.entity()
         column_name = this.model.name()
         if entity is None:

@@ -48,9 +48,9 @@ class TestLLMModelValidation(unittest.TestCase):
         llm_model.validate()
 
         # Testing the case for correct maximum index with sql_inputs and var_inputs both
-        self.build_spec[
-            "prompt"
-        ] = "sample prompt {var_inputs[0]} {sql_inputs[0]} {sql_inputs[1]}"
+        self.build_spec["prompt"] = (
+            "sample prompt {var_inputs[0]} {sql_inputs[0]} {sql_inputs[1]}"
+        )
         llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
         llm_model.validate()
 

@@ -21,7 +21,6 @@ class LLMModel(BaseModelType):
             **FeatureDetailsBuildSpecSchema["properties"],
             **EntityIdsBuildSpecSchema["properties"],
             "prompt": {"type": "string"},
-
             "var_inputs": {"type": ["array", "null"], "items": {"type": "string"}},
             "table_inputs": {
                 "type": ["array", "null"],
@@ -109,7 +108,9 @@ class LLMModel(BaseModelType):
 
         validation_inputs = var_inputs if var_inputs is not None else table_inputs
 
-        if validation_inputs is not None and max_var_inputs_index >= len(validation_inputs):
+        if validation_inputs is not None and max_var_inputs_index >= len(
+            validation_inputs
+        ):
             raise ValueError(
                 f"Maximum index {max_var_inputs_index} is out of range for the inputs list."
             )
@@ -159,7 +160,7 @@ class LLMModelRecipe(PyNativeRecipe):
         column_name,
         entity_id_column_name,
         input_columns_vars,
-        sql_inputs_df
+        sql_inputs_df,
     ):
         limit_top_k = (
             f"ORDER BY frequency DESC LIMIT {self.k_distinct_values}"
@@ -244,7 +245,7 @@ class LLMModelRecipe(PyNativeRecipe):
                 column_name,
                 entity_id_column_name,
                 input_columns_vars,
-                sql_inputs_df
+                sql_inputs_df,
             )
             self.sql = this.execute_text_template(query_template)
 
@@ -266,7 +267,7 @@ class LLMModelRecipe(PyNativeRecipe):
                 column_name,
                 entity_id_column_name,
                 table_columns,
-                sql_inputs_df
+                sql_inputs_df,
             )
             self.sql = this.execute_text_template(query_template)
 

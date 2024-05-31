@@ -13,13 +13,10 @@ models:
     model_spec:
       prompt: "What is generally the most common gender of the name {input[0]}? Male, Female, or Unknown? Return only a single word, nothing else."
       entity_key: user
-      var_inputs:
-#        - user.Var('name')
       table_inputs:
         - select: first_name
           from: inputs/rsIdentifies
       llm_model_name: "llama2-70b-chat"
-      run_for_top_k_distinct:
       features:
         - name: llm_gender_prediction
   - name: llm_profession_prediction
@@ -29,7 +26,6 @@ models:
       entity_key: user
       var_inputs:
         - user.Var('profession')
-      table_inputs:
       llm_model_name: "llama2-70b-chat"
       run_for_top_k_distinct: 5
       features:

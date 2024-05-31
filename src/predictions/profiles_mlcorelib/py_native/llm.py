@@ -37,18 +37,22 @@ class LLMModel(BaseModelType):
             "run_for_top_k_distinct": {"type": ["integer", "null"]},
         },
         "required": ["prompt"] + EntityKeyBuildSpecSchema["required"],
+        "oneOf": [{"required": ["var_inputs"]}, {"required": ["table_inputs"]}],
         "additionalProperties": False,
     }
     DEFAULT_LLM_MODEL = "llama2-70b-chat"
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         if "ids" not in build_spec:
-            build_spec["ids"] = []
             entity_key = build_spec["entity_key"]
             # TODO - select should be computed from the entity object
-            build_spec["ids"].append(
-                {"select": "user_main_id", "type": "rudder_id", "entity": entity_key}
-            )
+            build_spec["ids"] = [
+                {
+                    "select": entity_key + "_main_id",
+                    "type": "rudder_id",
+                    "entity": entity_key,
+                }
+            ]
         super().__init__(build_spec, schema_version, pb_version)
 
         if self.build_spec["llm_model_name"] == None:
@@ -72,8 +76,12 @@ class LLMModel(BaseModelType):
         }
 
         prompt = self.build_spec["prompt"]
-        var_inputs = self.build_spec["var_inputs"]
-        table_inputs = self.build_spec["table_inputs"]
+        if "var_inputs" in self.build_spec:
+            var_inputs = self.build_spec["var_inputs"]
+            table_inputs = None
+        else:
+            var_inputs = None
+            table_inputs = self.build_spec["table_inputs"]
         model_name = self.build_spec["llm_model_name"]
 
         prompt_tokens = len(prompt.split())
@@ -95,24 +103,14 @@ class LLMModel(BaseModelType):
             raise ValueError(
                 f"Maximum index {max_index} is out of range for the inputs list."
             )
-
-        if table_inputs:
-            for var in table_inputs:
-                input_column_name = var.get("select")
-                if not input_column_name:
-                    raise ValueError("Missing 'select' statement in table_inputs.")
         if table_inputs:
             from_tables = set()
             for var in table_inputs:
                 table_name = var.get("from")
-                if table_name:
-                    from_tables.add(table_name)
-                else:
-                    raise ValueError("Missing 'from' statement in table_inputs.")
-
+                from_tables.add(table_name)
             if len(from_tables) > 1:
                 raise ValueError(
-                    "Multiple different table names found in table_inputs."
+                    "The model doesn't support specifying more than 1 input tables"
                 )
 
         return super().validate()
@@ -122,7 +120,6 @@ class LLMModelRecipe(PyNativeRecipe):
     def __init__(self, build_spec: dict) -> None:
         self.prompt = build_spec["prompt"]
         if build_spec["var_inputs"]:
-            print("var_inputs")
             self.var_inputs = build_spec["var_inputs"]
             self.table_inputs = None
         else:
@@ -132,7 +129,7 @@ class LLMModelRecipe(PyNativeRecipe):
         self.llm_model_name = build_spec["llm_model_name"]
         self.k_distinct_values = (
             build_spec["run_for_top_k_distinct"]
-            if build_spec["run_for_top_k_distinct"]
+            if "run_for_top_k_distinct" in build_spec
             else None
         )
         self.sql = ""
@@ -222,23 +219,21 @@ class LLMModelRecipe(PyNativeRecipe):
             self.sql = this.execute_text_template(query_template)
 
         elif self.table_inputs:
-            predicted_column_name = column_name
             table_columns = []
             for var in self.table_inputs:
                 input_column_name = var.get("select")
-                if input_column_name:
-                    table_columns.append(input_column_name)
+                table_columns.append(input_column_name)
 
             table_name = self.table_inputs[0].get("from")
             entity_id_column_material = this.de_ref(
-                f"{table_name}/var_Table/{entity_id_column_name}"
+                f"{table_name}/var_table/{entity_id_column_name}"
             )
-            var_table_material_template = f"this.DeRef('{f'{table_name}/var_Table'}')"
+            var_table_material_template = f"this.DeRef('{f'{table_name}/var_table'}')"
 
             query_template = LLMModelRecipe.query_template_creator(
                 self,
                 var_table_material_template,
-                predicted_column_name,
+                column_name,
                 entity_id_column_name,
                 table_columns,
             )

@@ -21,6 +21,7 @@ class LLMModel(BaseModelType):
             **FeatureDetailsBuildSpecSchema["properties"],
             **EntityIdsBuildSpecSchema["properties"],
             "prompt": {"type": "string"},
+
             "var_inputs": {"type": ["array", "null"], "items": {"type": "string"}},
             "table_inputs": {
                 "type": ["array", "null"],
@@ -33,13 +34,16 @@ class LLMModel(BaseModelType):
                     "required": ["select", "from"],
                 },
             },
+            "sql_inputs": {"type": "array", "items": {"type": "string"}},
             "llm_model_name": {"type": ["string", "null"]},
             "run_for_top_k_distinct": {"type": ["integer", "null"]},
         },
         "required": ["prompt"] + EntityKeyBuildSpecSchema["required"],
         "oneOf": [{"required": ["var_inputs"]}, {"required": ["table_inputs"]}],
+        },
         "additionalProperties": False,
     }
+    DEFAULT_SQL_INPUTS = []
     DEFAULT_LLM_MODEL = "llama2-70b-chat"
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
@@ -54,7 +58,8 @@ class LLMModel(BaseModelType):
                 }
             ]
         super().__init__(build_spec, schema_version, pb_version)
-
+        if "sql_inputs" not in self.build_spec:
+            self.build_spec["sql_inputs"] = self.DEFAULT_SQL_INPUTS
         if self.build_spec["llm_model_name"] == None:
             self.build_spec["llm_model_name"] = self.DEFAULT_LLM_MODEL
 
@@ -82,6 +87,7 @@ class LLMModel(BaseModelType):
         else:
             var_inputs = None
             table_inputs = self.build_spec["table_inputs"]
+        sql_inputs_lst = self.build_spec["sql_inputs"]
         model_name = self.build_spec["llm_model_name"]
 
         prompt_tokens = len(prompt.split())
@@ -92,16 +98,26 @@ class LLMModel(BaseModelType):
                 )
         prompt_replaced = prompt.replace("'", "''", -1)
         input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
-        if len(input_indices) == 0:
-            max_index = 0
-        else:
-            max_index = max(int(index) for _, index in input_indices)
+        max_var_inputs_index, max_sql_inputs_index = -1, -1
+        if len(input_indices) > 0:
+            max_var_inputs_index = max(
+                (int(index) for word, index in input_indices if word == "var_inputs"),
+                default=-1,
+            )
+            max_sql_inputs_index = max(
+                (int(index) for word, index in input_indices if word == "sql_inputs"),
+                default=-1,
+            )
 
         validation_inputs = var_inputs if var_inputs is not None else table_inputs
 
         if validation_inputs is not None and max_index >= len(validation_inputs):
             raise ValueError(
                 f"Maximum index {max_index} is out of range for the inputs list."
+
+        if max_sql_inputs_index >= len(sql_inputs_lst):
+            raise ValueError(
+                f"Maximum index {max_sql_inputs_index} is out of range for sql_inputs list."
             )
         if table_inputs:
             from_tables = set()
@@ -119,7 +135,7 @@ class LLMModel(BaseModelType):
 class LLMModelRecipe(PyNativeRecipe):
     def __init__(self, build_spec: dict) -> None:
         self.prompt = build_spec["prompt"]
-        if build_spec["var_inputs"]:
+        if "var_inputs" in build_spec:
             self.var_inputs = build_spec["var_inputs"]
             self.table_inputs = None
         else:
@@ -132,6 +148,7 @@ class LLMModelRecipe(PyNativeRecipe):
             if "run_for_top_k_distinct" in build_spec
             else None
         )
+        self.sql_inputs = build_spec["sql_inputs"]
         self.sql = ""
 
     def describe(self, this: WhtMaterial):
@@ -143,6 +160,7 @@ class LLMModelRecipe(PyNativeRecipe):
         column_name,
         entity_id_column_name,
         input_columns_vars,
+        sql_inputs_df
     ):
         limit_top_k = (
             f"ORDER BY frequency DESC LIMIT {self.k_distinct_values}"
@@ -156,8 +174,12 @@ class LLMModelRecipe(PyNativeRecipe):
         for word, index in input_indices:
             index = int(index)
             placeholder = f"{{{word}[{index}]}}"
-            col = "' ||" + input_columns_vars[index] + "|| ' "
-            prompt_replaced = prompt_replaced.replace(placeholder, col)
+            replacement_prompt = ""
+            if word == "var_inputs":
+                replacement_prompt = "' ||" + input_columns[index] + "|| ' "
+            elif word == "sql_inputs" and sql_inputs_df:
+                replacement_prompt = sql_inputs_df[index]
+            prompt_replaced = prompt_replaced.replace(placeholder, replacement_prompt)
         # Joined_columns used to create a comma seperated string in order to mention
         # all the columns that are used as input in the query.
         joined_columns = ", ".join(input_columns_vars)
@@ -196,6 +218,14 @@ class LLMModelRecipe(PyNativeRecipe):
     def register_dependencies(self, this: WhtMaterial):
         entity_id_column_name = this.model.entity().get("IdColumnName")
         column_name = this.model.name()
+        sql_inputs_df = None
+        if not this.wht_ctx.is_null_ctx and len(self.sql_inputs) > 0:
+            sql_inputs_df = [
+                this.wht_ctx.client.query_sql_with_result(sql_query).to_json(
+                    orient="records"
+                )
+                for sql_query in self.sql_inputs
+            ]
 
         if self.var_inputs:
             var_table_material_template = (
@@ -215,6 +245,7 @@ class LLMModelRecipe(PyNativeRecipe):
                 column_name,
                 entity_id_column_name,
                 input_columns_vars,
+                sql_inputs_df
             )
             self.sql = this.execute_text_template(query_template)
 
@@ -236,6 +267,7 @@ class LLMModelRecipe(PyNativeRecipe):
                 column_name,
                 entity_id_column_name,
                 table_columns,
+                sql_inputs_df
             )
             self.sql = this.execute_text_template(query_template)
 

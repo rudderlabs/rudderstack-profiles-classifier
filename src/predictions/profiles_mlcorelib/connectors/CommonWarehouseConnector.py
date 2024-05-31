@@ -40,11 +40,18 @@ class CommonWarehouseConnector(Connector):
         return train_function(*args, **kwargs)
 
     def transform_arraytype_features(
-        self, feature_df: pd.DataFrame, arraytype_features: List[str]
+        self,
+        feature_df: pd.DataFrame,
+        arraytype_features: List[str],
+        top_k_array_categories,
+        **kwargs,
     ) -> Union[List[str], pd.DataFrame]:
         """Transforms arraytype features in a pandas DataFrame by expanding the arraytype features
         as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
         """
+
+        predict_arraytype_features = kwargs.get("predict_arraytype_features", {})
+
         transformed_dfs = []
         transformed_feature_df = feature_df.copy()
         transformed_array_col_names = []
@@ -55,6 +62,10 @@ class CommonWarehouseConnector(Connector):
         ]
 
         for array_col_name in arraytype_features:
+            feature_df[array_col_name] = feature_df[array_col_name].apply(
+                lambda arr: [x.lower() for x in arr] if arr else arr
+            )
+
             # Get rows with empty or null arrays
             empty_list_rows = feature_df[
                 feature_df[array_col_name].apply(lambda x: x in ([], None))
@@ -74,11 +85,33 @@ class CommonWarehouseConnector(Connector):
                 .reset_index(name="COUNT")
             )
 
-            unique_values = exploded_df["ARRAY_VALUE"].dropna().unique()
+            unique_values = grouped_df["ARRAY_VALUE"].dropna().unique()
+            top_k_array_categories = min(top_k_array_categories, len(unique_values))
+
+            # Select top k most frequent values
+            top_values = (
+                grouped_df.groupby("ARRAY_VALUE")["COUNT"]
+                .sum()
+                .nlargest(top_k_array_categories)
+                .index
+            )
+
+            predict_top_values = predict_arraytype_features.get(array_col_name, [])
+            if len(predict_top_values) != 0:
+                top_values = [
+                    item[len(array_col_name) :].strip("_").lower()
+                    for item in predict_top_values
+                    if "OTHERS" not in item
+                ]
+
+                unique_values = list(set(unique_values) | set(top_values))
+
+            other_values = set(grouped_df["ARRAY_VALUE"]) - set(top_values)
+
             new_array_column_names = [
-                f"{array_col_name}_{value}".upper() for value in unique_values
+                f"{array_col_name}_{value}".upper().strip() for value in unique_values
             ]
-            transformed_array_col_names.extend(new_array_column_names)
+            other_column_name = f"{array_col_name}_OTHERS".upper()
 
             # Pivot the DataFrame to create new columns for each unique value
             pivoted_df = pd.pivot_table(
@@ -88,7 +121,10 @@ class CommonWarehouseConnector(Connector):
                 values="COUNT",
                 fill_value=0,
             ).reset_index()
-            pivoted_df.columns.name = None
+
+            for value in top_values:
+                if value not in pivoted_df.columns:
+                    pivoted_df[value] = 0
 
             # Join with rows having empty or null arrays, and fill NaN values with 0
             joined_df = empty_list_rows.merge(
@@ -101,6 +137,20 @@ class CommonWarehouseConnector(Connector):
                 for old_name, new_name in zip(unique_values, new_array_column_names)
             }
             joined_df = joined_df.rename(columns=rename_dict)
+            joined_df[other_column_name] = sum(
+                joined_df[f"{array_col_name}_{col}".upper()] for col in other_values
+            )
+
+            for old_name in unique_values:
+                if old_name not in other_values:
+                    transformed_array_col_names.append(rename_dict[old_name])
+            transformed_array_col_names.append(other_column_name)
+
+            joined_df.drop(
+                columns=[f"{array_col_name}_{col}".upper() for col in other_values],
+                inplace=True,
+            )
+
             transformed_dfs.append(joined_df)
 
         if transformed_dfs:

@@ -14,10 +14,10 @@ models:
     model_spec:
       prompt: "What is generally the most common gender of the name {var_inputs[0]}? Male, Female, or Unknown? Return only a single word, nothing else."
       entity_key: user
-      var_inputs:
-        - user.Var('name')
-      llm_model_name: "mistral-7b"
-  
+      table_inputs:
+        - select: first_name
+          from: inputs/rsIdentifies
+
   - name: llm_profession_prediction
     model_type: llm_model
     model_spec:
@@ -25,9 +25,11 @@ models:
       entity_key: user
       var_inputs:
         - user.Var('profession')
+      llm_model_name: "llama2-70b-chat"
+      run_for_top_k_distinct: 5
       sql_inputs:
         - "select title, url from predictions_dev_project.pages where timestamp > dateadd(month,-3,current_date()) group by title, url order by count(*) desc limit 10"
-      llm_model_name: "mistral-7b"
+
 
 var_groups:
   - name: default_vars

@@ -40,7 +40,6 @@ class LLMModel(BaseModelType):
         },
         "required": ["prompt"] + EntityKeyBuildSpecSchema["required"],
         "oneOf": [{"required": ["var_inputs"]}, {"required": ["table_inputs"]}],
-        },
         "additionalProperties": False,
     }
     DEFAULT_SQL_INPUTS = []
@@ -57,11 +56,11 @@ class LLMModel(BaseModelType):
                     "entity": entity_key,
                 }
             ]
+        if "llm_model_name" not in build_spec:
+            build_spec["llm_model_name"] = self.DEFAULT_LLM_MODEL
         super().__init__(build_spec, schema_version, pb_version)
         if "sql_inputs" not in self.build_spec:
             self.build_spec["sql_inputs"] = self.DEFAULT_SQL_INPUTS
-        if self.build_spec["llm_model_name"] == None:
-            self.build_spec["llm_model_name"] = self.DEFAULT_LLM_MODEL
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return LLMModelRecipe(self.build_spec)
@@ -89,7 +88,6 @@ class LLMModel(BaseModelType):
             table_inputs = self.build_spec["table_inputs"]
         sql_inputs_lst = self.build_spec["sql_inputs"]
         model_name = self.build_spec["llm_model_name"]
-
         prompt_tokens = len(prompt.split())
         if model_name in model_limits:
             if prompt_tokens > model_limits[model_name]:
@@ -111,9 +109,10 @@ class LLMModel(BaseModelType):
 
         validation_inputs = var_inputs if var_inputs is not None else table_inputs
 
-        if validation_inputs is not None and max_index >= len(validation_inputs):
+        if validation_inputs is not None and max_var_inputs_index >= len(validation_inputs):
             raise ValueError(
-                f"Maximum index {max_index} is out of range for the inputs list."
+                f"Maximum index {max_var_inputs_index} is out of range for the inputs list."
+            )
 
         if max_sql_inputs_index >= len(sql_inputs_lst):
             raise ValueError(
@@ -176,7 +175,7 @@ class LLMModelRecipe(PyNativeRecipe):
             placeholder = f"{{{word}[{index}]}}"
             replacement_prompt = ""
             if word == "var_inputs":
-                replacement_prompt = "' ||" + input_columns[index] + "|| ' "
+                replacement_prompt = "' ||" + input_columns_vars[index] + "|| ' "
             elif word == "sql_inputs" and sql_inputs_df:
                 replacement_prompt = sql_inputs_df[index]
             prompt_replaced = prompt_replaced.replace(placeholder, replacement_prompt)

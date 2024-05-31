@@ -17,9 +17,9 @@ models:
       table_inputs:
         - select: first_name
           from: inputs/rsIdentifies
-      llm_model_name: "llama2-70b-chat"
       features:
         - name: llm_gender_prediction
+
   - name: llm_profession_prediction
     model_type: llm_model
     model_spec:
@@ -33,7 +33,6 @@ models:
         - name: llm_profession_prediction
       sql_inputs:
         - "select title, url from predictions_dev_project.pages where timestamp > dateadd(month,-3,current_date()) group by title, url order by count(*) desc limit 10"
-      llm_model_name: "mistral-7b"
 
 
 var_groups:

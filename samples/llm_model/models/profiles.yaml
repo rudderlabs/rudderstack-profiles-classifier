@@ -17,8 +17,6 @@ models:
       table_inputs:
         - select: first_name
           from: inputs/rsIdentifies
-      features:
-        - name: llm_gender_prediction
 
   - name: llm_profession_prediction
     model_type: llm_model
@@ -29,8 +27,6 @@ models:
         - user.Var('profession')
       llm_model_name: "llama2-70b-chat"
       run_for_top_k_distinct: 5
-      features:
-        - name: llm_profession_prediction
       sql_inputs:
         - "select title, url from predictions_dev_project.pages where timestamp > dateadd(month,-3,current_date()) group by title, url order by count(*) desc limit 10"
 

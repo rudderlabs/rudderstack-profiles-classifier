@@ -3,7 +3,6 @@ from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.schema import (
     EntityKeyBuildSpecSchema,
-    FeatureDetailsBuildSpecSchema,
     EntityIdsBuildSpecSchema,
 )
 from profiles_rudderstack.logger import Logger
@@ -18,7 +17,6 @@ class LLMModel(BaseModelType):
         "type": "object",
         "properties": {
             **EntityKeyBuildSpecSchema["properties"],
-            **FeatureDetailsBuildSpecSchema["properties"],
             **EntityIdsBuildSpecSchema["properties"],
             "prompt": {"type": "string"},
             "var_inputs": {"type": ["array", "null"], "items": {"type": "string"}},

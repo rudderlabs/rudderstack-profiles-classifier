@@ -5,10 +5,10 @@ from src.predictions.profiles_mlcorelib.py_native.llm import LLMModel
 class TestLLMModelValidation(unittest.TestCase):
     def setUp(self):
         self.build_spec = {
+            "entity_key": "user",
             "prompt": "sample prompt input{[0]}",
             "var_inputs": ["input1", "input2"],
             "sql_inputs": ["query1", "query2"],
-            "llm_model_name": None,
         }
         self.schema_ver = 53
         self.pb_version = "v0.11.2"
@@ -32,12 +32,13 @@ class TestLLMModelValidation(unittest.TestCase):
             llm_model.validate()
         self.assertEqual(
             str(context.exception),
-            "Maximum index 3 is out of range for var_inputs list.",
+            "Maximum index 3 is out of range for the inputs list.",
         )
 
     def test_max_index_sql_inputs(self):
         # Testing max index sql inputs
         # First, test with valid indices
+
         self.build_spec["prompt"] = "sample prompt"
         llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
         llm_model.validate()
@@ -48,9 +49,9 @@ class TestLLMModelValidation(unittest.TestCase):
         llm_model.validate()
 
         # Testing the case for correct maximum index with sql_inputs and var_inputs both
-        self.build_spec["prompt"] = (
-            "sample prompt {var_inputs[0]} {sql_inputs[0]} {sql_inputs[1]}"
-        )
+        self.build_spec[
+            "prompt"
+        ] = "sample prompt {var_inputs[0]} {sql_inputs[0]} {sql_inputs[1]}"
         llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
         llm_model.validate()
 

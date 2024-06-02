@@ -192,7 +192,9 @@ def preprocess_and_train(
 
     logger.debug(f"Transforming arraytype features")
     transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
-        feature_table, list(input_column_types["arraytype"].keys())
+        feature_table,
+        list(input_column_types["arraytype"].keys()),
+        trainer.prep.top_k_array_categories,
     )
 
     logger.debug(f"Ignore features detected: {ignore_features}")

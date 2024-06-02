@@ -31,7 +31,7 @@ data:
 preprocessing:
   # Refer to https://pycaret.readthedocs.io/en/stable/api/classification.html#pycaret.classification.setup for setting up preprocessing params for classification
   # Refer to https://pycaret.readthedocs.io/en/stable/api/regression.html#pycaret.regression.setup for setting up preprocessing params for regression
-
+  top_k_array_categories: 2
   timestamp_columns: [] # Timestamp columns get a datediff function applied with the index_timestamp to get days_since_<timestamp_column> features
   
   arraytype_columns: []
@@ -48,7 +48,9 @@ preprocessing:
     categorical_imputation : "mode"
 
   # Train, test, val split ratios. They must be each between 0 and 1, and sum to 1
-  train_size: 0.8
+  train_size: 0.6
+  val_size: 0.2
+  test_size: 0.2
 
 
 train:

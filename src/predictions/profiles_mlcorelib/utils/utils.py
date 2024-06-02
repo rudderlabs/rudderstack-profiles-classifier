@@ -65,6 +65,9 @@ class PreprocessorConfig:
     categorical_features: List[str]
     imputation_strategy: dict
     train_size: float
+    test_size: float
+    val_size: float
+    top_k_array_categories: int
 
 
 @dataclass

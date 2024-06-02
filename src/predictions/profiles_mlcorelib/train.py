@@ -131,14 +131,11 @@ def _train(
         connector.create_stage()
         connector.pre_job_cleanup()
 
-        # FIXME: Avoid creating session multiple times
+        new_session = connector.session
 
         # This is to avoid the pickling error in snowpark - TypeError: cannot pickle '_thread.lock' object
         # The implication of this is that the "self.session" is not available in Snowpark stored procedures
-        connector.session.close()
         connector.session = None
-        # A new session must be created before creating the stored procedure
-        new_session = connector.build_session(creds)
 
         @sproc(
             name=train_procedure,
@@ -147,6 +144,9 @@ def _train(
             replace=True,
             imports=import_paths,
             packages=constants.SNOWFLAKE_TRAINING_PACKAGES,
+            # Pass session object to avoid the error - More than one active session is detected
+            # This error is because pywht is also creating a session object
+            session=new_session,
         )
 
         # This function is called from connector.call_procedure in preprocess_and_train.py

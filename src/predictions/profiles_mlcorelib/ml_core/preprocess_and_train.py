@@ -172,6 +172,12 @@ def preprocess_and_train(
         f"Following features are detected as having high cardinality, and will be ignored for training: {high_cardinal_features}"
     )
 
+    transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
+        feature_table,
+        input_column_types["arraytype"],
+        trainer.prep.top_k_array_categories,
+    )
+
     feature_table = connector.transform_booleantype_features(
         feature_table, list(input_column_types["booleantype"].keys())
     )

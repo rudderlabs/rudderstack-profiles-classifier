@@ -116,8 +116,8 @@ class ClassificationTrainer(MLTrainer):
     def get_metrics(self, model, X_test, y_test, X_train, y_train, n_folds) -> dict:
         train_metrics = self._evaluate_classifier(model, X_train, y_train)
         test_metrics = self._evaluate_classifier(model, X_test, y_test)
-        val_metrics = test_metrics
-
+        val_metrics = self._evaluate_classifier(model, X_test, y_test)
+        
         val_metrics["users"] = int(1 / n_folds * len(y_train))
         train_metrics["users"] = len(y_train) - int(1 / n_folds * len(y_train))
 

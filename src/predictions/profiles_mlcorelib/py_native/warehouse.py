@@ -5,5 +5,5 @@ def standardize_ref_name(warehouse_type: str, ref_name: str):
     if warehouse_type == "snowflake":
         return ref_name.upper()
     if warehouse_type == "redshift":
-        ref_name.lower()
+        return ref_name.lower()
     return ref_name

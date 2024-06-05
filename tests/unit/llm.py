@@ -5,11 +5,10 @@ from src.predictions.profiles_mlcorelib.py_native.llm import LLMModel
 class TestLLMModelValidation(unittest.TestCase):
     def setUp(self):
         self.build_spec = {
+            "entity_key": "user",
             "prompt": "sample prompt {var_inputs[0]}",
-            "eligible_users": "1=1",
             "var_inputs": ["input1", "input2"],
             "sql_inputs": ["query1", "query2"],
-            "llm_model_name": None,
         }
         self.schema_ver = 53
         self.pb_version = "v0.11.2"
@@ -33,7 +32,7 @@ class TestLLMModelValidation(unittest.TestCase):
             llm_model.validate()
         self.assertEqual(
             str(context.exception),
-            "Maximum index 3 is out of range for var_inputs list.",
+            "Maximum index 3 is out of range for the inputs list.",
         )
 
     def test_max_index_sql_inputs(self):
@@ -86,7 +85,7 @@ class TestLLMModelValidation(unittest.TestCase):
             llm_model.validate()
         self.assertEqual(
             str(context.exception),
-            "Maximum index 2 is out of range for var_inputs list.",
+            "Maximum index 2 is out of range for the inputs list.",
         )
 
     def test_prompt_length_validation(self):

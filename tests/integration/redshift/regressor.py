@@ -192,8 +192,7 @@ def test_regressor():
     et = time.time()
     # get the execution time
     elapsed_time = et - st
-    print("Execution time:", elapsed_time, "seconds")
+    print("Execution time is :", elapsed_time, "seconds")
 
 
 test_regressor()
-

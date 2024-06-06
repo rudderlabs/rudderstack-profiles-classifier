@@ -19,6 +19,7 @@ class LLMModel(BaseModelType):
             **EntityKeyBuildSpecSchema["properties"],
             **EntityIdsBuildSpecSchema["properties"],
             "prompt": {"type": "string"},
+            "eligible_users": {"type": ["string", "null"]},
             "var_inputs": {"type": ["array", "null"], "items": {"type": "string"}},
             "table_inputs": {
                 "type": ["array", "null"],
@@ -39,8 +40,11 @@ class LLMModel(BaseModelType):
         "oneOf": [{"required": ["var_inputs"]}, {"required": ["table_inputs"]}],
         "additionalProperties": False,
     }
-    DEFAULT_SQL_INPUTS = []
-    DEFAULT_LLM_MODEL = "llama2-70b-chat"
+    DEFAULT_VALUES = {
+        "eligible_users": "",
+        "sql_inputs": [],
+        "llm_model_name": "llama2-70b-chat",
+    }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         if "ids" not in build_spec:
@@ -53,11 +57,10 @@ class LLMModel(BaseModelType):
                     "entity": entity_key,
                 }
             ]
-        if "llm_model_name" not in build_spec:
-            build_spec["llm_model_name"] = self.DEFAULT_LLM_MODEL
         super().__init__(build_spec, schema_version, pb_version)
-        if "sql_inputs" not in self.build_spec:
-            self.build_spec["sql_inputs"] = self.DEFAULT_SQL_INPUTS
+        for key in self.DEFAULT_VALUES.keys():
+            if key not in self.build_spec or self.build_spec[key] is None:
+                self.build_spec[key] = self.DEFAULT_VALUES[key]
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return LLMModelRecipe(self.build_spec)
@@ -77,6 +80,7 @@ class LLMModel(BaseModelType):
         }
 
         prompt = self.build_spec["prompt"]
+        eligible_users = self.build_spec["eligible_users"]
         if "var_inputs" in self.build_spec:
             var_inputs = self.build_spec["var_inputs"]
             table_inputs = None
@@ -91,8 +95,11 @@ class LLMModel(BaseModelType):
                 raise ValueError(
                     f"The prompt exceeds the token limit for model '{model_name}'. Maximum allowed tokens: {model_limits[model_name]}"
                 )
-        prompt_replaced = prompt.replace("'", "''", -1)
-        input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
+
+        input_indices = []
+        for text_input in (prompt, eligible_users):
+            text_input_replaced = text_input.replace("'", "''", -1)
+            input_indices.extend(re.findall(r"{(\w+)\[(\d+)\]}", text_input_replaced))
         max_var_inputs_index, max_sql_inputs_index = -1, -1
         if len(input_indices) > 0:
             max_var_inputs_index = max(
@@ -130,9 +137,58 @@ class LLMModel(BaseModelType):
         return super().validate()
 
 
+class Utility:
+    def __init__(self):
+        pass
+
+    def get_index_list(self, text_input):
+        return re.findall(r"{(\w+)\[(\d+)\]}", text_input)
+
+    def replace_placeholders(
+        self,
+        var_inputs_indices,
+        eligible_users_indices,
+        task_prompt,
+        eligible_users_prompt,
+        input_columns_vars,
+        sql_inputs_df=None,
+    ):
+        def replace_inputs_references(word, index, original_prompt, replacement_prompt):
+            placeholder = f"{{{word}[{index}]}}"
+            replaced_prompt = original_prompt.replace(placeholder, replacement_prompt)
+            return replaced_prompt
+
+        var_inputs_prompt_replaced, eligible_users_prompt_replaced = (
+            task_prompt,
+            eligible_users_prompt,
+        )
+        for word, index in var_inputs_indices:
+            replacement_prompt = ""
+            index = int(index)
+            if word == "var_inputs":
+                replacement_prompt = "' ||" + input_columns_vars[index] + "|| '"
+            elif word == "sql_inputs" and sql_inputs_df:
+                replacement_prompt = sql_inputs_df[index]
+            var_inputs_prompt_replaced = replace_inputs_references(
+                word, index, var_inputs_prompt_replaced, replacement_prompt
+            )
+
+        for word, index in eligible_users_indices:
+            replacement_prompt = ""
+            index = int(index)
+            if word == "var_inputs":
+                replacement_prompt = input_columns_vars[index]
+            eligible_users_prompt_replaced = replace_inputs_references(
+                word, index, eligible_users_prompt_replaced, replacement_prompt
+            )
+
+        return var_inputs_prompt_replaced, eligible_users_prompt_replaced
+
+
 class LLMModelRecipe(PyNativeRecipe):
     def __init__(self, build_spec: dict) -> None:
         self.prompt = build_spec["prompt"]
+        self.eligible_users = build_spec["eligible_users"]
         if "var_inputs" in build_spec:
             self.var_inputs = build_spec["var_inputs"]
             self.table_inputs = None
@@ -165,19 +221,23 @@ class LLMModelRecipe(PyNativeRecipe):
             if self.k_distinct_values
             else ""
         )
-        prompt_replaced = self.prompt.replace(
-            "'", "''", -1
-        )  # This is to escape single quotes
-        input_indices = re.findall(r"{(\w+)\[(\d+)\]}", prompt_replaced)
-        for word, index in input_indices:
-            index = int(index)
-            placeholder = f"{{{word}[{index}]}}"
-            replacement_prompt = ""
-            if word == "var_inputs":
-                replacement_prompt = "' ||" + input_columns_vars[index] + "|| ' "
-            elif word == "sql_inputs" and sql_inputs_df:
-                replacement_prompt = sql_inputs_df[index]
-            prompt_replaced = prompt_replaced.replace(placeholder, replacement_prompt)
+
+        utils = Utility()
+        var_inputs_indices = utils.get_index_list(self.prompt)
+        eligible_users_indices = utils.get_index_list(self.eligible_users)
+
+        (
+            var_inputs_prompt_replaced,
+            eligible_users_prompt_replaced,
+        ) = utils.replace_placeholders(
+            var_inputs_indices,
+            eligible_users_indices,
+            self.prompt,
+            self.eligible_users,
+            input_columns_vars,
+            sql_inputs_df,
+        )
+
         # Joined_columns used to create a comma seperated string in order to mention
         # all the columns that are used as input in the query.
         joined_columns = ", ".join(input_columns_vars)
@@ -186,24 +246,32 @@ class LLMModelRecipe(PyNativeRecipe):
         join_condition = " AND ".join(
             [f"a.{col} = b.{col}" for col in input_columns_vars]
         )
+
+        filtered_entity_var_str = (
+            f"WHERE {eligible_users_prompt_replaced}"
+            if eligible_users_prompt_replaced
+            else ""
+        )
+        filtered_entity_var_table_cte = f"WITH filtered_entity_var_table AS (SELECT * FROM {{{{entityVarTable}}}} {filtered_entity_var_str})"
+
         # model_creator_sql
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% set entityVarTable = {input_material_template} %}}
                     -- Common Table Expression (CTE) to get the distinct values of specified columns based on their frequency
-                    WITH top_k_distinct_attribute AS (
+                    {filtered_entity_var_table_cte}, top_k_distinct_attribute AS (
                         SELECT {joined_columns}, COUNT(*) AS frequency
-                        FROM {{{{entityVarTable}}}}
+                        FROM filtered_entity_var_table
                         GROUP BY {joined_columns}
                         {limit_top_k}
                     ), predicted_attribute AS (
                         -- CTE to get predicted attributes using the specified model for the top k distinct values
-                        SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{prompt_replaced}') AS {column_name}
+                        SELECT {joined_columns}, SNOWFLAKE.CORTEX.COMPLETE('{self.llm_model_name}','{var_inputs_prompt_replaced}') AS {column_name}
                         FROM top_k_distinct_attribute
                     )
                     SELECT a.{entity_id_column_name}, b.{column_name}
-                    FROM {{{{entityVarTable}}}} a
+                    FROM filtered_entity_var_table a
                     -- Perform a LEFT JOIN between the original table and the predicted attributes to fill all the
                     -- attribute values with their corresponding predicted value.
                     LEFT JOIN predicted_attribute b ON {join_condition}

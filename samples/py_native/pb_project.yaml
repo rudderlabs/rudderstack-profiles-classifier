@@ -5,6 +5,6 @@ model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/profiles-features-integration-test.git
+    url: https://github.com/rudderlabs/profiles-features-integration-test/tree/feature/prml-615-add-arraytype-features-to-integration-tests
 python_requirements:
   - profiles_mlcorelib==0.2.0

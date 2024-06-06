@@ -137,6 +137,54 @@ class LLMModel(BaseModelType):
         return super().validate()
 
 
+class Utility:
+    def __init__(self):
+        pass
+
+    def get_index_list(self, text_input):
+        return re.findall(r"{(\w+)\[(\d+)\]}", text_input)
+
+    def replace_placeholders(
+        self,
+        var_inputs_indices,
+        eligible_users_indices,
+        task_prompt,
+        eligible_users_prompt,
+        input_columns_vars,
+        sql_inputs_df=None,
+    ):
+        def replace_inputs_references(word, index, original_prompt, replacement_prompt):
+            placeholder = f"{{{word}[{index}]}}"
+            replaced_prompt = original_prompt.replace(placeholder, replacement_prompt)
+            return replaced_prompt
+
+        var_inputs_prompt_replaced, eligible_users_prompt_replaced = (
+            task_prompt,
+            eligible_users_prompt,
+        )
+        for word, index in var_inputs_indices:
+            replacement_prompt = ""
+            index = int(index)
+            if word == "var_inputs":
+                replacement_prompt = "' ||" + input_columns_vars[index] + "|| '"
+            elif word == "sql_inputs" and sql_inputs_df:
+                replacement_prompt = sql_inputs_df[index]
+            var_inputs_prompt_replaced = replace_inputs_references(
+                word, index, var_inputs_prompt_replaced, replacement_prompt
+            )
+
+        for word, index in eligible_users_indices:
+            replacement_prompt = ""
+            index = int(index)
+            if word == "var_inputs":
+                replacement_prompt = input_columns_vars[index]
+            eligible_users_prompt_replaced = replace_inputs_references(
+                word, index, eligible_users_prompt_replaced, replacement_prompt
+            )
+
+        return var_inputs_prompt_replaced, eligible_users_prompt_replaced
+
+
 class LLMModelRecipe(PyNativeRecipe):
     def __init__(self, build_spec: dict) -> None:
         self.prompt = build_spec["prompt"]
@@ -168,65 +216,20 @@ class LLMModelRecipe(PyNativeRecipe):
         input_columns_vars,
         sql_inputs_df,
     ):
-        def _get_index_list(text_input):
-            return re.findall(r"{(\w+)\[(\d+)\]}", text_input)
-
-        def _replace_placeholders(
-            var_inputs_indices,
-            eligible_users_indices,
-            task_prompt,
-            eligible_users_prompt,
-            input_columns_vars,
-            sql_inputs_df=None,
-        ):
-            def _replace_inputs_references(
-                word, index, original_prompt, replacement_prompt
-            ):
-                placeholder = f"{{{word}[{index}]}}"
-                replaced_prompt = original_prompt.replace(
-                    placeholder, replacement_prompt
-                )
-                return replaced_prompt
-
-            var_inputs_prompt_replaced, eligible_users_prompt_replaced = (
-                task_prompt,
-                eligible_users_prompt,
-            )
-            for word, index in var_inputs_indices:
-                replacement_prompt = ""
-                index = int(index)
-                if word == "var_inputs":
-                    replacement_prompt = "' ||" + input_columns_vars[index] + "|| ' "
-                elif word == "sql_inputs" and sql_inputs_df:
-                    replacement_prompt = sql_inputs_df[index]
-                var_inputs_prompt_replaced = _replace_inputs_references(
-                    word, index, task_prompt, replacement_prompt
-                )
-
-            for word, index in eligible_users_indices:
-                replacement_prompt = ""
-                index = int(index)
-                if word == "var_inputs":
-                    replacement_prompt = input_columns_vars[index]
-                eligible_users_prompt_replaced = _replace_inputs_references(
-                    word, index, eligible_users_prompt, replacement_prompt
-                )
-
-            return var_inputs_prompt_replaced, eligible_users_prompt_replaced
-
         limit_top_k = (
             f"ORDER BY frequency DESC LIMIT {self.k_distinct_values}"
             if self.k_distinct_values
             else ""
         )
 
-        var_inputs_indices = _get_index_list(self.prompt)
-        eligible_users_indices = _get_index_list(self.eligible_users)
+        utils = Utility()
+        var_inputs_indices = utils.get_index_list(self.prompt)
+        eligible_users_indices = utils.get_index_list(self.eligible_users)
 
         (
             var_inputs_prompt_replaced,
             eligible_users_prompt_replaced,
-        ) = _replace_placeholders(
+        ) = utils.replace_placeholders(
             var_inputs_indices,
             eligible_users_indices,
             self.prompt,

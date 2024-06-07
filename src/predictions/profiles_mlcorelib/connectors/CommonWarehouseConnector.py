@@ -64,7 +64,7 @@ class CommonWarehouseConnector(Connector):
 
         for array_col_name in arraytype_features:
             feature_df[array_col_name] = feature_df[array_col_name].apply(
-                lambda x: ast.literal_eval(x) if x is not None else x
+                lambda x: ast.literal_eval(x) if isinstance(x, str) else x
             )
             feature_df[array_col_name] = feature_df[array_col_name].apply(
                 lambda arr: [x.lower() for x in arr] if isinstance(arr, list) else arr

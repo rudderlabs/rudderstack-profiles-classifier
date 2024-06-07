@@ -285,7 +285,7 @@ class CommonWarehouseConnector(Connector):
         return [
             field.name
             for field in schema_fields
-            if field.field_type in required_data_types
+            if any(data_type in field.field_type for data_type in required_data_types)
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
         ]
 

@@ -377,9 +377,7 @@ def transform_null(
 ) -> pd.DataFrame:
     for col in numeric_columns:
         df[col] = df[col].astype("float64")
-    """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
-    for col in numeric_columns:
-        df[col] = df[col].astype("float64")
+
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
     df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
     return df

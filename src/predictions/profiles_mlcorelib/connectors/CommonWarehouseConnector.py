@@ -1,3 +1,4 @@
+import ast
 from functools import reduce
 import os
 import json
@@ -62,6 +63,9 @@ class CommonWarehouseConnector(Connector):
         ]
 
         for array_col_name in arraytype_features:
+            feature_df[array_col_name] = feature_df[array_col_name].apply(
+                lambda x: ast.literal_eval(x) if x is not None else x
+            )
             feature_df[array_col_name] = feature_df[array_col_name].apply(
                 lambda arr: [x.lower() for x in arr] if isinstance(arr, list) else arr
             )
@@ -129,9 +133,10 @@ class CommonWarehouseConnector(Connector):
                     pivoted_df[value] = 0
 
             # Join with rows having empty or null arrays, and fill NaN values with 0
-            joined_df = empty_list_rows.merge(
-                pivoted_df, on=group_by_cols, how="outer"
-            ).fillna(0)
+            joined_df = empty_list_rows.merge(pivoted_df, on=group_by_cols, how="outer")
+            for value in top_values:
+                joined_df[value] = joined_df[value].fillna(0)
+
             joined_df.drop(columns=arraytype_features, inplace=True)
 
             rename_dict = {

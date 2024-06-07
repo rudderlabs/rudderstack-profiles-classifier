@@ -476,11 +476,13 @@ class SnowflakeConnector(Connector):
 
         # Loop through each array type feature
         for array_column in arraytype_features:
-            feature_table = feature_table.withColumn(
-                array_column, F.expr(f"transform({array_column}, x -> lower(x))")
-            )
+            # TODO : Find a fix to convert all the arraytype values to lower case
+            # feature_table = feature_table.withColumn(
+            #     array_column, F.expr(f"transform({array_column}, x -> lower(x))")
+            # )
 
             other_column_name = f"{array_column}_OTHERS".upper()
+
             # Identify rows with empty or null arrays
             empty_array_rows = feature_table.filter(F.col(array_column) == [])
             null_array_value_rows = feature_table.filter(F.col(array_column).isNull())

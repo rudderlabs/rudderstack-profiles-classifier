@@ -63,12 +63,14 @@ class CommonWarehouseConnector(Connector):
 
         for array_col_name in arraytype_features:
             feature_df[array_col_name] = feature_df[array_col_name].apply(
-                lambda arr: [x.lower() for x in arr] if arr else arr
+                lambda arr: [x.lower() for x in arr] if isinstance(arr, list) else arr
             )
 
             # Get rows with empty or null arrays
             empty_list_rows = feature_df[
-                feature_df[array_col_name].apply(lambda x: x in ([], None))
+                feature_df[array_col_name].apply(
+                    lambda x: x is None or (isinstance(x, list) and len(x) == 0)
+                )
             ]
 
             # Explode arraytype column

@@ -1,3 +1,4 @@
+import ast
 from functools import reduce
 import os
 import json
@@ -64,12 +65,17 @@ class CommonWarehouseConnector(Connector):
 
         for array_col_name in arraytype_features:
             feature_df[array_col_name] = feature_df[array_col_name].apply(
-                lambda arr: [x.lower() for x in arr] if arr else arr
+                lambda x: ast.literal_eval(x) if isinstance(x, str) else x
+            )
+            feature_df[array_col_name] = feature_df[array_col_name].apply(
+                lambda arr: [x.lower() for x in arr] if isinstance(arr, list) else arr
             )
 
             # Get rows with empty or null arrays
             empty_list_rows = feature_df[
-                feature_df[array_col_name].apply(lambda x: x in ([], None))
+                feature_df[array_col_name].apply(
+                    lambda x: x is None or (isinstance(x, list) and len(x) == 0)
+                )
             ]
 
             # Explode arraytype column
@@ -128,9 +134,10 @@ class CommonWarehouseConnector(Connector):
                     pivoted_df[value] = 0
 
             # Join with rows having empty or null arrays, and fill NaN values with 0
-            joined_df = empty_list_rows.merge(
-                pivoted_df, on=group_by_cols, how="outer"
-            ).fillna(0)
+            joined_df = empty_list_rows.merge(pivoted_df, on=group_by_cols, how="outer")
+            for value in top_values:
+                joined_df[value] = joined_df[value].fillna(0)
+
             joined_df.drop(columns=arraytype_features, inplace=True)
 
             rename_dict = {
@@ -284,7 +291,7 @@ class CommonWarehouseConnector(Connector):
         return [
             field.name
             for field in schema_fields
-            if field.field_type in required_data_types
+            if any(data_type in field.field_type for data_type in required_data_types)
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
         ]
 

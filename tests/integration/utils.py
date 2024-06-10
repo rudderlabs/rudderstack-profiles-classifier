@@ -156,7 +156,7 @@ def validate_predictions_df_classification(creds: dict):
         "VALID_AT",
         pred_column,
         "MODEL_ID",
-        output_label,
+        f"{output_model_name}_predicted_label",
         f"PERCENTILE_{pred_column}",
     ]
     _validate_predictions_df(creds, required_columns)

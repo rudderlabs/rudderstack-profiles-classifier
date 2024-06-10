@@ -21,6 +21,7 @@ from ..utils import utils
 from ..utils import constants
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
+from ..wht.rudderPB import MATERIAL_PREFIX
 
 local_folder = constants.SF_LOCAL_STORAGE_DIR
 
@@ -682,6 +683,47 @@ class SnowflakeConnector(Connector):
             )
             .collect()
         )
+
+    def get_old_prediction_table(
+        self,
+        lookahead_days: int,
+        current_date: str,
+        model_name: str,
+        material_registry: str,
+    ):
+        past_predictions_end_date = utils.date_add(current_date, -lookahead_days)
+        registry_df = self.get_material_registry_table(material_registry)
+
+        try:
+            past_predictions_info = (
+                registry_df.filter(col("model_name") == model_name)
+                .filter(col("model_type") == "python_model")
+                .filter(to_date(col("end_ts")) == past_predictions_end_date)
+                .sort(F.col("creation_ts").desc())
+                .collect()[0]
+            )
+        except IndexError:
+            raise Exception(
+                f"No past predictions found for model {model_name} before {past_predictions_end_date}"
+            )
+
+        predictions_table_name = (
+            f"{MATERIAL_PREFIX}{model_name}"
+            + f"_{past_predictions_info.MODEL_HASH}"
+            + f"_{past_predictions_info.SEQ_NO}"
+        )
+        return predictions_table_name
+
+    def get_previous_predictions_info(
+        self, prev_pred_ground_truth_table, score_column, label_column
+    ):
+        single_row = prev_pred_ground_truth_table.limit(1).collect()[0]
+        model_id = single_row.MODEL_ID
+        valid_at = single_row.VALID_AT
+        score_and_ground_truth_df = prev_pred_ground_truth_table.select(
+            score_column, label_column
+        ).toPandas()
+        return score_and_ground_truth_df, model_id, valid_at
 
     def get_tables_by_prefix(self, prefix: str):
         tables = list()

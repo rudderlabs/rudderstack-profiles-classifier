@@ -13,6 +13,7 @@ from typing import Iterable, List, Tuple, Any, Union, Optional, Sequence, Dict
 from ..utils import utils
 from ..utils import constants
 from ..utils.logger import logger
+from ..wht.rudderPB import MATERIAL_PREFIX
 from .Connector import Connector
 from .wh.profiles_connector import ProfilesConnector
 
@@ -478,6 +479,54 @@ class CommonWarehouseConnector(Connector):
         for _, row in feature_label_df_merged:
             result.append(row)
         return result
+
+    def get_old_prediction_table(
+        self,
+        lookahead_days: int,
+        current_date: str,
+        model_name: str,
+        material_registry: str,
+    ):
+        past_predictions_end_date = utils.date_add(current_date, -lookahead_days)
+        df = self.get_material_registry_table(material_registry)
+
+        try:
+            past_predictions_info = (
+                df[
+                    (df["model_name"] == model_name)
+                    & (df["model_type"] == "python_model")
+                    & (
+                        df["end_ts"].dt.date
+                        == pd.to_datetime(past_predictions_end_date).date()
+                    )
+                ]
+                .sort_values(by="creation_ts", ascending=False)
+                .iloc[0]
+            )
+        except IndexError:
+            raise Exception(
+                f"No past predictions found for model {model_name} before {past_predictions_end_date}"
+            )
+
+        predictions_table_name = (
+            f"{MATERIAL_PREFIX}{model_name}"
+            + "_"
+            + f'{past_predictions_info["model_hash"]}'
+            + "_"
+            + f'{past_predictions_info["seq_no"]}'
+        )
+        return predictions_table_name
+
+    def get_previous_predictions_info(
+        self, prev_pred_ground_truth_table, score_column, label_column
+    ):
+        single_row = prev_pred_ground_truth_table.iloc[0]
+        model_id = single_row["model_id"]
+        valid_at = single_row["valid_at"]
+        score_and_ground_truth_df = prev_pred_ground_truth_table[
+            [score_column, label_column]
+        ]
+        return score_and_ground_truth_df, model_id, valid_at
 
     def get_creation_ts(
         self,

@@ -415,9 +415,11 @@ class SnowflakeConnector(Connector):
     ):
         joined_df = joined_df.withColumn(
             other_column_name,
-            sum(joined_df[f"'{col}'"] for col in other_values)
-            if len(other_values) != 0
-            else F.lit(0),
+            (
+                sum(joined_df[f"'{col}'"] for col in other_values)
+                if len(other_values) != 0
+                else F.lit(0)
+            ),
         )
         transformed_column_names.append(other_column_name)
 

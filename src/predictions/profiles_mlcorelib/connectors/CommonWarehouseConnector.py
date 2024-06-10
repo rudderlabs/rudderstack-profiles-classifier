@@ -490,7 +490,7 @@ class CommonWarehouseConnector(Connector):
                     & (df["model_type"] == "python_model")
                     & (
                         df["end_ts"].dt.date
-                        <= pd.to_datetime(past_predictions_end_date).date()
+                        == pd.to_datetime(past_predictions_end_date).date()
                     )
                 ]
                 .sort_values(by="creation_ts", ascending=False)

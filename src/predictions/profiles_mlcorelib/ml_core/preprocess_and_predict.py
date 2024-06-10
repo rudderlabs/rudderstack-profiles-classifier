@@ -266,20 +266,22 @@ def preprocess_and_predict(
                 overwrite=False,
             )
         elif creds["type"] in ("redshift", "bigquery"):
-            (
-                metrics_df,
-                create_metrics_table_query,
-            ) = connector.fetch_create_metrics_table_query(
-                metrics_df,
-                metrics_table,
-            )
-            connector.run_query(
-                create_metrics_table_query,
-                response=False,
-            )
+            if not connector.is_valid_table(metrics_table):
+                (
+                    metrics_df,
+                    create_metrics_table_query,
+                ) = connector.fetch_create_metrics_table_query(
+                    metrics_df,
+                    metrics_table,
+                )
+                connector.run_query(
+                    create_metrics_table_query,
+                    response=False,
+                )
+
             connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     except Exception as e:
-        logger.info(f"Error while fetching previous prediction table: {e}")
+        logger.warning(f"Error while fetching previous prediction table: {e}")
 
     logger.debug("Closing the session")
 

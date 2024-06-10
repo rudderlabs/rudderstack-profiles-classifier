@@ -694,7 +694,7 @@ class SnowflakeConnector(Connector):
             past_predictions_info = (
                 registry_df.filter(col("model_name") == model_name)
                 .filter(col("model_type") == "python_model")
-                .filter(to_date(col("end_ts")) <= past_predictions_end_date)
+                .filter(to_date(col("end_ts")) == past_predictions_end_date)
                 .sort(F.col("creation_ts").desc())
                 .collect()[0]
             )

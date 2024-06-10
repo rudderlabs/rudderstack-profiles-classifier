@@ -5,6 +5,6 @@ model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/profiles-features-integration-test/tree/feat/add-arraytype-features
+    url: https://github.com/rudderlabs/profiles-features-integration-test
 python_requirements:
   - profiles_mlcorelib==0.2.0

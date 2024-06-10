@@ -55,6 +55,8 @@ def preprocess_and_predict(
     model_hash = results["config"]["material_hash"]
     input_model_name = results["config"]["input_model_name"]
 
+    numeric_columns = results["column_names"]["input_column_types"]["numeric"]
+    categorical_columns = results["column_names"]["input_column_types"]["categorical"]
     arraytype_columns = results["column_names"]["input_column_types"]["arraytype"]
     timestamp_columns = results["column_names"]["input_column_types"]["timestamp"]
     booleantype_columns = results["column_names"]["input_column_types"]["booleantype"]
@@ -172,6 +174,13 @@ def preprocess_and_predict(
         class predict_scores:
             def end_partition(self, df):
                 df.columns = features
+                for col in numeric_columns:
+                    df[col] = df[col].astype("float64")
+                df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+                df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+                df[numeric_columns] = df[numeric_columns].fillna(0)
+                df[categorical_columns] = df[categorical_columns].fillna("unknown")
+
                 predictions = predict_helper(df, model_name)
 
                 # Create a new DataFrame with the extracted column names

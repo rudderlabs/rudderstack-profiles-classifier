@@ -203,6 +203,19 @@ class MLTrainer(ABC):
 
         model_id = str(int(time.time()))
 
+        numeric_cols = [
+            col.upper()
+            for col in input_col_types["numeric"]
+            if col.upper() in feature_df
+        ]
+        categorical_cols = [
+            col.upper()
+            for col in input_col_types["categorical"]
+            if col.upper() in feature_df
+        ]
+
+        feature_df = utils.transform_null(feature_df, numeric_cols, categorical_cols)
+
         (
             train_x,
             train_y,
@@ -235,7 +248,6 @@ class MLTrainer(ABC):
             categorical_features=categorical_cols,
             fold=n_folds,
             fold_strategy=fold_strategy,
-            **self.prep.imputation_strategy,
         )
 
         for custom_metric in custom_metrics:

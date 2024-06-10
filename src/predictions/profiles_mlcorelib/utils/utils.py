@@ -226,6 +226,19 @@ def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> Lis
     return category_names
 
 
+def transform_null(
+    df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str]
+) -> pd.DataFrame:
+    for col in numeric_columns:
+        df[col] = df[col].astype("float64")
+    """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
+    for col in numeric_columns:
+        df[col] = df[col].astype("float64")
+    df[numeric_columns] = df[numeric_columns].replace({pd.NA: 0})
+    df[categorical_columns] = df[categorical_columns].replace({pd.NA: "unknown"})
+    return df
+
+
 def get_output_directory(folder_path: str) -> str:
     file_list = [file for file in os.listdir(folder_path) if file.endswith(".py")]
     if file_list == []:

@@ -790,7 +790,7 @@ def plot_top_k_feature_importance(
     )
     ax.set_xlabel(x_label)
     ax.set_ylabel("Feature Name")
-    plt.title(f"Top {top_k_features} Important Features")
+    plt.title(f"Top Features")
     plt.savefig(figure_file, bbox_inches="tight")
     plt.clf()
 

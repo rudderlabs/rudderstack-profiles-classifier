@@ -129,6 +129,10 @@ class MLTrainer(ABC):
         pass
 
     @abstractmethod
+    def get_prev_pred_metrics(self, y_true, y_pred):
+        pass
+
+    @abstractmethod
     def prepare_training_summary(
         self, model_results: dict, model_timestamp: str
     ) -> dict:

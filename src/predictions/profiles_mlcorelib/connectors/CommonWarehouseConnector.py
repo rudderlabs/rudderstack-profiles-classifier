@@ -1,3 +1,4 @@
+import ast
 from functools import reduce
 import os
 import json
@@ -12,6 +13,7 @@ from typing import Iterable, List, Tuple, Any, Union, Optional, Sequence, Dict
 from ..utils import utils
 from ..utils import constants
 from ..utils.logger import logger
+from ..wht.rudderPB import MATERIAL_PREFIX
 from .Connector import Connector
 from .wh.profiles_connector import ProfilesConnector
 
@@ -63,12 +65,17 @@ class CommonWarehouseConnector(Connector):
 
         for array_col_name in arraytype_features:
             feature_df[array_col_name] = feature_df[array_col_name].apply(
-                lambda arr: [x.lower() for x in arr] if arr else arr
+                lambda x: ast.literal_eval(x) if isinstance(x, str) else x
+            )
+            feature_df[array_col_name] = feature_df[array_col_name].apply(
+                lambda arr: [x.lower() for x in arr] if isinstance(arr, list) else arr
             )
 
             # Get rows with empty or null arrays
             empty_list_rows = feature_df[
-                feature_df[array_col_name].apply(lambda x: x in ([], None))
+                feature_df[array_col_name].apply(
+                    lambda x: x is None or (isinstance(x, list) and len(x) == 0)
+                )
             ]
 
             # Explode arraytype column
@@ -127,9 +134,10 @@ class CommonWarehouseConnector(Connector):
                     pivoted_df[value] = 0
 
             # Join with rows having empty or null arrays, and fill NaN values with 0
-            joined_df = empty_list_rows.merge(
-                pivoted_df, on=group_by_cols, how="outer"
-            ).fillna(0)
+            joined_df = empty_list_rows.merge(pivoted_df, on=group_by_cols, how="outer")
+            for value in top_values:
+                joined_df[value] = joined_df[value].fillna(0)
+
             joined_df.drop(columns=arraytype_features, inplace=True)
 
             rename_dict = {
@@ -283,7 +291,10 @@ class CommonWarehouseConnector(Connector):
         return {
             field.name: field.field_type
             for field in schema_fields
-            if field.field_type in required_data_types.keys()
+            if any(
+                data_type in field.field_type
+                for data_type in required_data_types.keys()
+            )
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
         }
 
@@ -471,6 +482,54 @@ class CommonWarehouseConnector(Connector):
         for _, row in feature_label_df_merged:
             result.append(row)
         return result
+
+    def get_old_prediction_table(
+        self,
+        lookahead_days: int,
+        current_date: str,
+        model_name: str,
+        material_registry: str,
+    ):
+        past_predictions_end_date = utils.date_add(current_date, -lookahead_days)
+        df = self.get_material_registry_table(material_registry)
+
+        try:
+            past_predictions_info = (
+                df[
+                    (df["model_name"] == model_name)
+                    & (df["model_type"] == "python_model")
+                    & (
+                        df["end_ts"].dt.date
+                        == pd.to_datetime(past_predictions_end_date).date()
+                    )
+                ]
+                .sort_values(by="creation_ts", ascending=False)
+                .iloc[0]
+            )
+        except IndexError:
+            raise Exception(
+                f"No past predictions found for model {model_name} before {past_predictions_end_date}"
+            )
+
+        predictions_table_name = (
+            f"{MATERIAL_PREFIX}{model_name}"
+            + "_"
+            + f'{past_predictions_info["model_hash"]}'
+            + "_"
+            + f'{past_predictions_info["seq_no"]}'
+        )
+        return predictions_table_name
+
+    def get_previous_predictions_info(
+        self, prev_pred_ground_truth_table, score_column, label_column
+    ):
+        single_row = prev_pred_ground_truth_table.iloc[0]
+        model_id = single_row["model_id"]
+        valid_at = single_row["valid_at"]
+        score_and_ground_truth_df = prev_pred_ground_truth_table[
+            [score_column, label_column]
+        ]
+        return score_and_ground_truth_df, model_id, valid_at
 
     def get_creation_ts(
         self,

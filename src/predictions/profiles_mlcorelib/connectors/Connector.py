@@ -455,3 +455,19 @@ class Connector(ABC):
         prediction_horizon_days: int,
     ) -> Iterable:
         pass
+
+    @abstractmethod
+    def get_old_prediction_table(
+        self,
+        lookahead_days: int,
+        current_date: str,
+        model_id: str,
+        material_registry: str,
+    ):
+        pass
+
+    @abstractmethod
+    def get_previous_predictions_info(
+        self, prev_pred_ground_truth_table, score_column, label_column
+    ):
+        pass

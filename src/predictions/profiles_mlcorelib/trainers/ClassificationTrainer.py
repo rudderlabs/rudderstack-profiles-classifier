@@ -179,6 +179,10 @@ class ClassificationTrainer(MLTrainer):
 
         return train_metrics
 
+    def get_prev_pred_metrics(self, y_true, y_pred):
+        metrics = self._get_classification_metrics(y_true, y_pred, y_pred)
+        return metrics
+
     def plot_diagnostics(
         self,
         connector: Connector,

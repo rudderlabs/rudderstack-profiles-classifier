@@ -142,7 +142,7 @@ def preprocess_and_train(
     connector = kwargs.get("connector", None)
     trainer = kwargs.get("trainer", None)
     min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
-    cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESOLD
+    cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESHOLD
     train_config = merged_config["train"]
 
     feature_table = None
@@ -172,12 +172,6 @@ def preprocess_and_train(
         f"Following features are detected as having high cardinality, and will be ignored for training: {high_cardinal_features}"
     )
 
-    transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
-        feature_table,
-        input_column_types["arraytype"],
-        trainer.prep.top_k_array_categories,
-    )
-
     feature_table = connector.transform_booleantype_features(
         feature_table, list(input_column_types["booleantype"].keys())
     )
@@ -190,12 +184,12 @@ def preprocess_and_train(
         high_cardinal_features,
     )
 
-    logger.debug(f"Transforming arraytype features")
     transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
         feature_table,
         list(input_column_types["arraytype"].keys()),
         trainer.prep.top_k_array_categories,
     )
+    logger.debug("Arraytype features have been transformed.")
 
     logger.debug(f"Ignore features detected: {ignore_features}")
     feature_table = connector.drop_cols(feature_table, ignore_features)

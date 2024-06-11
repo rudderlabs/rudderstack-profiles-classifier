@@ -30,7 +30,7 @@ class RedshiftConnector(CommonWarehouseConnector):
                 "date": None,
                 "time without time zone": None,
             },
-            "arraytype": {"array": None},
+            "arraytype": {"super": None},
             "booleantype": {"boolean": None, "bool": None},
         }
         self.dtype_utils_mapping = {"numeric": "float", "categorical": "str"}

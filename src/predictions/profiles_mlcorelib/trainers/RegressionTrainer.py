@@ -137,6 +137,12 @@ class RegressionTrainer(MLTrainer):
         }
         return result_dict
 
+    def _get_regression_metrics(self, y_true, y_pred):
+        metrics = {}
+        for metric_name, metric_func in self.evalution_metrics_map_regressor.items():
+            metrics[metric_name] = float(metric_func(y_true, y_pred))
+        return metrics
+
     def _evaluate_regressor(
         self,
         model,
@@ -144,13 +150,11 @@ class RegressionTrainer(MLTrainer):
         y,
     ):
         preds = regression_predict_model(model, x)["prediction_label"].to_numpy()
+        return self._get_regression_metrics(y, preds)
 
-        train_metrics = {}
-
-        for metric_name, metric_func in self.evalution_metrics_map_regressor.items():
-            train_metrics[metric_name] = float(metric_func(y, preds))
-
-        return train_metrics
+    def get_prev_pred_metrics(self, y_true, y_pred):
+        metrics = self._get_regression_metrics(y_true, y_pred)
+        return metrics
 
     def prepare_training_summary(
         self, model_results: dict, model_timestamp: str

@@ -4,7 +4,7 @@ import os
 import subprocess
 
 creds = json.loads(os.environ["SITE_CONFIG"])
-creds["schema"] = "profiles_integration_test"
+creds["schema"] = "classifier_integration_test"
 
 
 def run_project():

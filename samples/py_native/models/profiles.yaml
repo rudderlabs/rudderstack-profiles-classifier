@@ -1,5 +1,5 @@
 models:
-  - name: training_model
+  - name: traininG_model # Mix of small and capital letters to test ref standardization
     model_type: training_model
     model_spec:
       occurred_at_col: insert_ts

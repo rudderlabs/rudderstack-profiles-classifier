@@ -8,6 +8,7 @@ creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
 
 
 def run_project():
+    print(creds["schema"])
     create_site_config_file(creds, siteconfig_path)
     try:
         pb_args = [

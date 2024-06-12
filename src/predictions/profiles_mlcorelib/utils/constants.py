@@ -1,4 +1,4 @@
-MODEL_FILE_NAME = "rs_predictions_trained_model"
+MODEL_FILE_NAME = "classifier.joblib"
 CARDINAL_FEATURE_THRESHOLD = 0.01
 MIN_SAMPLES_FOR_TRAINING = 10
 POSITIVE_BOOLEAN_FLAGS = [
@@ -33,30 +33,6 @@ ML_CORE_PYTHON_PATH = "src.predictions.profiles_mlcorelib.ml_core"
 ML_CORE_PYNATIVE_PATH = "profiles_mlcorelib.ml_core"
 MIN_PB_VERSION = 53
 
-PRED_OUTPUT_DF_COLUMNS = {
-    "classification": {
-        "label": "prediction_label",
-        "score": "prediction_score",
-    },
-    "regression": {
-        "score": "prediction_label",
-    },
-}
-
-import shap
-
-EXPLAINER_MAP = {
-    "RidgeClassifier": shap.LinearExplainer,
-    "AdaBoostClassifier": shap.KernelExplainer,
-    "RandomForestClassifier": shap.TreeExplainer,
-    "GradientBoostingClassifier": shap.TreeExplainer,
-    "XGBClassifier": shap.TreeExplainer,
-    "Ridge": shap.LinearExplainer,
-    "GradientBoostingRegressor": shap.TreeExplainer,
-    "RandomForestRegressor": shap.TreeExplainer,
-    "XGBRegressor": shap.TreeExplainer,
-    "AdaBoostRegressor": shap.TreeExplainer,
-}
 # Smart data preparation
 
 # Min training data requirements
@@ -82,7 +58,6 @@ SNOWFLAKE_TRAINING_PACKAGES = [
     "matplotlib==3.7.1",
     "seaborn==0.12.0",
     "scikit-plot==0.3.7",
-    "pycaret<=3.3.0",
 ]
 
 

@@ -27,7 +27,6 @@ from .utils import utils
 from .utils import constants
 
 from .connectors.ConnectorFactory import ConnectorFactory
-
 from .trainers.TrainerFactory import TrainerFactory
 from .ml_core.preprocess_and_train import train_and_store_model_results
 from typing import List
@@ -153,8 +152,8 @@ def _train(
         def train_and_store_model_results_sf(
             session: snowflake.snowpark.Session,
             feature_table_name: str,
-            input_column_types: dict,
             train_config: dict,
+            feature_table_column_types: dict,
             metrics_table: str,
         ) -> dict:
             """Creates and saves the trained model pipeline after performing preprocessing and classification and returns the model id attached with the results generated.
@@ -165,12 +164,14 @@ def _train(
                     and is input to training and prediction
                 train_config (dict): configs from profiles.yaml which should overwrite corresponding values
                     from model_configs.yaml file
-\
+                feature_table_column_types (dict): dictionary containing the column types of the feature table
+
             Returns:
                 dict: returns the model_id which is basically the time converted to key at which results were
                     generated along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
             """
-
+            numeric_columns = feature_table_column_types["numeric"]
+            categorical_columns = feature_table_column_types["categorical"]
             feature_df = connector.get_table_as_dataframe(session, feature_table_name)
 
             model_file = connector.join_file_path(
@@ -187,7 +188,8 @@ def _train(
                 results,
             ) = trainer.train_model(
                 feature_df,
-                input_column_types,
+                categorical_columns,
+                numeric_columns,
                 train_config,
                 model_file,
             )
@@ -202,7 +204,6 @@ def _train(
                 trainer.label_column,
             )
 
-            model_file = model_file + ".pkl"
             connector.save_file(session, model_file, stage_name, overwrite=True)
 
             try:
@@ -280,7 +281,6 @@ def _train(
     )
     # material_names, training_dates
     train_table_pairs = get_material_names_partial(start_date=start_date)
-
     # Generate new materials for training data
     try:
         train_table_pairs = trainer.check_and_generate_more_materials(
@@ -331,13 +331,12 @@ def _train(
             "input_model_name": entity_var_model_name,
         },
         "model_info": {
-            "model_name": train_results["model_class_name"],
             "file_location": {
                 "stage": stage_name,
                 "file_name": f"{trainer.output_profiles_ml_model}_{model_file_name}",
             },
             "model_id": model_id,
-            "threshold": 0,
+            "threshold": train_results["prob_th"],
         },
         "column_names": train_results["column_names"],
     }

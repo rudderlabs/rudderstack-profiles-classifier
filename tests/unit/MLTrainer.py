@@ -6,7 +6,7 @@ from src.predictions.profiles_mlcorelib.trainers.TrainerFactory import (
 )
 
 
-def build_trainer_config(task="classification"):
+def build_trainer_config():
     config = {"data": {}, "preprocessing": {}, "outputs": {}}
 
     config["data"]["label_value"] = "label_value"
@@ -22,15 +22,14 @@ def build_trainer_config(task="classification"):
     config["data"]["inputs"] = None
     config["data"]["max_row_count"] = None
     config["data"]["prep"] = None
-    config["data"]["task"] = task
     config["data"]["recall_to_precision_importance"] = 0.0
     config["preprocessing"]["timestamp_columns"] = None
     config["preprocessing"]["arraytype_columns"] = None
     config["preprocessing"]["booleantype_columns"] = None
     config["preprocessing"]["ignore_features"] = None
-    config["preprocessing"]["numeric_features"] = None
-    config["preprocessing"]["categorical_features"] = None
-    config["preprocessing"]["imputation_strategy"] = None
+    config["preprocessing"]["numeric_pipeline"] = None
+    config["preprocessing"]["categorical_pipeline"] = None
+    config["preprocessing"]["feature_selectors"] = None
     config["preprocessing"]["train_size"] = None
     config["preprocessing"]["test_size"] = None
     config["preprocessing"]["val_size"] = None
@@ -177,16 +176,16 @@ class TestClassificationTrainer(unittest.TestCase):
 
 class TestRegressionTrainer(unittest.TestCase):
     def test_prepare_training_summary(self):
-        config = build_trainer_config(task="regression")
-        trainer = TrainerFactory.create(config)
+        config = build_trainer_config()
+        trainer = RegressionTrainer(**config)
         metrics = {"test": {}, "train": {}, "val": {}}
         timestamp = "2023-11-08"
         result = trainer.prepare_training_summary({"metrics": metrics}, timestamp)
         self.assertEqual(result, {"data": {"metrics": metrics}, "timestamp": timestamp})
 
     def test_validate_data(self):
-        config = build_trainer_config(task="regression")
-        trainer = TrainerFactory.create(config)
+        config = build_trainer_config()
+        trainer = RegressionTrainer(**config)
         mock_connector = Mock()
         mock_connector.validate_columns_are_present = Mock(return_value=True)
         mock_connector.validate_label_distinct_values = Mock(return_value=True)
@@ -202,8 +201,8 @@ class TestRegressionTrainer(unittest.TestCase):
         self.assertFalse(trainer.validate_data(mock_connector, None))
 
     def test_validate_data_raises_exception_on_failure(self):
-        config = build_trainer_config(task="regression")
-        trainer = TrainerFactory.create(config)
+        config = build_trainer_config()
+        trainer = RegressionTrainer(**config)
         mock_connector = Mock()
         mock_connector.validate_columns_are_present.side_effect = Exception(
             "Raise exception"

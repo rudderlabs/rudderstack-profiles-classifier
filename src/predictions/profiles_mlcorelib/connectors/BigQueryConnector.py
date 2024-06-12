@@ -14,31 +14,23 @@ from .CommonWarehouseConnector import CommonWarehouseConnector
 class BigQueryConnector(CommonWarehouseConnector):
     def __init__(self, creds, folder_path: str) -> None:
         data_type_mapping = {
-            "numeric": {
-                "INT": float,
-                "SMALLINT": float,
-                "INTEGER": float,
-                "BIGINT": float,
-                "TINYINT": float,
-                "BYTEINT": float,
-                "DECIMAL": float,
-                "BIGDECIMAL": float,
-                "NUMERIC": float,
-                "FLOAT": float,
-                "BOOLEAN": float,
-            },
-            "categorical": {"STRING": str, "JSON": str},
-            "timestamp": {
-                "DATE": None,
-                "TIME": None,
-                "DATETIME": None,
-                "TIMESTAMP": None,
-                "INTERVAL": None,
-            },
-            "arraytype": {"ARRAY": None},
-            "booleantype": {"BOOLEAN": None, "BOOL": None},
+            "numeric": (
+                "INT",
+                "SMALLINT",
+                "INTEGER",
+                "BIGINT",
+                "TINYINT",
+                "BYTEINT",
+                "DECIMAL",
+                "BIGDECIMAL",
+                "NUMERIC",
+                "FLOAT",
+            ),
+            "categorical": ("STRING", "JSON"),
+            "timestamp": ("DATE", "TIME", "DATETIME", "TIMESTAMP", "INTERVAL"),
+            "arraytype": ("ARRAY",),
+            "booleantype": ("BOOLEAN", "BOOL"),
         }
-        self.dtype_utils_mapping = {"numeric": "FLOAT", "categorical": "STRING"}
         super().__init__(creds, folder_path, data_type_mapping)
 
     def build_session(self, credentials: dict) -> google.cloud.bigquery.client.Client:

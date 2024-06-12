@@ -1,6 +1,4 @@
-from .MLTrainer import MLTrainer
-from .ClassificationTrainer import ClassificationTrainer
-from .RegressionTrainer import RegressionTrainer
+from .MLTrainer import ClassificationTrainer, RegressionTrainer, MLTrainer
 from ..connectors.Connector import Connector
 
 

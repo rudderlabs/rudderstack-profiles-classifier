@@ -286,24 +286,21 @@ class CommonWarehouseConnector(Connector):
         required_data_types: Tuple,
         label_column: str,
         entity_column: str,
-    ) -> Dict:
+    ) -> List:
         """Fetches the column names from the given schema_fields based on the required data types (exclude label and entity columns)"""
-        return {
-            field.name: field.field_type
+        return [
+            field.name
             for field in schema_fields
-            if any(
-                data_type in field.field_type
-                for data_type in required_data_types.keys()
-            )
+            if any(data_type in field.field_type for data_type in required_data_types)
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
-        }
+        ]
 
     def get_numeric_features(
         self,
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> Dict:
+    ) -> List[str]:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["numeric"],
@@ -316,7 +313,7 @@ class CommonWarehouseConnector(Connector):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> Dict:
+    ) -> List[str]:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["categorical"],
@@ -329,7 +326,7 @@ class CommonWarehouseConnector(Connector):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> Dict:
+    ) -> List[str]:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["arraytype"],
@@ -342,7 +339,7 @@ class CommonWarehouseConnector(Connector):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> Dict:
+    ) -> List[str]:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["timestamp"],
@@ -884,12 +881,20 @@ class CommonWarehouseConnector(Connector):
         )
         return material_registry_table[material_registry_table["status"] == 2]
 
-    def generate_type_hint(
-        self,
-        df: pd.DataFrame,
-        column_types: Dict[str, List[str]],
-    ):
-        return None
+    def generate_type_hint(self, df: pd.DataFrame, column_types: Dict[str, List[str]]):
+        types = []
+        cat_columns = [col.lower() for col in column_types["categorical"]]
+        numeric_columns = [col.lower() for col in column_types["numeric"]]
+        for col in df.columns:
+            if col.lower() in cat_columns:
+                types.append(str)
+            elif col.lower() in numeric_columns:
+                types.append(float)
+            else:
+                raise Exception(
+                    f"Column {col} not found in the training data config either as categorical or numeric column"
+                )
+        return types
 
     def call_prediction_udf(
         self,
@@ -901,20 +906,17 @@ class CommonWarehouseConnector(Connector):
         percentile_column_name: str,
         output_label_column: str,
         train_model_id: str,
+        prob_th: Optional[float],
         input: pd.DataFrame,
-        pred_output_df_columns: Dict,
     ) -> pd.DataFrame:
         """Calls the given function for prediction and returns results of the predict function."""
         preds = predict_data[[entity_column, index_timestamp]]
-        prediction_df = prediction_udf(input)
-
-        preds[score_column_name] = prediction_df[pred_output_df_columns["score"]]
-
-        if "label" in pred_output_df_columns:
-            preds[output_label_column] = prediction_df[pred_output_df_columns["label"]]
-
+        preds[score_column_name] = prediction_udf(input)
         preds["model_id"] = train_model_id
-
+        if prob_th:
+            preds[output_label_column] = preds[score_column_name].apply(
+                lambda x: True if x >= prob_th else False
+            )
         preds[percentile_column_name] = preds[score_column_name].rank(pct=True) * 100
         return preds
 

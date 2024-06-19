@@ -21,6 +21,11 @@ START_TIME = datetime.datetime(
     2024, 5, 1, 0, 0, 0
 )  # The simulated journeys start from this time till DAYS_TO_SIMULATE days.
 DAYS_TO_SIMULATE = 600
+# printing the config details
+print(f"USER_COUNT: {USER_COUNT}")
+print(f"PRODUCT_COUNT: {PRODUCT_COUNT}")
+print(f"START_TIME: {START_TIME}")
+print(f"DAYS_TO_SIMULATE: {DAYS_TO_SIMULATE}")
 
 # def get_columns(df):
 #     cols = {"context": [], "others": []}

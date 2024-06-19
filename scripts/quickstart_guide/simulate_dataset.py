@@ -21,11 +21,6 @@ START_TIME = datetime.datetime(
     2024, 5, 1, 0, 0, 0
 )  # The simulated journeys start from this time till DAYS_TO_SIMULATE days.
 DAYS_TO_SIMULATE = 600
-# printing the config details
-print(f"USER_COUNT: {USER_COUNT}")
-print(f"PRODUCT_COUNT: {PRODUCT_COUNT}")
-print(f"START_TIME: {START_TIME}")
-print(f"DAYS_TO_SIMULATE: {DAYS_TO_SIMULATE}")
 
 # def get_columns(df):
 #     cols = {"context": [], "others": []}
@@ -917,17 +912,19 @@ def simulate_journey(user, journey_type):
                     )
                     events.extend(login_events)
                     # Add purchase event
-                    event_time, referrer_path, order_complete_events = (
-                        order_completed_event(
-                            user,
-                            event_time,
-                            campaign_id,
-                            referrer_path,
-                            ip,
-                            device_id,
-                            st_time,
-                            product_id,
-                        )
+                    (
+                        event_time,
+                        referrer_path,
+                        order_complete_events,
+                    ) = order_completed_event(
+                        user,
+                        event_time,
+                        campaign_id,
+                        referrer_path,
+                        ip,
+                        device_id,
+                        st_time,
+                        product_id,
                     )
                     events.extend(order_complete_events)
         else:
@@ -967,17 +964,19 @@ def simulate_journey(user, journey_type):
                 events.extend(cart_add_events)
             if journey_type == 7:
                 # Add purchase event
-                event_time, referrer_path, order_complete_events = (
-                    order_completed_event(
-                        user,
-                        event_time,
-                        campaign_id,
-                        referrer_path,
-                        ip,
-                        device_id,
-                        st_time,
-                        product_id,
-                    )
+                (
+                    event_time,
+                    referrer_path,
+                    order_complete_events,
+                ) = order_completed_event(
+                    user,
+                    event_time,
+                    campaign_id,
+                    referrer_path,
+                    ip,
+                    device_id,
+                    st_time,
+                    product_id,
                 )
                 events.extend(order_complete_events)
     elif journey_type == 8:

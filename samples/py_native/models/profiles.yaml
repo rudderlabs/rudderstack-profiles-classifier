@@ -26,7 +26,6 @@ models:
           prediction_horizon_days: 7
           eligible_users: 1=1
           output_profiles_ml_model: ltv_regression_integration_test
-
   - name: prediction_model
     model_type: prediction_model
     model_spec:

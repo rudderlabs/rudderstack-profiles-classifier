@@ -19,7 +19,6 @@ def run_project():
             siteconfig_path,
             "--concurrency",
             "2",
-            "--migrate_on_load",
         ]
         subprocess.run(pb_args)
         assert_training_artefacts()

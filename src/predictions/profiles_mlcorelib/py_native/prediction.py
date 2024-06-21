@@ -42,8 +42,16 @@ class PredictionModel(BaseModelType):
                     "preprocessing": {
                         "type": "object",
                     },
+                    "outputs": {
+                        "type": "object",
+                        "additionalProperties": True,
+                        "properties": {
+                            "column_names": {"type": "object"},
+                        },
+                        "required": ["column_names"],
+                    }
                 },
-                "required": ["data"],
+                "required": ["data", "outputs"],
             },
         },
         "required": ["training_model", "ml_config", "inputs"]

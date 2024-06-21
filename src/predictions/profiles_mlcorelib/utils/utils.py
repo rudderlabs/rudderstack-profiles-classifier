@@ -74,6 +74,7 @@ class PreprocessorConfig:
     train_size: float
     test_size: float
     val_size: float
+    top_k_array_categories: int
 
 
 @dataclass
@@ -96,27 +97,37 @@ class TrainerUtils:
         y_pred_proba: np.array,
         th: float = 0.5,
         recall_to_precision_importance: float = 1.0,
+        binary_predictions: bool = False,
     ) -> dict:
-        """Returns classification metrics in form of a dict for the given thresold."""
+        """Returns classification metrics in form of a dict for the given threshold."""
+        y_pred = (
+            np.where(y_pred_proba > th, 1, 0)
+            if not binary_predictions
+            else y_pred_proba
+        )
+
         precision, recall, f1, _ = precision_recall_fscore_support(
             y_true,
-            np.where(y_pred_proba > th, 1, 0),
+            y_pred,
             beta=recall_to_precision_importance,
         )
         precision = precision[1]
         recall = recall[1]
         f1 = f1[1]
-        roc_auc = roc_auc_score(y_true, y_pred_proba)
-        pr_auc = average_precision_score(y_true, y_pred_proba)
-        user_count = y_true.shape[0]
         metrics = {
             "precision": precision,
             "recall": recall,
             "f1_score": f1,
-            "roc_auc": roc_auc,
-            "pr_auc": pr_auc,
-            "users": user_count,
         }
+
+        if not binary_predictions:
+            roc_auc = roc_auc_score(y_true, y_pred_proba)
+            pr_auc = average_precision_score(y_true, y_pred_proba)
+            user_count = y_true.shape[0]
+            metrics["roc_auc"] = roc_auc
+            metrics["pr_auc"] = pr_auc
+            metrics["users"] = user_count
+
         return metrics
 
     def get_best_th(
@@ -126,8 +137,8 @@ class TrainerUtils:
         metric_to_optimize: str,
         recall_to_precision_importance: float = 1.0,
     ) -> Tuple:
-        """This function calculates the thresold that maximizes f1 score based on y_true and y_pred_proba
-        and classication metrics on basis of that."""
+        """This function calculates the threshold that maximizes f1 score based on y_true and y_pred_proba
+        and classification metrics on basis of that."""
 
         metric_functions = {
             "f1_score": f1_score,
@@ -164,7 +175,7 @@ class TrainerUtils:
         recall_to_precision_importance: float = 1.0,
     ) -> Tuple:
         """Generates classification metrics and predictions for train,
-        validation and test data along with the best probability thresold.
+        validation and test data along with the best probability threshold.
         """
         train_preds = clf.predict_proba(X_train)[:, 1]
         metric_to_optimize = train_config["model_params"]["validation_on"]
@@ -186,6 +197,13 @@ class TrainerUtils:
         predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
 
         return metrics, predictions, round(prob_threshold, 2)
+
+    def get_regression_metrics(self, y_true, y_pred):
+        """Calculate and return regression metrics for given ground truth and predictions."""
+        metrics = {}
+        for metric_name, metric_func in self.evalution_metrics_map_regressor.items():
+            metrics[metric_name] = float(metric_func(y_true, y_pred))
+        return metrics
 
     def get_metrics_regressor(
         self, model, train_x, train_y, test_x, test_y, val_x, val_y
@@ -376,9 +394,7 @@ def transform_null(
 ) -> pd.DataFrame:
     for col in numeric_columns:
         df[col] = df[col].astype("float64")
-    """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
-    for col in numeric_columns:
-        df[col] = df[col].astype("float64")
+
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
     df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
     return df
@@ -774,7 +790,7 @@ def plot_top_k_feature_importance(
     )
     ax.set_xlabel(x_label)
     ax.set_ylabel("Feature Name")
-    plt.title(f"Top {top_k_features} Important Features")
+    plt.title(f"Top Features")
     plt.savefig(figure_file, bbox_inches="tight")
     plt.clf()
 

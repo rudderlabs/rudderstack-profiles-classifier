@@ -8,13 +8,15 @@ models:
       edge_sources:
         - from: inputs/rsIdentifies
         - from: inputs/rsTracks
+  
   - name: llm_gender_prediction
     model_type: llm_model
     model_spec:
-      prompt: "What is generally the most common gender of the name {input[0]}? Male, Female, or Unknown? Return only a single word, nothing else."
+      prompt: "What is generally the most common gender of the name {var_inputs[0]}? Male, Female, or Unknown? Return only a single word, nothing else."
       entity_key: user
-      prompt_inputs:
-        - user.Var('name')
+      table_inputs:
+        - select: first_name
+          from: inputs/rsIdentifies
       llm_model_name: "mistral-7b"
       features:
         - name: llm_gender_prediction
@@ -25,17 +27,23 @@ models:
   - name: llm_profession_prediction
     model_type: llm_model
     model_spec:
-      prompt: "The input field is a job title entered by a person. Map it to a single value from the following list of standardised job titles: [Software Engineer, Data Analyst, ML Engineer, Solutions Architect, Others]. Return only standardised title, nothing else. {input[0]}"
+      prompt: "Following are the titles and links to top 100 pages on RudderStack website in JSON format : {sql_inputs[0]} . You are a sales development representative. The input field is a job title entered by a person. Map it to a single value from the following list of standardised job titles: [Software Engineer, Data Analyst, ML Engineer, Solutions Architect, Others]. Return only standardised title, nothing else. {var_inputs[0]}"
       entity_key: user
-      prompt_inputs:
+      eligible_users: "{var_inputs[0]} is not null"
+      var_inputs:
         - user.Var('profession')
-      llm_model_name: "mistral-7b"
+
+      llm_model_name: "llama2-70b-chat"
+      run_for_top_k_distinct: 5
+      sql_inputs:
+        - "select title, url from predictions_dev_project.pages where timestamp > dateadd(month,-3,current_date()) group by title, url order by count(*) desc limit 10"
       features:
         - name: llm_profession_prediction
       ids:
         - select: "user_main_id"
           type: rudder_id
           entity: user
+
 
 var_groups:
   - name: default_vars

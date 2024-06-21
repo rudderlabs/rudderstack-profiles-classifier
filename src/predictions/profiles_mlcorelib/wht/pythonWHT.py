@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional, Sequence, Tuple
 
 from .rudderPB import MATERIAL_PREFIX
@@ -242,6 +243,7 @@ class PythonWHT:
         prediction_horizon_days: int,
         inputs: List[str],
         return_partial_pairs: bool = False,
+        feature_data_min_date_diff: int = 3,
     ) -> List[TrainTablesInfo]:
         """Generates material names as list containing feature table name and label table name
             required to create the training model and their corresponding training dates.
@@ -387,6 +389,42 @@ class PythonWHT:
             "seq_no": seq_no,
         }
 
+    def get_past_materials_with_valid_date_range(
+        self,
+        materials: List[TrainTablesInfo],
+        prediction_horizon_days: int,
+        feature_data_min_date_diff,
+    ):
+        valid_feature_dates = []
+        valid_materials = []
+
+        for material in materials:
+            feature_date = None
+            if material.feature_table_date != "None":
+                feature_date = material.feature_table_date
+            elif material.label_table_date != "None":
+                feature_date = utils.date_add(
+                    material.label_table_date, -1 * prediction_horizon_days
+                )
+
+            if feature_date is None:
+                continue
+
+            sorted_feature_dates = sorted(
+                valid_feature_dates,
+                key=lambda x: datetime.strptime(x, MATERIAL_DATE_FORMAT),
+                reverse=True,
+            )
+            is_valid_date = utils.dates_proximity_check(
+                feature_date, sorted_feature_dates, feature_data_min_date_diff
+            )
+
+            if is_valid_date:
+                valid_feature_dates.append(feature_date)
+                valid_materials.append(material)
+
+        return valid_materials
+
     def get_material_names(
         self,
         start_date: str,
@@ -397,6 +435,7 @@ class PythonWHT:
         input_models: List[str],
         inputs: List[str],
         return_partial_pairs: bool = False,
+        feature_data_min_date_diff: int = 3,
     ) -> List[TrainTablesInfo]:
         """
         Retrieves the names of the feature and label tables, as well as their corresponding training dates, based on the provided inputs.
@@ -426,11 +465,14 @@ class PythonWHT:
             model_hash,
             prediction_horizon_days,
             inputs,
+            return_partial_pairs,
         )
 
         # If we want to include partial pairs, we dont need to look for full valid sequences
         if return_partial_pairs:
-            return materials
+            return self.get_past_materials_with_valid_date_range(
+                materials, prediction_horizon_days, feature_data_min_date_diff
+            )
 
         if len(get_complete_sequences(materials)) == 0:
             self._generate_training_materials(
@@ -453,7 +495,12 @@ class PythonWHT:
             raise Exception(
                 f"Tried to materialise past data but no materialized data found for {entity_var_model_name} between dates {start_date} and {end_date}"
             )
-        return complete_sequences_materials
+
+        return self.get_past_materials_with_valid_date_range(
+            complete_sequences_materials,
+            prediction_horizon_days,
+            feature_data_min_date_diff,
+        )
 
     def compute_material_name(
         self, model_name: str, model_hash: str, seq_no: int

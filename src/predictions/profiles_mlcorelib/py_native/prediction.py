@@ -5,13 +5,14 @@ from profiles_rudderstack.logger import Logger
 from typing import Tuple
 from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
 
+from .warehouse import standardize_ref_name
+
 from ..wht.pyNativeWHT import PyNativeWHT
 
 from .training import TrainingRecipe
 
 from ..predict import _predict
 from ..utils import constants
-from ..utils import utils
 
 
 class PredictionModel(BaseModelType):
@@ -45,10 +46,7 @@ class PredictionModel(BaseModelType):
                 "required": ["data"],
             },
         },
-        "required": [
-            "training_model",
-            "ml_config",
-        ]
+        "required": ["training_model", "ml_config", "inputs"]
         + EntityKeyBuildSpecSchema["required"],
     }
 
@@ -98,7 +96,6 @@ class PredictionRecipe(PyNativeRecipe):
         runtime_info = {"site_config_path": site_config_path}
         config = self.build_spec.get("ml_config", {})
         input_materials = []
-        output_tablename = this.name()
         train_output = self._get_train_output_filepath(this)
         for input in self.build_spec["inputs"]:
             material = this.de_ref(input)
@@ -107,7 +104,7 @@ class PredictionRecipe(PyNativeRecipe):
             creds,
             train_output,
             input_materials,
-            output_tablename,
+            standardize_ref_name(creds["type"], this.name()),
             config,
             runtime_info,
             constants.ML_CORE_PYNATIVE_PATH,

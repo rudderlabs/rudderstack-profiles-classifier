@@ -64,6 +64,11 @@ def preprocess_and_predict(
     booleantype_columns = results["column_names"]["input_column_types"]["booleantype"]
     ignore_features = results["column_names"]["ignore_features"]
 
+    transformed_arraytype_columns = {
+        word: [item for item in numeric_columns if item.startswith(word)]
+        for word in arraytype_columns
+    }
+
     model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
     seq_no = None
 
@@ -96,7 +101,12 @@ def preprocess_and_predict(
         raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
 
     logger.debug(f"Transforming arraytype columns.")
-    _, raw_data = connector.transform_arraytype_features(raw_data, arraytype_columns)
+    _, raw_data = connector.transform_arraytype_features(
+        raw_data,
+        arraytype_columns,
+        trainer.prep.top_k_array_categories,
+        predict_arraytype_features=transformed_arraytype_columns,
+    )
     raw_data = connector.transform_booleantype_features(raw_data, booleantype_columns)
 
     logger.debug("Boolean Type Columns transformed to numeric")
@@ -200,6 +210,79 @@ def preprocess_and_predict(
         if_exists="replace",
         s3_config=s3_config,
     )
+
+    try:
+        prev_prediction_table = connector.get_old_prediction_table(
+            trainer.prediction_horizon_days,
+            str(end_ts.date()),
+            trainer.output_profiles_ml_model,
+            whtService.get_registry_table_name(),
+        )
+
+        logger.debug(f"Fetching previous prediction table: {prev_prediction_table}")
+        prev_predictions = connector.get_table(prev_prediction_table)
+
+        label_table = trainer.prepare_label_table(connector, entity_var_table_name)
+        prev_pred_ground_truth_table = connector.join_feature_table_label_table(
+            prev_predictions, label_table, trainer.entity_column, "inner"
+        )
+
+        (
+            scores_and_gt_df,
+            model_id,
+            prediction_date,
+        ) = connector.get_previous_predictions_info(
+            prev_pred_ground_truth_table,
+            trainer.outputs.column_names.get("score"),
+            trainer.label_column,
+        )
+
+        scores_and_gt_df.columns = [x.upper() for x in scores_and_gt_df.columns]
+        y_true = scores_and_gt_df[trainer.label_column.upper()]
+        y_pred = scores_and_gt_df[trainer.outputs.column_names.get("score").upper()]
+
+        metrics = trainer.get_prev_pred_metrics(y_true, y_pred.to_numpy())
+
+        metrics_df = pd.DataFrame(
+            {
+                "model_name": [trainer.output_profiles_ml_model],
+                "model_id": [model_id],
+                "prediction_date": [prediction_date],
+                "label_date": [end_ts],
+                "prediction_table_name": [prev_prediction_table],
+                "label_table_name": [entity_var_table_name],
+                "metrics": [metrics],
+            }
+        ).reset_index(drop=True)
+
+        metrics_table = "RS_PROFILES_PREDICTIONS_METRICS"
+
+        if creds["type"] == "snowflake":
+            connector.write_pandas(
+                metrics_df,
+                table_name=f"{metrics_table}",
+                session=connector.session,
+                auto_create_table=True,
+                overwrite=False,
+            )
+        elif creds["type"] in ("redshift", "bigquery"):
+            if not connector.is_valid_table(metrics_table):
+                (
+                    metrics_df,
+                    create_metrics_table_query,
+                ) = connector.fetch_create_metrics_table_query(
+                    metrics_df,
+                    metrics_table,
+                )
+                connector.run_query(
+                    create_metrics_table_query,
+                    response=False,
+                )
+
+            connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
+    except Exception as e:
+        logger.warning(f"Error while fetching previous prediction table: {e}")
+
     logger.debug("Closing the session")
 
     connector.post_job_cleanup()

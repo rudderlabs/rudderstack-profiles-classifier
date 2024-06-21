@@ -1,5 +1,6 @@
 import json
 import pandas as pd
+from collections import namedtuple
 from typing import List, Tuple, Optional
 
 import google.cloud
@@ -74,10 +75,14 @@ class BigQueryConnector(CommonWarehouseConnector):
 
     def fetch_table_metadata(self, table_name: str) -> List:
         """Fetches the schema fields of the given table from the BigQuery schema."""
-        schema = self.session.get_table(
-            f"{self.project_id}.{self.schema}.{table_name}"
-        ).schema
-        return schema
+        query = f"""SELECT column_name, data_type
+                    FROM {self.schema}.INFORMATION_SCHEMA.COLUMNS
+                    where table_schema='{self.schema}'
+                        and table_name='{table_name}';"""
+        schema_list = self.run_query(query)
+        schema_fields = namedtuple("schema_field", ["name", "field_type"])
+        named_schema_list = [schema_fields(*row) for row in schema_list]
+        return named_schema_list
 
     def fetch_create_metrics_table_query(
         self, metrics_df: pd.DataFrame, table_name: str

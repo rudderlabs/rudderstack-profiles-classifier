@@ -130,14 +130,11 @@ def _train(
         connector.create_stage()
         connector.pre_job_cleanup()
 
-        # FIXME: Avoid creating session multiple times
+        new_session = connector.session
 
         # This is to avoid the pickling error in snowpark - TypeError: cannot pickle '_thread.lock' object
         # The implication of this is that the "self.session" is not available in Snowpark stored procedures
-        connector.session.close()
         connector.session = None
-        # A new session must be created before creating the stored procedure
-        new_session = connector.build_session(creds)
 
         @sproc(
             name=train_procedure,
@@ -146,6 +143,9 @@ def _train(
             replace=True,
             imports=import_paths,
             packages=constants.SNOWFLAKE_TRAINING_PACKAGES,
+            # Pass session object to avoid the error - More than one active session is detected
+            # This error is because pywht is also creating a session object
+            session=new_session,
         )
 
         # This function is called from connector.call_procedure in preprocess_and_train.py
@@ -262,6 +262,12 @@ def _train(
     )
     logger.debug(f"Input column types detected: {input_column_types}")
 
+    try:
+        feature_data_min_date_diff = trainer.feature_data_min_date_diff
+    except AttributeError:
+        # Default feature dates minimum difference
+        feature_data_min_date_diff = 3
+
     logger.info("Getting past data for training")
     get_material_names_partial = partial(
         whtService.get_material_names,
@@ -271,6 +277,7 @@ def _train(
         prediction_horizon_days=trainer.prediction_horizon_days,
         input_models=absolute_input_models,
         inputs=inputs,
+        feature_data_min_date_diff=feature_data_min_date_diff,
     )
     # material_names, training_dates
     train_table_pairs = get_material_names_partial(start_date=start_date)

@@ -1,3 +1,4 @@
+import ast
 from functools import reduce
 import os
 import json
@@ -12,6 +13,7 @@ from typing import Iterable, List, Tuple, Any, Union, Optional, Sequence, Dict
 from ..utils import utils
 from ..utils import constants
 from ..utils.logger import logger
+from ..wht.rudderPB import MATERIAL_PREFIX
 from .Connector import Connector
 from .wh.profiles_connector import ProfilesConnector
 
@@ -40,11 +42,18 @@ class CommonWarehouseConnector(Connector):
         return train_function(*args, **kwargs)
 
     def transform_arraytype_features(
-        self, feature_df: pd.DataFrame, arraytype_features: List[str]
+        self,
+        feature_df: pd.DataFrame,
+        arraytype_features: List[str],
+        top_k_array_categories,
+        **kwargs,
     ) -> Union[List[str], pd.DataFrame]:
         """Transforms arraytype features in a pandas DataFrame by expanding the arraytype features
         as {feature_name}_{unique_value} columns and perform numeric encoding based on their count in those cols.
         """
+
+        predict_arraytype_features = kwargs.get("predict_arraytype_features", {})
+
         transformed_dfs = []
         transformed_feature_df = feature_df.copy()
         transformed_array_col_names = []
@@ -55,9 +64,18 @@ class CommonWarehouseConnector(Connector):
         ]
 
         for array_col_name in arraytype_features:
+            feature_df[array_col_name] = feature_df[array_col_name].apply(
+                lambda x: ast.literal_eval(x) if isinstance(x, str) else x
+            )
+            feature_df[array_col_name] = feature_df[array_col_name].apply(
+                lambda arr: [x.lower() for x in arr] if isinstance(arr, list) else arr
+            )
+
             # Get rows with empty or null arrays
             empty_list_rows = feature_df[
-                feature_df[array_col_name].apply(lambda x: x in ([], None))
+                feature_df[array_col_name].apply(
+                    lambda x: x is None or (isinstance(x, list) and len(x) == 0)
+                )
             ]
 
             # Explode arraytype column
@@ -74,11 +92,33 @@ class CommonWarehouseConnector(Connector):
                 .reset_index(name="COUNT")
             )
 
-            unique_values = exploded_df["ARRAY_VALUE"].dropna().unique()
+            unique_values = grouped_df["ARRAY_VALUE"].dropna().unique()
+            top_k_array_categories = min(top_k_array_categories, len(unique_values))
+
+            # Select top k most frequent values
+            top_values = (
+                grouped_df.groupby("ARRAY_VALUE")["COUNT"]
+                .sum()
+                .nlargest(top_k_array_categories)
+                .index
+            )
+
+            predict_top_values = predict_arraytype_features.get(array_col_name, [])
+            if len(predict_top_values) != 0:
+                top_values = [
+                    item[len(array_col_name) :].strip("_").lower()
+                    for item in predict_top_values
+                    if "OTHERS" not in item
+                ]
+
+                unique_values = list(set(unique_values) | set(top_values))
+
+            other_values = set(grouped_df["ARRAY_VALUE"]) - set(top_values)
+
             new_array_column_names = [
-                f"{array_col_name}_{value}".upper() for value in unique_values
+                f"{array_col_name}_{value}".upper().strip() for value in unique_values
             ]
-            transformed_array_col_names.extend(new_array_column_names)
+            other_column_name = f"{array_col_name}_OTHERS".upper()
 
             # Pivot the DataFrame to create new columns for each unique value
             pivoted_df = pd.pivot_table(
@@ -88,12 +128,16 @@ class CommonWarehouseConnector(Connector):
                 values="COUNT",
                 fill_value=0,
             ).reset_index()
-            pivoted_df.columns.name = None
+
+            for value in top_values:
+                if value not in pivoted_df.columns:
+                    pivoted_df[value] = 0
 
             # Join with rows having empty or null arrays, and fill NaN values with 0
-            joined_df = empty_list_rows.merge(
-                pivoted_df, on=group_by_cols, how="outer"
-            ).fillna(0)
+            joined_df = empty_list_rows.merge(pivoted_df, on=group_by_cols, how="outer")
+            for value in top_values:
+                joined_df[value] = joined_df[value].fillna(0)
+
             joined_df.drop(columns=arraytype_features, inplace=True)
 
             rename_dict = {
@@ -101,6 +145,20 @@ class CommonWarehouseConnector(Connector):
                 for old_name, new_name in zip(unique_values, new_array_column_names)
             }
             joined_df = joined_df.rename(columns=rename_dict)
+            joined_df[other_column_name] = sum(
+                joined_df[f"{array_col_name}_{col}".upper()] for col in other_values
+            )
+
+            for old_name in unique_values:
+                if old_name not in other_values:
+                    transformed_array_col_names.append(rename_dict[old_name])
+            transformed_array_col_names.append(other_column_name)
+
+            joined_df.drop(
+                columns=[f"{array_col_name}_{col}".upper() for col in other_values],
+                inplace=True,
+            )
+
             transformed_dfs.append(joined_df)
 
         if transformed_dfs:
@@ -125,12 +183,12 @@ class CommonWarehouseConnector(Connector):
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:
-        # mode = (
-        #     constants.RUDDERSTACK_MODE
-        #     if is_rudder_backend
-        #     else user_preference_order_infra[0]
-        # )
-        return constants.LOCAL_MODE
+        mode = (
+            constants.RUDDERSTACK_MODE
+            if is_rudder_backend
+            else user_preference_order_infra[0]
+        )
+        return mode
 
     def compute_udf_name(self, model_path: str) -> None:
         return
@@ -233,7 +291,7 @@ class CommonWarehouseConnector(Connector):
         return [
             field.name
             for field in schema_fields
-            if field.field_type in required_data_types
+            if any(data_type in field.field_type for data_type in required_data_types)
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
         ]
 
@@ -421,6 +479,54 @@ class CommonWarehouseConnector(Connector):
         for _, row in feature_label_df_merged:
             result.append(row)
         return result
+
+    def get_old_prediction_table(
+        self,
+        lookahead_days: int,
+        current_date: str,
+        model_name: str,
+        material_registry: str,
+    ):
+        past_predictions_end_date = utils.date_add(current_date, -lookahead_days)
+        df = self.get_material_registry_table(material_registry)
+
+        try:
+            past_predictions_info = (
+                df[
+                    (df["model_name"] == model_name)
+                    & (df["model_type"] == "python_model")
+                    & (
+                        df["end_ts"].dt.date
+                        == pd.to_datetime(past_predictions_end_date).date()
+                    )
+                ]
+                .sort_values(by="creation_ts", ascending=False)
+                .iloc[0]
+            )
+        except IndexError:
+            raise Exception(
+                f"No past predictions found for model {model_name} before {past_predictions_end_date}"
+            )
+
+        predictions_table_name = (
+            f"{MATERIAL_PREFIX}{model_name}"
+            + "_"
+            + f'{past_predictions_info["model_hash"]}'
+            + "_"
+            + f'{past_predictions_info["seq_no"]}'
+        )
+        return predictions_table_name
+
+    def get_previous_predictions_info(
+        self, prev_pred_ground_truth_table, score_column, label_column
+    ):
+        single_row = prev_pred_ground_truth_table.iloc[0]
+        model_id = single_row["model_id"]
+        valid_at = single_row["valid_at"]
+        score_and_ground_truth_df = prev_pred_ground_truth_table[
+            [score_column, label_column]
+        ]
+        return score_and_ground_truth_df, model_id, valid_at
 
     def get_creation_ts(
         self,
@@ -751,6 +857,9 @@ class CommonWarehouseConnector(Connector):
         Currently profiles creates a row at the start of a run with status 1 and creates a new row with status to 2 at the end of the run.
         """
         material_registry_table = self.get_table(material_registry_table_name)
+        material_registry_table = material_registry_table.sort_values(
+            by="creation_ts", ascending=False
+        )
 
         def safe_parse_json(entry):
             try:

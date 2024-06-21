@@ -4,9 +4,7 @@ from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
 from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
 
-import yaml
-
-from ..utils import utils
+from .warehouse import standardize_ref_name
 
 from ..utils import constants
 
@@ -114,5 +112,5 @@ class TrainingRecipe(PyNativeRecipe):
             input_model_refs,
             whtService,
             constants.ML_CORE_PYNATIVE_PATH,
-            this.name(),
+            standardize_ref_name(creds["type"], this.name()),
         )

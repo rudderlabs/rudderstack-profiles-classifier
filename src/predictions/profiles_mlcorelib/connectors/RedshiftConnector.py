@@ -24,13 +24,13 @@ class RedshiftConnector(CommonWarehouseConnector):
                 "real",
                 "double precision",
             ),
-            "categorical": ("character varying", "super"),
+            "categorical": ("character varying"),
             "timestamp": (
                 "timestamp without time zone",
                 "date",
                 "time without time zone",
             ),
-            "arraytype": ("array",),
+            "arraytype": ("super",),
             "booleantype": ("boolean", "bool"),
         }
         super().__init__(creds, folder_path, data_type_mapping)

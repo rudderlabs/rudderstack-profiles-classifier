@@ -49,7 +49,7 @@ class PredictionModel(BaseModelType):
                             "column_names": {"type": "object"},
                         },
                         "required": ["column_names"],
-                    }
+                    },
                 },
                 "required": ["data", "outputs"],
             },

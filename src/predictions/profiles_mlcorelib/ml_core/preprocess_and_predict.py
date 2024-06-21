@@ -70,6 +70,7 @@ def preprocess_and_predict(
     }
 
     model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
+    output_label_name = f"{trainer.output_profiles_ml_model}_predicted_label"
     seq_no = None
 
     try:
@@ -196,7 +197,7 @@ def preprocess_and_predict(
         trainer.index_timestamp,
         trainer.outputs.column_names.get("score"),
         trainer.outputs.column_names.get("percentile"),
-        trainer.outputs.column_names.get("output_label_column"),
+        output_label_name,
         train_model_id,
         prob_th,
         input_df,

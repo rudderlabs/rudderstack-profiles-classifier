@@ -82,6 +82,7 @@ class OutputsConfig:
     """OutputsConfig class is used to store the outputs configuration parameters"""
 
     column_names: dict
+    feature_meta_data: List[dict]
 
 
 class TrainerUtils:

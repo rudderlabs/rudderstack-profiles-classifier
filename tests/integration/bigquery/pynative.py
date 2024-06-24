@@ -17,11 +17,13 @@ def run_project():
             pynative_project,
             "-c",
             siteconfig_path,
-            "--concurrency",
-            "2",
         ]
         subprocess.run(pb_args)
+        validate_training_summary()
         assert_training_artefacts()
+        validate_column_names_in_output_json()
+        validate_predictions_df_classification(creds)
+        validate_predictions_df_regressor(creds)
     except Exception as e:
         raise e
     finally:

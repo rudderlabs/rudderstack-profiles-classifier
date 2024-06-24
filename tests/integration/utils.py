@@ -1,6 +1,8 @@
 import os
 import re
+import json
 import yaml
+from src.predictions.profiles_mlcorelib.py_native.warehouse import standardize_ref_name
 from src.predictions.profiles_mlcorelib.connectors.ConnectorFactory import (
     ConnectorFactory,
 )
@@ -69,6 +71,17 @@ def create_site_config_file(creds, siteconfig_path):
         file.write(yaml_data)
 
 
+def get_material_name(wh_type: str, regex: str):
+    output_folder = get_pynative_output_folder()
+    files = os.listdir(output_folder)
+    regex = re.compile(regex)
+    file_name = None
+    for file in files:
+        if regex.match(file):
+            file_name = os.path.splitext(file)[0]
+    return standardize_ref_name(wh_type, file_name)
+
+
 def cleanup_pb_project(project_path, siteconfig_path):
     directories = ["migrations", "output"]
     for directory in directories:
@@ -92,6 +105,65 @@ def assert_training_artefacts():
             count = count + 1
     if count != 2:
         raise Exception(f"{count} training files found in output folder. Expected 2.")
+
+
+def validate_training_summary():
+    output_folder = get_pynative_output_folder()
+    file_path = os.path.join(output_folder, "train_reports", "training_summary.json")
+    with open(file_path, "r") as file:
+        json_data = json.load(file)
+        timestamp = json_data["timestamp"]
+        assert isinstance(timestamp, str), f"Invalid timestamp - {timestamp}"
+        assert timestamp, "Timestamp is empty"
+        metrics = json_data["data"]["metrics"]
+        prob_th = metrics["prob_th"]
+        assert 0 <= prob_th <= 1, f"Invalid prob_th - {prob_th}"
+        assert prob_th, "prob_th is empty"
+        threshold = json_data["data"]["threshold"]
+        assert 0 <= threshold <= 1, f"Invalid threshold - {threshold}"
+        assert threshold, "threshold is empty"
+        keys = ["test", "train", "val"]
+        for key in keys:
+            innerKeys = [
+                "f1_score",
+                "pr_auc",
+                "precision",
+                "recall",
+                "roc_auc",
+                "users",
+            ]
+            for innerKey in innerKeys:
+                assert metrics[key][
+                    innerKey
+                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+
+
+def validate_column_names_in_output_json():
+    with open(output_filename, "r") as file:
+        results = json.load(file)
+
+    expected_keys = {
+        "input_column_types": {
+            "numeric": [],
+            "categorical": [],
+            "arraytype": [],
+            "timestamp": [],
+            "booleantype": [],
+        },
+        "ignore_features": [],
+        "feature_table_column_types": {"numeric": [], "categorical": []},
+    }
+
+    for key, subkeys in expected_keys.items():
+        assert (
+            key in results["column_names"]
+        ), f"Missing key: {key} in output json file."
+
+        if subkeys:
+            for subkey in subkeys:
+                assert (
+                    subkey in results["column_names"][key]
+                ), f"Missing subkey {subkey} under key: {key} in output json file."
 
 
 def validate_reports():
@@ -150,7 +222,22 @@ def validate_predictions_df_regressor(creds: dict):
         "MODEL_ID",
         f"PERCENTILE_{pred_column}",
     ]
-    _validate_predictions_df(creds, required_columns)
+    _validate_predictions_df(creds, required_columns, p_output_tablename)
+
+
+def validate_py_native_df_regressor(creds: dict):
+    table_name = get_material_name(
+        creds["type"], "Material_prediction_regression_model_.+"
+    )
+    column_name = standardize_ref_name(creds["type"], "regression_days_since_last_seen")
+    required_columns = [
+        "USER_MAIN_ID",
+        "VALID_AT",
+        column_name,
+        "MODEL_ID",
+        standardize_ref_name(creds["type"], f"PERCENTILE_{column_name}"),
+    ]
+    _validate_predictions_df(creds, required_columns, table_name)
 
 
 def validate_predictions_df_classification(creds: dict):
@@ -162,14 +249,28 @@ def validate_predictions_df_classification(creds: dict):
         output_label,
         f"PERCENTILE_{pred_column}",
     ]
-    _validate_predictions_df(creds, required_columns)
+    _validate_predictions_df(creds, required_columns, p_output_tablename)
 
 
-def _validate_predictions_df(creds: dict, required_columns):
+def validate_py_native_df_classification(creds: dict):
+    table_name = get_material_name(creds["type"], "Material_prediction_model_.+")
+    column_name = standardize_ref_name(creds["type"], "classification_churn_7_days")
+    required_columns = [
+        "USER_MAIN_ID",
+        "VALID_AT",
+        column_name,
+        "MODEL_ID",
+        output_label,
+        standardize_ref_name(creds["type"], f"PERCENTILE_{column_name}"),
+    ]
+    _validate_predictions_df(creds, required_columns, table_name)
+
+
+def _validate_predictions_df(creds: dict, required_columns, table_name: str):
     connector = ConnectorFactory.create(creds, current_dir)
 
     try:
-        df = connector.get_table_as_dataframe(connector.session, p_output_tablename)
+        df = connector.get_table_as_dataframe(connector.session, table_name)
         columns_in_file = df.columns.tolist()
     except Exception as e:
         raise e

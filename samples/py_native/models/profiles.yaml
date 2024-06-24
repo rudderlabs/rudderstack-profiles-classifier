@@ -56,6 +56,7 @@ models:
         - packages/feature_table/models/shopify_user_features
       ml_config:
         data:
+          task: regression
           label_column: days_since_last_seen
           prediction_horizon_days: 7
           eligible_users: 1=1

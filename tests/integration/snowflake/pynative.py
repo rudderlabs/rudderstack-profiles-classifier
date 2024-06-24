@@ -17,8 +17,6 @@ def run_project():
             pynative_project,
             "-c",
             siteconfig_path,
-            "--concurrency",
-            "20",
         ]
         subprocess.run(pb_args)
         assert_training_artefacts()

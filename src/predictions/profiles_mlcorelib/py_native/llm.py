@@ -3,6 +3,7 @@ from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.schema import (
     EntityKeyBuildSpecSchema,
+    FeatureDetailsBuildSpecSchema,
     EntityIdsBuildSpecSchema,
 )
 from profiles_rudderstack.logger import Logger
@@ -17,6 +18,7 @@ class LLMModel(BaseModelType):
         "type": "object",
         "properties": {
             **EntityKeyBuildSpecSchema["properties"],
+            **FeatureDetailsBuildSpecSchema["properties"],
             **EntityIdsBuildSpecSchema["properties"],
             "prompt": {"type": "string"},
             "eligible_users": {"type": ["string", "null"]},
@@ -225,7 +227,6 @@ class LLMModelRecipe(PyNativeRecipe):
         utils = Utility()
         var_inputs_indices = utils.get_index_list(self.prompt)
         eligible_users_indices = utils.get_index_list(self.eligible_users)
-
         (
             var_inputs_prompt_replaced,
             eligible_users_prompt_replaced,

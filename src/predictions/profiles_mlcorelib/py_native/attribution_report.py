@@ -9,6 +9,7 @@ from profiles_rudderstack.schema import (
 from profiles_rudderstack.logger import Logger
 import re
 
+
 class AttributionModel(BaseModelType):
     TypeName = "attribution_report"  # the name of the model type
 
@@ -45,7 +46,7 @@ class AttributionModel(BaseModelType):
     def get_material_recipe(self) -> PyNativeRecipe:
         return AttributionModelRecipe(self.build_spec)
 
-    def validate(self): Tuple[bool, str]:
+    def validate(self) -> Tuple[bool, str]:
         return True, "Validated successfully"
 
 
@@ -59,18 +60,17 @@ class AttributionModelRecipe(PyNativeRecipe):
         self.conversions = self.config["conversions"]
 
         self.inputs = {
-                        "var_table": f'{self.config["entity"]}/all/var_table',
-                        "user_journeys": f'entity/{self.config["entity"]}/{self.config["user_journeys"]}',
-                       }
+            "var_table": f'{self.config["entity"]}/all/var_table',
+            "user_journeys": f'entity/{self.config["entity"]}/{self.config["user_journeys"]}',
+        }
         for obj in self.config["conversions"]:
             for key, value in obj.items():
                 if key != "name":
                     self.inputs[value] = f'entity/{self.config["entity"]}/{value}'
 
-
     def describe(self, this: WhtMaterial):
         description = """You can see the output table in the warehouse where each touchpoint has an attribution score."""
-        return  description, ".txt"
+        return description, ".txt"
 
     def register_dependencies(self, this: WhtMaterial):
         for key in self.inputs:

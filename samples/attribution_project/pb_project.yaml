@@ -1,0 +1,98 @@
+# Project name
+name: rudderstack_internal_profiles
+# Project's yaml schema version
+schema_version: 49
+# WH Connection to use.
+connection: wyze
+# Whether to allow inputs having no timestamps,
+# if true, data without timestamps are included when running models
+include_untimed: true
+# Model folders to use.
+model_folders:
+  - models
+# Entities in this project and their ids.
+entities:
+  - name: user
+    id_stitcher: models/user_id_graph
+    id_types:
+      - user_id
+      - anonymous_id
+      - email
+      - cio_id
+      - sf_lead_id
+      - sf_contact_id
+    serve_traits:
+      - id_served: email
+        name: user_profile_sample_by_email
+      - id_served: user_id
+        name: user_profile_sample_by_user_id
+      - id_served: anonymous_id
+        name: user_profile_sample_by_anonymous_id
+  # - name: workspace
+  #   id_stitcher: models/workspace_id_graph
+  #   id_types:
+  - name: account
+    id_stitcher: models/account_id_graph
+    id_types:
+      - domain
+      - organization_id
+      - sf_account_id
+      - sf_account_name
+      - workspace_id
+      - email
+      - sf_lead_id
+      - company
+id_types:
+  - name: user_id
+    filters:
+      - type: exclude
+        value: "sources"
+      - type: exclude
+        value: "test@company.com"
+      - type: exclude
+        regex: ".+@rudderstack.com"
+      - type: exclude
+        regex: ".+@rudderlabs.com"
+      - type: exclude
+        regex: ".+@example.com"
+      - type: exclude
+        regex: ".+@qq.com"
+      - type: exclude
+        regex: ".+@redcrackle.com"
+      - type: exclude
+        regex: ".+testing+."
+  - name: anonymous_id
+    filters:
+      - type: exclude
+        value: ""
+      - type: exclude
+        value: "unknown"
+      - type: exclude
+        value: "NaN"
+  - name: email
+    filters:
+      - type: include
+        regex: ".+@.+"
+      - type: exclude
+        value: "test@company.com"
+      - type: exclude
+        regex: ".+@rudderstack.com"
+      - type: exclude
+        regex: ".+@rudderlabs.com"
+      - type: exclude
+        regex: ".+@example.com"
+      - type: exclude
+        regex: ".+@qq.com"
+      - type: exclude
+        regex: ".+@redcrackle.com"
+      - type: exclude
+        regex: ".+testing+."
+  - name: cio_id
+  - name: organization_id
+  - name: domain
+  - name: sf_lead_id
+  - name: sf_contact_id
+  - name: sf_account_id
+  - name: sf_account_name
+  - name: workspace_id
+  - name: company

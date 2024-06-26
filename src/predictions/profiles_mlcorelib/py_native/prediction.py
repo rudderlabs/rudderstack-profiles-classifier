@@ -94,7 +94,7 @@ class PredictionRecipe(PyNativeRecipe):
         # Option 1: Implement the logic for testing file validity in this package
         # Option 2: Always run training before prediction till file as output type is released
         train_material = this.de_ref(self.build_spec["training_model"])
-        return TrainingRecipe.get_output_filepath(train_material)
+        return TrainingRecipe.get_training_file_path(train_material)
 
     def execute(self, this: WhtMaterial):
         site_config_path = this.wht_ctx.site_config().get("FilePath")

@@ -1,3 +1,4 @@
+import os
 from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
@@ -79,11 +80,9 @@ class TrainingRecipe(PyNativeRecipe):
         for input in self.build_spec["inputs"]:
             this.de_ref(input)
 
-    def get_output_filepath(this: WhtMaterial):
-        parts = this.name().rsplit("_", 1)
-        file_name = parts[0] + "_" + "training_file"
+    def get_training_file_path(this: WhtMaterial):
         folder = this.get_output_folder()
-        return f"{folder}/{file_name}"
+        return f"{folder}/{this.name()}/training_file"
 
     def execute(self, this: WhtMaterial):
         whtService = PyNativeWHT(this)
@@ -93,7 +92,7 @@ class TrainingRecipe(PyNativeRecipe):
             this.base_wht_project.project_path(), site_config_path
         )
         input_model_refs = self.build_spec.get("inputs", [])
-        output_filename = TrainingRecipe.get_output_filepath(this)
+        output_filename = TrainingRecipe.get_training_file_path(this)
         project_folder = this.base_wht_project.project_path()
         runtime_info = {"is_rudder_backend": this.base_wht_project.is_rudder_backend()}
         config = self.build_spec.get("ml_config", {})
@@ -113,4 +112,5 @@ class TrainingRecipe(PyNativeRecipe):
             whtService,
             constants.ML_CORE_PYNATIVE_PATH,
             standardize_ref_name(creds["type"], this.name()),
+            os.path.join(this.get_output_folder(), this.name()),
         )

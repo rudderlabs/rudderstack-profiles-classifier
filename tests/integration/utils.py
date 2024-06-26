@@ -83,6 +83,7 @@ def get_directory_name(regex: str):
             return file
     raise Exception(f"Material for {regex} not found")
 
+
 def get_file_name(regex: str):
     output_folder = get_pynative_output_folder()
     entries = os.listdir(output_folder)
@@ -174,6 +175,7 @@ def validate_training_summary(file_path: str):
                 assert metrics[key][
                     innerKey
                 ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+
 
 def validate_training_summary_regression(file_path: str):
     with open(file_path, "r") as file:

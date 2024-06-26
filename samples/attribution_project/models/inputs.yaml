@@ -1,7 +1,7 @@
 inputs:
   - name: app_identifies
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -28,7 +28,7 @@ inputs:
           entity: user
   - name: app_tracks
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - account
@@ -45,7 +45,7 @@ inputs:
           entity: account
   - name: app_transformations
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - account
@@ -61,7 +61,7 @@ inputs:
           entity: account
   - name: app_workspaces
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - account
@@ -77,7 +77,7 @@ inputs:
           entity: account
   - name: app_user_roles
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - account
@@ -98,7 +98,7 @@ inputs:
           entity: user
   - name: app_organizations
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - account
@@ -114,7 +114,7 @@ inputs:
           entity: account
   - name: app_survey
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -138,7 +138,7 @@ inputs:
           entity: user
   - name: app_user_accounts
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - account
@@ -159,7 +159,7 @@ inputs:
           entity: user
   - name: app_users
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -179,7 +179,7 @@ inputs:
           entity: user
   - name: cio_email_converted
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -199,7 +199,7 @@ inputs:
           entity: user
   - name: cio_email_link_clicked
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -219,7 +219,7 @@ inputs:
           entity: user
   - name: cio_email_marked_spam
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -239,7 +239,7 @@ inputs:
           entity: user
   - name: cio_email_opened
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -259,7 +259,7 @@ inputs:
           entity: user
   - name: cio_email_unsubscribed
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -279,7 +279,7 @@ inputs:
           entity: user
   - name: dbt_event_volume_daily_aggregate
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - account
@@ -305,7 +305,7 @@ inputs:
   #       entity: workspace
   - name: foqal_tickets
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -326,7 +326,7 @@ inputs:
           entity: account
   - name: mkt_identifies
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -353,7 +353,7 @@ inputs:
           entity: user
   - name: mkt_identifies_historical
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -380,7 +380,7 @@ inputs:
           entity: user
   - name: mkt_pages
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -404,7 +404,7 @@ inputs:
           entity: user
   - name: mkt_pages_historical
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -428,7 +428,7 @@ inputs:
           entity: user
   - name: mkt_basin_and_sf_enrich
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -448,7 +448,7 @@ inputs:
           entity: user
   - name: mkt_form_submit
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -468,7 +468,7 @@ inputs:
           entity: user
   - name: mkt_session_metrics
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -484,7 +484,7 @@ inputs:
           entity: user
   - name: mkt_form_submit_historical
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -504,7 +504,7 @@ inputs:
           entity: user
   - name: mkt_qualified_email_captured
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -528,7 +528,7 @@ inputs:
           entity: user
   - name: mkt_qualified_meeting_booked
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -552,7 +552,7 @@ inputs:
           entity: user
   - name: sf_lead
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -584,7 +584,7 @@ inputs:
           entity: account
   - name: sf_contact
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user
@@ -612,7 +612,7 @@ inputs:
           entity: account
   - name: sf_account
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - account
@@ -639,7 +639,7 @@ inputs:
           entity: user
   - name: sf_task
     contract:
-      is_optional: false
+      is_optional: true
       is_event_stream: true
       with_entity_ids:
         - user

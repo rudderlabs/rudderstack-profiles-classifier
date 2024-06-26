@@ -51,7 +51,7 @@ def _train(
     whtService: PythonWHT,
     ml_core_path: str,
     metrics_table: str,
-    material_directory = None,
+    material_directory=None,
 ) -> None:
     """Trains the model and saves the model with given output_filename.
 
@@ -357,7 +357,9 @@ def _train(
         "%Y-%m-%dT%H:%M:%SZ"
     )
     summary = trainer.prepare_training_summary(train_results, model_timestamp)
-    json.dump(summary, open(os.path.join(reports_directory, "training_summary.json"), "w"))
+    json.dump(
+        summary, open(os.path.join(reports_directory, "training_summary.json"), "w")
+    )
     logger.debug("Fetching visualisations to local")
 
     for figure_name in trainer.figure_names.values():

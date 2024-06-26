@@ -73,12 +73,17 @@ def create_site_config_file(creds, siteconfig_path):
 
 def get_material_name(wh_type: str, regex: str):
     output_folder = get_pynative_output_folder()
-    files = os.listdir(output_folder)
-    regex = re.compile(regex)
+    entries = os.listdir(output_folder)
+    directories = [
+        entry for entry in entries if os.path.isdir(os.path.join(output_folder, entry))
+    ]
+    compiledRegex = re.compile(regex)
     file_name = None
-    for file in files:
-        if regex.match(file):
+    for file in directories:
+        if compiledRegex.match(file):
             file_name = os.path.splitext(file)[0]
+    if file_name is None:
+        raise Exception(f"Material for {regex} not found")
     return standardize_ref_name(wh_type, file_name)
 
 
@@ -92,25 +97,41 @@ def cleanup_pb_project(project_path, siteconfig_path):
 
 
 def assert_training_artefacts(creds):
-    validate_reports()
     output_folder = get_pynative_output_folder()
-    modelRegex = [
-        "Material_traininG_model_.+",
-        "Material_training_regression_model_.+",
+    models = [
+        {
+            "regex": "Material_traininG_model_.+",
+            "reports": [
+                "01-feature-importance-chart-ltv_classification",
+                "02-test-lift-chart-ltv_classification",
+                "03-test-pr-auc-ltv_classification",
+                "04-test-roc-auc-ltv_classification",
+            ],
+        },
+        {
+            "regex": "Material_training_regression_model_.+",
+            "reports": [
+                "01-feature-importance-chart-ltv_regression",
+                "02-residuals-chart-ltv_regression",
+                "03-deciles-plot-ltv_regression",
+            ],
+        },
     ]
-    for regex in modelRegex:
-        material_directory = get_material_name(creds["type"], regex)
+    for model in models:
+        material_directory = get_material_name(creds["type"], model["regex"])
         training_file_path = os.path.join(
             output_folder, material_directory, "training_file"
         )
         validate_column_names_in_output_json(training_file_path)
-        training_summary_path = os.path.join(
+        training_reports_path = os.path.join(
             output_folder,
             material_directory,
             "training_reports",
-            "training_summary.json",
         )
-        validate_training_summary(training_summary_path)
+        validate_training_summary(
+            os.path.join(training_reports_path, "training_summary.json")
+        )
+        validate_reports(training_reports_path, model["reports"])
 
 
 def validate_training_summary(file_path: str):
@@ -170,19 +191,8 @@ def validate_column_names_in_output_json(file_name=output_filename):
                 ), f"Missing subkey {subkey} under key: {key} in output json file."
 
 
-def validate_reports():
-    output_folder = get_pynative_output_folder()
-    reports_directory = os.path.join(output_folder, "train_reports")
-    expected_files = [
-        "01-feature-importance-chart-ltv_classification",
-        "02-test-lift-chart-ltv_classification",
-        "03-test-pr-auc-ltv_classification",
-        "04-test-roc-auc-ltv_classification",
-        "01-feature-importance-chart-ltv_regression",
-        "02-residuals-chart-ltv_regression",
-        "03-deciles-plot-ltv_regression",
-    ]
-    files = os.listdir(reports_directory)
+def validate_reports(directory: str, expected_files: list[str]):
+    files = os.listdir(directory)
     missing_files = []
     for expected_file in expected_files:
         found = False

@@ -100,7 +100,9 @@ def assert_training_artefacts(creds):
     ]
     for regex in modelRegex:
         material_directory = get_material_name(creds["type"], regex)
-        training_file_path = os.path.join(output_folder, material_directory, "training_file")
+        training_file_path = os.path.join(
+            output_folder, material_directory, "training_file"
+        )
         validate_column_names_in_output_json(training_file_path)
 
 

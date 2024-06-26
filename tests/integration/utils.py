@@ -71,20 +71,26 @@ def create_site_config_file(creds, siteconfig_path):
         file.write(yaml_data)
 
 
-def get_material_name(regex: str):
+def get_directory_name(regex: str):
     output_folder = get_pynative_output_folder()
     entries = os.listdir(output_folder)
     directories = [
         entry for entry in entries if os.path.isdir(os.path.join(output_folder, entry))
     ]
     compiledRegex = re.compile(regex)
-    result = None
     for file in directories:
         if compiledRegex.match(file):
-            result = os.path.splitext(file)[0]
-    if result is None:
-        raise Exception(f"Material for {regex} not found")
-    return result
+            return file
+    raise Exception(f"Material for {regex} not found")
+
+def get_file_name(regex: str):
+    output_folder = get_pynative_output_folder()
+    entries = os.listdir(output_folder)
+    compiledRegex = re.compile(regex)
+    for file in entries:
+        if compiledRegex.match(file):
+            return os.path.splitext(file)[0]
+    raise Exception(f"Material for {regex} not found")
 
 
 def cleanup_pb_project(project_path, siteconfig_path):
@@ -107,18 +113,20 @@ def assert_training_artefacts():
                 "03-test-pr-auc-ltv_classification",
                 "04-test-roc-auc-ltv_classification",
             ],
+            "classification": True,
         },
         {
             "regex": "Material_training_regression_model_.+",
             "reports": [
-                "01-feature-importance-chart-ltv_regression",
-                "02-residuals-chart-ltv_regression",
-                "03-deciles-plot-ltv_regression",
+                "01-feature-importance-chart-ltv_regression_integration_test",
+                "02-residuals-chart-ltv_regression_integration_test",
+                "03-deciles-plot-ltv_regression_integration_test",
             ],
+            "classification": False,
         },
     ]
     for model in models:
-        material_directory = get_material_name(model["regex"])
+        material_directory = get_directory_name(model["regex"])
         training_file_path = os.path.join(
             output_folder, material_directory, "training_file"
         )
@@ -128,9 +136,14 @@ def assert_training_artefacts():
             material_directory,
             "training_reports",
         )
-        validate_training_summary(
-            os.path.join(training_reports_path, "training_summary.json")
-        )
+        if model["classification"]:
+            validate_training_summary(
+                os.path.join(training_reports_path, "training_summary.json")
+            )
+        else:
+            validate_training_summary_regression(
+                os.path.join(training_reports_path, "training_summary.json")
+            )
         validate_reports(training_reports_path, model["reports"])
 
 
@@ -157,6 +170,21 @@ def validate_training_summary(file_path: str):
                 "roc_auc",
                 "users",
             ]
+            for innerKey in innerKeys:
+                assert metrics[key][
+                    innerKey
+                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+
+def validate_training_summary_regression(file_path: str):
+    with open(file_path, "r") as file:
+        json_data = json.load(file)
+        timestamp = json_data["timestamp"]
+        assert isinstance(timestamp, str), f"Invalid timestamp - {timestamp}"
+        assert timestamp, "Timestamp is empty"
+        metrics = json_data["data"]["metrics"]
+        keys = ["test", "train", "val"]
+        for key in keys:
+            innerKeys = ["mean_absolute_error", "mean_squared_error", "r2_score"]
             for innerKey in innerKeys:
                 assert metrics[key][
                     innerKey
@@ -202,7 +230,7 @@ def validate_reports(directory: str, expected_files: list[str]):
         if not found:
             missing_files.append(expected_file)
     if len(missing_files) > 0:
-        raise Exception(f"{missing_files} not found in reports directory")
+        raise Exception(f"{missing_files} not found in {directory}")
 
 
 def get_latest_entity_var(
@@ -240,7 +268,7 @@ def validate_predictions_df_regressor(creds: dict):
 
 
 def validate_py_native_df_regressor(creds: dict):
-    material_name = get_material_name("Material_prediction_regression_model_.+")
+    material_name = get_file_name("Material_prediction_regression_model_.+")
     table_name = standardize_ref_name(creds["type"], material_name)
     column_name = standardize_ref_name(creds["type"], "regression_days_since_last_seen")
     required_columns = [
@@ -266,7 +294,7 @@ def validate_predictions_df_classification(creds: dict):
 
 
 def validate_py_native_df_classification(creds: dict):
-    material_name = get_material_name("Material_prediction_model_.+")
+    material_name = get_file_name("Material_prediction_model_.+")
     table_name = standardize_ref_name(creds["type"], material_name)
     column_name = standardize_ref_name(creds["type"], "classification_churn_7_days")
     required_columns = [

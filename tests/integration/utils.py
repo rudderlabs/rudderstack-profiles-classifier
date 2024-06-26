@@ -104,11 +104,16 @@ def assert_training_artefacts(creds):
             output_folder, material_directory, "training_file"
         )
         validate_column_names_in_output_json(training_file_path)
+        training_summary_path = os.path.join(
+            output_folder,
+            material_directory,
+            "training_reports",
+            "training_summary.json",
+        )
+        validate_training_summary(training_summary_path)
 
 
-def validate_training_summary():
-    output_folder = get_pynative_output_folder()
-    file_path = os.path.join(output_folder, "train_reports", "training_summary.json")
+def validate_training_summary(file_path: str):
     with open(file_path, "r") as file:
         json_data = json.load(file)
         timestamp = json_data["timestamp"]

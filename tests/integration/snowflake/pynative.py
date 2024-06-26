@@ -19,9 +19,7 @@ def run_project():
             siteconfig_path,
         ]
         subprocess.run(pb_args)
-        validate_training_summary()
         assert_training_artefacts(creds)
-        validate_column_names_in_output_json()
         validate_py_native_df_classification(creds)
         validate_py_native_df_regressor(creds)
     except Exception as e:

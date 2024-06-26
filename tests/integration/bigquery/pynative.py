@@ -19,7 +19,6 @@ def run_project():
             siteconfig_path,
         ]
         subprocess.run(pb_args)
-        validate_training_summary()
         assert_training_artefacts(creds)
         validate_predictions_df_classification(creds)
         validate_predictions_df_regressor(creds)

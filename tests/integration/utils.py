@@ -91,24 +91,17 @@ def cleanup_pb_project(project_path, siteconfig_path):
     os.remove(siteconfig_path)
 
 
-def assert_training_artefacts():
+def assert_training_artefacts(creds):
     validate_reports()
     output_folder = get_pynative_output_folder()
-    files = os.listdir(output_folder)
-    model1Regex = re.compile("Material_traininG_model_.+_training_file")
-    model2Regex = re.compile("Material_training_regression_model_.+_training_file")
-    count = 0
-    result = []
-    for file in files:
-        if model1Regex.match(file):
-            count = count + 1
-            result.append(file)
-        if model2Regex.match(file):
-            count = count + 1
-            result.append(file)
-    if count != 2:
-        raise Exception(f"{count} training files found in output folder. Expected 2.")
-    return result
+    modelRegex = [
+        "Material_traininG_model_.+",
+        "Material_training_regression_model_.+",
+    ]
+    for regex in modelRegex:
+        material_directory = get_material_name(creds["type"], regex)
+        training_file_path = os.path.join(output_folder, material_directory, "training_file")
+        validate_column_names_in_output_json(training_file_path)
 
 
 def validate_training_summary():

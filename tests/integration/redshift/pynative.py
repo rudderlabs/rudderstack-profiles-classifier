@@ -21,7 +21,7 @@ def run_project():
             "20",
         ]
         subprocess.run(pb_args)
-        assert_training_artefacts(creds)
+        assert_training_artefacts()
         validate_predictions_df_classification(creds)
         validate_predictions_df_regressor(creds)
     except Exception as e:

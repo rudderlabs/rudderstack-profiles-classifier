@@ -71,20 +71,20 @@ def create_site_config_file(creds, siteconfig_path):
         file.write(yaml_data)
 
 
-def get_material_name(wh_type: str, regex: str):
+def get_material_name(regex: str):
     output_folder = get_pynative_output_folder()
     entries = os.listdir(output_folder)
     directories = [
         entry for entry in entries if os.path.isdir(os.path.join(output_folder, entry))
     ]
     compiledRegex = re.compile(regex)
-    file_name = None
+    result = None
     for file in directories:
         if compiledRegex.match(file):
-            file_name = os.path.splitext(file)[0]
-    if file_name is None:
+            result = os.path.splitext(file)[0]
+    if result is None:
         raise Exception(f"Material for {regex} not found")
-    return standardize_ref_name(wh_type, file_name)
+    return result
 
 
 def cleanup_pb_project(project_path, siteconfig_path):
@@ -96,7 +96,7 @@ def cleanup_pb_project(project_path, siteconfig_path):
     os.remove(siteconfig_path)
 
 
-def assert_training_artefacts(creds):
+def assert_training_artefacts():
     output_folder = get_pynative_output_folder()
     models = [
         {
@@ -118,7 +118,7 @@ def assert_training_artefacts(creds):
         },
     ]
     for model in models:
-        material_directory = get_material_name(creds["type"], model["regex"])
+        material_directory = get_material_name(model["regex"])
         training_file_path = os.path.join(
             output_folder, material_directory, "training_file"
         )
@@ -240,9 +240,8 @@ def validate_predictions_df_regressor(creds: dict):
 
 
 def validate_py_native_df_regressor(creds: dict):
-    table_name = get_material_name(
-        creds["type"], "Material_prediction_regression_model_.+"
-    )
+    material_name = get_material_name("Material_prediction_regression_model_.+")
+    table_name = standardize_ref_name(creds["type"], material_name)
     column_name = standardize_ref_name(creds["type"], "regression_days_since_last_seen")
     required_columns = [
         "USER_MAIN_ID",
@@ -267,7 +266,8 @@ def validate_predictions_df_classification(creds: dict):
 
 
 def validate_py_native_df_classification(creds: dict):
-    table_name = get_material_name(creds["type"], "Material_prediction_model_.+")
+    material_name = get_material_name("Material_prediction_model_.+")
+    table_name = standardize_ref_name(creds["type"], material_name)
     column_name = standardize_ref_name(creds["type"], "classification_churn_7_days")
     required_columns = [
         "USER_MAIN_ID",

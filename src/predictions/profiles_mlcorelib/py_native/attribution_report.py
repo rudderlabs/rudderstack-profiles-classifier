@@ -19,12 +19,12 @@ class AttributionModel(BaseModelType):
         "properties": {
             **EntityKeyBuildSpecSchema["properties"],
             **EntityIdsBuildSpecSchema["properties"],
-            "entity": {"type": ["string", "null"]},
+            "entity": {"type": "string"},
             "report_granularity": {"type": ["string", "null"]},
-            "spend_inputs": {"type": ["array", "null"], "items": {"type": "string"}},
-            "user_journeys": {"type": ["string", "null"]},
+            "spend_inputs": {"type": "array", "items": {"type": "string"}},
+            "user_journeys": {"type": "string"},
             "conversions": {
-                "type": ["array", "null"],
+                "type": "array",
                 "items": {
                     "type": "object",
                     "properties": {
@@ -36,7 +36,7 @@ class AttributionModel(BaseModelType):
                 },
             },
         },
-        "required": ["spend_inputs", "user_journeys", "conversions"],
+        "required": ["entity", "spend_inputs", "user_journeys", "conversions"],
         "additionalProperties": False,
     }
 
@@ -65,8 +65,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         }
         for obj in self.config["conversions"]:
             for key, value in obj.items():
-                if key != "name":
-                    self.inputs[value] = f'entity/{self.config["entity"]}/{value}'
+                self.inputs[value] = f'entity/{self.config["entity"]}/{value}'
 
     def describe(self, this: WhtMaterial):
         description = """You can see the output table in the warehouse where each touchpoint has an attribution score."""

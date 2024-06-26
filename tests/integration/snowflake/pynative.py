@@ -20,7 +20,9 @@ def run_project():
         ]
         subprocess.run(pb_args)
         validate_training_summary()
-        assert_training_artefacts()
+        training_files = assert_training_artefacts()
+        for file in training_files:
+            validate_column_names_in_output_json(file)
         validate_column_names_in_output_json()
         validate_py_native_df_classification(creds)
         validate_py_native_df_regressor(creds)

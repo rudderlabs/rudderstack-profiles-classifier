@@ -98,13 +98,17 @@ def assert_training_artefacts():
     model1Regex = re.compile("Material_traininG_model_.+_training_file")
     model2Regex = re.compile("Material_training_regression_model_.+_training_file")
     count = 0
+    result = []
     for file in files:
         if model1Regex.match(file):
             count = count + 1
+            result.append(file)
         if model2Regex.match(file):
             count = count + 1
+            result.append(file)
     if count != 2:
         raise Exception(f"{count} training files found in output folder. Expected 2.")
+    return result
 
 
 def validate_training_summary():
@@ -138,8 +142,8 @@ def validate_training_summary():
                 ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
-def validate_column_names_in_output_json():
-    with open(output_filename, "r") as file:
+def validate_column_names_in_output_json(file_name=output_filename):
+    with open(file_name, "r") as file:
         results = json.load(file)
 
     expected_keys = {

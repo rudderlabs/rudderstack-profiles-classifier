@@ -21,6 +21,9 @@ entities:
       - user_id
       - anonymous_id
       - email
+    serve_traits_360:
+      using_ids:
+        - id: user_main_id
 # lib packages can be imported in project signifying that this project inherits its properties from there
 packages:
   - name: corelib

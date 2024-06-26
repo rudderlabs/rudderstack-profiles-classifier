@@ -17,7 +17,13 @@ models:
       table_inputs:
         - select: first_name
           from: inputs/rsIdentifies
-
+      llm_model_name: "mistral-7b"
+      features:
+        - name: llm_gender_prediction
+      ids:
+        - select: "user_main_id"
+          type: rudder_id
+          entity: user
   - name: llm_profession_prediction
     model_type: llm_model
     model_spec:
@@ -26,10 +32,17 @@ models:
       eligible_users: "{var_inputs[0]} is not null"
       var_inputs:
         - user.Var('profession')
+
       llm_model_name: "llama2-70b-chat"
       run_for_top_k_distinct: 5
       sql_inputs:
         - "select title, url from predictions_dev_project.pages where timestamp > dateadd(month,-3,current_date()) group by title, url order by count(*) desc limit 10"
+      features:
+        - name: llm_profession_prediction
+      ids:
+        - select: "user_main_id"
+          type: rudder_id
+          entity: user
 
 
 var_groups:

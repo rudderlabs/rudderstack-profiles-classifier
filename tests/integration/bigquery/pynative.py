@@ -20,8 +20,8 @@ def run_project():
         ]
         subprocess.run(pb_args)
         assert_training_artefacts()
-        validate_predictions_df_classification(creds)
-        validate_predictions_df_regressor(creds)
+        validate_py_native_df_classification(creds)
+        validate_py_native_df_regressor(creds)
     except Exception as e:
         raise e
     finally:

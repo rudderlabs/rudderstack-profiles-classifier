@@ -42,7 +42,7 @@ class RedShiftConnector(ConnectorBase):
         table_name, schema = (
             table_name.split(".") if "." in table_name else (table_name, schema)
         )
-        logger.debug("Redshift write_to_table")
+        logger.get().debug("Redshift write_to_table")
 
         try:
             # Instead of checking access_key_id key, we could have also checked for either access_key_secret or aws_session_token key
@@ -57,7 +57,7 @@ class RedShiftConnector(ConnectorBase):
                     method="multi",
                 )
             else:
-                logger.info(f"Establishing connection to Redshift")
+                logger.get().info(f"Establishing connection to Redshift")
                 pr.connect_to_redshift(
                     dbname=self.db_config["database"],
                     host=self.creds["host"],
@@ -69,7 +69,7 @@ class RedShiftConnector(ConnectorBase):
                 s3_bucket = self.s3_config.get("bucket", None)
                 s3_sub_dir = self.s3_config.get("path", None)
 
-                logger.info(f"Establishing connection to S3")
+                logger.get().info(f"Establishing connection to S3")
                 pr.connect_to_s3(
                     aws_access_key_id=self.s3_config["access_key_id"],
                     aws_secret_access_key=self.s3_config["access_key_secret"],
@@ -80,15 +80,15 @@ class RedShiftConnector(ConnectorBase):
                 )
 
                 # Write the DataFrame to S3 and then to redshift
-                logger.info(f"Writing pandas df to S3 and then to Redshift")
+                logger.get().info(f"Writing pandas df to S3 and then to Redshift")
                 pr.pandas_to_redshift(
                     data_frame=df,
                     redshift_table_name=f"{schema}.{table_name}",
                     append=if_exists == "append",
                 )
-                logger.info(
+                logger.get().info(
                     f"Successfully wrote table {table_name} to S3 and then to Redshift"
                 )
         except Exception as e:
-            logger.error(f"Error while writing to warehouse: {e}")
+            logger.get().error(f"Error while writing to warehouse: {e}")
             raise Exception(f"Error while writing to warehouse: {e}")

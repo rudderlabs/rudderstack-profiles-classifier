@@ -5,6 +5,8 @@ from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
 from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
 
+from ..utils.logger import logger
+
 from .warehouse import standardize_ref_name
 
 from ..utils import constants
@@ -85,6 +87,7 @@ class TrainingRecipe(PyNativeRecipe):
         return f"{folder}/{this.name()}/training_file"
 
     def execute(self, this: WhtMaterial):
+        logger.set_logger(self.logger)
         whtService = PyNativeWHT(this)
         site_config_path = this.wht_ctx.site_config().get("FilePath")
         # TODO: Get creds from pywht

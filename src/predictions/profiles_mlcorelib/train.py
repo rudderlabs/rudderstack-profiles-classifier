@@ -87,7 +87,7 @@ def _train(
         reports_directory = utils.get_output_directory(folder_path)
 
     """ Initialising trainer """
-    logger.info("Initialising trainer")
+    logger.get().info("Initialising trainer")
     default_config = utils.load_yaml(config_path)
     _ = config["data"].pop(
         "package_name", None
@@ -118,21 +118,21 @@ def _train(
 
     trainer = TrainerFactory.create(merged_config, connector, entity_var_model_name)
 
-    logger.debug(
+    logger.get().debug(
         f"Started training for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
     )
     if trainer.eligible_users:
-        logger.debug(
+        logger.get().debug(
             f"Only following users are considered for training: {trainer.eligible_users}"
         )
     else:
-        logger.debug(
+        logger.get().debug(
             "Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc."
         )
 
     """ Building session """
     warehouse = creds["type"]
-    logger.debug(f"Building session for {warehouse}")
+    logger.get().debug(f"Building session for {warehouse}")
     if warehouse == "snowflake":
         stage_name = connector.stage_name
         train_procedure = connector.stored_procedure_name
@@ -221,7 +221,8 @@ def _train(
                 figure_file = os.path.join(
                     "tmp", trainer.figure_names["feature-importance-chart"]
                 )
-                logger.info(f"Generating feature importance plot")
+                # Can't use logger inside snowpark stored procedures since snowpark can't pickle it
+                print(f"Generating feature importance plot")
                 utils.plot_top_k_feature_importance(
                     pipe,
                     train_x,
@@ -230,7 +231,7 @@ def _train(
                 )
                 connector.save_file(session, figure_file, stage_name, overwrite=True)
             except Exception as e:
-                logger.error(f"Could not generate plots {e}")
+                print(f"Could not generate plots {e}")
 
             connector.write_pandas(
                 metrics_df,
@@ -263,7 +264,7 @@ def _train(
 
     absolute_input_models = whtService.get_input_models(inputs)
 
-    logger.info(f"Getting input column types from table: {latest_entity_var_table}")
+    logger.get().info(f"Getting input column types from table: {latest_entity_var_table}")
     input_column_types = connector.get_input_column_types(
         trainer,
         latest_entity_var_table,
@@ -271,7 +272,7 @@ def _train(
         trainer.entity_column,
         trainer.prep.ignore_features,
     )
-    logger.debug(f"Input column types detected: {input_column_types}")
+    logger.get().debug(f"Input column types detected: {input_column_types}")
 
     try:
         feature_data_min_date_diff = trainer.feature_data_min_date_diff
@@ -279,7 +280,7 @@ def _train(
         # Default feature dates minimum difference
         feature_data_min_date_diff = 3
 
-    logger.info("Getting past data for training")
+    logger.get().info("Getting past data for training")
     get_material_names_partial = partial(
         whtService.get_material_names,
         end_date=end_date,
@@ -302,13 +303,13 @@ def _train(
             connector,
         )
     except Exception as e:
-        logger.error(f"Error while generating new materials, {str(e)}")
+        logger.get().error(f"Error while generating new materials, {str(e)}")
 
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )
     processor = ProcessorFactory.create(mode, trainer, connector, ml_core_path)
-    logger.debug(f"Using {mode} processor for training")
+    logger.get().debug(f"Using {mode} processor for training")
     train_results = processor.train(
         train_procedure,
         train_table_pairs,
@@ -318,9 +319,9 @@ def _train(
         creds,
         utils.load_yaml(site_config_path),
     )
-    logger.debug("Training completed. Saving the artefacts")
+    logger.get().debug("Training completed. Saving the artefacts")
 
-    logger.info("Saving train results to file")
+    logger.get().info("Saving train results to file")
     model_id = train_results["model_id"]
 
     training_dates_ = []
@@ -360,14 +361,14 @@ def _train(
     json.dump(
         summary, open(os.path.join(reports_directory, "training_summary.json"), "w")
     )
-    logger.debug("Fetching visualisations to local")
+    logger.get().debug("Fetching visualisations to local")
 
     for figure_name in trainer.figure_names.values():
         try:
             connector.fetch_staged_file(stage_name, figure_name, reports_directory)
         except Exception as e:
-            logger.warning(f"Could not fetch {figure_name} {e}")
+            logger.get().warning(f"Could not fetch {figure_name} {e}")
 
-    logger.debug("Cleaning up the training session")
+    logger.get().debug("Cleaning up the training session")
     connector.post_job_cleanup()
-    logger.debug("Training completed")
+    logger.get().debug("Training completed")

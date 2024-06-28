@@ -91,16 +91,16 @@ def preprocess_and_predict(
         seq_no,
     )
 
-    logger.debug(f"Pulling data from Entity-Var table - {entity_var_table_name}")
+    logger.get().debug(f"Pulling data from Entity-Var table - {entity_var_table_name}")
     raw_data = connector.get_table(
         entity_var_table_name, filter_condition=trainer.eligible_users
     )
 
-    logger.debug("Transforming timestamp columns.")
+    logger.get().debug("Transforming timestamp columns.")
     for col in timestamp_columns:
         raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
 
-    logger.debug(f"Transforming arraytype columns.")
+    logger.get().debug(f"Transforming arraytype columns.")
     _, raw_data = connector.transform_arraytype_features(
         raw_data,
         arraytype_columns,
@@ -109,7 +109,7 @@ def preprocess_and_predict(
     )
     raw_data = connector.transform_booleantype_features(raw_data, booleantype_columns)
 
-    logger.debug("Boolean Type Columns transformed to numeric")
+    logger.get().debug("Boolean Type Columns transformed to numeric")
 
     predict_data = connector.drop_cols(raw_data, ignore_features)
 
@@ -188,7 +188,7 @@ def preprocess_and_predict(
 
         prediction_udf = predict_scores_rs
 
-    logger.debug("Creating predictions on the feature data")
+    logger.get().debug("Creating predictions on the feature data")
     preds_with_percentile = connector.call_prediction_udf(
         predict_data,
         prediction_udf,
@@ -201,7 +201,7 @@ def preprocess_and_predict(
         prob_th,
         input_df,
     )
-    logger.debug("Writing predictions to warehouse")
+    logger.get().debug("Writing predictions to warehouse")
     connector.write_table(
         preds_with_percentile,
         output_tablename,
@@ -219,7 +219,7 @@ def preprocess_and_predict(
             whtService.get_registry_table_name(),
         )
 
-        logger.debug(f"Fetching previous prediction table: {prev_prediction_table}")
+        logger.get().debug(f"Fetching previous prediction table: {prev_prediction_table}")
         prev_predictions = connector.get_table(prev_prediction_table)
 
         label_table = trainer.prepare_label_table(connector, entity_var_table_name)
@@ -281,12 +281,12 @@ def preprocess_and_predict(
 
             connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     except Exception as e:
-        logger.warning(f"Error while fetching previous prediction table: {e}")
+        logger.get().warning(f"Error while fetching previous prediction table: {e}")
 
-    logger.debug("Closing the session")
+    logger.get().debug("Closing the session")
 
     connector.post_job_cleanup()
-    logger.debug("Finished Predict job")
+    logger.get().debug("Finished Predict job")
 
 
 if __name__ == "__main__":
@@ -319,10 +319,10 @@ if __name__ == "__main__":
     )
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    logger.get().addHandler(file_handler)
 
     if args.mode == constants.RUDDERSTACK_MODE:
-        logger.debug(f"Downloading files from S3 in {args.mode} mode.")
+        logger.get().debug(f"Downloading files from S3 in {args.mode} mode.")
         S3Utils.download_directory(args.s3_config, output_dir)
     if args.mode == constants.CI_MODE:
         sys.exit(0)
@@ -344,5 +344,5 @@ if __name__ == "__main__":
     )
 
     if args.mode == constants.RUDDERSTACK_MODE:
-        logger.debug(f"Deleting files in {output_dir}")
+        logger.get().debug(f"Deleting files in {output_dir}")
         utils.delete_folder(output_dir)

@@ -65,7 +65,7 @@ class LocalProcessor(Processor):
         output_path = os.path.dirname(model_path)
         json_output_filename = model_path.split("/")[-1]
 
-        logger.debug("Starting prediction on local processing mode")
+        logger.get().debug("Starting prediction on local processing mode")
         commands = [
             sys.executable,
             "-u",
@@ -93,4 +93,4 @@ class LocalProcessor(Processor):
             raise Exception(
                 f"Error occurred while running predict script in local processing mode. Error: {response_for_predict.stderr}"
             )
-        logger.debug("Done predicting")
+        logger.get().debug("Done predicting")

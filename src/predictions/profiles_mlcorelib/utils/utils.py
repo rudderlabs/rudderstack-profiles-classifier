@@ -372,7 +372,7 @@ def convert_ts_str_to_dt_str(timestamp_str: str) -> str:
         string_date = timestamp.strftime(constants.MATERIAL_DATE_FORMAT)
         return string_date
     except Exception as e:
-        logger.error(f"Error occurred while converting timestamp to date string: {e}")
+        logger.get().error(f"Error occurred while converting timestamp to date string: {e}")
         raise Exception(
             f"Error occurred while converting timestamp to date string: {e}"
         )
@@ -419,25 +419,25 @@ def get_output_directory(folder_path: str) -> str:
 def delete_file(file_path: str) -> None:
     try:
         os.remove(file_path)
-        logger.info(f"File '{file_path}' deleted successfully from local.")
+        logger.get().info(f"File '{file_path}' deleted successfully from local.")
     except FileNotFoundError:
-        logger.error(f"Error: File '{file_path}' not found.")
+        logger.get().error(f"Error: File '{file_path}' not found.")
     except PermissionError:
-        logger.error(f"Error: Permission denied. Unable to delete '{file_path}'.")
+        logger.get().error(f"Error: Permission denied. Unable to delete '{file_path}'.")
     except OSError as e:
-        logger.error(f"Error occurred while deleting file '{file_path}': {e}")
+        logger.get().error(f"Error occurred while deleting file '{file_path}': {e}")
 
 
 def delete_folder(folder_path: str) -> None:
     try:
         shutil.rmtree(folder_path)
-        logger.info(f"Folder '{folder_path}' deleted successfully from local.")
+        logger.get().info(f"Folder '{folder_path}' deleted successfully from local.")
     except FileNotFoundError:
-        logger.error(f"Error: Folder '{folder_path}' not found.")
+        logger.get().error(f"Error: Folder '{folder_path}' not found.")
     except PermissionError:
-        logger.error(f"Error: Permission denied. Unable to delete '{folder_path}'.")
+        logger.get().error(f"Error: Permission denied. Unable to delete '{folder_path}'.")
     except OSError as e:
-        logger.error(f"Error occurred while deleting folder '{folder_path}': {e}")
+        logger.get().error(f"Error occurred while deleting folder '{folder_path}': {e}")
 
 
 def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple:
@@ -497,7 +497,7 @@ def datetime_to_date_string(datetime_str: str) -> str:
         # to match datetime string with given format
         # In this case datetime sting is in "%Y-%m-%d" format
         # and returning empty string
-        logger.warning(
+        logger.get().warning(
             f"Not able to extract date string from datetime string {datetime_str}"
         )
         return ""
@@ -532,7 +532,7 @@ def generate_new_training_dates(
             break
 
     if not found:
-        logger.warning(
+        logger.get().warning(
             "Couldn't find a date honouring proximity check. "
             f"Proceeding with {generated_feature_date} as feature_date"
         )
@@ -570,8 +570,8 @@ def subprocess_run(args):
             f"Error occurred while running subprocess with params {args}: {e}"
         )
     if response.returncode != 0:
-        logger.error(f"Error occurred. Exit code:{response.returncode}")
-        logger.debug(f"Subprocess Output: {response.stdout}")
+        logger.get().error(f"Error occurred. Exit code:{response.returncode}")
+        logger.get().debug(f"Subprocess Output: {response.stdout}")
         raise Exception(f"Subprocess Error: {response.stderr}")
     return response
 
@@ -752,14 +752,14 @@ def plot_top_k_feature_importance(
     try:
         shap_values = shap.TreeExplainer(pipe["model"]).shap_values(train_x_processed)
     except Exception as e:
-        logger.warning(
+        logger.get().warning(
             f"Exception occured while calculating shap values {e}, using KernelExplainer"
         )
         return
 
     x_label = "Importance scores"
     if isinstance(shap_values, list):
-        logger.debug(
+        logger.get().debug(
             "Got List output, suggesting that the model is a multi-output model. \
                 Using the second output for plotting feature importance"
         )
@@ -770,7 +770,7 @@ def plot_top_k_feature_importance(
         and len(shap_values.shape) == 3
         and shap_values.shape[2] == 2
     ):
-        logger.debug(
+        logger.get().debug(
             "Got 3D numpy array with last dimension having depth of 2. Taking the second output for plotting feature importance"
         )
         shap_values = shap_values[:, :, 1]

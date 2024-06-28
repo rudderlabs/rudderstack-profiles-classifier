@@ -102,7 +102,7 @@ class MLTrainer(ABC):
                     f"feature_data_min_date_diff required for auto materialisation strategy. {e} not found in input config"
                 )
         elif self.materialisation_strategy == "":
-            logger.info(
+            logger.get().info(
                 "No past materialisation strategy given. The training will be done on the existing eligible past materialised data only."
             )
 
@@ -135,7 +135,7 @@ class MLTrainer(ABC):
                 error_message = (
                     f"Invalid num_params_name: {num_params_name} for numeric pipeline."
                 )
-                logger.error(error_message)
+                logger.get().error(error_message)
                 raise ValueError(error_message)
         num_pipeline = Pipeline(
             [
@@ -152,7 +152,7 @@ class MLTrainer(ABC):
             except AssertionError:
                 error_message = f"Invalid cat_params_name: {cat_params_name} for categorical pipeline."
 
-                logger.error(error_message)
+                logger.get().error(error_message)
                 raise ValueError(error_message)
 
         cat_pipeline = Pipeline(
@@ -341,8 +341,8 @@ class MLTrainer(ABC):
     ):
         met_data_requirement = self.check_min_data_requirement(connector, materials)
 
-        logger.debug(f"Min data requirement satisfied: {met_data_requirement}")
-        logger.debug(
+        logger.get().debug(f"Min data requirement satisfied: {met_data_requirement}")
+        logger.get().debug(
             f"New material generation strategy : {self.materialisation_strategy}"
         )
         if met_data_requirement or self.materialisation_strategy == "":
@@ -367,7 +367,7 @@ class MLTrainer(ABC):
                 training_dates = [
                     date_str for date_str in training_dates if len(date_str) != 0
                 ]
-                logger.info(f"training_dates : {training_dates}")
+                logger.get().info(f"training_dates : {training_dates}")
                 training_dates = sorted(
                     training_dates,
                     key=lambda x: datetime.strptime(x, MATERIAL_DATE_FORMAT),
@@ -384,7 +384,7 @@ class MLTrainer(ABC):
                     self.prediction_horizon_days,
                     self.feature_data_min_date_diff,
                 )
-                logger.info(
+                logger.get().info(
                     f"new generated dates for feature: {feature_date}, label: {label_date}"
                 )
             elif self.materialisation_strategy == "manual":
@@ -423,11 +423,11 @@ class MLTrainer(ABC):
                     for date in [feature_date, label_date]:
                         whtService.run(feature_package_path, date)
             except Exception as e:
-                logger.warning(str(e))
-                logger.warning("Stopped generating new material dates.")
+                logger.get().warning(str(e))
+                logger.get().warning("Stopped generating new material dates.")
                 break
 
-            logger.info(
+            logger.get().info(
                 "Materialised feature and label data successfully, "
                 f"for dates {feature_date} and {label_date}"
             )
@@ -444,18 +444,18 @@ class MLTrainer(ABC):
                 start_date=feature_date, end_date=feature_date
             )
 
-            logger.debug(
+            logger.get().debug(
                 f"new feature tables: {[m.feature_table_name for m in materials]}"
             )
-            logger.debug(f"new label tables: {[m.label_table_name for m in materials]}")
+            logger.get().debug(f"new label tables: {[m.label_table_name for m in materials]}")
             if (
                 self.materialisation_strategy == "auto"
                 and self.check_min_data_requirement(connector, materials)
             ):
-                logger.info("Minimum data requirement satisfied.")
+                logger.get().info("Minimum data requirement satisfied.")
                 break
         if not self.check_min_data_requirement(connector, materials):
-            logger.warning(
+            logger.get().warning(
                 "Minimum data requirement not satisfied. Model performance may suffer. Try adding more datapoints by including more dates or increasing max_no_of_dates in the config."
             )
 
@@ -596,7 +596,7 @@ class ClassificationTrainer(MLTrainer):
             utils.plot_lift_chart(y_pred, y_true, lift_chart_file)
             connector.save_file(session, lift_chart_file, stage_name, overwrite=True)
         except Exception as e:
-            logger.error(f"Could not generate plots. {e}")
+            logger.get().error(f"Could not generate plots. {e}")
         pass
 
     def get_metrics(
@@ -786,7 +786,7 @@ class RegressionTrainer(MLTrainer):
             # connector.save_file(session, regression_chart_file, stage_name, overwrite=True)
 
         except Exception as e:
-            logger.error(f"Could not generate plots. {e}")
+            logger.get().error(f"Could not generate plots. {e}")
 
     def get_metrics(
         self, model, train_x, train_y, test_x, test_y, val_x, val_y, train_config

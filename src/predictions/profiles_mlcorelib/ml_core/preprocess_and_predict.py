@@ -219,7 +219,9 @@ def preprocess_and_predict(
             whtService.get_registry_table_name(),
         )
 
-        logger.get().debug(f"Fetching previous prediction table: {prev_prediction_table}")
+        logger.get().debug(
+            f"Fetching previous prediction table: {prev_prediction_table}"
+        )
         prev_predictions = connector.get_table(prev_prediction_table)
 
         label_table = trainer.prepare_label_table(connector, entity_var_table_name)
@@ -281,7 +283,7 @@ def preprocess_and_predict(
 
             connector.write_pandas(metrics_df, f"{metrics_table}", if_exists="append")
     except Exception as e:
-        logger.get().warning(f"Error while fetching previous prediction table: {e}")
+        logger.get().error(f"Error while fetching previous prediction table: {e}")
 
     logger.get().debug("Closing the session")
 

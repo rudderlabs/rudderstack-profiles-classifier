@@ -372,7 +372,9 @@ def convert_ts_str_to_dt_str(timestamp_str: str) -> str:
         string_date = timestamp.strftime(constants.MATERIAL_DATE_FORMAT)
         return string_date
     except Exception as e:
-        logger.get().error(f"Error occurred while converting timestamp to date string: {e}")
+        logger.get().error(
+            f"Error occurred while converting timestamp to date string: {e}"
+        )
         raise Exception(
             f"Error occurred while converting timestamp to date string: {e}"
         )
@@ -435,7 +437,9 @@ def delete_folder(folder_path: str) -> None:
     except FileNotFoundError:
         logger.get().error(f"Error: Folder '{folder_path}' not found.")
     except PermissionError:
-        logger.get().error(f"Error: Permission denied. Unable to delete '{folder_path}'.")
+        logger.get().error(
+            f"Error: Permission denied. Unable to delete '{folder_path}'."
+        )
     except OSError as e:
         logger.get().error(f"Error occurred while deleting folder '{folder_path}': {e}")
 
@@ -497,7 +501,7 @@ def datetime_to_date_string(datetime_str: str) -> str:
         # to match datetime string with given format
         # In this case datetime sting is in "%Y-%m-%d" format
         # and returning empty string
-        logger.get().warning(
+        logger.get().error(
             f"Not able to extract date string from datetime string {datetime_str}"
         )
         return ""
@@ -532,7 +536,7 @@ def generate_new_training_dates(
             break
 
     if not found:
-        logger.get().warning(
+        logger.get().error(
             "Couldn't find a date honouring proximity check. "
             f"Proceeding with {generated_feature_date} as feature_date"
         )
@@ -752,7 +756,7 @@ def plot_top_k_feature_importance(
     try:
         shap_values = shap.TreeExplainer(pipe["model"]).shap_values(train_x_processed)
     except Exception as e:
-        logger.get().warning(
+        logger.get().error(
             f"Exception occured while calculating shap values {e}, using KernelExplainer"
         )
         return

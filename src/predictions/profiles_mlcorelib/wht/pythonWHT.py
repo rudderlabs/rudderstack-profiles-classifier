@@ -300,7 +300,7 @@ class PythonWHT:
                 self.run(feature_package_path, date)
 
         if not materialise_data:
-            logger.get().warning(
+            logger.get().error(
                 "Failed to materialise feature and label data. Will attempt to fetch materialised data from warehouse registry table"
             )
 

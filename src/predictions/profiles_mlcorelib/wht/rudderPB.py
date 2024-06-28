@@ -69,7 +69,9 @@ class RudderPB:
             "-c",
             arg["site_config_path"],
         ]
-        logger.get().info(f"Fetching all models by running command: {' '.join(pb_args)}")
+        logger.get().info(
+            f"Fetching all models by running command: {' '.join(pb_args)}"
+        )
 
         try:
             pb_show_models_response = utils.subprocess_run(pb_args)
@@ -97,7 +99,9 @@ class RudderPB:
             try:
                 return json.loads(json_string)
             except json.JSONDecodeError as e:
-                logger.get().debug(f"error while decoding json {json_string}; error {e}")
+                logger.get().debug(
+                    f"error while decoding json {json_string}; error {e}"
+                )
                 end_index = end_index - 1
 
     def get_latest_material_hash(

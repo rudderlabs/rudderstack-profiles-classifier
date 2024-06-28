@@ -45,7 +45,9 @@ class S3Utils:
                     s3_key = os.path.join(destination, subdir[len(path) + 1 :], file)
                     try:
                         client.upload_fileobj(data, bucket, s3_key)
-                        logger.get().debug(f"File {full_path} uploaded to {bucket}/{s3_key}")
+                        logger.get().debug(
+                            f"File {full_path} uploaded to {bucket}/{s3_key}"
+                        )
                     except FileNotFoundError:
                         raise Exception(
                             f"The file {full_path} was not found in ec2 while uploading trained files to s3."

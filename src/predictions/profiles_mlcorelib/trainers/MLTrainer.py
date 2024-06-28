@@ -423,8 +423,8 @@ class MLTrainer(ABC):
                     for date in [feature_date, label_date]:
                         whtService.run(feature_package_path, date)
             except Exception as e:
-                logger.get().warning(str(e))
-                logger.get().warning("Stopped generating new material dates.")
+                logger.get().error(str(e))
+                logger.get().error("Stopped generating new material dates.")
                 break
 
             logger.get().info(
@@ -447,7 +447,9 @@ class MLTrainer(ABC):
             logger.get().debug(
                 f"new feature tables: {[m.feature_table_name for m in materials]}"
             )
-            logger.get().debug(f"new label tables: {[m.label_table_name for m in materials]}")
+            logger.get().debug(
+                f"new label tables: {[m.label_table_name for m in materials]}"
+            )
             if (
                 self.materialisation_strategy == "auto"
                 and self.check_min_data_requirement(connector, materials)
@@ -455,7 +457,7 @@ class MLTrainer(ABC):
                 logger.get().info("Minimum data requirement satisfied.")
                 break
         if not self.check_min_data_requirement(connector, materials):
-            logger.get().warning(
+            logger.get().error(
                 "Minimum data requirement not satisfied. Model performance may suffer. Try adding more datapoints by including more dates or increasing max_no_of_dates in the config."
             )
 

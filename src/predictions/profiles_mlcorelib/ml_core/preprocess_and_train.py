@@ -204,7 +204,9 @@ def preprocess_and_train(
         transformed_arraytype_cols,
         transformed_booleantype_cols,
     )
-    logger.get().debug(f"Feature_table column types detected: {feature_table_column_types}")
+    logger.get().debug(
+        f"Feature_table column types detected: {feature_table_column_types}"
+    )
 
     task_type = trainer.get_name()
     logger.get().debug(f"Performing data validation for {task_type}")
@@ -318,7 +320,9 @@ if __name__ == "__main__":
         json.dump(train_results_json, file)
 
     if args.mode == constants.RUDDERSTACK_MODE:
-        logger.get().debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
+        logger.get().debug(
+            f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}"
+        )
 
         train_upload_whitelist = utils.merge_lists_to_unique(
             list(trainer.figure_names.values()),
@@ -335,5 +339,7 @@ if __name__ == "__main__":
             train_upload_whitelist,
         )
 
-        logger.get().debug(f"Deleting additional local directory from {args.mode} mode.")
+        logger.get().debug(
+            f"Deleting additional local directory from {args.mode} mode."
+        )
         connector.delete_local_data_folder()

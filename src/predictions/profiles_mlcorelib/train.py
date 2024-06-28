@@ -264,7 +264,9 @@ def _train(
 
     absolute_input_models = whtService.get_input_models(inputs)
 
-    logger.get().info(f"Getting input column types from table: {latest_entity_var_table}")
+    logger.get().info(
+        f"Getting input column types from table: {latest_entity_var_table}"
+    )
     input_column_types = connector.get_input_column_types(
         trainer,
         latest_entity_var_table,
@@ -367,7 +369,7 @@ def _train(
         try:
             connector.fetch_staged_file(stage_name, figure_name, reports_directory)
         except Exception as e:
-            logger.get().warning(f"Could not fetch {figure_name} {e}")
+            logger.get().error(f"Could not fetch {figure_name} {e}")
 
     logger.get().debug("Cleaning up the training session")
     connector.post_job_cleanup()

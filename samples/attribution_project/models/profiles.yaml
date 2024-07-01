@@ -35,6 +35,21 @@ models:
         - from: inputs/sf_contact
         - from: inputs/sf_lead
 
+  - name: attribution_scores
+    model_type: attribution_report
+    model_spec:
+      entity_key: user
+      report_granularity: day
+      user_journeys: campaigns_list
+      spend_inputs:
+        - models/google_ads_fivetran
+      conversions:
+        - name: sf_mql
+          timestamp: sf_mql_date
+          # value: user.Var("first_order_amount") -- optional
+        - name: sf_iql
+          timestamp: sf_iql_date
+
   - name: user_base_features
     model_type: feature_table_model
     model_spec:
@@ -604,18 +619,3 @@ var_groups:
           from: models/Union_Event_Data
           where: utm_source != '' and campaign != '' and DATE(timestamp) <= '2021-04-28'
           description: list of all utm_sources, utm_campaigns which a user has visited along with timestamp
-
-  - name: attribution_scores
-    model_type: attribution_report
-    model_spec:
-      entity: user
-      report_granularity: day
-      user_journeys: campaigns_list
-      spend_inputs:
-        - models/google_ads_fivetran
-      conversions:
-        - name: sf_mql
-          timestamp: sf_mql_date
-          # value: user.Var("first_order_amount") -- optional
-        - name: sf_iql
-          timestamp: sf_iql_date

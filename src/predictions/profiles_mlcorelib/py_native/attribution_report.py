@@ -4,7 +4,6 @@ from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.schema import (
     EntityKeyBuildSpecSchema,
-    EntityIdsBuildSpecSchema,
 )
 from profiles_rudderstack.logger import Logger
 import re
@@ -18,8 +17,6 @@ class AttributionModel(BaseModelType):
         "type": "object",
         "properties": {
             **EntityKeyBuildSpecSchema["properties"],
-            **EntityIdsBuildSpecSchema["properties"],
-            "entity": {"type": "string"},
             "report_granularity": {"type": ["string", "null"]},
             "spend_inputs": {"type": "array", "items": {"type": "string"}},
             "user_journeys": {"type": "string"},
@@ -36,7 +33,8 @@ class AttributionModel(BaseModelType):
                 },
             },
         },
-        "required": ["entity", "spend_inputs", "user_journeys", "conversions"],
+        "required": EntityKeyBuildSpecSchema["required"]
+        + ["spend_inputs", "user_journeys", "conversions"],
         "additionalProperties": False,
     }
 
@@ -60,12 +58,12 @@ class AttributionModelRecipe(PyNativeRecipe):
         self.conversions = self.config["conversions"]
 
         self.inputs = {
-            "var_table": f'{self.config["entity"]}/all/var_table',
-            "user_journeys": f'entity/{self.config["entity"]}/{self.config["user_journeys"]}',
+            "var_table": f'{self.config["entity_key"]}/all/var_table',
+            "user_journeys": f'entity/{self.config["entity_key"]}/{self.config["user_journeys"]}',
         }
         for obj in self.config["conversions"]:
             for key, value in obj.items():
-                self.inputs[value] = f'entity/{self.config["entity"]}/{value}'
+                self.inputs[value] = f'entity/{self.config["entity_key"]}/{value}'
 
     def describe(self, this: WhtMaterial):
         description = """You can see the output table in the warehouse where each touchpoint has an attribution score."""

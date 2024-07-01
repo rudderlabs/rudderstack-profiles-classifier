@@ -94,4 +94,5 @@ id_types:
   - name: workspace_id
   - name: company
 python_requirements:
-  - profiles-mlcorelib
+  - profiles_mlcorelib
+  - profiles-rudderstack

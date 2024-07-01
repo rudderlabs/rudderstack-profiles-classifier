@@ -293,16 +293,6 @@ inputs:
         - select: workspace_id
           type: workspace_id
           entity: account
-  # - name: dbt_agg_domain_summary
-  #   table: analytics_db.public.agg_domain_summary
-  #   occurred_at_col: timestamp
-  #   ids:
-  #     - select: domain
-  #       type: domain
-  #       entity: account
-  #     - select: workspace_id
-  #       type: workspace
-  #       entity: workspace
   - name: foqal_tickets
     contract:
       is_optional: true

@@ -34,6 +34,7 @@ models:
         - from: inputs/sf_account
         - from: inputs/sf_contact
         - from: inputs/sf_lead
+
   - name: user_base_features
     model_type: feature_table_model
     model_spec:
@@ -43,11 +44,11 @@ models:
         - all_anonymous_id
         - all_emails
         - anonymous_id_latest
-        # - account_rank
         - app_onboarding_survey_company_role
         - app_onboarding_survey_how_did_you_hear
         - app_onboarding_survey_migration
         - app_onboarding_survey_product_interest
+        - campaigns_list
         - cio_first_email_sent_timestamp
         - cio_latest_email_sent_timestamp
         - cio_unique_number_emails_clicked
@@ -55,7 +56,6 @@ models:
         - cio_unique_number_emails_opened
         - cio_unique_number_emails_sent
         - cio_unsubscribed
-        # - domain
         - email_latest
         - fq_number_ticket_all
         - fq_number_ticket_all_last_30
@@ -74,7 +74,6 @@ models:
         - mkt_first_session_medium
         - mkt_first_session_referrer
         - mkt_first_site_page
-        # - mkt_first_touch_url
         - mkt_first_touch_timestamp
         - mkt_first_touch_utm_campaign
         - mkt_first_touch_utm_content
@@ -94,7 +93,6 @@ models:
         - mkt_first_mutiny_visitor
         - mkt_first_session_id
         - organization_id
-        # - org_id
         - sf_account_id
         - sf_contact_id
         - sf_name
@@ -110,116 +108,10 @@ models:
         - sf_lead_created_date
         - sf_lead_id
         - sf_title
-        # - name: account_base_features
-        #   model_type: feature_table_model
-        #   model_spec:
-        #     validity_time: 24h
-        #     entity_key: account
-        #     vars:
-        #       -  input_var:
-        #           name: account_rank_calc
-        #           select: dense_rank()
-        #           from: models/account_id_graph
-        #           where: event <> 'Page' and other_id = 'email'
-        #           window:
-        #             partition_by:
-        #               - case when other_id like any ('%gmail%','%yahoo', '%qq%' , '%outlook%','%hotmail%','%rediff%') then 'user_account_flag' else other_id end
-        #             order_by:
-        #               - timestamp asc
-        #     features:
-        #       - account_rank_calc
-      # - name: account_base_features
-      #   model_type: feature_table_model
-      #   model_spec:
-      #     validity_time: 24h
-      #     entity_key: account
-      #     vars:
-      #       - entity_var:
-      #           from: inputs/app_workspaces
-      #           name: app_data_residency
-      #           select: any_value(defaultregion)
-      #       - entity_var:
-      #           from: inputs/app_transformations
-      #           name: app_destinations_created_days_30
-      #           select: count(*)
-      #           where: createdat > dateadd(day, -30, current_date())
-      #       - entity_var:
-      #           from: inputs/app_transformations
-      #           name: app_destinations_created_days_7
-      #           select: count(*)
-      #           where: createdat > dateadd(day, -7, current_date())
-      #       - entity_var:
-      #           from: inputs/app_transformations
-      #           name: app_destinations_created_days_90
-      #           select: count(*)
-      #           where: createdat > dateadd(day, -90, current_date())
-      #       - entity_var:
-      #           from: inputs/app_destinations
-      #           name: app_destinations_deleted_days_7
-      #           select: count(*)
-      #           where: event_text = 'destination deleted' and original_timestamp > dateadd(day, -7, current_date())
-      #       - entity_var:
-      #           from: inputs/app_destinations
-      #           name: app_destinations_deleted_days_30
-      #           select: count(*)
-      #           where: event_text = 'destination deleted' and original_timestamp > dateadd(day, -30, current_date())
-      #       - entity_var:
-      #           from: inputs/app_destinations
-      #           name: app_destinations_deleted_days_90
-      #           select: count(*)
-      #           where: event_text = 'destination deleted' and original_timestamp > dateadd(day, -90, current_date())
-      #       - entity_var:
-      #           from: inputs/app_identifies
-      #           name: app_distinct_users_days_30
-      #           select: count(distinct user_id)
-      #           where: context_page_url like 'https://app.rudderstack.com%' and original_timestamp > dateadd(day, -30, current_date())
-      #       - entity_var:
-      #           from: inputs/app_identifies
-      #           name: app_distinct_users_days_7
-      #           select: count(distinct user_id)
-      #           where: context_page_url like 'https://app.rudderstack.com%' and original_timestamp > dateadd(day, -7, current_date())
-      #       - entity_var:
-      #           from: inputs/app_identifies
-      #           name: app_distinct_users_days_90
-      #           select: count(distinct user_id)
-      #           where: context_page_url like 'https://app.rudderstack.com%' and original_timestamp > dateadd(day, -90, current_date())
-      #       - entity_var:
-      #           from: inputs/dbt_event_volume_daily_aggregate
-      #           name: app_etl_ingest_volume_last_30_days
-      #           select: zerioinfull(sum(cloudextracts_volume))
-      #           where: date >= dateadd(day, -30, current_date())
-      #           description: how many unique users have been active in the workspace in the last 90 days (logins from identifies)
-      #       - entity_var:
-      #           from: inputs/dbt_event_volume_daily_aggregate
-      #           name: app_etl_ingest_volume_last_30_days
-      #           select: zerioinfull(sum(cloudextracts_volume))
-      #           where: date >= dateadd(day, -30, current_date())
-      #           description: ETL volume ingested in the last 30 days (# of rows ingested)
-      #       - entity_var:
-      #           from: inputs/app_workspaces
-      #           name: app_event_storage
-      #           select: case when app_rudder_storage = 'TRUE' then 'RUDDER_STORAGE' when app_self_storage = 'TRUE' then 'SELF_STORAGE' else 'NO_STORAGE' end
-      #           description: computed (RUDDER or SELF or NONE) (computed from the rudder storage and self storage)
-      #       - entity_var:
-      #           from: inputs/dbt_event_volume_daily_aggregate
-      #           name: app_event_stream_ingest_volume_last_30_days
-      #           select: zeroinfull(sum(eventstreams_volume))+zeroinfull(sum(webhooks_volume))
-      #           where: date >= dateadd(day, -30, current_date())
-      #           description: eventstream volume ingested in the last 30 days (# of rows ingested)
 var_groups:
   - name: user_vars
     entity_key: user
     vars:
-      # -  entity_var:
-      #     name: account_rank_calc
-      #     select: dense_rank()
-      #     from: models/account_id_graph
-      #     where: event <> 'Page' and other_id = 'email'
-      #     window:
-      #     partition_by:
-      #         - case when other_id like any ('%gmail%','%yahoo', '%qq%' , '%outlook%','%hotmail%','%rediff%') then 'user_account_flag' else other_id end
-      #     order_by:
-      #       - timestamp asc
       - entity_var:
           name: all_anonymous_id
           select: listagg(other_id,',')
@@ -475,15 +367,6 @@ var_groups:
             frame_clause: ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
           where: context_page_url is not null and context_page_url!='' and context_page_url!='None'
           description: First site page
-      # - entity_var:
-      #     name: mkt_first_touch_url
-      #     select: first_value(context_page_url)
-      #     from: models/Union_Event_Data
-      #     window:
-      #       order_by:
-      #         - timestamp
-      #       frame_clause: ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
-      #     description: First context_page_url from the sql model union stitched
       - entity_var:
           name: mkt_first_touch_timestamp
           select: min(timestamp)
@@ -715,3 +598,24 @@ var_groups:
           select: any_value(title)
           from: inputs/sf_lead
           description: Title from the Lead or Contact record in Salesforce, if a Lead has been converted, the value comes from the Contact
+      - entity_var:
+          name: campaigns_list
+          select: array_agg(object_construct('timestamp', timestamp, 'campaign_info', object_construct('utm_source', utm_source, 'utm_campaign', campaign)))
+          from: models/Union_Event_Data
+          where: utm_source != '' and campaign != '' and DATE(timestamp) <= '2021-04-28'
+          description: list of all utm_sources, utm_campaigns which a user has visited along with timestamp
+
+  - name: attribution_scores
+    model_type: attribution_report
+    model_spec:
+      entity: user
+      report_granularity: day
+      user_journeys: campaigns_list
+      spend_inputs:
+        - models/google_ads_fivetran
+      conversions:
+        - name: sf_mql
+          timestamp: sf_mql_date
+          # value: user.Var("first_order_amount") -- optional
+        - name: sf_iql
+          timestamp: sf_iql_date

@@ -28,9 +28,6 @@ entities:
         name: user_profile_sample_by_user_id
       - id_served: anonymous_id
         name: user_profile_sample_by_anonymous_id
-  # - name: workspace
-  #   id_stitcher: models/workspace_id_graph
-  #   id_types:
   - name: account
     id_stitcher: models/account_id_graph
     id_types:
@@ -96,3 +93,5 @@ id_types:
   - name: sf_account_name
   - name: workspace_id
   - name: company
+python_requirements:
+  - profiles-mlcorelib

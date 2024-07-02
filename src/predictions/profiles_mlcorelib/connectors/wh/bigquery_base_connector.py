@@ -42,5 +42,5 @@ class BigqueryConnector(ConnectorBase):
             )
 
         except Exception as e:
-            logger.error(f"Error while writing to warehouse: {e}")
+            logger.get().error(f"Error while writing to warehouse: {e}")
             raise Exception(f"Error while writing to warehouse: {e}")

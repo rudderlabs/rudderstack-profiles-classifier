@@ -12,7 +12,7 @@ class S3Utils:
         for obj in objects:
             key = obj["Key"]
             if key == s3_path:
-                logger.debug(f"Skipping object: key: {key}, s3_path: {s3_path}")
+                logger.get().debug(f"Skipping object: key: {key}, s3_path: {s3_path}")
                 continue
             local_file_path = os.path.join(
                 local_directory, os.path.relpath(key, s3_path)
@@ -20,8 +20,8 @@ class S3Utils:
             if not os.path.exists(os.path.dirname(local_file_path)):
                 os.makedirs(os.path.dirname(local_file_path))
             client.download_file(bucket_name, key, local_file_path)
-            logger.debug(f"File {key} downloaded to {local_file_path}")
-        logger.debug(
+            logger.get().debug(f"File {key} downloaded to {local_file_path}")
+        logger.get().debug(
             f"All files from {bucket_name}/{s3_path} downloaded to {local_directory}"
         )
 
@@ -30,9 +30,9 @@ class S3Utils:
         objects = s3.list_objects(Bucket=bucket_name, Prefix=folder_name)["Contents"]
         for obj in objects:
             s3.delete_object(Bucket=bucket_name, Key=obj["Key"])
-            logger.debug(f"Deleted object: {obj['Key']}")
+            logger.get().debug(f"Deleted object: {obj['Key']}")
         s3.delete_object(Bucket=bucket_name, Key=folder_name)
-        logger.debug(f"Deleted folder: {folder_name}")
+        logger.get().debug(f"Deleted folder: {folder_name}")
 
     def upload_directory(bucket, aws_region_name, destination, path, allowedFiles):
         client = boto3.client("s3", region_name=aws_region_name)
@@ -45,7 +45,9 @@ class S3Utils:
                     s3_key = os.path.join(destination, subdir[len(path) + 1 :], file)
                     try:
                         client.upload_fileobj(data, bucket, s3_key)
-                        logger.debug(f"File {full_path} uploaded to {bucket}/{s3_key}")
+                        logger.get().debug(
+                            f"File {full_path} uploaded to {bucket}/{s3_key}"
+                        )
                     except FileNotFoundError:
                         raise Exception(
                             f"The file {full_path} was not found in ec2 while uploading trained files to s3."

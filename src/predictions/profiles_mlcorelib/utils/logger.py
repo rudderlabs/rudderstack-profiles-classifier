@@ -1,21 +1,28 @@
-# logger.py
 import logging
 
-# Define the logger with the desired name
-logger = logging.getLogger("churn_prediction")
 
-# Configure the logger with the desired log level and handlers
-logger.setLevel(logging.DEBUG)
+class LoggerClass:
+    def __init__(self):
+        self._logger = self.default_logger()
 
-# file_handler = logging.FileHandler("classifier.log")
-# file_handler.setLevel(logging.INFO)
+    def default_logger(self):
+        logger = logging.getLogger("churn_prediction")
+        logger.setLevel(logging.DEBUG)
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.DEBUG)
+        formatter = logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        )
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
+        return logger
 
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.DEBUG)
+    def get(self):
+        return self._logger
 
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-# file_handler.setFormatter(formatter)
-console_handler.setFormatter(formatter)
+    def set_logger(self, newLogger):
+        self._logger = newLogger
 
-# logger.addHandler(file_handler)
-logger.addHandler(console_handler)
+
+# Don't use "warning" method of the logger since it is not impelmented by the pynative logger
+logger = LoggerClass()

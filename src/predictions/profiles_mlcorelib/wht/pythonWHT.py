@@ -147,7 +147,7 @@ class PythonWHT:
 
             return True
         except AssertionError as e:
-            logger.debug(
+            logger.get().debug(
                 f"{e}. Skipping the sequence tuple {feature_material_seq_no, label_material_seq_no} as it is not valid"
             )
             return False
@@ -300,7 +300,7 @@ class PythonWHT:
                 self.run(feature_package_path, date)
 
         if not materialise_data:
-            logger.warning(
+            logger.get().error(
                 "Failed to materialise feature and label data. Will attempt to fetch materialised data from warehouse registry table"
             )
 
@@ -312,7 +312,7 @@ class PythonWHT:
             "project_folder": self.project_folder_path,
         }
         self._getPB().run(args)
-        logger.info(f"Materialised data successfully, for date {date}")
+        logger.get().info(f"Materialised data successfully, for date {date}")
 
     def _get_valid_feature_label_dates(
         self,
@@ -360,7 +360,7 @@ class PythonWHT:
                 feature_date = utils.date_add(start_date, prediction_horizon_days)
                 label_date = utils.date_add(feature_date, prediction_horizon_days)
             else:
-                logger.exception(
+                logger.get().exception(
                     f"We don't need to fetch feature_date and label_date to materialise new datasets because Tables {material_info.feature_table_name} and {material_info.label_table_name} already exist. Please check generated materials for discrepancies."
                 )
                 raise Exception(
@@ -457,7 +457,7 @@ class PythonWHT:
             ]
             return complete_sequences
 
-        logger.info("getting material names")
+        logger.get().info("getting material names")
         (materials) = self._get_material_names(
             start_date,
             end_date,

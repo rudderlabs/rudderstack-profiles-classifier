@@ -695,7 +695,7 @@ class CommonWarehouseConnector(Connector):
             total_samples < min_no_of_samples
             or total_negative_samples < min_negative_label_count
         ):
-            logger.debug(
+            logger.get().debug(
                 "Total number of samples or number of negative samples are "
                 "not meeting the minimum training requirement, "
                 f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}, "
@@ -727,7 +727,7 @@ class CommonWarehouseConnector(Connector):
         min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
 
         if total_samples < min_no_of_samples:
-            logger.debug(
+            logger.get().debug(
                 "Number training samples are not meeting the minimum requirement, "
                 f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}"
             )
@@ -955,9 +955,9 @@ class CommonWarehouseConnector(Connector):
     def delete_local_data_folder(self) -> None:
         try:
             shutil.rmtree(self.local_dir)
-            logger.info("Local directory removed successfully")
+            logger.get().info("Local directory removed successfully")
         except OSError as o:
-            logger.info("Local directory not present")
+            logger.get().info("Local directory not present")
             pass
 
     def pre_job_cleanup(self) -> None:

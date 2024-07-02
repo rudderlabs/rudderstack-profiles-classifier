@@ -29,7 +29,7 @@ class K8sProcessor(Processor):
             type="Opaque",
         )
         core_v1_api.create_namespaced_secret(namespace, payload)
-        logger.info("Created secret %s", secret_name)
+        logger.get().info("Created secret %s", secret_name)
         return {"name": secret_name, "key": secret_key}
 
     def _create_job(
@@ -89,7 +89,7 @@ class K8sProcessor(Processor):
             ),
         )
         batch_v1_api.create_namespaced_job(namespace=namespace, body=payload)
-        logger.info("Created job %s", job_name)
+        logger.get().info("Created job %s", job_name)
 
     def _wait_for_pod(self, job_name: str, namespace: str, core_v1_api):
         counter = 0
@@ -100,18 +100,18 @@ class K8sProcessor(Processor):
                 namespace=namespace, label_selector=f"job-name={job_name}"
             )
             if len(job_pods.items) == 0:
-                logger.info("Waiting for pod to be created")
+                logger.get().info("Waiting for pod to be created")
                 time.sleep(1)
                 counter = counter + 1
                 continue
             pod = job_pods.items[0]
             phase = pod.status.phase.lower()
             if phase == "pending":
-                logger.info("Pod currently in pending state")
+                logger.get().info("Pod currently in pending state")
                 time.sleep(1)
                 counter = counter + 1
             else:
-                logger.info(
+                logger.get().info(
                     "Pod is now in running state. Status - %s, Name = %s",
                     phase,
                     pod.metadata.name,
@@ -130,7 +130,7 @@ class K8sProcessor(Processor):
         pod = job_pods.items[0]
         phase = pod.status.phase.lower()
         if phase == "running":
-            logger.info("Pod currently in running state")
+            logger.get().info("Pod currently in running state")
             # Re streaming the logs to verify that the job actually completed and not because watch stream got disconnected
             # A cleaner approach probably is to use resource_version in the watcher
             time.sleep(2)
@@ -154,11 +154,11 @@ class K8sProcessor(Processor):
             core_v1_api.read_namespaced_pod_log, name=pod_name, namespace=namespace
         )
         error_message = ""
-        logger.debug("Streaming logs")
+        logger.get().debug("Streaming logs")
         while True:
             try:
                 log = next(stream)
-                logger.info(log)
+                logger.get().info(log)
                 if error_message != "":
                     error_message = error_message + "\n" + log
                     continue
@@ -279,7 +279,7 @@ class K8sProcessor(Processor):
             f"{self.trainer.output_profiles_ml_model}_{constants.MODEL_FILE_NAME}",
             json_output_filename,
         ]
-        logger.debug("Uploading files required for prediction to S3")
+        logger.get().debug("Uploading files required for prediction to S3")
         local_folder = self.connector.get_local_dir()
         S3Utils.upload_directory(
             s3_config["bucket"],

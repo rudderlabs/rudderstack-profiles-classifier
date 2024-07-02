@@ -10,6 +10,7 @@ import pandas as pd
 from typing import Any
 
 import snowflake.snowpark.types as T
+from snowflake.snowpark.types import *
 import snowflake.snowpark.functions as F
 
 from ..trainers.TrainerFactory import TrainerFactory
@@ -50,15 +51,12 @@ def preprocess_and_predict(
     with open(model_path, "r") as f:
         results = json.load(f)
     train_model_id = results["model_info"]["model_id"]
-    prob_th = results["model_info"].get("threshold")
     stage_name = results["model_info"]["file_location"]["stage"]
     model_hash = results["config"]["material_hash"]
     input_model_name = results["config"]["input_model_name"]
 
-    numeric_columns = results["column_names"]["feature_table_column_types"]["numeric"]
-    categorical_columns = results["column_names"]["feature_table_column_types"][
-        "categorical"
-    ]
+    numeric_columns = results["column_names"]["input_column_types"]["numeric"]
+    categorical_columns = results["column_names"]["input_column_types"]["categorical"]
     arraytype_columns = results["column_names"]["input_column_types"]["arraytype"]
     timestamp_columns = results["column_names"]["input_column_types"]["timestamp"]
     booleantype_columns = results["column_names"]["input_column_types"]["booleantype"]
@@ -116,9 +114,7 @@ def preprocess_and_predict(
     required_features_upper_case = set(
         [
             col.upper()
-            for cols in results["column_names"]["feature_table_column_types"].values()
-            for col in cols
-            if col not in ignore_features
+            for col in results["column_names"]["feature_table_column_types"].keys()
         ]
     )
     input_df = connector.select_relevant_columns(
@@ -143,18 +139,12 @@ def preprocess_and_predict(
         else:
             filename = os.path.join(local_folder, filename)
 
-        with open(filename, "rb") as file:
-            m = joblib.load(file)
-            return m
+        model = trainer.load_model(filename)
+        return model
 
     def predict_helper(df, model_name: str) -> Any:
         trained_model = load_model(model_name)
         df.columns = [x.upper() for x in df.columns]
-        for col in numeric_columns:
-            df[col] = df[col].astype("float64")
-        """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
-        df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-        df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
         return trainer.predict(trained_model, df)
 
     features = input_df.columns
@@ -162,33 +152,65 @@ def preprocess_and_predict(
     if creds["type"] == "snowflake":
         udf_name = connector.udf_name
 
-        @F.pandas_udf(
+        pycaret_score_column = trainer.pred_output_df_columns["score"]
+        pycaret_label_column = trainer.pred_output_df_columns.get(
+            "label", "prediction_score"
+        )  # To make up for the missing column in case of regression
+
+        @F.pandas_udtf(
             session=connector.session,
-            max_batch_size=10000,
-            is_permanent=True,
-            replace=True,
-            stage_location=stage_name,
             name=udf_name,
-            imports=[f"{stage_name}/{model_name}"] + connector.delete_files,
+            stage_location=stage_name,
+            is_permanent=False,
+            replace=True,
+            output_schema=PandasDataFrameType(
+                [FloatType(), FloatType()], [pycaret_score_column, pycaret_label_column]
+            ),
+            input_types=[PandasDataFrameType(types)],
+            input_names=features,
+            imports=[f"{stage_name}/{model_name}.pkl"] + connector.delete_files,
             packages=constants.SNOWFLAKE_TRAINING_PACKAGES + ["cachetools==4.2.2"],
         )
-        def predict_scores(df: types) -> T.PandasSeries[float]:
-            df.columns = features
-            predictions = predict_helper(df, model_name)
-            return predictions.round(4)
+        class predict_scores:
+            def end_partition(self, df):
+                df.columns = features
+                for col in numeric_columns:
+                    df[col] = df[col].astype("float64")
+                df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+                df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+                df[numeric_columns] = df[numeric_columns].fillna(0)
+                df[categorical_columns] = df[categorical_columns].fillna("unknown")
+
+                predictions = predict_helper(df, model_name)
+
+                # Create a new DataFrame with the extracted column names
+                prediction_df = pd.DataFrame()
+                prediction_df[pycaret_score_column] = predictions[pycaret_score_column]
+
+                # Check if 'label' is present in pred_output_df_columns
+                # Had to add a dummy label column in case of regression to the output dataframe as the UDTF expects the two columns in output
+                if "label" in trainer.pred_output_df_columns:
+                    prediction_df[pycaret_label_column] = predictions[
+                        pycaret_label_column
+                    ]
+                else:
+                    prediction_df[pycaret_label_column] = np.nan
+
+                yield prediction_df
 
         prediction_udf = predict_scores
     elif creds["type"] in ("redshift", "bigquery"):
         local_folder = connector.get_local_dir()
 
-        def predict_scores_rs(df: pd.DataFrame) -> pd.Series:
+        def predict_scores_rs(df: pd.DataFrame) -> pd.DataFrame:
             df.columns = features
             predictions = predict_helper(df, model_name)
-            return predictions.round(4)
+            return predictions
 
         prediction_udf = predict_scores_rs
 
     logger.debug("Creating predictions on the feature data")
+
     preds_with_percentile = connector.call_prediction_udf(
         predict_data,
         prediction_udf,
@@ -198,10 +220,11 @@ def preprocess_and_predict(
         trainer.outputs.column_names.get("percentile"),
         trainer.outputs.column_names.get("output_label_column"),
         train_model_id,
-        prob_th,
         input_df,
+        trainer.pred_output_df_columns,
     )
     logger.debug("Writing predictions to warehouse")
+
     connector.write_table(
         preds_with_percentile,
         output_tablename,

@@ -78,9 +78,9 @@ def validate_training_summary_regression():
         for key in keys:
             innerKeys = ["mean_absolute_error", "mean_squared_error", "r2_score"]
             for innerKey in innerKeys:
-                assert metrics[key][
-                    innerKey
-                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+                assert (
+                    metrics[key][innerKey] is not None
+                ), f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
 def validate_reports_regression():

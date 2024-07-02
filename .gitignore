@@ -34,3 +34,9 @@ scripts/local_simulator.py
 *.parquet
 *.pkl
 samples/base_git_flow/*
+
+.venv/*
+samples/base_git_flow/*
+samples/torpedo/*
+scripts/test_classifier_local.py
+*.parquet

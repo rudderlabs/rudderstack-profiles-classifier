@@ -30,18 +30,33 @@ class SnowflakeConnector(Connector):
     def __init__(self, creds: dict) -> None:
         super().__init__(creds)
         self.data_type_mapping = {
-            "numeric": (
-                T.DecimalType,
-                T.IntegerType,
-                T.LongType,
-                T.ShortType,
-                T.FloatType,
-                T.DoubleType,
-            ),
-            "categorical": (T.StringType, T.VariantType),
-            "timestamp": (T.TimestampType, T.DateType, T.TimeType),
-            "arraytype": (T.ArrayType),
-            "booleantype": (T.BooleanType),
+            "numeric": {
+                "DecimalType": T.DecimalType(),
+                "DoubleType": T.DoubleType(),
+                "FloatType": T.FloatType(),
+                "IntegerType": T.IntegerType(),
+                "LongType": T.LongType(),
+                "ShortType": T.ShortType(),
+            },
+            "categorical": {
+                "StringType": T.StringType(),
+                "VariantType": T.VariantType(),
+            },
+            "timestamp": {
+                "TimestampType": T.TimestampType(),
+                "DateType": T.DateType(),
+                "TimeType": T.TimeType(),
+            },
+            "arraytype": {
+                "ArrayType": T.ArrayType(),
+            },
+            "booleantype": {
+                "BooleanType": T.BooleanType(),
+            },
+        }
+        self.dtype_utils_mapping = {
+            "numeric": "DecimalType",
+            "categorical": "StringType",
         }
         self.run_id = hashlib.md5(
             f"{str(datetime.now())}_{uuid.uuid4()}".encode()
@@ -220,27 +235,41 @@ class SnowflakeConnector(Connector):
         table = self.get_table(table_name)
         return table.schema.fields
 
+    def _field_datatype_to_string(self, datatype: object) -> str:
+        """Converts field datatype to string by extracting from the first character till 'Type'"""
+        datatype_str = str(datatype)
+        index_of_type = datatype_str.find("Type")
+        return datatype_str[: index_of_type + len("Type")]
+
+    def _datatype_is_instance_of(self, datatype, data_type_str: str) -> bool:
+        """Check if datatype is an instance of the class represented by data_type_str."""
+        class_obj = getattr(T, data_type_str)
+        return isinstance(datatype, class_obj)
+
     def fetch_given_data_type_columns(
         self,
         schema_fields: List,
-        required_data_types: Tuple,
+        required_data_types: Dict[str, object],
         label_column: str,
         entity_column: str,
-    ) -> List:
+    ) -> Dict:
         """Fetches the column names from the given schema_fields based on the required data types (exclude label and entity columns)"""
-        return [
-            field.name
+        return {
+            field.name: self._field_datatype_to_string(field.datatype)
             for field in schema_fields
-            if isinstance(field.datatype, required_data_types)
+            if any(
+                self._datatype_is_instance_of(field.datatype, data_type_str)
+                for data_type_str in required_data_types.keys()
+            )
             and field.name.lower() not in (label_column.lower(), entity_column.lower())
-        ]
+        }
 
     def get_numeric_features(
         self,
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["numeric"],
@@ -253,7 +282,7 @@ class SnowflakeConnector(Connector):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["categorical"],
@@ -266,7 +295,7 @@ class SnowflakeConnector(Connector):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         return self.fetch_given_data_type_columns(
             schema_fields,
             self.data_type_mapping["arraytype"],
@@ -1043,19 +1072,20 @@ class SnowflakeConnector(Connector):
         return material_registry_table
 
     def generate_type_hint(
-        self, df: snowflake.snowpark.Table, column_types: Dict[str, List[str]]
+        self,
+        df: snowflake.snowpark.Table,
+        column_types: Dict[str, List[str]],
     ):
         types = []
+
         for col in df.columns:
-            if col in column_types["categorical"]:
-                types.append(str)
-            elif col in column_types["numeric"]:
-                types.append(float)
-            else:
-                raise Exception(
-                    f"Column {col} not found in the training data config either as categorical or numeric column"
-                )
-        return T.PandasDataFrame[tuple(types)]
+            dtype_str = column_types[col]
+            for category, mapping in self.data_type_mapping.items():
+                if dtype_str in mapping:
+                    types.append(mapping[dtype_str])
+                    break
+
+        return types
 
     def call_prediction_udf(
         self,
@@ -1067,26 +1097,51 @@ class SnowflakeConnector(Connector):
         percentile_column_name: str,
         output_label_column: str,
         train_model_id: str,
-        prob_th: Optional[float],
         input: snowflake.snowpark.Table,
+        pred_output_df_columns: Dict,
     ) -> pd.DataFrame:
         """Calls the given function for prediction and returns results of the predict function."""
+
+        pycaret_score_column_name = pred_output_df_columns["score"].upper()
+        pycaret_label_column_name = pred_output_df_columns.get(
+            "label", "prediction_score"
+        ).upper()
+
         preds = predict_data.select(
-            entity_column,
-            index_timestamp,
-            prediction_udf(*input).alias(score_column_name),
-        ).withColumn("model_id", F.lit(train_model_id))
-        if prob_th:
-            preds = preds.withColumn(
-                output_label_column,
-                F.when(F.col(score_column_name) >= prob_th, F.lit(True)).otherwise(
-                    F.lit(False)
-                ),
-            )
+            entity_column, index_timestamp, F.lit(train_model_id).alias("model_id")
+        )
+
+        # # Get the predictions
+        # column_names = input.columns
+        # prediction_df= input.select(prediction_udf(*column_names).over(partition_by=[column_names[0]]))
+        # extracted_df = prediction_df.select(pycaret_score_column_name, pycaret_label_column_name)
+
+        # Apply prediction_udf and select columns
+        prediction_df = input.select(
+            prediction_udf(*input.columns).over(partition_by=[input.columns[0]])
+        )
+        extracted_df = prediction_df.select(
+            F.col(pycaret_score_column_name).alias(score_column_name),
+            F.col(pycaret_label_column_name).alias(output_label_column),
+        )
+
+        # Join dfs using monotonically_increasing_id
+        w = Window.orderBy(F.monotonically_increasing_id())
+        preds = preds.withColumn("columnindex", F.row_number().over(w))
+        extracted_df = extracted_df.withColumn("columnindex", F.row_number().over(w))
+        preds = preds.join(
+            extracted_df, preds.columnindex == extracted_df.columnindex, "inner"
+        ).drop("columnindex")
+
+        # Remove the dummy label column in case of Regression
+        if "label" not in pred_output_df_columns:
+            preds.drop(output_label_column)
+
         preds_with_percentile = preds.withColumn(
             percentile_column_name,
-            F.percent_rank().over(Window.order_by(F.col(score_column_name))),
+            F.percent_rank().over(Window.orderBy(F.col(score_column_name))),
         )
+
         return preds_with_percentile
 
     def create_stage(self):

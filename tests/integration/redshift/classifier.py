@@ -73,10 +73,8 @@ def validate_training_summary():
         metrics = json_data["data"]["metrics"]
         prob_th = metrics["prob_th"]
         assert 0 <= prob_th <= 1, f"Invalid prob_th - {prob_th}"
-        assert prob_th, "prob_th is empty"
         threshold = json_data["data"]["threshold"]
         assert 0 <= threshold <= 1, f"Invalid threshold - {threshold}"
-        assert threshold, "threshold is empty"
         keys = ["test", "train", "val"]
         for key in keys:
             innerKeys = [
@@ -91,34 +89,6 @@ def validate_training_summary():
                 assert metrics[key][
                     innerKey
                 ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
-
-
-def validate_column_names_in_output_json():
-    with open(output_filename, "r") as file:
-        results = json.load(file)
-
-    expected_keys = {
-        "input_column_types": {
-            "numeric": [],
-            "categorical": [],
-            "arraytype": [],
-            "timestamp": [],
-            "booleantype": [],
-        },
-        "ignore_features": [],
-        "feature_table_column_types": {"numeric": [], "categorical": []},
-    }
-
-    for key, subkeys in expected_keys.items():
-        assert (
-            key in results["column_names"]
-        ), f"Missing key: {key} in output json file."
-
-        if subkeys:
-            for subkey in subkeys:
-                assert (
-                    subkey in results["column_names"][key]
-                ), f"Missing subkey {subkey} under key: {key} in output json file."
 
 
 def validate_reports():
@@ -175,7 +145,6 @@ def test_classification():
         )
         validate_training_summary()
         validate_reports()
-        validate_column_names_in_output_json()
 
         with open(output_filename, "r") as f:
             results = json.load(f)

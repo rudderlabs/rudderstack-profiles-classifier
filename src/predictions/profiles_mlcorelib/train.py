@@ -30,6 +30,7 @@ from .connectors.ConnectorFactory import ConnectorFactory
 from .trainers.TrainerFactory import TrainerFactory
 from .ml_core.preprocess_and_train import train_and_store_model_results
 from typing import List
+from pathlib import Path
 
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
@@ -50,6 +51,7 @@ def _train(
     whtService: PythonWHT,
     ml_core_path: str,
     metrics_table: str,
+    material_directory=None,
 ) -> None:
     """Trains the model and saves the model with given output_filename.
 
@@ -72,8 +74,17 @@ def _train(
     stage_name = None
 
     config_path = utils.get_model_configs_file_path()
-    folder_path = os.path.dirname(output_filename)
-    target_path = utils.get_output_directory(folder_path)
+    if material_directory is not None:
+        # Pynative model
+        folder_path = material_directory
+        reports_directory = Path(material_directory, f"training_reports")
+        reports_directory.mkdir(parents=True, exist_ok=True)
+        # should be converted into string since snowpark doesn't support "Path" object
+        reports_directory = str(reports_directory)
+    else:
+        # Python model
+        folder_path = os.path.dirname(output_filename)
+        reports_directory = utils.get_output_directory(folder_path)
 
     """ Initialising trainer """
     logger.info("Initialising trainer")
@@ -346,14 +357,16 @@ def _train(
         "%Y-%m-%dT%H:%M:%SZ"
     )
     summary = trainer.prepare_training_summary(train_results, model_timestamp)
-    json.dump(summary, open(os.path.join(target_path, "training_summary.json"), "w"))
+    json.dump(
+        summary, open(os.path.join(reports_directory, "training_summary.json"), "w")
+    )
     logger.debug("Fetching visualisations to local")
 
     for figure_name in trainer.figure_names.values():
         try:
-            connector.fetch_staged_file(stage_name, figure_name, target_path)
-        except:
-            logger.warning(f"Could not fetch {figure_name}")
+            connector.fetch_staged_file(stage_name, figure_name, reports_directory)
+        except Exception as e:
+            logger.warning(f"Could not fetch {figure_name} {e}")
 
     logger.debug("Cleaning up the training session")
     connector.post_job_cleanup()

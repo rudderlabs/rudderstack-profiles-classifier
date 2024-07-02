@@ -102,3 +102,11 @@ class RedshiftConnector(CommonWarehouseConnector):
             f"CREATE TABLE IF NOT EXISTS {table_name} ({metrics_table_query});"
         )
         return metrics_df, create_metrics_table_query
+
+    def get_arraytype_columns(
+        self,
+        schema_fields: List,
+        label_column: str,
+        entity_column: str,
+    ) -> List[str]:
+        return []

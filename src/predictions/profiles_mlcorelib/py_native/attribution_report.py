@@ -85,6 +85,10 @@ class AttributionModelRecipe(PyNativeRecipe):
         self.inputs = {
             "var_table": f'{self.config["entity_key"]}/all/var_table',
         }
+        for spend_input in self.spend_inputs:
+            self.inputs[spend_input] = f"{spend_input}"
+        for obj in self.config["user_journeys"]:
+            self.inputs[f'{obj["from"]}'] = obj["from"]
         for obj in self.config["conversions"]:
             for key, value in obj.items():
                 self.inputs[value] = f'entity/{self.config["entity_key"]}/{value}'

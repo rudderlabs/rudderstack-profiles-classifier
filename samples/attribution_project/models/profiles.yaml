@@ -51,7 +51,7 @@ models:
           touch:
             utm_source: utm_source
       spend_inputs:
-        - models/google_ads_fivetran
+        - models/Union_Event_Data
       conversions:
         - name: sf_mql
           timestamp: sf_mql_date

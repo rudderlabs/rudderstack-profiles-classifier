@@ -1,10 +1,10 @@
 name: py_native
-schema_version: 63
+schema_version: 67
 connection: test
 model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/profiles-features-integration-test
+    url: https://github.com/rudderlabs/profiles-features-integration-test/tag/schema_{{best_schema_version}}
 python_requirements:
   - profiles_mlcorelib==0.2.0

@@ -42,8 +42,16 @@ class PredictionModel(BaseModelType):
                     "preprocessing": {
                         "type": "object",
                     },
+                    "outputs": {
+                        "type": "object",
+                        "additionalProperties": True,
+                        "properties": {
+                            "column_names": {"type": "object"},
+                        },
+                        "required": ["column_names"],
+                    },
                 },
-                "required": ["data"],
+                "required": ["data", "outputs"],
             },
         },
         "required": ["training_model", "ml_config", "inputs"]
@@ -78,13 +86,15 @@ class PredictionRecipe(PyNativeRecipe):
 
     def register_dependencies(self, this: WhtMaterial):
         this.de_ref(self.build_spec["training_model"])
+        for input in self.build_spec["inputs"]:
+            this.de_ref(input)
 
     def _get_train_output_filepath(self, this: WhtMaterial):
         # If training is skipped, this function will return incorrect path
         # Option 1: Implement the logic for testing file validity in this package
         # Option 2: Always run training before prediction till file as output type is released
         train_material = this.de_ref(self.build_spec["training_model"])
-        return TrainingRecipe.get_output_filepath(train_material)
+        return TrainingRecipe.get_training_file_path(train_material)
 
     def execute(self, this: WhtMaterial):
         site_config_path = this.wht_ctx.site_config().get("FilePath")

@@ -40,7 +40,16 @@ models:
     model_spec:
       entity_key: user
       report_granularity: day
-      user_journeys: campaigns_list
+      user_journeys:
+        - from: inputs/mkt_pages
+          timestamp: timestamp
+          touch:
+            utm_source: context_traits_utm_source
+            utm_campaign: context_traits_utm_campaign
+        - from: inputs/mkt_pages_historical
+          timestamp: timestamp
+          touch:
+            utm_source: utm_source
       spend_inputs:
         - models/google_ads_fivetran
       conversions:

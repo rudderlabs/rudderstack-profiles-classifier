@@ -17,11 +17,11 @@ def run_project():
             pynative_project,
             "-c",
             siteconfig_path,
-            "--concurrency",
-            "2",
         ]
         subprocess.run(pb_args)
         assert_training_artefacts()
+        validate_py_native_df_classification(creds)
+        validate_py_native_df_regressor(creds)
     except Exception as e:
         raise e
     finally:

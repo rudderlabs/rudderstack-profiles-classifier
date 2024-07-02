@@ -17,7 +17,7 @@ class AttributionModel(BaseModelType):
         "type": "object",
         "properties": {
             **EntityKeyBuildSpecSchema["properties"],
-            "report_granularity": {"type": ["string", "null"]},
+            "report_granularity": {"type": "string"},
             "spend_inputs": {"type": "array", "items": {"type": "string"}},
             "user_journeys": {
                 "type": "array",
@@ -59,7 +59,7 @@ class AttributionModel(BaseModelType):
             },
         },
         "required": EntityKeyBuildSpecSchema["required"]
-        + ["spend_inputs", "user_journeys", "conversions"],
+        + ["report_granularity", "spend_inputs", "user_journeys", "conversions"],
         "additionalProperties": False,
     }
 

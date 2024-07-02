@@ -19,7 +19,32 @@ class AttributionModel(BaseModelType):
             **EntityKeyBuildSpecSchema["properties"],
             "report_granularity": {"type": ["string", "null"]},
             "spend_inputs": {"type": "array", "items": {"type": "string"}},
-            "user_journeys": {"type": "string"},
+            "user_journeys": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "from": {"type": "string"},
+                        "timestamp": {"type": "string"},
+                        "touch": {
+                            "type": "object",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "utm_source": {"type": "string"},
+                                    "utm_campaign": {"type": "string"},
+                                },
+                                "oneOf": [
+                                    {"required": ["utm_source", "utm_campaign"]},
+                                    {"required": ["utm_source"]},
+                                    {"required": ["utm_campaign"]},
+                                ],
+                            },
+                        },
+                    },
+                    "required": ["from", "timestamp", "touch"],
+                },
+            },
             "conversions": {
                 "type": "array",
                 "items": {
@@ -59,7 +84,6 @@ class AttributionModelRecipe(PyNativeRecipe):
 
         self.inputs = {
             "var_table": f'{self.config["entity_key"]}/all/var_table',
-            "user_journeys": f'entity/{self.config["entity_key"]}/{self.config["user_journeys"]}',
         }
         for obj in self.config["conversions"]:
             for key, value in obj.items():

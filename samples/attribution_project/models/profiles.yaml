@@ -72,7 +72,6 @@ models:
         - app_onboarding_survey_how_did_you_hear
         - app_onboarding_survey_migration
         - app_onboarding_survey_product_interest
-        - campaigns_list
         - cio_first_email_sent_timestamp
         - cio_latest_email_sent_timestamp
         - cio_unique_number_emails_clicked
@@ -622,9 +621,3 @@ var_groups:
           select: any_value(title)
           from: inputs/sf_lead
           description: Title from the Lead or Contact record in Salesforce, if a Lead has been converted, the value comes from the Contact
-      - entity_var:
-          name: campaigns_list
-          select: array_agg(object_construct('timestamp', timestamp, 'campaign_info', object_construct('utm_source', utm_source, 'utm_campaign', campaign)))
-          from: models/Union_Event_Data
-          where: utm_source != '' and campaign != '' and DATE(timestamp) <= '2021-04-28'
-          description: list of all utm_sources, utm_campaigns which a user has visited along with timestamp

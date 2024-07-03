@@ -20,12 +20,12 @@ class RudderPB:
             "-c",
             arg["site_config_path"],
         ]
-        logger.info(
+        logger.get().info(
             f"Fetching latest model hash by running command: {' '.join(pb_args)}"
         )
         pb_compile_output_response = utils.subprocess_run(pb_args)
         pb_compile_output = (pb_compile_output_response.stdout).lower()
-        logger.info(f"pb compile output: {pb_compile_output}")
+        logger.get().info(f"pb compile output: {pb_compile_output}")
         return pb_compile_output
 
     def run(self, arg: dict):
@@ -47,7 +47,7 @@ class RudderPB:
             "-c",
             arg["site_config_path"],
         ]
-        logger.info(
+        logger.get().info(
             f"Materialising historic data for {arg['features_valid_time']} using pb: {' '.join(pb_args)} "
         )
         try:
@@ -69,7 +69,9 @@ class RudderPB:
             "-c",
             arg["site_config_path"],
         ]
-        logger.info(f"Fetching all models by running command: {' '.join(pb_args)}")
+        logger.get().info(
+            f"Fetching all models by running command: {' '.join(pb_args)}"
+        )
 
         try:
             pb_show_models_response = utils.subprocess_run(pb_args)
@@ -97,7 +99,9 @@ class RudderPB:
             try:
                 return json.loads(json_string)
             except json.JSONDecodeError as e:
-                logger.debug(f"error while decoding json {json_string}; error {e}")
+                logger.get().debug(
+                    f"error while decoding json {json_string}; error {e}"
+                )
                 end_index = end_index - 1
 
     def get_latest_material_hash(

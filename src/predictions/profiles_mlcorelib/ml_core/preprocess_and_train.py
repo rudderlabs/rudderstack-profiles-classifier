@@ -63,14 +63,14 @@ def train_and_store_model_results(
     train_x, test_x, test_y, pipe, model_id, metrics_df, results = trainer.train_model(
         feature_df, categorical_columns, numeric_columns, train_config, model_file
     )
-    logger.info(f"Generating plots and saving them to the output directory.")
+    logger.get().info(f"Generating plots and saving them to the output directory.")
     trainer.plot_diagnostics(
         connector, connector.session, pipe, None, test_x, test_y, trainer.label_column
     )
     figure_file = connector.join_file_path(
         trainer.figure_names["feature-importance-chart"]
     )
-    logger.info(f"Generating feature importance plot")
+    logger.get().info(f"Generating feature importance plot")
     utils.plot_top_k_feature_importance(
         pipe,
         train_x,
@@ -149,9 +149,9 @@ def preprocess_and_train(
     train_config = merged_config["train"]
 
     feature_table = None
-    logger.info("Preparing training dataset using the past snapshot tables:")
+    logger.get().info("Preparing training dataset using the past snapshot tables:")
     for train_table_pair in train_table_pairs:
-        logger.info(
+        logger.get().info(
             f"\t\tFeature table: {train_table_pair.feature_table_name}\tLabel table: {train_table_pair.label_table_name}"
         )
         feature_table_instance = prepare_feature_table(
@@ -171,7 +171,7 @@ def preprocess_and_train(
         trainer.entity_column,
         cardinal_feature_threshold,
     )
-    logger.info(
+    logger.get().info(
         f"Following features are detected as having high cardinality, and will be ignored for training: {high_cardinal_features}"
     )
 
@@ -185,17 +185,17 @@ def preprocess_and_train(
         feature_table, input_column_types["booleantype"]
     )
     transformed_booleantype_cols = input_column_types["booleantype"]
-    logger.debug("Boolean Type Columns transformed to numeric")
+    logger.get().debug("Boolean Type Columns transformed to numeric")
 
     ignore_features = utils.get_all_ignore_features(
         feature_table,
         trainer.prep.ignore_features,
         high_cardinal_features,
     )
-    logger.info(f"List of all features to be ignored: {ignore_features}")
+    logger.get().info(f"List of all features to be ignored: {ignore_features}")
     feature_table = connector.drop_cols(feature_table, ignore_features)
 
-    logger.debug("Fetching feature table column types")
+    logger.get().debug("Fetching feature table column types")
     feature_table_column_types = utils.get_feature_table_column_types(
         feature_table,
         input_column_types,
@@ -204,13 +204,15 @@ def preprocess_and_train(
         transformed_arraytype_cols,
         transformed_booleantype_cols,
     )
-    logger.debug(f"Feature_table column types detected: {feature_table_column_types}")
+    logger.get().debug(
+        f"Feature_table column types detected: {feature_table_column_types}"
+    )
 
     task_type = trainer.get_name()
-    logger.debug(f"Performing data validation for {task_type}")
+    logger.get().debug(f"Performing data validation for {task_type}")
 
     trainer.validate_data(connector, feature_table)
-    logger.debug("Data validation is completed")
+    logger.get().debug("Data validation is completed")
 
     filtered_feature_table = connector.filter_feature_table(
         feature_table,
@@ -224,7 +226,7 @@ def preprocess_and_train(
         if_exists="replace",
     )
 
-    logger.info("Training and fetching the results")
+    logger.get().info("Training and fetching the results")
     try:
         train_results_json = connector.call_procedure(
             train_procedure,
@@ -236,13 +238,13 @@ def preprocess_and_train(
             trainer=trainer,
         )
     except Exception as e:
-        logger.error(f"Error while training the model: {e}")
+        logger.get().error(f"Error while training the model: {e}")
         raise e
 
     if not isinstance(train_results_json, dict):
         train_results_json = json.loads(train_results_json)
 
-    logger.info("Saving column names info. to the output json.")
+    logger.get().info("Saving column names info. to the output json.")
     train_results_json["column_names"] = {}
     train_results_json["column_names"]["input_column_types"] = input_column_types
     train_results_json["column_names"]["ignore_features"] = ignore_features
@@ -284,7 +286,7 @@ if __name__ == "__main__":
     )
     file_handler.setLevel(logging.INFO)
     file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
+    logger.get().addHandler(file_handler)
 
     if args.mode == constants.CI_MODE:
         sys.exit(0)
@@ -318,7 +320,9 @@ if __name__ == "__main__":
         json.dump(train_results_json, file)
 
     if args.mode == constants.RUDDERSTACK_MODE:
-        logger.debug(f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}")
+        logger.get().debug(
+            f"Uploading trained files to s3://{args.s3_bucket}/{args.s3_path}"
+        )
 
         train_upload_whitelist = utils.merge_lists_to_unique(
             list(trainer.figure_names.values()),
@@ -335,5 +339,7 @@ if __name__ == "__main__":
             train_upload_whitelist,
         )
 
-        logger.debug(f"Deleting additional local directory from {args.mode} mode.")
+        logger.get().debug(
+            f"Deleting additional local directory from {args.mode} mode."
+        )
         connector.delete_local_data_folder()

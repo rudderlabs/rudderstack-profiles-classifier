@@ -35,7 +35,7 @@ def _predict(
     runtime_info: dict,
     ml_core_path: str,
 ) -> None:
-    logger.debug("Starting Predict job")
+    logger.get().debug("Starting Predict job")
 
     is_rudder_backend = utils.fetch_key_from_dict(
         runtime_info, "is_rudder_backend", False
@@ -55,7 +55,7 @@ def _predict(
     )
     trainer = TrainerFactory.create(merged_config)
 
-    logger.debug(
+    logger.get().debug(
         f"Started Predicting for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
     )
     connector = ConnectorFactory.create(creds, folder_path)
@@ -67,7 +67,7 @@ def _predict(
         user_preference_order_infra, is_rudder_backend
     )
     processor = ProcessorFactory.create(mode, trainer, connector, ml_core_path)
-    logger.debug(f"Using {mode} processor for predictions")
+    logger.get().debug(f"Using {mode} processor for predictions")
 
     site_config = utils.load_yaml(site_config_path)
     presets = site_config["py_models"].get("credentials_presets")

@@ -7,7 +7,7 @@ from .SnowflakeConnector import SnowflakeConnector
 try:
     from .BigQueryConnector import BigQueryConnector
 except Exception as e:
-    logger.warning(f"Could not import BigQueryConnector")
+    logger.get().error(f"Could not import BigQueryConnector")
 
 
 class ConnectorFactory:

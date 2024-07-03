@@ -1,0 +1,654 @@
+inputs:
+  - name: app_identifies
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: anonymous_id
+        - name: user_id
+        - name: email
+    app_defaults:
+      table: rudder_webapp_data.rudderwebapp.identifies
+      occurred_at_col: timestamp
+      ids:
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+        - select: user_id
+          type: user_id
+          entity: user
+        - select: lower(email)
+          type: email
+          entity: user
+        - select: case when lower(user_id) like '%@%' THEN lower(user_id) else null end
+          type: email
+          entity: user
+  - name: app_tracks
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - account
+      with_columns:
+        - name: original_timestamp
+        - name: context
+        - name: context_traits_workspace_id
+    app_defaults:
+      table: rudder_webapp_data.rudderwebapp.tracks
+      occurred_at_col: original_timestamp
+      ids:
+        - select: context_traits_workspace_id
+          type: workspace_id
+          entity: account
+  - name: app_transformations
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - account
+      with_columns:
+        - name: createdat
+        - name: workspaceid
+    app_defaults:
+      table: rudder_test_events.ppw_public.transformations
+      occurred_at_col: createdat
+      ids:
+        - select: workspaceid
+          type: workspace_id
+          entity: account
+  - name: app_workspaces
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - account
+      with_columns:
+        - name: createdat
+        - name: id
+    app_defaults:
+      table: rudder_test_events.ppw_public.workspaces
+      occurred_at_col: createdat
+      ids:
+        - select: id
+          type: workspace_id
+          entity: account
+  - name: app_user_roles
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - account
+        - user
+      with_columns:
+        - name: createdat
+        - name: id
+        - name: userid
+    app_defaults:
+      table: rudder_test_events.ppw_public.organization_user_roles
+      occurred_at_col: createdat
+      ids:
+        - select: id
+          type: organization_id
+          entity: account
+        - select: userid
+          type: user_id
+          entity: user
+  - name: app_organizations
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - account
+      with_columns:
+        - name: createdat
+        - name: id
+    app_defaults:
+      table: rudder_test_events.ppw_public.organizations
+      occurred_at_col: createdat
+      ids:
+        - select: id
+          type: organization_id
+          entity: account
+  - name: app_survey
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: context_traits_email
+        - name: user_id
+        - name: anonymous_id
+    app_defaults:
+      table: rudder_webapp_data.rudderwebapp.user_signed_up
+      occurred_at_col: timestamp
+      ids:
+        - select: context_traits_email
+          type: email
+          entity: user
+        - select: user_id
+          type: user_id
+          entity: user
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+  - name: app_user_accounts
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - account
+        - user
+      with_columns:
+        - name: createdat
+        - name: orgid
+        - name: id
+    app_defaults:
+      table: rudder_test_events.ppw_public.user_accounts
+      occurred_at_col: createdat
+      ids:
+        - select: orgid
+          type: organization_id
+          entity: account
+        - select: id
+          type: user_id
+          entity: user
+  - name: app_users
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: createdat
+        - name: id
+        - name: email
+    app_defaults:
+      table: rudder_test_events.ppw_public.users
+      occurred_at_col: createdat
+      ids:
+        - select: id
+          type: user_id
+          entity: user
+        - select: lower(email)
+          type: email
+          entity: user
+  - name: cio_email_converted
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: context_traits_cio_id
+        - name: context_traits_email
+    app_defaults:
+      table: eric_db.eric_data.email_converted
+      occurred_at_col: timestamp
+      ids:
+        - select: context_traits_cio_id
+          type: cio_id
+          entity: user
+        - select: lower(context_traits_email)
+          type: email
+          entity: user
+  - name: cio_email_link_clicked
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: context_traits_cio_id
+        - name: context_traits_email
+    app_defaults:
+      table: eric_db.eric_data.email_link_clicked
+      occurred_at_col: timestamp
+      ids:
+        - select: context_traits_cio_id
+          type: cio_id
+          entity: user
+        - select: lower(context_traits_email)
+          type: email
+          entity: user
+  - name: cio_email_marked_spam
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: context_traits_cio_id
+        - name: context_traits_email
+    app_defaults:
+      table: eric_db.eric_data.email_marked_as_spam
+      occurred_at_col: timestamp
+      ids:
+        - select: context_traits_cio_id
+          type: cio_id
+          entity: user
+        - select: lower(context_traits_email)
+          type: email
+          entity: user
+  - name: cio_email_opened
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: context_traits_cio_id
+        - name: context_traits_email
+    app_defaults:
+      table: eric_db.eric_data.email_opened
+      occurred_at_col: timestamp
+      ids:
+        - select: context_traits_cio_id
+          type: cio_id
+          entity: user
+        - select: lower(context_traits_email)
+          type: email
+          entity: user
+  - name: cio_email_unsubscribed
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: context_traits_cio_id
+        - name: context_traits_email
+    app_defaults:
+      table: eric_db.eric_data.email_unsubscribed
+      occurred_at_col: timestamp
+      ids:
+        - select: context_traits_cio_id
+          type: cio_id
+          entity: user
+        - select: lower(context_traits_email)
+          type: email
+          entity: user
+  - name: dbt_event_volume_daily_aggregate
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - account
+      with_columns:
+        - name: date
+        - name: workspace_id
+    app_defaults:
+      table: analytics_db.public.agg_event_volume_daily_with_sfdc
+      occurred_at_col: date
+      ids:
+        - select: workspace_id
+          type: workspace_id
+          entity: account
+  - name: foqal_tickets
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+        - account
+      with_columns:
+        - name: timestamp
+        - name: requestor_email
+        - name: creator_company
+    app_defaults:
+      table: customer_success.public.foqal_tickets_recent
+      occurred_at_col: timestamp
+      ids:
+        - select: lower(requestor_email)
+          type: email
+          entity: user
+        - select: creator_company
+          type: company
+          entity: account
+  - name: mkt_identifies
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: anonymous_id
+        - name: user_id
+        - name: email
+    app_defaults:
+      table: rudder_autotrack_data.autotrack.identifies
+      occurred_at_col: timestamp
+      ids:
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+        - select: user_id
+          type: user_id
+          entity: user
+        - select: lower(email)
+          type: email
+          entity: user
+        - select: case when lower(user_id) like '%@%' THEN lower(user_id) else null end
+          type: email
+          entity: user
+  - name: mkt_identifies_historical
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: anonymous_id
+        - name: user_id
+        - name: email
+    app_defaults:
+      table: eric_db.eric_data.identifies
+      occurred_at_col: timestamp
+      ids:
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+        - select: user_id
+          type: user_id
+          entity: user
+        - select: lower(email)
+          type: email
+          entity: user
+        - select: case when lower(user_id) like '%@%' THEN lower(user_id) else null end
+          type: email
+          entity: user
+  - name: mkt_pages
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: anonymous_id
+        - name: user_id
+        - name: context_traits_email
+    app_defaults:
+      table: rudder_autotrack_data.autotrack.pages
+      occurred_at_col: timestamp
+      ids:
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+        - select: user_id
+          type: user_id
+          entity: user
+        - select: lower(context_traits_email)
+          type: email
+          entity: user
+  - name: mkt_pages_historical
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: anonymous_id
+        - name: user_id
+        - name: context_traits_email
+    app_defaults:
+      table: eric_db.eric_data.pages
+      occurred_at_col: timestamp
+      ids:
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+        - select: user_id
+          type: user_id
+          entity: user
+        - select: lower(context_traits_email)
+          type: email
+          entity: user
+  - name: mkt_basin_and_sf_enrich
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: anonymous_id
+        - name: email
+    app_defaults:
+      table: eric_db.eric_data.webhook_source_event
+      occurred_at_col: timestamp
+      ids:
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+        - select: lower(email)
+          type: email
+          entity: user
+  - name: mkt_form_submit
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: anonymous_id
+        - name: context_traits_email
+    app_defaults:
+      table: rudder_autotrack_data.autotrack.form_submit
+      occurred_at_col: timestamp
+      ids:
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+        - select: lower(context_traits_email)
+          type: email
+          entity: user
+  - name: mkt_session_metrics
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: event_date
+        - name: anonymous_id
+    app_defaults:
+      table: analytics_db.webanalytics.rs_stg_session_metrics
+      occurred_at_col: event_date
+      ids:
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+  - name: mkt_form_submit_historical
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: anonymous_id
+        - name: context_traits_email
+    app_defaults:
+      table: eric_db.eric_data.form_submit
+      occurred_at_col: timestamp
+      ids:
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+        - select: lower(context_traits_email)
+          type: email
+          entity: user
+  - name: mkt_qualified_email_captured
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: anonymous_id
+        - name: user_id
+        - name: email
+    app_defaults:
+      table: rudder_autotrack_data.autotrack.email_captured
+      occurred_at_col: timestamp
+      ids:
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+        - select: user_id
+          type: user_id
+          entity: user
+        - select: lower(field_values_email)
+          type: email
+          entity: user
+  - name: mkt_qualified_meeting_booked
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+      with_columns:
+        - name: timestamp
+        - name: anonymous_id
+        - name: user_id
+        - name: email
+    app_defaults:
+      table: rudder_autotrack_data.autotrack.meeting_booked
+      occurred_at_col: timestamp
+      ids:
+        - select: anonymous_id
+          type: anonymous_id
+          entity: user
+        - select: user_id
+          type: user_id
+          entity: user
+        - select: lower(field_values_email)
+          type: email
+          entity: user
+  - name: sf_lead
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+        - account
+      with_columns:
+        - name: created_date
+        - name: lead_id
+        - name: email
+        - name: converted_contact_c
+        - name: account_c
+    app_defaults:
+      table: common.public.sf_lead
+      occurred_at_col: created_date
+      ids:
+        - select: lead_id
+          type: sf_lead_id
+          entity: user
+        - select: lower(email)
+          type: email
+          entity: user
+        - select: lower(email)
+          type: email
+          entity: account
+        - select: converted_contact_c
+          type: sf_contact_id
+          entity: user
+        - select: account_c
+          type: sf_account_id
+          entity: account
+  - name: sf_contact
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+        - account
+      with_columns:
+        - name: created_date
+        - name: contact_id
+        - name: email
+        - name: account_id
+    app_defaults:
+      table: common.public.sf_contact
+      occurred_at_col: created_date
+      ids:
+        - select: contact_id
+          type: sf_contact_id
+          entity: user
+        - select: lower(email)
+          type: email
+          entity: user
+        - select: lower(email)
+          type: email
+          entity: account
+        - select: account_id
+          type: sf_account_id
+          entity: account
+  - name: sf_account
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - account
+      with_columns:
+        - name: created_date
+        - name: account_id
+        - name: name
+        - name: domain_c
+    app_defaults:
+      table: common.public.sf_account
+      occurred_at_col: created_date
+      ids:
+        - select: account_id
+          type: sf_account_id
+          entity: account
+        - select: name
+          type: sf_account_name
+          entity: account
+        - select: domain_c
+          type: domain
+          entity: account
+        - select: domain_c
+          type: domain
+          entity: user
+  - name: sf_task
+    contract:
+      is_optional: true
+      is_event_stream: true
+      with_entity_ids:
+        - user
+        - account
+      with_columns:
+        - name: created_date
+        - name: related_lead_id
+        - name: related_account_id
+        - name: related_contact_id
+    app_defaults:
+      table: common.public.sf_task
+      occurred_at_col: created_date
+      ids:
+        - select: related_lead_id
+          type: sf_lead_id
+          entity: user
+        - select: related_account_id
+          type: sf_account_id
+          entity: account
+        - select: related_contact_id
+          type: sf_contact_id
+          entity: user

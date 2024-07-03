@@ -33,7 +33,7 @@ if __name__ == "__main__":
         or label_column is None
         or train_inputs is None
     ):
-        logger.error("One or more required environment variable(s) are not set")
+        logger.get().error("One or more required environment variable(s) are not set")
         sys.exit(1)
 
     train_file_extension = ".json"
@@ -56,7 +56,7 @@ if __name__ == "__main__":
         creds = yaml.safe_load(f)["connections"][connection_name]["outputs"][env_name]
 
     # End of user inputs.
-    logger.setLevel("DEBUG")
+    logger.get().setLevel("DEBUG")
 
     if creds["type"] == "snowflake":
         print(
@@ -131,10 +131,10 @@ if __name__ == "__main__":
     try:
         train_inputs = train_inputs.split(",")
     except Exception as e:
-        logger.error(f"Error parsing train inputs: {str(e)}")
+        logger.get().error(f"Error parsing train inputs: {str(e)}")
         raise Exception(f"Error parsing train inputs: {str(e)}")
 
-    logger.info(f"Training inputs: {train_inputs}")
+    logger.get().info(f"Training inputs: {train_inputs}")
     if should_train:
         T.train(
             creds,

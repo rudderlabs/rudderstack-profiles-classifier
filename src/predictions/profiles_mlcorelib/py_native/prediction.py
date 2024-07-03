@@ -13,6 +13,7 @@ from .training import TrainingRecipe
 
 from ..predict import _predict
 from ..utils import constants
+from ..utils.logger import logger
 
 
 class PredictionModel(BaseModelType):
@@ -97,6 +98,7 @@ class PredictionRecipe(PyNativeRecipe):
         return TrainingRecipe.get_training_file_path(train_material)
 
     def execute(self, this: WhtMaterial):
+        logger.set_logger(self.logger)
         site_config_path = this.wht_ctx.site_config().get("FilePath")
         whtService = PyNativeWHT(this)
         # TODO: Get creds from pywht

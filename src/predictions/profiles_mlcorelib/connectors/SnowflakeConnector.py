@@ -917,7 +917,7 @@ class SnowflakeConnector(Connector):
             total_samples < min_no_of_samples
             or total_negative_samples < min_negative_label_count
         ):
-            logger.debug(
+            logger.get().debug(
                 "Total number of samples or number of negative samples are "
                 "not meeting the minimum training requirement, "
                 f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}, "
@@ -943,7 +943,7 @@ class SnowflakeConnector(Connector):
         min_no_of_samples = constants.MIN_NUM_OF_SAMPLES
 
         if total_samples < min_no_of_samples:
-            logger.debug(
+            logger.get().debug(
                 "Number training samples are not meeting the minimum requirement, "
                 f"total samples - {total_samples}, minimum samples required - {min_no_of_samples}"
             )
@@ -1101,7 +1101,7 @@ class SnowflakeConnector(Connector):
     ) -> None:
         all_stages = self.run_query(f"show stages like '{stage_name.replace('@', '')}'")
         if len(all_stages) == 0:
-            logger.info(f"Stage {stage_name} does not exist. No files to delete.")
+            logger.get().info(f"Stage {stage_name} does not exist. No files to delete.")
             return
 
         import_files = [element.split("/")[-1] for element in import_paths]
@@ -1126,17 +1126,17 @@ class SnowflakeConnector(Connector):
         """
         fn_list = self.session.sql(f"show user functions like '{fn_name}'").collect()
         if len(fn_list) == 0:
-            logger.info(f"Function {fn_name} does not exist")
+            logger.get().info(f"Function {fn_name} does not exist")
             return True
         else:
-            logger.info(
+            logger.get().info(
                 "Function name match found. Dropping all functions with the same name"
             )
             for fn in fn_list:
                 fn_signature = fn["arguments"].split("RETURN")[0]
                 drop = self.session.sql(f"DROP FUNCTION IF EXISTS {fn_signature}")
-                logger.info(drop.collect()[0].status)
-            logger.info("All functions with the same name dropped")
+                logger.get().info(drop.collect()[0].status)
+            logger.get().info("All functions with the same name dropped")
             return True
 
     def get_file(

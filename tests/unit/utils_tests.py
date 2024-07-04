@@ -299,7 +299,7 @@ class TestDatetimeToDateString(unittest.TestCase):
 class TestExractSeqNumberFromQuery(unittest.TestCase):
     def test_queries(self):
         test_cases = [
-            '''SELECT * FROM material_user_var_table_123''',
+            """SELECT * FROM material_user_var_table_123""",
             "SELECT * FROM schema_name.material_user_var_table_123",
             "SELECT * FROM `schema_name`.`material_user_var_table_123`",
             'SELECT * FROM "schema_name"."material_user_var_table_123"',

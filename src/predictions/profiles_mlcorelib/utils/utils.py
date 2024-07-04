@@ -1027,6 +1027,7 @@ def extract_seq_no_from_select_query(select_query: str) -> int:
         table_name = table_name_wo_schema[1:-1]
     else:
         table_name = table_name_wo_schema
+    table_name = table_name.strip('"`')
     seq_no = int(table_name.split("_")[-1])
     return seq_no
 

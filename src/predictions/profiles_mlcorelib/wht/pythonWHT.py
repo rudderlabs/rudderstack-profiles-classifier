@@ -376,6 +376,7 @@ class PythonWHT:
         else:
             table_name = mlower.split()[-1]
         table_suffix = table_name.split(MATERIAL_PREFIX.lower())[-1]
+        table_suffix = table_suffix.strip("\"'")
         split_parts = table_suffix.split("_")
         try:
             seq_no = int(split_parts[-1])

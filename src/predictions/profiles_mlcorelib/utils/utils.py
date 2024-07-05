@@ -1010,14 +1010,14 @@ def plot_user_feature_importance(
 
 
 def replace_seq_no_in_query(query: str, seq_no: int) -> str:
-    match = re.search(r"(_\d+)(`|$)", query)
-    if match:
-        replaced_query = (
-            query[: match.start(1)] + "_" + str(seq_no) + query[match.end(1) :]
-        )
-        return replaced_query
-    else:
+    matches = list(re.finditer(r"(_\d+)(`|'|\"|$)", query))
+    if len(matches) == 0:
         raise Exception(f"Couldn't find an integer seq_no in the input query: {query}")
+    match = matches[-1]
+    if match is None:
+        raise Exception(f"Couldn't find an integer seq_no in the input query: {query}")
+    replaced_query = query[: match.start(1)] + "_" + str(seq_no) + query[match.end(1) :]
+    return replaced_query
 
 
 def extract_seq_no_from_select_query(select_query: str) -> int:

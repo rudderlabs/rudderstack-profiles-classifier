@@ -95,9 +95,6 @@ class AttributionModelRecipe(PyNativeRecipe):
             self.inputs[
                 f"{tbl}/var_table/{self.config['id_column_name']}"
             ] = f"{tbl}/var_table/{self.config['id_column_name']}"
-            # self.inputs[f"{tbl}/{obj['timestamp']}"] = f"{tbl}/{obj['timestamp']}"
-            # for key in obj["touch"]:
-            #     self.inputs[f"{tbl}/{obj['touch'][key]}"] = f"{tbl}/{obj['touch'][key]}"
 
         for obj in self.config["conversions"]:
             for key, value in obj.items():
@@ -107,6 +104,169 @@ class AttributionModelRecipe(PyNativeRecipe):
     def describe(self, this: WhtMaterial):
         description = """You can see the output table in the warehouse where each touchpoint has an attribution score."""
         return description, ".txt"
+
+    def _create_with_query_template(
+        self,
+        conversion_name: str,
+        id_column_name: str,
+        value_flag: bool,
+        journey_query: str,
+        conversion_query: str,
+    ):
+        user_view_query = (
+            f"""
+                    {conversion_name}_user_view AS
+                        (
+                        SELECT distinct
+                                journey.{id_column_name} as {id_column_name},
+                                first_value(DATE(journey.timestamp)) over (partition by journey.{id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_date,
+                                first_value(DATE(journey.timestamp)) over (partition by journey.{id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_date,
+                                """
+            + (
+                f"""first_value(conversion_value) over (partition by journey.{id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_conversion_value,
+                                first_value(conversion_value) over (partition by journey.{id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_conversion_value,"""
+                if value_flag
+                else ""
+            )
+            + f"""
+                                first_value(utm_source) over (partition by journey.{id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_source,
+                                first_value(utm_campaign) over (partition by journey.{id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_campaign,
+                                first_value(utm_source) over (partition by journey.{id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_source,
+                                first_value(utm_campaign) over (partition by journey.{id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_campaign,
+                        FROM (
+                            {conversion_query}
+                        ) AS conversion_tbl
+                        JOIN 
+                        (
+                            {journey_query}
+                        ) AS journey
+                        ON conversion_tbl.{id_column_name} = journey.{id_column_name} and journey.timestamp <= conversion_tbl.converted_date)        
+                    """
+        )
+        first_touch_view_query = (
+            f"""
+                                    {conversion_name}_first_touch_view as
+                                    (
+                                    select first_touch_date as date, 
+                                        first_touch_source as source, 
+                                        first_touch_campaign as campaign, 
+                                        count(distinct {id_column_name}) as first_touch_count, 
+                                        """
+            + (
+                f"""sum(first_touch_conversion_value) as first_touch_conversion_value"""
+                if value_flag
+                else ""
+            )
+            + f"""
+                                    from {conversion_name}_user_view 
+                                    group by first_touch_date, first_touch_source, first_touch_campaign)
+                                    """
+        )
+        last_touch_view_query = (
+            f"""
+                                    {conversion_name}_last_touch_view as
+                                    (
+                                    select last_touch_date as date, 
+                                        last_touch_source as source, 
+                                        last_touch_campaign as campaign, 
+                                        count(distinct {id_column_name}) as last_touch_count,
+                                        """
+            + (
+                f"""sum(last_touch_conversion_value) as last_touch_conversion_value"""
+                if value_flag
+                else ""
+            )
+            + f"""
+                                    from {conversion_name}_user_view 
+                                    group by last_touch_date, last_touch_source, last_touch_campaign)
+                                    """
+        )
+        conversion_view_query = (
+            f"""
+                                {conversion_name}_conversion_view AS
+                                (
+                                    select coalesce({conversion_name}_first_touch_view.date, {conversion_name}_last_touch_view.date) as date, 
+                                            coalesce({conversion_name}_first_touch_view.source, {conversion_name}_last_touch_view.source) as source, 
+                                            coalesce({conversion_name}_first_touch_view.campaign, {conversion_name}_last_touch_view.campaign) as campaign,
+                                            coalesce(first_touch_count, 0) as {conversion_name}_first_touch_count,
+                                            coalesce(last_touch_count, 0) as {conversion_name}_last_touch_count,
+                                            """
+            + (
+                f"""coalesce(first_touch_conversion_value, 0) AS {conversion_name}_first_touch_conversion_value,
+                                            coalesce(last_touch_conversion_value, 0) AS {conversion_name}_last_touch_conversion_value,"""
+                if value_flag
+                else ""
+            )
+            + f"""
+                                    from {conversion_name}_first_touch_view 
+                                    full outer join {conversion_name}_last_touch_view 
+                                    on {conversion_name}_first_touch_view.date = {conversion_name}_last_touch_view.date
+                                        AND {conversion_name}_first_touch_view.source = {conversion_name}_last_touch_view.source
+                                        AND {conversion_name}_first_touch_view.campaign = {conversion_name}_last_touch_view.campaign)
+                                """
+        )
+        with_query_template = f"""
+                                {user_view_query},
+                                {first_touch_view_query},
+                                {last_touch_view_query},
+                                {conversion_view_query}
+                                """
+        return with_query_template
+
+    def _get_index_cte(self, conversion_name_list):
+        select_index_list = list()
+        for conversion_name in conversion_name_list:
+            query = f"""SELECT date, source, campaign FROM {conversion_name}_conversion_view"""
+            select_index_list.append(query)
+
+        select_query = """
+                            UNION ALL 
+                            """.join(
+            select_index_list
+        )
+        index_cte_query = f"""
+                        index_cte AS 
+                        (
+                            SELECT DISTINCT date, source, campaign
+                            FROM (
+                            {select_query})
+                        )
+                        """
+        return index_cte_query
+
+    def _get_final_selector_sql(self, conversion_name_list, value_flag_list):
+        select_query = f"""
+                        SELECT a.date, a.source, a.campaign,"""
+        from_query = f"""
+                        FROM index_cte a"""
+        for conversion_name, value_flag in zip(conversion_name_list, value_flag_list):
+            select_query = (
+                select_query
+                + f"""
+                                    coalesce({conversion_name}_first_touch_count, 0) as {conversion_name}_first_touch_count,
+                                    coalesce({conversion_name}_last_touch_count, 0) as {conversion_name}_last_touch_count,
+                                    """
+                + (
+                    f"""coalesce({conversion_name}_first_touch_conversion_value, 0) AS {conversion_name}_first_touch_conversion_value,
+                                    coalesce({conversion_name}_last_touch_conversion_value, 0) AS {conversion_name}_last_touch_conversion_value,"""
+                    if value_flag
+                    else ""
+                )
+            )
+
+            from_query = (
+                from_query
+                + f"""
+                                LEFT JOIN {conversion_name}_conversion_view ON a.date = {conversion_name}_conversion_view.date and a.source = {conversion_name}_conversion_view.source and a.campaign = {conversion_name}_conversion_view.campaign """
+            )
+
+        final_selector_sql = (
+            select_query
+            + from_query
+            + f"""
+                                            ORDER BY a.date desc"""
+        )
+        return final_selector_sql
 
     def register_dependencies(self, this: WhtMaterial):
         for key in self.inputs:
@@ -151,24 +311,48 @@ class AttributionModelRecipe(PyNativeRecipe):
 
         # creating user conversion
         conversion_query = ""
+        cte_query_list, conversion_name_list, value_flag_list = list(), list(), list()
         for conversion_info in conversions:
+            conversion_name = conversion_info["name"]
+            value_flag = "value" in conversion_info
+            conversion_name_list.append(conversion_name)
+            value_flag_list.append(value_flag)
+
             select_info = (
                 f"SELECT {id_column_name}, {conversion_info['timestamp']} AS converted_date, "
                 + (
                     f"{conversion_info['value']} AS conversion_value"
-                    if "value" in conversion_info
-                    else "1 AS conversion_value"
+                    if value_flag
+                    else ""
                 )
             )
             from_info = f"FROM {{{{entityVarTable}}}}"
             where_info = f"WHERE {conversion_info['timestamp']} is not NULL"
 
-            # TODO: need to change this to multi-conversion
             conversion_query = f"""
                                 {select_info} 
                                 {from_info} 
                                 {where_info}"""
-            break
+
+            with_query_template = self._create_with_query_template(
+                conversion_name,
+                id_column_name,
+                value_flag,
+                journey_query,
+                conversion_query,
+            )
+            cte_query_list.append(with_query_template)
+
+        multiconversion_cte_query = """,
+                                        """.join(
+            cte_query_list
+        )
+
+        index_cte_query = self._get_index_cte(conversion_name_list)
+
+        selector_sql = self._get_final_selector_sql(
+            conversion_name_list, value_flag_list
+        )
 
         # model_creator_sql
         input_material_template = "this.DeRef('entity/user/var_table')"
@@ -176,72 +360,18 @@ class AttributionModelRecipe(PyNativeRecipe):
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% with entityVarTable = {input_material_template} {set_jouney_ref} %}}
-                    WITH user_view AS
-                        (
-                        SELECT distinct
-                                journey.{id_column_name} as {id_column_name},
-                                first_value(DATE(journey.timestamp)) over (partition by journey.{id_column_name} order by journey.timestamp asc) as first_touch_date,
-                                first_value(DATE(journey.timestamp)) over (partition by journey.{id_column_name} order by journey.timestamp desc) as last_touch_date,
-                                first_value(conversion_value) over (partition by journey.{id_column_name} order by journey.timestamp asc) as first_touch_conversion_value,
-                                first_value(conversion_value) over (partition by journey.{id_column_name} order by journey.timestamp desc) as last_touch_conversion_value,
-                                first_value(utm_source) over (partition by journey.{id_column_name} order by journey.timestamp asc) as first_touch_source,
-                                first_value(utm_campaign) over (partition by journey.{id_column_name} order by journey.timestamp asc) as first_touch_campaign,
-                                first_value(utm_source) over (partition by journey.{id_column_name} order by journey.timestamp desc) as last_touch_source,
-                                first_value(utm_campaign) over (partition by journey.{id_column_name} order by journey.timestamp desc) as last_touch_campaign,
-                        FROM (
-                            {conversion_query}
-                        ) AS conversion_tbl
-                        JOIN 
-                        (
-                            {journey_query}
-                        ) AS journey
-                        ON conversion_tbl.{id_column_name} = journey.{id_column_name} and journey.timestamp <= conversion_tbl.converted_date),
-                    first_touch_view as
-                        (
-                        select first_touch_date as timestamp, 
-                            first_touch_source as source, 
-                            first_touch_campaign as campaign, 
-                            count(distinct {id_column_name}) as first_touch_count, 
-                            sum(first_touch_conversion_value) as first_touch_conversion_value
-                        from user_view 
-                        group by first_touch_date, first_touch_source, first_touch_campaign
-                        order by first_touch_date desc),
-                    last_touch_view as
-                        (
-                        select last_touch_date as timestamp, 
-                            last_touch_source as source, 
-                            last_touch_campaign as campaign, 
-                            count(distinct {id_column_name}) as last_touch_count, 
-                            sum(last_touch_conversion_value) as last_touch_conversion_value
-                        from user_view 
-                        group by last_touch_date, last_touch_source, last_touch_campaign
-                        order by last_touch_date desc)
+                    WITH {multiconversion_cte_query}
+                    
+                        , {index_cte_query}
+                    
+                        {selector_sql}
 
-
-                    select coalesce(first_touch_view.timestamp, last_touch_view.timestamp) as timestamp, 
-                    coalesce(first_touch_view.source, last_touch_view.source) as source, 
-                    coalesce(first_touch_view.campaign, last_touch_view.campaign) as campaign,
-                    coalesce(first_touch_count, 0) as first_touch_count,
-                    coalesce(last_touch_count, 0) as last_touch_count,
-                    coalesce(first_touch_conversion_value, 0) AS first_touch_conversion_value,
-                    coalesce(last_touch_conversion_value, 0) AS last_touch_conversion_value,
-                    from first_touch_view 
-                    full outer join last_touch_view 
-                    on first_touch_view.timestamp = last_touch_view.timestamp
-                    AND first_touch_view.source = last_touch_view.source
-                    AND first_touch_view.campaign = last_touch_view.campaign
-                    ORDER BY timestamp desc
 
                     {{% endwith %}}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}
             {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}"""
-
-        # file_name = "sql_query_output.txt"
-        # with open(file_name, "w") as file:
-        #     file.write(query_template)
-        # print(f"String has been written to ================= {file_name}")
 
         self.sql = this.execute_text_template(query_template)
         return

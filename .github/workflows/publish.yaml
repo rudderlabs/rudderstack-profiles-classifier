@@ -6,6 +6,12 @@ on:
         description: 'Version to be published'
         required: true
         type: string
+      environment:
+        type: choice
+        description: pypi environment
+        options:
+        - pypi-dev-rudder
+        - pypi-prod
       
 jobs:
   profiles-mlcorelib:
@@ -14,11 +20,13 @@ jobs:
     env:
       VERSION: ${{ inputs.version }}
       GH_TOKEN: ${{ secrets.PAT }}
+      USER: ${{ secrets.USER }}
+      PASSWORD: ${{ secrets.PASSWORD }}
     permissions:
       id-token: write
     environment:
-      name: 'pypi-prod'
-      url: https://pypi.org/p/profiles-mlcorelib
+      name: ${{ inputs.environment }}
+      url: ${{ vars.URL }}/profiles-mlcorelib
     steps:
       - name: download
         shell: bash
@@ -28,4 +36,6 @@ jobs:
       - name: publish
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          repository-url: https://upload.pypi.org/legacy/
+          repository-url: ${{ vars.REPOSITORY_URL }}
+          user: ${{ env.USER || '__token__' }}
+          password: ${{ env.PASSWORD || '' }}

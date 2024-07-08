@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 from version import version
 
 setup(
-    name="profiles_mlcorelib",
+    name="profiles-mlcorelib",
     version=version,
     author="rudderstack",
     packages=find_packages(),

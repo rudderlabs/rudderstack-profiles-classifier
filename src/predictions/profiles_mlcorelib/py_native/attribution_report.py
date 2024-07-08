@@ -17,8 +17,9 @@ class AttributionModel(BaseModelType):
         "type": "object",
         "properties": {
             **EntityKeyBuildSpecSchema["properties"],
-            "id_column_name": {"type": "string"},
-            "spend_inputs": {"type": "array", "items": {"type": "string"}},
+            "campaign_entity": {"type": "string"},
+            "entity_id_column_name": {"type": "string"},
+            "campaign_id_column_name": {"type": "string"},
             "user_journeys": {
                 "type": "array",
                 "items": {
@@ -26,23 +27,8 @@ class AttributionModel(BaseModelType):
                     "properties": {
                         "from": {"type": "string"},
                         "timestamp": {"type": "string"},
-                        "touch": {
-                            "type": "object",
-                            "items": {
-                                "type": "object",
-                                "properties": {
-                                    "utm_source": {"type": "string"},
-                                    "utm_campaign": {"type": "string"},
-                                },
-                                "oneOf": [
-                                    {"required": ["utm_source", "utm_campaign"]},
-                                    {"required": ["utm_source"]},
-                                    {"required": ["utm_campaign"]},
-                                ],
-                            },
-                        },
                     },
-                    "required": ["from", "timestamp", "touch"],
+                    "required": ["from", "timestamp"],
                 },
             },
             "conversions": {
@@ -57,18 +43,47 @@ class AttributionModel(BaseModelType):
                     "required": ["name", "timestamp"],
                 },
             },
+            "campaign_info": {
+                "type": "object",
+                "properties": {
+                    "campaign_start_date": {"type": "string"},
+                    "campaign_end_date": {"type": "string"},
+                    "spend_inputs": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "from": {"type": "string"},
+                                "date": {"type": "string"},
+                                "cost": {"type": "string"},
+                            },
+                            "required": ["from", "date", "cost"],
+                        },
+                    },
+                },
+                "required": [
+                    "campaign_start_date",
+                    "campaign_end_date",
+                    "spend_inputs",
+                ],
+            },
         },
         "required": EntityKeyBuildSpecSchema["required"]
-        + ["spend_inputs", "user_journeys", "conversions"],
+        + ["campaign_entity", "user_journeys", "conversions", "campaign_info"],
         "additionalProperties": False,
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         super().__init__(build_spec, schema_version, pb_version)
-        if "id_column_name" not in self.build_spec:
+        if "entity_id_column_name" not in self.build_spec:
             self.build_spec[
-                "id_column_name"
+                "entity_id_column_name"
             ] = f"{self.build_spec['entity_key']}_main_id"
+
+        if "campaign_id_column_name" not in self.build_spec:
+            self.build_spec[
+                "campaign_id_column_name"
+            ] = f"{self.build_spec['campaign_entity']}_main_id"
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return AttributionModelRecipe(self.build_spec)
@@ -85,21 +100,28 @@ class AttributionModelRecipe(PyNativeRecipe):
         self.inputs = {
             "var_table": f'{self.config["entity_key"]}/all/var_table',
         }
-        for spend_input in self.config["spend_inputs"]:
-            self.inputs[spend_input] = f"{spend_input}"
 
         for obj in self.config["user_journeys"]:
             tbl = obj["from"]
             self.inputs[tbl] = tbl
             self.inputs[f"{tbl}/var_table"] = f"{tbl}/var_table"
-            self.inputs[
-                f"{tbl}/var_table/{self.config['id_column_name']}"
-            ] = f"{tbl}/var_table/{self.config['id_column_name']}"
+            for required_column in (
+                self.config["entity_id_column_name"],
+                self.config["campaign_id_column_name"],
+            ):
+                self.inputs[
+                    f"{tbl}/var_table/{required_column}"
+                ] = f"{tbl}/var_table/{required_column}"
 
         for obj in self.config["conversions"]:
             for key, value in obj.items():
                 if key != "name":
                     self.inputs[value] = f'entity/{self.config["entity_key"]}/{value}'
+
+        for obj in self.config["campaign_info"]["spend_inputs"]:
+            tbl = obj["from"]
+            self.inputs[tbl] = tbl
+            self.inputs[f"{tbl}/var_table"] = f"{tbl}/var_table"
 
     def describe(self, this: WhtMaterial):
         description = """You can see the output table in the warehouse where each touchpoint has an attribution score."""
@@ -108,7 +130,8 @@ class AttributionModelRecipe(PyNativeRecipe):
     def _create_with_query_template(
         self,
         conversion_name: str,
-        id_column_name: str,
+        entity_id_column_name: str,
+        campaign_id_column_name: str,
         value_flag: bool,
         journey_query: str,
         conversion_query: str,
@@ -118,21 +141,19 @@ class AttributionModelRecipe(PyNativeRecipe):
                     {conversion_name}_user_view AS
                         (
                         SELECT distinct
-                                journey.{id_column_name} as {id_column_name},
-                                first_value(DATE(journey.timestamp)) over (partition by journey.{id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_date,
-                                first_value(DATE(journey.timestamp)) over (partition by journey.{id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_date,
+                                journey.{entity_id_column_name} as {entity_id_column_name},
+                                first_value(DATE(journey.timestamp)) over (partition by journey.{entity_id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_date,
+                                first_value(DATE(journey.timestamp)) over (partition by journey.{entity_id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_date,
                                 """
             + (
-                f"""first_value(conversion_value) over (partition by journey.{id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_conversion_value,
-                                first_value(conversion_value) over (partition by journey.{id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_conversion_value,"""
+                f"""first_value(conversion_value) over (partition by journey.{entity_id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_conversion_value,
+                                first_value(conversion_value) over (partition by journey.{entity_id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_conversion_value,"""
                 if value_flag
                 else ""
             )
             + f"""
-                                first_value(utm_source) over (partition by journey.{id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_source,
-                                first_value(utm_campaign) over (partition by journey.{id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_campaign,
-                                first_value(utm_source) over (partition by journey.{id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_source,
-                                first_value(utm_campaign) over (partition by journey.{id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_campaign,
+                                first_value({campaign_id_column_name}) over (partition by journey.{entity_id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_{campaign_id_column_name},
+                                first_value({campaign_id_column_name}) over (partition by journey.{entity_id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_{campaign_id_column_name},
                         FROM (
                             {conversion_query}
                         ) AS conversion_tbl
@@ -140,17 +161,16 @@ class AttributionModelRecipe(PyNativeRecipe):
                         (
                             {journey_query}
                         ) AS journey
-                        ON conversion_tbl.{id_column_name} = journey.{id_column_name} and journey.timestamp <= conversion_tbl.converted_date)        
+                        ON conversion_tbl.{entity_id_column_name} = journey.{entity_id_column_name} and journey.timestamp <= conversion_tbl.converted_date)        
                     """
         )
         first_touch_view_query = (
             f"""
                                     {conversion_name}_first_touch_view as
                                     (
-                                    select first_touch_date as date, 
-                                        first_touch_source as source, 
-                                        first_touch_campaign as campaign, 
-                                        count(distinct {id_column_name}) as first_touch_count, 
+                                    select first_touch_date as date,
+                                        first_touch_{campaign_id_column_name} as {campaign_id_column_name}, 
+                                        count(distinct {entity_id_column_name}) as first_touch_count, 
                                         """
             + (
                 f"""sum(first_touch_conversion_value) as first_touch_conversion_value"""
@@ -159,17 +179,16 @@ class AttributionModelRecipe(PyNativeRecipe):
             )
             + f"""
                                     from {conversion_name}_user_view 
-                                    group by first_touch_date, first_touch_source, first_touch_campaign)
+                                    group by first_touch_date, first_touch_{campaign_id_column_name})
                                     """
         )
         last_touch_view_query = (
             f"""
                                     {conversion_name}_last_touch_view as
                                     (
-                                    select last_touch_date as date, 
-                                        last_touch_source as source, 
-                                        last_touch_campaign as campaign, 
-                                        count(distinct {id_column_name}) as last_touch_count,
+                                    select last_touch_date as date,
+                                        last_touch_{campaign_id_column_name} as {campaign_id_column_name}, 
+                                        count(distinct {entity_id_column_name}) as last_touch_count,
                                         """
             + (
                 f"""sum(last_touch_conversion_value) as last_touch_conversion_value"""
@@ -178,7 +197,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             )
             + f"""
                                     from {conversion_name}_user_view 
-                                    group by last_touch_date, last_touch_source, last_touch_campaign)
+                                    group by last_touch_date, last_touch_{campaign_id_column_name})
                                     """
         )
         conversion_view_query = (
@@ -186,8 +205,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 {conversion_name}_conversion_view AS
                                 (
                                     select coalesce({conversion_name}_first_touch_view.date, {conversion_name}_last_touch_view.date) as date, 
-                                            coalesce({conversion_name}_first_touch_view.source, {conversion_name}_last_touch_view.source) as source, 
-                                            coalesce({conversion_name}_first_touch_view.campaign, {conversion_name}_last_touch_view.campaign) as campaign,
+                                            coalesce({conversion_name}_first_touch_view.{campaign_id_column_name}, {conversion_name}_last_touch_view.{campaign_id_column_name}) as {campaign_id_column_name}, 
                                             coalesce(first_touch_count, 0) as {conversion_name}_first_touch_count,
                                             coalesce(last_touch_count, 0) as {conversion_name}_last_touch_count,
                                             """
@@ -201,8 +219,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                                     from {conversion_name}_first_touch_view 
                                     full outer join {conversion_name}_last_touch_view 
                                     on {conversion_name}_first_touch_view.date = {conversion_name}_last_touch_view.date
-                                        AND {conversion_name}_first_touch_view.source = {conversion_name}_last_touch_view.source
-                                        AND {conversion_name}_first_touch_view.campaign = {conversion_name}_last_touch_view.campaign)
+                                        AND {conversion_name}_first_touch_view.{campaign_id_column_name} = {conversion_name}_last_touch_view.{campaign_id_column_name})
                                 """
         )
         with_query_template = f"""
@@ -213,10 +230,10 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 """
         return with_query_template
 
-    def _get_index_cte(self, conversion_name_list):
+    def _get_index_cte(self, campaign_id_column_name, conversion_name_list):
         select_index_list = list()
         for conversion_name in conversion_name_list:
-            query = f"""SELECT date, source, campaign FROM {conversion_name}_conversion_view"""
+            query = f"""SELECT date, {campaign_id_column_name} FROM {conversion_name}_conversion_view"""
             select_index_list.append(query)
 
         select_query = """
@@ -227,16 +244,18 @@ class AttributionModelRecipe(PyNativeRecipe):
         index_cte_query = f"""
                         index_cte AS 
                         (
-                            SELECT DISTINCT date, source, campaign
+                            SELECT DISTINCT date, {campaign_id_column_name}
                             FROM (
                             {select_query})
                         )
                         """
         return index_cte_query
 
-    def _get_final_selector_sql(self, conversion_name_list, value_flag_list):
+    def _get_final_selector_sql(
+        self, campaign_id_column_name, conversion_name_list, value_flag_list
+    ):
         select_query = f"""
-                        SELECT a.date, a.source, a.campaign,"""
+                        SELECT a.date, a.{campaign_id_column_name},"""
         from_query = f"""
                         FROM index_cte a"""
         for conversion_name, value_flag in zip(conversion_name_list, value_flag_list):
@@ -257,7 +276,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             from_query = (
                 from_query
                 + f"""
-                                LEFT JOIN {conversion_name}_conversion_view ON a.date = {conversion_name}_conversion_view.date and a.source = {conversion_name}_conversion_view.source and a.campaign = {conversion_name}_conversion_view.campaign """
+                                LEFT JOIN {conversion_name}_conversion_view ON a.date = {conversion_name}_conversion_view.date and a.{campaign_id_column_name} = {conversion_name}_conversion_view.{campaign_id_column_name} """
             )
 
         final_selector_sql = (
@@ -272,9 +291,9 @@ class AttributionModelRecipe(PyNativeRecipe):
         for key in self.inputs:
             this.de_ref(self.inputs[key])
 
-        id_column_name = self.config["id_column_name"]
+        entity_id_column_name = self.config["entity_id_column_name"]
+        campaign_id_column_name = self.config["campaign_id_column_name"]
         user_journeys = self.config["user_journeys"]
-        spend_inputs = self.config["spend_inputs"]
         conversions = self.config["conversions"]
 
         # creating user journeys
@@ -285,21 +304,9 @@ class AttributionModelRecipe(PyNativeRecipe):
                 set_jouney_ref
                 + f"{prefix}{counter} = this.DeRef('{journey_info['from']}/var_table') "
             )
-            select_info = (
-                f"SELECT {id_column_name}, {journey_info['timestamp']} AS timestamp, "
-                + ", ".join(
-                    [
-                        f"{journey_info['touch'][key]} AS {key}"
-                        if key in journey_info["touch"]
-                        else f"null AS {key}"
-                        for key in ("utm_source", "utm_campaign")
-                    ]
-                )
-            )
+            select_info = f"SELECT {entity_id_column_name}, {campaign_id_column_name}, {journey_info['timestamp']} AS timestamp"
             from_info = f"FROM {{{{{prefix}{counter}}}}}"
-            where_info = f"WHERE " + " AND ".join(
-                [f"{journey_info['touch'][key]} != ''" for key in journey_info["touch"]]
-            )
+            where_info = f"WHERE {campaign_id_column_name} is not NULL"
 
             journey_query = f"""{journey_query} 
                                 {union_op} 
@@ -319,7 +326,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             value_flag_list.append(value_flag)
 
             select_info = (
-                f"SELECT {id_column_name}, {conversion_info['timestamp']} AS converted_date, "
+                f"SELECT {entity_id_column_name}, {conversion_info['timestamp']} AS converted_date, "
                 + (
                     f"{conversion_info['value']} AS conversion_value"
                     if value_flag
@@ -336,7 +343,8 @@ class AttributionModelRecipe(PyNativeRecipe):
 
             with_query_template = self._create_with_query_template(
                 conversion_name,
-                id_column_name,
+                entity_id_column_name,
+                campaign_id_column_name,
                 value_flag,
                 journey_query,
                 conversion_query,
@@ -348,10 +356,12 @@ class AttributionModelRecipe(PyNativeRecipe):
             cte_query_list
         )
 
-        index_cte_query = self._get_index_cte(conversion_name_list)
+        index_cte_query = self._get_index_cte(
+            campaign_id_column_name, conversion_name_list
+        )
 
         selector_sql = self._get_final_selector_sql(
-            conversion_name_list, value_flag_list
+            campaign_id_column_name, conversion_name_list, value_flag_list
         )
 
         # model_creator_sql

@@ -15,6 +15,10 @@ class TestGetInputModels(unittest.TestCase):
         original_input_models = [
             "Material_user_var_table1_54ddc22a_383",
             "Material_user_var_table2_54ddc22a_383",
+            '''SELECT last_seen FROM "rs_profiles_3"."material_user_var_table_54ddc22a_383"''',
+            'select last_seen2 from "rs_profiles_3"."material_user_var_table_54ddc22a_383"',
+            "select last_seen2 from 'rs_profiles_3'.'material_user_var_table_54ddc22a_383'",
+            'SELECT * FROM "rs_profiles_3"."Material_user_var_table2_54ddc22a_383"',
         ]
 
         self.pythonWHT.init(
@@ -42,6 +46,12 @@ class TestGetInputModels(unittest.TestCase):
                                 "run_type": "discrete",
                                 "sql_type": "multi",
                                 "enable_status": "enabled"
+                        },
+                        "project/user/all/last_seen": {
+                                "model_type": "entity_var_item"
+                        },
+                        "project/user/all/last_seen2": {
+                                "model_type": "entity_var_item"
                         }
                     }
                     Some text after"""
@@ -54,8 +64,17 @@ class TestGetInputModels(unittest.TestCase):
             original_input_models,
         )
 
-        # Asserting the result and mock calls
-        self.assertEqual(result, ["inputs/user_var_table1", "inputs/user_var_table2"])
+        expected = [
+                    "inputs/user_var_table1",
+                    "inputs/user_var_table2",
+                    "user/all/last_seen",
+                    "user/all/last_seen2",
+                ]
+        self.assertEqual(len(result), len(expected))
+        self.assertEqual(
+            set(result),
+            set(expected),
+        )
 
 
 class MockTableRow:

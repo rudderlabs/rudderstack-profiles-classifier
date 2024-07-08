@@ -7,4 +7,4 @@ packages:
   - name: feature_table
     url: https://github.com/rudderlabs/profiles-features-integration-test/tag/schema_{{best_schema_version}}
 python_requirements:
-  - profiles_mlcorelib
+  - profiles-mlcorelib

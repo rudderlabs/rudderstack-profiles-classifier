@@ -16,6 +16,7 @@ TOUCHPOINTS = "touchpoints"
 CONVERSIONS = "conversions"
 CAMPAIGN_INFO = "campaign_info"
 
+
 class AttributionModel(BaseModelType):
     TypeName = "attribution"  # the name of the model type
 
@@ -83,14 +84,14 @@ class AttributionModel(BaseModelType):
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         super().__init__(build_spec, schema_version, pb_version)
         if ENTITY_ID_COLUMN_NAME not in self.build_spec:
-            self.build_spec[
-                ENTITY_ID_COLUMN_NAME
-            ] = f"{self.build_spec['entity_key']}_main_id"
+            self.build_spec[ENTITY_ID_COLUMN_NAME] = (
+                f"{self.build_spec['entity_key']}_main_id"
+            )
 
         if CAMPAIGN_ID_COLUMN_NAME not in self.build_spec:
-            self.build_spec[
-                CAMPAIGN_ID_COLUMN_NAME
-            ] = f"{self.build_spec[CAMPAIGN_ENTITY]}_main_id"
+            self.build_spec[CAMPAIGN_ID_COLUMN_NAME] = (
+                f"{self.build_spec[CAMPAIGN_ENTITY]}_main_id"
+            )
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return AttributionModelRecipe(self.build_spec)
@@ -116,9 +117,9 @@ class AttributionModelRecipe(PyNativeRecipe):
                 self.config[ENTITY_ID_COLUMN_NAME],
                 self.config[CAMPAIGN_ID_COLUMN_NAME],
             ):
-                self.inputs[
+                self.inputs[f"{tbl}/var_table/{required_column}"] = (
                     f"{tbl}/var_table/{required_column}"
-                ] = f"{tbl}/var_table/{required_column}"
+                )
 
         for obj in self.config[CONVERSIONS]:
             for key, value in obj.items():
@@ -237,7 +238,9 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 """
         return with_query_template
 
-    def _get_journey_aggregation_cte(self, journey_query, campaign_id_column_name, entity_id_column_name):
+    def _get_journey_aggregation_cte(
+        self, journey_query, campaign_id_column_name, entity_id_column_name
+    ):
         journey_cte_query = f"""journey_views_cte as 
                                 (
                                     SELECT date(timestamp) as date, 
@@ -251,7 +254,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                                            {campaign_id_column_name})
                                 """
         return journey_cte_query
-    
+
     def _get_index_cte(self, campaign_id_column_name, conversion_name_list):
         select_index_list = list()
         for conversion_name in conversion_name_list:
@@ -301,13 +304,16 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 LEFT JOIN {conversion_name}_conversion_view ON a.date = {conversion_name}_conversion_view.date and a.{campaign_id_column_name} = {conversion_name}_conversion_view.{campaign_id_column_name} """
             )
         # Adding journey_cte
-        select_query = select_query + """ coalesce(count_distinct_views, 0) as count_distinct_views,
-                                    coalesce(count_total_views, 0) as count_total_views """
-        from_query = from_query + f""" LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} """
-        final_selector_sql = (
+        select_query = (
             select_query
-            + from_query
+            + """ coalesce(count_distinct_views, 0) as count_distinct_views,
+                                    coalesce(count_total_views, 0) as count_total_views """
         )
+        from_query = (
+            from_query
+            + f""" LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} """
+        )
+        final_selector_sql = select_query + from_query
         return final_selector_sql
 
     def register_dependencies(self, this: WhtMaterial):
@@ -379,7 +385,9 @@ class AttributionModelRecipe(PyNativeRecipe):
             cte_query_list
         )
 
-        journey_cte_query = self._get_journey_aggregation_cte(journey_query, campaign_id_column_name, entity_id_column_name)
+        journey_cte_query = self._get_journey_aggregation_cte(
+            journey_query, campaign_id_column_name, entity_id_column_name
+        )
 
         index_cte_query = self._get_index_cte(
             campaign_id_column_name, conversion_name_list

@@ -65,11 +65,11 @@ class TestGetInputModels(unittest.TestCase):
         )
 
         expected = [
-                    "inputs/user_var_table1",
-                    "inputs/user_var_table2",
-                    "user/all/last_seen",
-                    "user/all/last_seen2",
-                ]
+            "inputs/user_var_table1",
+            "inputs/user_var_table2",
+            "user/all/last_seen",
+            "user/all/last_seen2",
+        ]
         self.assertEqual(len(result), len(expected))
         self.assertEqual(
             set(result),

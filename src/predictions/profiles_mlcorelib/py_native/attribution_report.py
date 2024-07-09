@@ -84,14 +84,14 @@ class AttributionModel(BaseModelType):
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         super().__init__(build_spec, schema_version, pb_version)
         if ENTITY_ID_COLUMN_NAME not in self.build_spec:
-            self.build_spec[ENTITY_ID_COLUMN_NAME] = (
-                f"{self.build_spec['entity_key']}_main_id"
-            )
+            self.build_spec[
+                ENTITY_ID_COLUMN_NAME
+            ] = f"{self.build_spec['entity_key']}_main_id"
 
         if CAMPAIGN_ID_COLUMN_NAME not in self.build_spec:
-            self.build_spec[CAMPAIGN_ID_COLUMN_NAME] = (
-                f"{self.build_spec[CAMPAIGN_ENTITY]}_main_id"
-            )
+            self.build_spec[
+                CAMPAIGN_ID_COLUMN_NAME
+            ] = f"{self.build_spec[CAMPAIGN_ENTITY]}_main_id"
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return AttributionModelRecipe(self.build_spec)
@@ -117,9 +117,9 @@ class AttributionModelRecipe(PyNativeRecipe):
                 self.config[ENTITY_ID_COLUMN_NAME],
                 self.config[CAMPAIGN_ID_COLUMN_NAME],
             ):
-                self.inputs[f"{tbl}/var_table/{required_column}"] = (
+                self.inputs[
                     f"{tbl}/var_table/{required_column}"
-                )
+                ] = f"{tbl}/var_table/{required_column}"
 
         for obj in self.config[CONVERSIONS]:
             for key, value in obj.items():

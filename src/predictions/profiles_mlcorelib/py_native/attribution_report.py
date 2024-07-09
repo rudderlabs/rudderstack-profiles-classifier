@@ -8,19 +8,27 @@ from profiles_rudderstack.schema import (
 from profiles_rudderstack.logger import Logger
 import re
 
+# build spec constants
+ENTITY_ID_COLUMN_NAME = "entity_id_col"
+CAMPAIGN_ID_COLUMN_NAME = "campaign_id_col"
+CAMPAIGN_ENTITY = "campaign_entity"
+TOUCHPOINTS = "touchpoints"
+CONVERSIONS = "conversions"
+CAMPAIGN_INFO = "campaign_info"
+
 
 class AttributionModel(BaseModelType):
-    TypeName = "attribution_report"  # the name of the model type
+    TypeName = "attribution"  # the name of the model type
 
     # json schema for the build spec
     BuildSpecSchema = {
         "type": "object",
         "properties": {
             **EntityKeyBuildSpecSchema["properties"],
-            "campaign_entity": {"type": "string"},
-            "entity_id_column_name": {"type": "string"},
-            "campaign_id_column_name": {"type": "string"},
-            "user_journeys": {
+            CAMPAIGN_ENTITY: {"type": "string"},
+            ENTITY_ID_COLUMN_NAME: {"type": "string"},
+            CAMPAIGN_ID_COLUMN_NAME: {"type": "string"},
+            TOUCHPOINTS: {
                 "type": "array",
                 "items": {
                     "type": "object",
@@ -31,7 +39,7 @@ class AttributionModel(BaseModelType):
                     "required": ["from", "timestamp"],
                 },
             },
-            "conversions": {
+            CONVERSIONS: {
                 "type": "array",
                 "items": {
                     "type": "object",
@@ -43,7 +51,7 @@ class AttributionModel(BaseModelType):
                     "required": ["name", "timestamp"],
                 },
             },
-            "campaign_info": {
+            CAMPAIGN_INFO: {
                 "type": "object",
                 "properties": {
                     "campaign_start_date": {"type": "string"},
@@ -69,21 +77,21 @@ class AttributionModel(BaseModelType):
             },
         },
         "required": EntityKeyBuildSpecSchema["required"]
-        + ["campaign_entity", "user_journeys", "conversions", "campaign_info"],
+        + [CAMPAIGN_ENTITY, TOUCHPOINTS, CONVERSIONS, CAMPAIGN_INFO],
         "additionalProperties": False,
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         super().__init__(build_spec, schema_version, pb_version)
-        if "entity_id_column_name" not in self.build_spec:
+        if ENTITY_ID_COLUMN_NAME not in self.build_spec:
             self.build_spec[
-                "entity_id_column_name"
+                ENTITY_ID_COLUMN_NAME
             ] = f"{self.build_spec['entity_key']}_main_id"
 
-        if "campaign_id_column_name" not in self.build_spec:
+        if CAMPAIGN_ID_COLUMN_NAME not in self.build_spec:
             self.build_spec[
-                "campaign_id_column_name"
-            ] = f"{self.build_spec['campaign_entity']}_main_id"
+                CAMPAIGN_ID_COLUMN_NAME
+            ] = f"{self.build_spec[CAMPAIGN_ENTITY]}_main_id"
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return AttributionModelRecipe(self.build_spec)
@@ -101,24 +109,24 @@ class AttributionModelRecipe(PyNativeRecipe):
             "var_table": f'{self.config["entity_key"]}/all/var_table',
         }
 
-        for obj in self.config["user_journeys"]:
+        for obj in self.config[TOUCHPOINTS]:
             tbl = obj["from"]
             self.inputs[tbl] = tbl
             self.inputs[f"{tbl}/var_table"] = f"{tbl}/var_table"
             for required_column in (
-                self.config["entity_id_column_name"],
-                self.config["campaign_id_column_name"],
+                self.config[ENTITY_ID_COLUMN_NAME],
+                self.config[CAMPAIGN_ID_COLUMN_NAME],
             ):
                 self.inputs[
                     f"{tbl}/var_table/{required_column}"
                 ] = f"{tbl}/var_table/{required_column}"
 
-        for obj in self.config["conversions"]:
+        for obj in self.config[CONVERSIONS]:
             for key, value in obj.items():
                 if key != "name":
                     self.inputs[value] = f'entity/{self.config["entity_key"]}/{value}'
 
-        for obj in self.config["campaign_info"]["spend_inputs"]:
+        for obj in self.config[CAMPAIGN_INFO]["spend_inputs"]:
             tbl = obj["from"]
             self.inputs[tbl] = tbl
             self.inputs[f"{tbl}/var_table"] = f"{tbl}/var_table"
@@ -230,6 +238,23 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 """
         return with_query_template
 
+    def _get_journey_aggregation_cte(
+        self, journey_query, campaign_id_column_name, entity_id_column_name
+    ):
+        journey_cte_query = f"""journey_views_cte as 
+                                (
+                                    SELECT date(timestamp) as date, 
+                                           {campaign_id_column_name}, 
+                                           count(distinct {entity_id_column_name}) as count_distinct_views, 
+                                           count(*) as count_total_views 
+                                           from (
+                                           {journey_query}
+                                           ) 
+                                           group by date(timestamp), 
+                                           {campaign_id_column_name})
+                                """
+        return journey_cte_query
+
     def _get_index_cte(self, campaign_id_column_name, conversion_name_list):
         select_index_list = list()
         for conversion_name in conversion_name_list:
@@ -278,23 +303,27 @@ class AttributionModelRecipe(PyNativeRecipe):
                 + f"""
                                 LEFT JOIN {conversion_name}_conversion_view ON a.date = {conversion_name}_conversion_view.date and a.{campaign_id_column_name} = {conversion_name}_conversion_view.{campaign_id_column_name} """
             )
-
-        final_selector_sql = (
+        # Adding journey_cte
+        select_query = (
             select_query
-            + from_query
-            + f"""
-                                            ORDER BY a.date desc"""
+            + """ coalesce(count_distinct_views, 0) as count_distinct_views,
+                                    coalesce(count_total_views, 0) as count_total_views """
         )
+        from_query = (
+            from_query
+            + f""" LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} """
+        )
+        final_selector_sql = select_query + from_query
         return final_selector_sql
 
     def register_dependencies(self, this: WhtMaterial):
         for key in self.inputs:
             this.de_ref(self.inputs[key])
 
-        entity_id_column_name = self.config["entity_id_column_name"]
-        campaign_id_column_name = self.config["campaign_id_column_name"]
-        user_journeys = self.config["user_journeys"]
-        conversions = self.config["conversions"]
+        entity_id_column_name = self.config[ENTITY_ID_COLUMN_NAME]
+        campaign_id_column_name = self.config[CAMPAIGN_ID_COLUMN_NAME]
+        user_journeys = self.config[TOUCHPOINTS]
+        conversions = self.config[CONVERSIONS]
 
         # creating user journeys
         journey_query, union_op, set_jouney_ref = "", "", ""
@@ -356,6 +385,10 @@ class AttributionModelRecipe(PyNativeRecipe):
             cte_query_list
         )
 
+        journey_cte_query = self._get_journey_aggregation_cte(
+            journey_query, campaign_id_column_name, entity_id_column_name
+        )
+
         index_cte_query = self._get_index_cte(
             campaign_id_column_name, conversion_name_list
         )
@@ -371,9 +404,8 @@ class AttributionModelRecipe(PyNativeRecipe):
                 {{% macro selector_sql() %}}
                     {{% with entityVarTable = {input_material_template} {set_jouney_ref} %}}
                     WITH {multiconversion_cte_query}
-                    
+                        , {journey_cte_query}
                         , {index_cte_query}
-                    
                         {selector_sql}
 
 

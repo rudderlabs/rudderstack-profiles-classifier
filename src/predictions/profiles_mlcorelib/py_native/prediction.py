@@ -3,7 +3,10 @@ from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
 from typing import Tuple
-from profiles_rudderstack.schema import EntityKeyBuildSpecSchema, FeatureDetailsBuildSpecSchema
+from profiles_rudderstack.schema import (
+    EntityKeyBuildSpecSchema,
+    FeatureDetailsBuildSpecSchema,
+)
 
 from .warehouse import standardize_ref_name
 

@@ -43,9 +43,9 @@ models:
           column_names:
             percentile: percentile_classification_churn_7_days
             score: classification_churn_7_days
-    features:
-      - name: percentile_classification_churn_7_days
-        description: description
+      features:
+        - name: percentile_classification_churn_7_days
+          description: description
   - name: prediction_regression_model
     model_type: prediction_model
     model_spec:
@@ -65,6 +65,6 @@ models:
           column_names:
             percentile: percentile_regression_days_since_last_seen
             score: regression_days_since_last_seen
-    features:
-      - name: percentile_regression_days_since_last_seen
-        description: description
+      features:
+        - name: percentile_regression_days_since_last_seen
+          description: description

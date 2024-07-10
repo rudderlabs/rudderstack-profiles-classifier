@@ -76,7 +76,7 @@ def _predict(
     else:
         s3_config = presets["s3"]
 
-    if mode == constants.RUDDERSTACK_MODE:
+    if is_rudder_backend and creds["type"] == "redshift":
         s3_creds = S3Utils.get_temporary_credentials(s3_config["role_arn"])
         s3_config["access_key_id"] = s3_creds["access_key_id"]
         s3_config["access_key_secret"] = s3_creds["access_key_secret"]

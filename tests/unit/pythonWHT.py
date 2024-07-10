@@ -16,6 +16,8 @@ class TestGetInputModels(unittest.TestCase):
             "Material_user_var_table1_54ddc22a_383",
             "Material_user_var_table2_54ddc22a_383",
             '''SELECT last_seen FROM "rs_profiles_3"."material_user_var_table_54ddc22a_383"''',
+            '''SELECT 'last_seen' FROM "rs_profiles_3"."material_user_var_table_54ddc22a_383"''',
+            '''SELECT "last_seen" FROM "rs_profiles_3"."material_user_var_table_54ddc22a_383"''',
             'select last_seen2 from "rs_profiles_3"."material_user_var_table_54ddc22a_383"',
             "select last_seen2 from 'rs_profiles_3'.'material_user_var_table_54ddc22a_383'",
             'SELECT * FROM "rs_profiles_3"."Material_user_var_table2_54ddc22a_383"',

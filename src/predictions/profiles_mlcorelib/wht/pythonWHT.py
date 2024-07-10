@@ -49,7 +49,9 @@ class PythonWHT:
         """
 
         def extract_ref_from_query(query: str):
-            select_column_pattern = re.compile(r"SELECT (\w+) FROM", re.IGNORECASE)
+            select_column_pattern = re.compile(
+                r"SELECT [\"']?(\w+)[\"']? FROM", re.IGNORECASE
+            )
             match_column = select_column_pattern.match(query.strip())
             if match_column:
                 column_name = match_column.group(1)

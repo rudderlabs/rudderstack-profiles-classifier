@@ -67,10 +67,13 @@ class PredictionModel(BaseModelType):
         build_spec["contract"] = {
             "with_entity_ids": [build_spec["entity_key"]],
             "with_columns": [
-                {"name": build_spec["ml_config"]["outputs"]["column_names"]["percentile"]},
+                {
+                    "name": build_spec["ml_config"]["outputs"]["column_names"][
+                        "percentile"
+                    ]
+                },
                 {"name": build_spec["ml_config"]["outputs"]["column_names"]["score"]},
-            ]
-          
+            ],
         }
         super().__init__(build_spec, schema_version, pb_version)
 

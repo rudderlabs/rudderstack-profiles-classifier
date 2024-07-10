@@ -1,4 +1,5 @@
 from datetime import datetime
+import re
 from typing import List, Optional, Sequence, Tuple
 
 from .rudderPB import MATERIAL_PREFIX
@@ -46,9 +47,18 @@ class PythonWHT:
         """Returns List of input models - full paths in the profiles project for models
         that are required to generate the current model.
         """
-        original_input_models = [
-            self.split_material_name(input_)["model_name"] for input_ in inputs
-        ]
+
+        def extract_ref_from_query(query: str):
+            select_column_pattern = re.compile(
+                r"SELECT [\"']?(\w+)[\"']? FROM", re.IGNORECASE
+            )
+            match_column = select_column_pattern.match(query.strip())
+            if match_column:
+                column_name = match_column.group(1)
+                return column_name
+            return self.split_material_name(query)["model_name"]
+
+        partial_model_refs = [extract_ref_from_query(input_) for input_ in inputs]
 
         args = {
             "site_config_path": self.site_config_path,
@@ -62,21 +72,27 @@ class PythonWHT:
         )
 
         # Find matching models in the project
-        absolute_input_models = []
+        result = set()
 
-        for model_name in original_input_models:
+        for partial_ref in partial_model_refs:
             matching_models = [
-                key.split("/", 1)[-1] for key in models_info if key.endswith(model_name)
+                # Ignoring first element since it is the name of the project
+                key.split("/", 1)[-1]
+                for key in models_info
+                if key.endswith(partial_ref)
             ]
 
             if len(matching_models) == 1:
-                absolute_input_models.append(matching_models[0])
+                result.add(matching_models[0])
             elif len(matching_models) > 1:
                 raise ValueError(
-                    f"Multiple models with name {model_name} are found. Please ensure the models added in inputs are named uniquely and retry"
+                    f"Multiple models with name {partial_ref} are found. Please ensure the models added in inputs are named uniquely and retry"
                 )
+            elif len(matching_models) == 0:
+                raise ValueError(f"No match found for ref {partial_ref} in show models")
 
-        return absolute_input_models
+        logger.get().info(f"Found input models: {result}")
+        return list(result)
 
     def get_registry_table_name(self):
         if self.cached_registry_table_name == "":

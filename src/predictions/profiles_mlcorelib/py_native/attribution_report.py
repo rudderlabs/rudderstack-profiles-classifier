@@ -7,6 +7,8 @@ from profiles_rudderstack.schema import (
 )
 from profiles_rudderstack.logger import Logger
 import re
+import pandas as pd
+from datetime import datetime, timedelta
 
 # build spec constants
 ENTITY_ID_COLUMN_NAME = "entity_id_col"
@@ -104,36 +106,94 @@ class AttributionModelRecipe(PyNativeRecipe):
     def __init__(self, config: Dict) -> None:
         self.logger = Logger("attribution_model")
         self.config = config
-
-        self.inputs = {
-            "var_table": f'{self.config["entity_key"]}/all/var_table',
-        }
-
+        self.inputs = [f'{self.config["entity_key"]}/all/var_table']
+        campaign_id_column = self.config[CAMPAIGN_ID_COLUMN_NAME]
+        entity_id_column = self.config[ENTITY_ID_COLUMN_NAME]
         for obj in self.config[TOUCHPOINTS]:
             tbl = obj["from"]
-            self.inputs[tbl] = tbl
-            self.inputs[f"{tbl}/var_table"] = f"{tbl}/var_table"
-            for required_column in (
-                self.config[ENTITY_ID_COLUMN_NAME],
-                self.config[CAMPAIGN_ID_COLUMN_NAME],
-            ):
-                self.inputs[
-                    f"{tbl}/var_table/{required_column}"
-                ] = f"{tbl}/var_table/{required_column}"
-
+            self.inputs.extend(
+                [
+                    tbl,
+                    f"{tbl}/var_table",
+                    f"{tbl}/var_table/{campaign_id_column}",
+                    f"{tbl}/var_table/{entity_id_column}",
+                ]
+            )
         for obj in self.config[CONVERSIONS]:
             for key, value in obj.items():
                 if key != "name":
-                    self.inputs[value] = f'entity/{self.config["entity_key"]}/{value}'
+                    self.inputs.append(f'entity/{self.config["entity_key"]}/{value}')
 
         for obj in self.config[CAMPAIGN_INFO]["spend_inputs"]:
             tbl = obj["from"]
-            self.inputs[tbl] = tbl
-            self.inputs[f"{tbl}/var_table"] = f"{tbl}/var_table"
+            self.inputs.extend(
+                [tbl, f"{tbl}/var_table", f"{tbl}/var_table/{campaign_id_column}"]
+            )
+        self.inputs.append(
+            f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_start_date']}"
+        )
+        self.inputs.append(
+            f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_end_date']}"
+        )
 
     def describe(self, this: WhtMaterial):
-        description = """You can see the output table in the warehouse where each touchpoint has an attribution score."""
-        return description, ".txt"
+        return self.sql, ".sql"
+
+    def _create_index_table(
+        self,
+        this: WhtMaterial,
+        campaign_id_column: str,
+        campaign_start_dt_col: str,
+        campaign_end_dt_col: str,
+        campaign_entity_var: str,
+    ):
+        # Fetch the start date, end date, campaign id from campaign var table
+        campaign_var_table = this.de_ref(
+            f"entity/{campaign_entity_var}/var_table"
+        ).string()
+        query = f"select {campaign_id_column}, {campaign_start_dt_col}, {campaign_end_dt_col} from {campaign_var_table};"
+        campaign_start_end_dates = this.wht_ctx.client.query_sql_with_result(query)
+        campaign_start_end_dates.columns = [
+            campaign_id_column,
+            campaign_start_dt_col,
+            campaign_end_dt_col,
+        ]  # To handle case sensitivity
+
+        ## Create a table with all the dates between start and end date
+        # Function to generate date range
+        def date_range(start, end):
+            today = datetime.now().date()
+            end = min(end.date(), today)
+            for n in range(int((end - start.date()).days) + 1):
+                yield start + timedelta(n)
+
+        # Create the expanded DataFrame
+        expanded_df = pd.DataFrame(
+            [
+                (row[campaign_id_column], date)
+                for _, row in campaign_start_end_dates.iterrows()
+                for date in date_range(
+                    row[campaign_start_dt_col], row[campaign_end_dt_col]
+                )
+            ],
+            columns=[campaign_id_column, "date"],
+        )
+        schema = this.wht_ctx.client.schema
+        # Sort the DataFrame
+        expanded_df = expanded_df.sort_values([campaign_id_column, "date"])
+        this.wht_ctx.client.write_df_to_table(
+            expanded_df, self.index_table_name, schema=schema
+        )
+
+        if this.wht_ctx.client.is_snowpark_enabled:
+            # Snowpark write_df_to_table converts date to int by default. So, we need to convert it back to date
+            update_query = f"CREATE OR REPLACE TABLE {schema}.{self.index_table_name} AS SELECT {campaign_id_column}, date(date) as date FROM {schema}.{self.index_table_name};"
+            this.wht_ctx.client.query_sql_without_result(update_query)
+        # Check that the table is created
+        check_query = f"select * from {schema}.{self.index_table_name} limit 5;"
+        res = this.wht_ctx.client.query_sql_with_result(check_query)
+        # print(f"Checking the table {self.index_table_name} is created. Top 5 rows:{res.head()}")
+        _ = res.head()
 
     def _create_with_query_template(
         self,
@@ -255,25 +315,11 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 """
         return journey_cte_query
 
-    def _get_index_cte(self, campaign_id_column_name, conversion_name_list):
-        select_index_list = list()
-        for conversion_name in conversion_name_list:
-            query = f"""SELECT date, {campaign_id_column_name} FROM {conversion_name}_conversion_view"""
-            select_index_list.append(query)
-
-        select_query = """
-                            UNION ALL 
-                            """.join(
-            select_index_list
-        )
+    def _get_index_cte(self, campaign_id_column_name):
         index_cte_query = f"""
-                        index_cte AS 
-                        (
-                            SELECT DISTINCT date, {campaign_id_column_name}
-                            FROM (
-                            {select_query})
-                        )
-                        """
+                         index_cte as 
+                         (select date, {campaign_id_column_name} from {self.index_table_name})
+                          """
         return index_cte_query
 
     def _get_final_selector_sql(
@@ -303,28 +349,48 @@ class AttributionModelRecipe(PyNativeRecipe):
                 + f"""
                                 LEFT JOIN {conversion_name}_conversion_view ON a.date = {conversion_name}_conversion_view.date and a.{campaign_id_column_name} = {conversion_name}_conversion_view.{campaign_id_column_name} """
             )
-        # Adding journey_cte
+        # Adding journey_cte and daily_spend_cte
         select_query = (
             select_query
             + """ coalesce(count_distinct_views, 0) as count_distinct_views,
-                                    coalesce(count_total_views, 0) as count_total_views """
+                  coalesce(count_total_views, 0) as count_total_views, coalesce(cost, 0) as cost """
         )
         from_query = (
             from_query
-            + f""" LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} """
+            + f""" LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} 
+                   LEFT JOIN daily_spend_cte ON a.date = daily_spend_cte.date and a.{campaign_id_column_name} = daily_spend_cte.{campaign_id_column_name} """
         )
         final_selector_sql = select_query + from_query
         return final_selector_sql
 
-    def register_dependencies(self, this: WhtMaterial):
-        for key in self.inputs:
-            this.de_ref(self.inputs[key])
+    def _create_spend_cte(self, campaign_info, campaign_id_column_name):
+        # creating campaign daily spend view
+        spend_query, spend_union_op, set_spend_ref = "", "", ""
+        prefix, counter = "adspend_source", 1
+        for spend_info in campaign_info["spend_inputs"]:
+            set_spend_ref = (
+                set_spend_ref
+                + f"{prefix}{counter} = this.DeRef('{spend_info['from']}/var_table') "
+            )
+            select_info = f"SELECT {campaign_id_column_name}, {spend_info['date']} AS date, {spend_info['cost']} AS cost"
+            from_info = f"FROM {{{{{prefix}{counter}}}}}"
+            spend_query = f"""{spend_query}
+                              {spend_union_op}
+                              {select_info}
+                              {from_info}
+                              """
+            spend_union_op = " UNION ALL "
+            counter += 1
+        spend_query = f""" daily_spend_cte as 
+                                  (select {campaign_id_column_name}, date, 
+                                           sum(cost) as cost from ({spend_query})
+                                            group by 
+                                            {campaign_id_column_name}, date) """
+        return spend_query, set_spend_ref
 
-        entity_id_column_name = self.config[ENTITY_ID_COLUMN_NAME]
-        campaign_id_column_name = self.config[CAMPAIGN_ID_COLUMN_NAME]
-        user_journeys = self.config[TOUCHPOINTS]
-        conversions = self.config[CONVERSIONS]
-
+    def _create_user_journey_cte(
+        self, user_journeys, entity_id_column_name, campaign_id_column_name
+    ):
         # creating user journeys
         journey_query, union_op, set_jouney_ref = "", "", ""
         prefix, counter = "Table", 1
@@ -344,6 +410,25 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 {where_info}"""
             union_op = f"UNION ALL "
             counter += 1
+        return journey_query, set_jouney_ref
+
+    def register_dependencies(self, this: WhtMaterial):
+        for dependency in self.inputs:
+            this.de_ref(dependency)
+
+        entity_id_column_name = self.config[ENTITY_ID_COLUMN_NAME]
+        campaign_id_column_name = self.config[CAMPAIGN_ID_COLUMN_NAME]
+        user_journeys = self.config[TOUCHPOINTS]
+        conversions = self.config[CONVERSIONS]
+        campaign_info = self.config[CAMPAIGN_INFO]
+        self.index_table_name = f"{this.name()}_index_table_temp".upper()
+
+        journey_query, set_jouney_ref = self._create_user_journey_cte(
+            user_journeys, entity_id_column_name, campaign_id_column_name
+        )
+        spend_query, set_spend_ref = self._create_spend_cte(
+            campaign_info, campaign_id_column_name
+        )
 
         # creating user conversion
         conversion_query = ""
@@ -389,26 +474,25 @@ class AttributionModelRecipe(PyNativeRecipe):
             journey_query, campaign_id_column_name, entity_id_column_name
         )
 
-        index_cte_query = self._get_index_cte(
-            campaign_id_column_name, conversion_name_list
-        )
+        index_cte_query = self._get_index_cte(campaign_id_column_name)
 
         selector_sql = self._get_final_selector_sql(
             campaign_id_column_name, conversion_name_list, value_flag_list
         )
 
         # model_creator_sql
-        input_material_template = "this.DeRef('entity/user/var_table')"
+        input_material_template = (
+            f"this.DeRef('entity/{self.config['entity_key']}/var_table')"
+        )
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
-                    {{% with entityVarTable = {input_material_template} {set_jouney_ref} %}}
+                    {{% with entityVarTable = {input_material_template} {set_jouney_ref} {set_spend_ref} %}}
                     WITH {multiconversion_cte_query}
                         , {journey_cte_query}
+                        , {spend_query}
                         , {index_cte_query}
                         {selector_sql}
-
-
                     {{% endwith %}}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
@@ -419,4 +503,13 @@ class AttributionModelRecipe(PyNativeRecipe):
         return
 
     def execute(self, this: WhtMaterial):
+        self._create_index_table(
+            this,
+            self.config[CAMPAIGN_ID_COLUMN_NAME],
+            self.config[CAMPAIGN_INFO]["campaign_start_date"],
+            self.config[CAMPAIGN_INFO]["campaign_end_date"],
+            self.config[CAMPAIGN_ENTITY],
+        )
         this.wht_ctx.client.query_sql_without_result(self.sql)
+        query_drop_index_table = f"drop table if exists {this.wht_ctx.client.schema}.{self.index_table_name};"
+        this.wht_ctx.client.query_sql_without_result(query_drop_index_table)

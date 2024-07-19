@@ -50,10 +50,20 @@ class RedshiftConnector(CommonWarehouseConnector):
         session.execute(f"SET search_path TO {self.schema};")
         return session
 
-    def run_query(self, query: str, response=True) -> Optional[Tuple]:
+    def run_query(self, query: str, response=True) -> Optional[List]:
         """Runs the given query on the redshift connection and returns a Named Tuple."""
         if response:
-            return self.session.execute(query).fetchall()
+            query_run_obj = self.session.execute(query)
+            if query_run_obj.description:
+                column_names = [desc[0] for desc in query_run_obj.description]
+                row_outputs = query_run_obj.fetchall()
+                Row = namedtuple("Row", column_names)
+                query_output = [Row(*row) for row in row_outputs]
+                return query_output
+            else:
+                raise exception(
+                    "No result set is present for given query. Please check the query."
+                )
         else:
             return self.session.execute(query)
 

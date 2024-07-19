@@ -13,6 +13,8 @@ models:
         file_validity: 168h # If the last trained model is older than this, then the model will be trained again,
         inputs: &inputs_amt_spent
           - models/predictions_dev_features # inputs to materialise the required data for model
+          - entity/user/random_boolean_feature
+          - entity/user/n_orders_completed
         config:
           data: &model_amt_spent_data_configs
             label_column: gross_amt_spent_in_past_90_days # Name of column for which we want to find predictions

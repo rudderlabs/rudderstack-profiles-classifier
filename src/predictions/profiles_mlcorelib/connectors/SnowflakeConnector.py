@@ -1149,8 +1149,11 @@ class SnowflakeConnector(Connector):
     def select_relevant_columns(
         self,
         table: snowflake.snowpark.Table,
-        training_features_columns_upper_case: Sequence[str],
+        training_features_columns: Sequence[str],
     ) -> snowflake.snowpark.Table:
+        uppercase_list = lambda features: [feature.upper() for feature in features]
+        training_features_columns_upper_case = uppercase_list(training_features_columns)
+
         table_cols = [col.upper() for col in table.columns]
         for col in training_features_columns_upper_case:
             if col not in table_cols:

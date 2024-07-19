@@ -41,7 +41,7 @@ model_file_name = constants.MODEL_FILE_NAME
 
 def _train(
     creds: dict,
-    inputs: str,
+    inputs: List[str],
     output_filename: str,
     config: dict,
     site_config_path: str,
@@ -57,7 +57,7 @@ def _train(
 
     Args:
         creds (dict): credentials to access the data warehouse - in same format as site_config.yaml from profiles
-        inputs (str): Not being used currently. Can pass a blank string. For future support
+        inputs (List[str]): list of select queries on inputs
         output_filename (str): path to the file where the model details including model id etc are written. Used in prediction step.
         config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
 
@@ -267,8 +267,9 @@ def _train(
     logger.get().info(
         f"Getting input column types from table: {latest_entity_var_table}"
     )
-    input_column_types = connector.get_input_column_types(
+    input_column_types, existing_columns = connector.get_input_column_types(
         trainer,
+        inputs,
         latest_entity_var_table,
         trainer.label_column,
         trainer.entity_column,
@@ -317,6 +318,7 @@ def _train(
         train_table_pairs,
         merged_config,
         input_column_types,
+        existing_columns,
         metrics_table,
         creds,
         utils.load_yaml(site_config_path),

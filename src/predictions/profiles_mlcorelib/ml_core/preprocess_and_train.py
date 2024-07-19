@@ -92,6 +92,7 @@ def train_and_store_model_results(
 def prepare_feature_table(
     train_table_pair: constants.TrainTablesInfo,
     timestamp_columns: List[str],
+    existing_columns: List[str],
     **kwargs,
 ):
     """Combines Feature table and Label table pairs, while converting all timestamp cols
@@ -116,6 +117,9 @@ def prepare_feature_table(
                 feature_table_name, filter_condition=default_user_shortlisting
             )
 
+        feature_table = connector.select_relevant_columns(
+            feature_table, existing_columns
+        )
         feature_table = connector.drop_cols(feature_table, [trainer.label_column])
 
         for col in timestamp_columns:
@@ -139,6 +143,7 @@ def preprocess_and_train(
     train_table_pairs: List[constants.TrainTablesInfo],
     merged_config: dict,
     input_column_types: dict,
+    existing_columns: List[str],
     metrics_table: str,
     **kwargs,
 ):
@@ -157,6 +162,7 @@ def preprocess_and_train(
         feature_table_instance = prepare_feature_table(
             train_table_pair,
             input_column_types["timestamp"],
+            existing_columns,
             connector=connector,
             trainer=trainer,
         )
@@ -266,6 +272,7 @@ if __name__ == "__main__":
     parser.add_argument("--material_names", type=json.loads)
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--input_column_types", type=json.loads)
+    parser.add_argument("--existing_columns", type=json.loads)
     parser.add_argument("--wh_creds", type=json.loads)
     parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
@@ -310,6 +317,7 @@ if __name__ == "__main__":
         material_info,
         args.merged_config,
         args.input_column_types,
+        args.existing_columns,
         args.metrics_table,
         connector=connector,
         trainer=trainer,

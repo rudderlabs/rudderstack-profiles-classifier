@@ -267,9 +267,11 @@ def _train(
     logger.get().info(
         f"Getting input column types from table: {latest_entity_var_table}"
     )
-    input_column_types, existing_columns = connector.get_input_column_types(
+
+    input_columns = connector.get_input_columns(trainer, inputs)
+    input_column_types = connector.get_input_column_types(
         trainer,
-        inputs,
+        input_columns,
         latest_entity_var_table,
         trainer.label_column,
         trainer.entity_column,
@@ -318,7 +320,7 @@ def _train(
         train_table_pairs,
         merged_config,
         input_column_types,
-        existing_columns,
+        input_columns,
         metrics_table,
         creds,
         utils.load_yaml(site_config_path),

@@ -24,7 +24,7 @@ class Processor(ABC):
         materials: List[TrainTablesInfo],
         model_config: dict,
         input_column_types: dict,
-        existing_columns: List[str],
+        input_columns: List[str],
         metrics_table: str,
         wh_creds: dict,
         site_config: dict,

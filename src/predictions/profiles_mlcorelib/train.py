@@ -301,7 +301,7 @@ def _train(
         train_table_pairs = trainer.check_and_generate_more_materials(
             get_material_names_partial,
             train_table_pairs,
-            input_models,
+            absolute_input_models,
             whtService,
             connector,
         )

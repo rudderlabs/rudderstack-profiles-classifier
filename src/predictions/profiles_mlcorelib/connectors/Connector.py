@@ -107,7 +107,7 @@ class Connector(ABC):
         input_columns.difference_update(
             {trainer_obj.index_timestamp.upper(), trainer_obj.index_timestamp.lower()}
         )
-        return input_columns
+        return list(input_columns)
 
     @abstractmethod
     def fetch_filtered_table(

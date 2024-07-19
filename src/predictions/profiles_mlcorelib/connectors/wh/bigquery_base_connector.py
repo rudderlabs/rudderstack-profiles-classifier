@@ -37,7 +37,7 @@ class BigqueryConnector(ConnectorBase):
                 df,
                 destination_table_path,
                 project_id=self.db_config["project_id"],
-                if_exists="replace",
+                if_exists="append",
                 credentials=self.bq_credentials,
             )
 

@@ -1521,6 +1521,7 @@ class Testget_input_column_types(unittest.TestCase):
         self.trainer_input = build_trainer_config()
         self.trainer_input["data"]["label_column"] = "COL6"
         self.trainer_input["data"]["entity_column"] = "COL1"
+        self.trainer_input["data"]["index_timestamp"] = "COL10"
 
     def test_get_input_column_types(self):
         self.trainer_input["preprocessing"]["timestamp_columns"] = ["COL2"]
@@ -1540,15 +1541,22 @@ class Testget_input_column_types(unittest.TestCase):
             schema_fields(name="COL5", field_type="integer"),
             schema_fields(name="COL7", field_type="integer"),
             schema_fields(name="COL2", field_type="date"),
+            schema_fields(name="COL9", field_type="date"),
             schema_fields(name="COL3", field_type="array"),
             schema_fields(name="COL8", field_type="boolean"),
         ]
 
+        existing_columns = {"COL4", "COL5", "COL3", "COL2", "COL10", "COL8"}
+
         # Mock the fetch_table_metadata
         self.connector.fetch_table_metadata = Mock(return_value=named_schema_list)
 
-        output = self.connector.get_input_column_types(
+        # Mock the get_existing_columns
+        self.connector.get_existing_columns = Mock(return_value=existing_columns)
+
+        output, output_existing_columns = self.connector.get_input_column_types(
             self.trainer,
+            ["select * from dummy_schema.dummy_table"],
             "dummy",
             self.trainer.label_column,
             self.trainer.entity_column,
@@ -1556,12 +1564,15 @@ class Testget_input_column_types(unittest.TestCase):
         )
 
         expected = {
-            "numeric": ["COL4", "COL7"],
+            "numeric": ["COL4"],
             "categorical": ["COL5"],
             "arraytype": ["COL3"],
             "timestamp": ["COL2"],
             "booleantype": ["COL8"],
         }
+        existing_columns.difference_update(
+            {self.trainer.index_timestamp.upper(), self.trainer.index_timestamp.lower()}
+        )
 
         all_keys = set(expected.keys()).union(output.keys())
         expected = {key: expected.get(key, []) for key in all_keys}
@@ -1569,6 +1580,9 @@ class Testget_input_column_types(unittest.TestCase):
 
         for key in expected.keys():
             self.assertEqual(sorted(output[key]), sorted(expected[key]))
+        self.assertEqual(
+            sorted(output_existing_columns), sorted(list(existing_columns))
+        )
 
 
 class TestTransformBooleantypeFeatures(unittest.TestCase):

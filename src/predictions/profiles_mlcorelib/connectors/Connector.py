@@ -91,12 +91,10 @@ class Connector(ABC):
                 if column.lower() not in lowercase_list(ignore_features)
             ]
 
-        existing_columns = set()
-        for query in inputs:
-            query = query + " LIMIT 1"
-            existing_columns.update(self.run_query(query)[0]._fields)
-        existing_columns.discard(trainer_obj.index_timestamp.lower())
-        existing_columns.discard(trainer_obj.index_timestamp.upper())
+        existing_columns = self.get_existing_columns(inputs)
+        existing_columns.difference_update(
+            {trainer_obj.index_timestamp.upper(), trainer_obj.index_timestamp.lower()}
+        )
 
         updated_input_column_types = dict()
         for key, value_list in input_column_types.items():
@@ -106,6 +104,14 @@ class Connector(ABC):
             updated_input_column_types[key] = updated_value_list
 
         return updated_input_column_types, list(existing_columns)
+
+    def get_existing_columns(self, inputs):
+        existing_columns = set()
+        for query in inputs:
+            query = query + " LIMIT 1"
+            existing_columns.update(self.run_query(query)[0]._fields)
+
+        return existing_columns
 
     @abstractmethod
     def fetch_filtered_table(

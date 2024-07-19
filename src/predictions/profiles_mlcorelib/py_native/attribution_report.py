@@ -415,7 +415,9 @@ class AttributionModelRecipe(PyNativeRecipe):
         for obj in self.config[CONVERSIONS]:
             for key, value in obj.items():
                 if key != "name":
-                    input_column_vars.append(f"{{{{{value}.Model.DbObjectNamePrefix()}}}}")
+                    input_column_vars.append(
+                        f"{{{{{value}.Model.DbObjectNamePrefix()}}}}"
+                    )
         entity_id_column_name = self.config[ENTITY_ID_COLUMN_NAME]
         campaign_id_column_name = self.config[CAMPAIGN_ID_COLUMN_NAME]
         user_journeys = self.config[TOUCHPOINTS]
@@ -435,7 +437,9 @@ class AttributionModelRecipe(PyNativeRecipe):
         cte_query_list, conversion_name_list, value_flag_list = list(), list(), list()
         for conversion_info in conversions:
             conversion_name = conversion_info["name"]
-            conversion_info_column_name_timestamp = f"{{{{{conversion_info['timestamp']}.Model.DbObjectNamePrefix()}}}}"
+            conversion_info_column_name_timestamp = (
+                f"{{{{{conversion_info['timestamp']}.Model.DbObjectNamePrefix()}}}}"
+            )
             value_flag = "value" in conversion_info
             conversion_name_list.append(conversion_name)
             value_flag_list.append(value_flag)
@@ -443,8 +447,12 @@ class AttributionModelRecipe(PyNativeRecipe):
             select_info = f"SELECT {entity_id_column_name}, {conversion_info_column_name_timestamp} AS converted_date"
 
             if value_flag:
-                conversion_info_column_name_value = f"{{{{{conversion_info['value']}.Model.DbObjectNamePrefix()}}}}"
-                select_info += f", {conversion_info_column_name_value} AS conversion_value"
+                conversion_info_column_name_value = (
+                    f"{{{{{conversion_info['value']}.Model.DbObjectNamePrefix()}}}}"
+                )
+                select_info += (
+                    f", {conversion_info_column_name_value} AS conversion_value"
+                )
 
             from_info = f"FROM {{{{entityVarTable}}}}"
             where_info = f"WHERE {conversion_info_column_name_timestamp} is not NULL"
@@ -479,10 +487,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             campaign_id_column_name, conversion_name_list, value_flag_list
         )
 
-
-        input_material_template = (
-                f"this.DeRef(makePath({self.config[CONVERSIONS][0]['timestamp']}.Model.GetVarTableRef()))"
-        )
+        input_material_template = f"this.DeRef(makePath({self.config[CONVERSIONS][0]['timestamp']}.Model.GetVarTableRef()))"
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}

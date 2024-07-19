@@ -95,6 +95,8 @@ class Connector(ABC):
         for query in inputs:
             query = query + " LIMIT 1"
             existing_columns.update(self.run_query(query)[0]._fields)
+        existing_columns.discard(trainer_obj.index_timestamp.lower())
+        existing_columns.discard(trainer_obj.index_timestamp.upper())
 
         updated_input_column_types = dict()
         for key, value_list in input_column_types.items():

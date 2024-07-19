@@ -1,6 +1,6 @@
 import pandas as pd
 from abc import ABC, abstractmethod
-from typing import Any, Iterable, List, Union, Sequence, Optional, Dict
+from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict
 
 from ..utils import utils
 
@@ -21,11 +21,12 @@ class Connector(ABC):
     def get_input_column_types(
         self,
         trainer_obj,
+        input_columns: List[str],
         table_name: str,
         label_column: str,
         entity_column: str,
         ignore_features: List[str],
-    ) -> Dict:
+    ) -> Tuple:
         """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp, booleantype) for a given table."""
         lowercase_list = lambda features: [feature.lower() for feature in features]
         schema_fields = self.fetch_table_metadata(table_name)
@@ -90,7 +91,23 @@ class Connector(ABC):
                 if column.lower() not in lowercase_list(ignore_features)
             ]
 
-        return input_column_types
+        updated_input_column_types = dict()
+        for key, value_list in input_column_types.items():
+            updated_value_list = [item for item in value_list if item in input_columns]
+            updated_input_column_types[key] = updated_value_list
+
+        return updated_input_column_types
+
+    def get_input_columns(self, trainer_obj, inputs):
+        input_columns = set()
+        for query in inputs:
+            query = query + " LIMIT 1"
+            input_columns.update(self.run_query(query)[0]._fields)
+
+        input_columns.difference_update(
+            {trainer_obj.index_timestamp.upper(), trainer_obj.index_timestamp.lower()}
+        )
+        return list(input_columns)
 
     @abstractmethod
     def fetch_filtered_table(

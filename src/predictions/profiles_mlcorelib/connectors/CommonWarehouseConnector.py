@@ -938,6 +938,9 @@ class CommonWarehouseConnector(Connector):
         self, table: pd.DataFrame, training_features_columns: Sequence[str]
     ) -> pd.DataFrame:
         # table can have columns in upper case or lower case. We need to handle both
+        uppercase_list = lambda features: [feature.upper() for feature in features]
+        training_features_columns = uppercase_list(training_features_columns)
+
         matching_columns = []
         for col in list(table):
             if col.upper() in training_features_columns:

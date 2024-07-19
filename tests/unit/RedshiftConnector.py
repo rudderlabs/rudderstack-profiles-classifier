@@ -1540,15 +1540,19 @@ class Testget_input_column_types(unittest.TestCase):
             schema_fields(name="COL5", field_type="integer"),
             schema_fields(name="COL7", field_type="integer"),
             schema_fields(name="COL2", field_type="date"),
+            schema_fields(name="COL9", field_type="date"),
             schema_fields(name="COL3", field_type="array"),
             schema_fields(name="COL8", field_type="boolean"),
         ]
+
+        input_columns = {"COL4", "COL5", "COL3", "COL2", "COL8"}
 
         # Mock the fetch_table_metadata
         self.connector.fetch_table_metadata = Mock(return_value=named_schema_list)
 
         output = self.connector.get_input_column_types(
             self.trainer,
+            input_columns,
             "dummy",
             self.trainer.label_column,
             self.trainer.entity_column,
@@ -1556,7 +1560,7 @@ class Testget_input_column_types(unittest.TestCase):
         )
 
         expected = {
-            "numeric": ["COL4", "COL7"],
+            "numeric": ["COL4"],
             "categorical": ["COL5"],
             "arraytype": ["COL3"],
             "timestamp": ["COL2"],

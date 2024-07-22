@@ -323,7 +323,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         return index_cte_query
 
     def _get_final_selector_sql(
-        self, campaign_id_column_name, conversion_name_list, value_flag_list
+            self, campaign_id_column_name, conversion_name_list, value_flag_list
     ):
         select_query = f"""
                         SELECT a.date, a.{campaign_id_column_name},"""
@@ -331,33 +331,46 @@ class AttributionModelRecipe(PyNativeRecipe):
                         FROM index_cte a"""
         for conversion_name, value_flag in zip(conversion_name_list, value_flag_list):
             select_query = (
-                select_query
-                + f"""
+                    select_query
+                    + f"""
                                     coalesce({conversion_name}_first_touch_count, 0) as {conversion_name}_first_touch_count,
                                     coalesce({conversion_name}_last_touch_count, 0) as {conversion_name}_last_touch_count,
                                     """
-                + (
-                    f"""coalesce({conversion_name}_first_touch_conversion_value, 0) AS {conversion_name}_first_touch_conversion_value,
+                    + (
+                        f"""coalesce({conversion_name}_first_touch_conversion_value, 0) AS {conversion_name}_first_touch_conversion_value,
                                     coalesce({conversion_name}_last_touch_conversion_value, 0) AS {conversion_name}_last_touch_conversion_value,"""
-                    if value_flag
-                    else ""
-                )
+                        if value_flag
+                        else ""
+                    )
+                    + (
+                        f"""coalesce({conversion_name}_first_touch_count, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_first_touch_cost_per_conv,
+                                    coalesce({conversion_name}_last_touch_count, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_last_touch_cost_per_conv,"""
+                        if value_flag
+                        else f"""coalesce({conversion_name}_first_touch_count, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_first_touch_cost_per_conv,
+                                    coalesce({conversion_name}_last_touch_count, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_last_touch_cost_per_conv,"""
+                    )
+                    + (
+                        f"""coalesce({conversion_name}_first_touch_conversion_value, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_first_touch_roas,
+                                    coalesce({conversion_name}_last_touch_conversion_value, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_last_touch_roas,"""
+                        if value_flag
+                        else ""
+                    )
             )
 
             from_query = (
-                from_query
-                + f"""
+                    from_query
+                    + f"""
                                 LEFT JOIN {conversion_name}_conversion_view ON a.date = {conversion_name}_conversion_view.date and a.{campaign_id_column_name} = {conversion_name}_conversion_view.{campaign_id_column_name} """
             )
         # Adding journey_cte and daily_spend_cte
         select_query = (
-            select_query
-            + """ coalesce(count_distinct_views, 0) as count_distinct_views,
+                select_query
+                + """ coalesce(count_distinct_views, 0) as count_distinct_views,
                   coalesce(count_total_views, 0) as count_total_views, coalesce(cost, 0) as cost """
         )
         from_query = (
-            from_query
-            + f""" LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} 
+                from_query
+                + f""" LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name}
                    LEFT JOIN daily_spend_cte ON a.date = daily_spend_cte.date and a.{campaign_id_column_name} = daily_spend_cte.{campaign_id_column_name} """
         )
         final_selector_sql = select_query + from_query

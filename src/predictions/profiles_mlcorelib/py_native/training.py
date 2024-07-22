@@ -112,7 +112,7 @@ class TrainingRecipe(PyNativeRecipe):
         input_materials = []
         for input in self.build_spec["inputs"]:
             material = this.de_ref(input)
-            input_materials.append(material.name())
+            input_materials.append(f"select * from {material.name()}")
         _train(
             creds,
             input_materials,

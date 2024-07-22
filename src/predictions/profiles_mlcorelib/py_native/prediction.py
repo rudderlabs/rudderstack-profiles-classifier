@@ -126,7 +126,7 @@ class PredictionRecipe(PyNativeRecipe):
         train_output = self._get_train_output_filepath(this)
         for input in self.build_spec["inputs"]:
             material = this.de_ref(input)
-            input_materials.append(material.name())
+            input_materials.append(f"select * from {material.name()}")
         _predict(
             creds,
             train_output,

@@ -3,7 +3,10 @@ from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
-from profiles_rudderstack.schema import EntityKeyBuildSpecSchema
+from profiles_rudderstack.schema import (
+    EntityKeyBuildSpecSchema,
+    MaterializationBuildSpecSchema,
+)
 
 from ..utils.logger import logger
 
@@ -23,6 +26,7 @@ class TrainingModel(BaseModelType):
         "properties": {
             "occurred_at_col": {"type": "string"},
             **EntityKeyBuildSpecSchema["properties"],
+            **MaterializationBuildSpecSchema["properties"],
             "validity_time": {"type": "string"},
             "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
             "ml_config": {
@@ -53,6 +57,12 @@ class TrainingModel(BaseModelType):
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
+        if (
+            "materialization" not in build_spec
+            or "enable_status" not in build_spec["materialization"]
+        ):
+            # This will ensure that the training model won't run if there is no prediction model in the project
+            build_spec["materialization"] = {"enable_status": "only_if_necessary"}
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:

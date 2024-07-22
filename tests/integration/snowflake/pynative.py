@@ -17,6 +17,7 @@ def run_project():
             pynative_project,
             "-c",
             siteconfig_path,
+            "--migrate_on_load",
         ]
         subprocess.run(pb_args)
         assert_training_artefacts()

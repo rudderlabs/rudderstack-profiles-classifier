@@ -109,13 +109,13 @@ class TrainingRecipe(PyNativeRecipe):
         project_folder = this.base_wht_project.project_path()
         runtime_info = {"is_rudder_backend": this.base_wht_project.is_rudder_backend()}
         config = self.build_spec.get("ml_config", {})
-        input_materials = []
+        input_selector_queries = []
         for input in self.build_spec["inputs"]:
             material = this.de_ref(input)
-            input_materials.append(f"select * from {material.name()}")
+            input_selector_queries.append(f"select * from {material.name()}")
         _train(
             creds,
-            input_materials,
+            input_selector_queries,
             output_filename,
             config,
             site_config_path,

@@ -13,11 +13,12 @@ from ..utils.logger import logger
 
 from .warehouse import standardize_ref_name
 
-from ..utils import constants
+from ..utils import constants, utils
+from ..utils.S3Utils import S3Utils
 
 from ..wht.pyNativeWHT import PyNativeWHT
 from ..train import _train
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import pandas as pd
 
 
@@ -95,9 +96,28 @@ class TrainingRecipe(PyNativeRecipe):
     def _skip_training(self, this: WhtMaterial):
         if not self.build_spec.get("validity_time"):
             return False
-        validity_time = self.build_spec.get("validity_time")
+        site_config_path = this.wht_ctx.site_config().get("FilePath")
+        py_models = utils.load_yaml(site_config_path)["py_models"]
+        mat_name_without_seq = this.name().rsplit("_", 1)[0]
+        if "credentials_presets" in py_models:
+            # This flow is for runs in the UI
+            credentials_presets = py_models["credentials_presets"]
+            if "run_artefacts_s3" in credentials_presets:
+                run_artefacts_config = credentials_presets["run_artefacts_s3"]
+                bucket = run_artefacts_config["bucket"]
+                region = run_artefacts_config["region"]
+                path = run_artefacts_config["path"]
+                self.logger.info(f"Checking for training files in {bucket} at {path}")
+                return S3Utils.download_training_artifacts(
+                    bucket,
+                    region,
+                    path,
+                    os.path.join(this.get_output_folder(), this.name()),
+                    mat_name_without_seq,
+                    self._map_validity_to_timestamp(datetime.now(timezone.utc)),
+                )
+        # This flow is for runs from CLI
         if self.build_spec.get("training_file_lookup_path"):
-            mat_name_without_seq = this.name().rsplit("_", 1)[0]
             lookup_path = self.build_spec.get("training_file_lookup_path")
             if not os.path.exists(lookup_path):
                 raise Exception(f"Path {lookup_path} does not exist")
@@ -107,14 +127,8 @@ class TrainingRecipe(PyNativeRecipe):
                         subdir_path = os.path.join(root, subdir)
                         creation_time = os.path.getctime(subdir_path)
                         creation_datetime = datetime.fromtimestamp(creation_time)
-                        time_delta = {
-                            "day": timedelta(days=1),
-                            "week": timedelta(weeks=1),
-                            "month": timedelta(days=30),
-                        }
-                        if (
-                            creation_datetime
-                            >= datetime.now() - time_delta[validity_time]
+                        if creation_datetime >= self._map_validity_to_timestamp(
+                            datetime.now()
                         ):
                             subdir_files = [
                                 f
@@ -141,6 +155,15 @@ class TrainingRecipe(PyNativeRecipe):
                             return True
         return False
 
+    def _map_validity_to_timestamp(self, current_time):
+        validity_time = self.build_spec.get("validity_time")
+        time_delta = {
+            "day": timedelta(days=1),
+            "week": timedelta(weeks=1),
+            "month": timedelta(days=30),
+        }
+        return current_time - time_delta[validity_time]
+
     def register_dependencies(self, this: WhtMaterial):
         for input in self.build_spec["inputs"]:
             this.de_ref(input)
@@ -150,14 +173,14 @@ class TrainingRecipe(PyNativeRecipe):
         return f"{folder}/{this.name()}/training_file"
 
     def execute(self, this: WhtMaterial):
+        logger.set_logger(self.logger)
         if self._skip_training(this):
-            self.logger.info(f"Skipping training")
+            self.logger.info(f"Skipping training for {this.name()}")
             # pb expects every model to create a material
             data = {"dummy_column": ["dummy_value"]}
             df = pd.DataFrame(data)
             this.write_output(df)
             return
-        logger.set_logger(self.logger)
         whtService = PyNativeWHT(this)
         site_config_path = this.wht_ctx.site_config().get("FilePath")
         # TODO: Get creds from pywht

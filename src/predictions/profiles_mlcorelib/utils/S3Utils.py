@@ -1,6 +1,7 @@
 import os
 import boto3
 from ..utils.logger import logger
+import re
 
 
 class S3Utils:
@@ -33,6 +34,44 @@ class S3Utils:
             logger.get().debug(f"Deleted object: {obj['Key']}")
         s3.delete_object(Bucket=bucket_name, Key=folder_name)
         logger.get().debug(f"Deleted folder: {folder_name}")
+
+    def download_training_artifacts(
+        bucket_name,
+        region,
+        prefix,
+        download_directory,
+        folder_substring,
+        min_creation_time,
+    ):
+        s3 = boto3.client("s3", region_name=region)
+        response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
+        for obj in response.get("Contents", []):
+            creation_time = obj["LastModified"]
+            is_recipe_file = folder_substring in os.path.basename(
+                obj["Key"]
+            )  # To avoid downloading top level training recipe which is created by the describe function
+            if (
+                creation_time > min_creation_time
+                and folder_substring in obj["Key"]
+                and not is_recipe_file
+            ):
+                file_key = obj["Key"]
+                match = re.search(f"(.*?{re.escape(folder_substring)}[^/]*)", file_key)
+                if match:
+                    path_to_download = (
+                        match.group(1) + "/"
+                    )  # Adding trailing slash so that the download function ignores any top level file matching the prefix
+                    config = {
+                        "region": region,
+                        "bucket": bucket_name,
+                        "path": path_to_download,
+                    }
+                    logger.get().info(
+                        f"Downloading training artifacts from {path_to_download} to {download_directory}"
+                    )
+                    S3Utils.download_directory(config, download_directory)
+                    return True
+        return False
 
     def upload_directory(bucket, aws_region_name, destination, path, allowedFiles):
         client = boto3.client("s3", region_name=aws_region_name)

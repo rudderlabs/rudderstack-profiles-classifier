@@ -55,6 +55,12 @@ models:
             select: count(distinct context_session_id)
             where: context_session_id is not null
             description: Total individual sessions created till date.
+        - entity_var:
+            name: random_agg_event
+            select: "{{macro_random_agg_event('event')}}"
+            from: inputs/rsTracks
+            description: Array type variable containing event
+
 
       features:
         - days_since_last_seen
@@ -63,5 +69,6 @@ models:
         - gross_amt_spent_in_past_90_days
         # - is_churned_7_days
         - random_boolean_feature
+        - random_agg_event
 
 

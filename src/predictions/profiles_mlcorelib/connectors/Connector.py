@@ -111,7 +111,7 @@ class Connector(ABC):
             self.check_arraytype_conflicts(updated_input_column_types, input_models)
             ignore_features.extend(updated_input_column_types["arraytype"])
         except Exception as e:
-            print(str(e))
+            raise Exception(str(e))
 
         # Since ignore_features are applied later to arraytype_conflict check,
         # that means even if someone adds a feature in ignore_features which is arraytype,

@@ -31,7 +31,7 @@ class TrainingModel(BaseModelType):
             **EntityKeyBuildSpecSchema["properties"],
             **MaterializationBuildSpecSchema["properties"],
             "training_file_lookup_path": {"type": "string"},
-            "validity_time": {"type": "string", "enum": ["day", "week"]},
+            "validity_time": {"type": "string", "enum": ["day", "week", "month"]},
             "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
             "ml_config": {
                 "type": "object",
@@ -110,6 +110,7 @@ class TrainingRecipe(PyNativeRecipe):
                         time_delta = {
                             "day": timedelta(days=1),
                             "week": timedelta(weeks=1),
+                            "month": timedelta(days=30),
                         }
                         if (
                             creation_datetime

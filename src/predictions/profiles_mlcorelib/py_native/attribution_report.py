@@ -125,12 +125,12 @@ class AttributionModelRecipe(PyNativeRecipe):
             self.inputs.extend(
                 [tbl, f"{tbl}/var_table", f"{tbl}/var_table/{campaign_id_column}"]
             )
-        # self.inputs.append(
-        #     f"entity/{self.config[CAMPAIGN_ENTITY]}/campaign_start_date"
-        # )
-        # self.inputs.append(
-        #     f"entity/{self.config[CAMPAIGN_ENTITY]}/campaign_end_date"
-        # )
+        self.inputs.append(
+            f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_start_date']}"
+        )
+        self.inputs.append(
+            f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_end_date']}"
+        )
 
     def describe(self, this: WhtMaterial):
         return self.sql, ".sql"
@@ -411,17 +411,12 @@ class AttributionModelRecipe(PyNativeRecipe):
     def register_dependencies(self, this: WhtMaterial):
         for dependency in self.inputs:
             this.de_ref(dependency)
+
         entity_id_column_name = self.config[ENTITY_ID_COLUMN_NAME]
         campaign_id_column_name = self.config[CAMPAIGN_ID_COLUMN_NAME]
         user_journeys = self.config[TOUCHPOINTS]
         conversions = self.config[CONVERSIONS]
         campaign_info = self.config[CAMPAIGN_INFO]
-        self.campaign_start_date = (
-            f"{{{{{self.config[CAMPAIGN_INFO]['campaign_start_date']}.Model.DbObjectNamePrefix()}}}}"
-        )
-        self.campaign_end_date = (
-            f"{{{{{self.config[CAMPAIGN_INFO]['campaign_end_date']}.Model.DbObjectNamePrefix()}}}}"
-        )
         self.index_table_name = f"{this.name()}_index_table_temp".upper()
 
         journey_query, set_jouney_ref = self._create_user_journey_cte(
@@ -436,10 +431,9 @@ class AttributionModelRecipe(PyNativeRecipe):
         cte_query_list, conversion_name_list, value_flag_list = list(), list(), list()
         for conversion_info in conversions:
             conversion_name = conversion_info["name"]
-            conversion_info_column_name_timestamp = self.campaign_start_date
-            # conversion_info_column_name_timestamp = (
-            #     f"{{{{{conversion_info['timestamp']}.Model.DbObjectNamePrefix()}}}}"
-            # )
+            conversion_info_column_name_timestamp = (
+                f"{{{{{conversion_info['timestamp']}.Model.DbObjectNamePrefix()}}}}"
+            )
             value_flag = "value" in conversion_info
             conversion_name_list.append(conversion_name)
             value_flag_list.append(value_flag)
@@ -510,8 +504,8 @@ class AttributionModelRecipe(PyNativeRecipe):
         self._create_index_table(
             this,
             self.config[CAMPAIGN_ID_COLUMN_NAME],
-            self.campaign_start_date,
-            self.campaign_end_date,
+            self.config[CAMPAIGN_INFO]["campaign_start_date"],
+            self.config[CAMPAIGN_INFO]["campaign_end_date"],
             self.config[CAMPAIGN_ENTITY],
         )
         this.wht_ctx.client.query_sql_without_result(self.sql)

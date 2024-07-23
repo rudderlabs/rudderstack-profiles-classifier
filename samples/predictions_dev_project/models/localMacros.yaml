@@ -43,7 +43,7 @@ macros:
       - EVENT
     value: |
       {% if warehouse.DatabaseType() == "redshift" %}
-        case when RANDOM()>0.99 then NULL  else SPLIT_TO_ARRAY(listagg(distinct {{EVENT}}, ','), ',') end
+        case when RANDOM()>0.9 then NULL  else SPLIT_TO_ARRAY(listagg(distinct {{EVENT}}, ','), ',') end
       {% elif warehouse.DatabaseType() == "bigquery" %}
         case when RAND()>0.99 then NULL  else array_agg(distinct {{EVENT}}) end
       {% else %}

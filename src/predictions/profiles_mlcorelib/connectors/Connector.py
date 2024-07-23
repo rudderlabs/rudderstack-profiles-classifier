@@ -18,9 +18,9 @@ class Connector(ABC):
         }
         return new_creds
 
-    def get_input_columns(self, trainer_obj, inputs):
+    def get_input_columns(self, trainer_obj, inputs_selector_sql_queries):
         input_columns = set()
-        for query in inputs:
+        for query in inputs_selector_sql_queries:
             query = query + " LIMIT 1"
             input_columns.update(self.run_query(query)[0]._fields)
 
@@ -135,7 +135,9 @@ class Connector(ABC):
 
             for key, value in input_models.items():
                 if column_lower in key.lower() and value == "entity_var_item":
-                    raise Exception(f"Conflict: Array type features are not supported.")
+                    raise Exception(
+                        f"Array type features are not supported. Please remove '{column_lower}' and any other array type features from inputs."
+                    )
 
     @abstractmethod
     def fetch_filtered_table(

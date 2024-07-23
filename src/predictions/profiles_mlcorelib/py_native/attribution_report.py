@@ -424,8 +424,9 @@ class AttributionModelRecipe(PyNativeRecipe):
         for dependency in self.inputs:
             this.de_ref(dependency)
 
-        entity_id_column_name = self.config[ENTITY_ID_COLUMN_NAME]
-        campaign_id_column_name = self.config[CAMPAIGN_ID_COLUMN_NAME]
+        entities = this.base_wht_project.entities()
+        entity_id_column_name = entities["user"]["IdColumnName"]
+        campaign_id_column_name = entities["campaign"]["IdColumnName"]
         user_journeys = self.config[TOUCHPOINTS]
         conversions = self.config[CONVERSIONS]
         campaign_info = self.config[CAMPAIGN_INFO]

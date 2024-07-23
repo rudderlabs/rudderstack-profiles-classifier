@@ -117,7 +117,9 @@ def prepare_feature_table(
                 feature_table_name, filter_condition=default_user_shortlisting
             )
 
-        feature_table = connector.select_relevant_columns(feature_table, input_columns)
+        feature_table = connector.select_relevant_columns(
+            feature_table, input_columns + [trainer.entity_column]
+        )
         feature_table = connector.drop_cols(feature_table, [trainer.label_column])
 
         for col in timestamp_columns:

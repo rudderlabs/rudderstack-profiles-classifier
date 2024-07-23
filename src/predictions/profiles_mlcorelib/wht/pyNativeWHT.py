@@ -1,5 +1,5 @@
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 from ..utils import utils
 
@@ -68,7 +68,7 @@ class PyNativeWHT:
     def get_registry_table_name(self) -> str:
         return self.pythonWHT.get_registry_table_name()
 
-    def get_input_models(self, inputs: List[str]) -> List[str]:
+    def get_input_models(self, inputs: List[str]) -> Dict[str, str]:
         return self.pythonWHT.get_input_models(inputs)
 
     def get_credentials(self, project_path: str, site_config_path: str) -> str:

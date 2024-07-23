@@ -60,8 +60,8 @@ models:
         - days_since_last_seen
         # - total_sessions_till_date
         - n_orders_completed
-        # - gross_amt_spent_in_past_90_days
-        - is_churned_7_days
+        - gross_amt_spent_in_past_90_days
+        # - is_churned_7_days
         - random_boolean_feature
 
 

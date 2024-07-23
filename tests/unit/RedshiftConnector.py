@@ -1545,6 +1545,19 @@ class Testget_input_column_types(unittest.TestCase):
             schema_fields(name="COL8", field_type="boolean"),
         ]
 
+        input_models = {
+            "inputs/user_var_table1": "input_var_item",
+            "inputs/user_var_table2": "input_var_item",
+            "user/all/last_seen": "entity_var_item",
+            "user/all/last_seen2": "entity_var_item",
+        }
+
+        input_ignore_features = (
+            []
+            if self.trainer.prep.ignore_features is None
+            else self.trainer.prep.ignore_features
+        )
+
         input_columns = {"COL4", "COL5", "COL3", "COL2", "COL8"}
 
         # Mock the fetch_table_metadata
@@ -1553,19 +1566,19 @@ class Testget_input_column_types(unittest.TestCase):
         output = self.connector.get_input_column_types(
             self.trainer,
             input_columns,
+            input_models,
             "dummy",
-            self.trainer.label_column,
-            self.trainer.entity_column,
-            self.trainer.prep.ignore_features,
         )
 
         expected = {
             "numeric": ["COL4"],
             "categorical": ["COL5"],
-            "arraytype": ["COL3"],
+            "arraytype": [],
             "timestamp": ["COL2"],
             "booleantype": ["COL8"],
         }
+
+        expected_ignore_features = input_ignore_features + ["COL3"]
 
         all_keys = set(expected.keys()).union(output.keys())
         expected = {key: expected.get(key, []) for key in all_keys}
@@ -1573,6 +1586,10 @@ class Testget_input_column_types(unittest.TestCase):
 
         for key in expected.keys():
             self.assertEqual(sorted(output[key]), sorted(expected[key]))
+
+        self.assertEqual(
+            sorted(self.trainer.prep.ignore_features), sorted(expected_ignore_features)
+        )
 
 
 class TestTransformBooleantypeFeatures(unittest.TestCase):

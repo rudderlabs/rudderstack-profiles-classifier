@@ -338,6 +338,14 @@ class AttributionModelRecipe(PyNativeRecipe):
                     if value_flag
                     else ""
                 )
+                + f"""coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_count, 0), 0),0) AS {conversion_name}_first_touch_cost_per_conv,
+                                    coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_count, 0), 0),0) AS {conversion_name}_last_touch_cost_per_conv,"""
+                + (
+                    f"""coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_conversion_value, 0), 0),0) AS {conversion_name}_first_touch_roas,
+                                        coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_conversion_value, 0), 0),0) AS {conversion_name}_last_touch_roas,"""
+                    if value_flag
+                    else ""
+                )
             )
 
             from_query = (

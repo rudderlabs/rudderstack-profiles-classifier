@@ -11,18 +11,20 @@ from src.predictions.profiles_mlcorelib.wht.rudderPB import RudderPB
 
 
 def get_pynative_output_folder():
-    seq_no_dir = os.path.join(
+    base_dir = os.path.join(
         current_dir,
         "..",
         "..",
         "samples",
         "py_native",
-        "output",
-        connection_name,
-        "seq_no",
     )
-    if not os.path.exists(seq_no_dir):
-        return None
+    seq_no_dir = None
+    for root, dirs, _ in os.walk(base_dir):
+        if "seq_no" in dirs:
+            seq_no_dir = os.path.join(root, "seq_no")
+            break
+    if not seq_no_dir:
+        raise Exception("seq_no directory not found")
     items = os.listdir(seq_no_dir)
     directories = [
         # This logic will fail if there are multiple sequence numbers

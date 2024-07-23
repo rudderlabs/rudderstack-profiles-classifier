@@ -179,6 +179,7 @@ class K8sProcessor(Processor):
         materials: List[TrainTablesInfo],
         merged_config: dict,
         input_column_types: dict,
+        input_columns: List[str],
         metrics_table: str,
         wh_creds: dict,
         site_config: dict,
@@ -205,6 +206,8 @@ class K8sProcessor(Processor):
             json.dumps(merged_config),
             "--input_column_types",
             json.dumps(input_column_types),
+            "--input_columns",
+            json.dumps(input_columns),
             "--metrics_table",
             metrics_table,
         ]

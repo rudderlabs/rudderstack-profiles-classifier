@@ -342,16 +342,11 @@ class AttributionModelRecipe(PyNativeRecipe):
                     if value_flag
                     else ""
                 )
+                + f"""coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_count, 0), 0),0) AS {conversion_name}_first_touch_cost_per_conv,
+                                    coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_count, 0), 0),0) AS {conversion_name}_last_touch_cost_per_conv,"""
                 + (
-                    f"""coalesce({conversion_name}_first_touch_count, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_first_touch_cost_per_conv,
-                                    coalesce({conversion_name}_last_touch_count, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_last_touch_cost_per_conv,"""
-                    if value_flag
-                    else f"""coalesce({conversion_name}_first_touch_count, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_first_touch_cost_per_conv,
-                                    coalesce({conversion_name}_last_touch_count, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_last_touch_cost_per_conv,"""
-                )
-                + (
-                    f"""coalesce({conversion_name}_first_touch_conversion_value, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_first_touch_roas,
-                                    coalesce({conversion_name}_last_touch_conversion_value, 0) / nullif(coalesce(cost, 0), 0) AS {conversion_name}_last_touch_roas,"""
+                    f"""coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_conversion_value, 0), 0),0) AS {conversion_name}_first_touch_roas,
+                                        coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_conversion_value, 0), 0),0) AS {conversion_name}_last_touch_roas,"""
                     if value_flag
                     else ""
                 )
@@ -370,7 +365,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         )
         from_query = (
             from_query
-            + f""" LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name}
+            + f""" LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} 
                    LEFT JOIN daily_spend_cte ON a.date = daily_spend_cte.date and a.{campaign_id_column_name} = daily_spend_cte.{campaign_id_column_name} """
         )
         final_selector_sql = select_query + from_query

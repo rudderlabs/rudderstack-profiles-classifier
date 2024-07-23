@@ -47,13 +47,13 @@ class S3Utils:
         response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
         for obj in response.get("Contents", []):
             creation_time = obj["LastModified"]
-            isRecipeFile = folder_substring in os.path.basename(
+            is_recipe_file = folder_substring in os.path.basename(
                 obj["Key"]
             )  # To avoid downloading top level training recipe which is created by the describe function
             if (
                 creation_time > min_creation_time
                 and folder_substring in obj["Key"]
-                and not isRecipeFile
+                and not is_recipe_file
             ):
                 file_key = obj["Key"]
                 match = re.search(f"(.*?{re.escape(folder_substring)}[^/]*)", file_key)

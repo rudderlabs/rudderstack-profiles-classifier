@@ -94,40 +94,6 @@ class AttributionModelRecipe(PyNativeRecipe):
         self.logger = Logger("attribution_model")
         self.config = config
 
-        # self.inputs = [f'{self.config["entity_key"]}/all/var_table']
-        # # campaign_id_column = self.config[CAMPAIGN_ID_COLUMN_NAME]
-        # # entity_id_column = self.config[ENTITY_ID_COLUMN_NAME]
-        #
-        # entities = this.base_wht_project.entities()
-        # entity_id_column = entities['entity_key']["IdColumnName"]
-        # campaign_id_column = entities[CAMPAIGN_ENTITY]["IdColumnName"]
-        # for obj in self.config[TOUCHPOINTS]:
-        #     tbl = obj["from"]
-        #     self.inputs.extend(
-        #         [
-        #             tbl,
-        #             f"{tbl}/var_table",
-        #             f"{tbl}/var_table/{campaign_id_column}",
-        #             f"{tbl}/var_table/{entity_id_column}",
-        #         ]
-        #     )
-        # for obj in self.config[CONVERSIONS]:
-        #     for key, value in obj.items():
-        #         if key != "name":
-        #             self.inputs.append(f'entity/{self.config["entity_key"]}/{value}')
-        #
-        # for obj in self.config[CAMPAIGN_INFO]["spend_inputs"]:
-        #     tbl = obj["from"]
-        #     self.inputs.extend(
-        #         [tbl, f"{tbl}/var_table", f"{tbl}/var_table/{campaign_id_column}"]
-        #     )
-        # self.inputs.append(
-        #     f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_start_date']}"
-        # )
-        # self.inputs.append(
-        #     f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_end_date']}"
-        # )
-
     def describe(self, this: WhtMaterial):
         return self.sql, ".sql"
 

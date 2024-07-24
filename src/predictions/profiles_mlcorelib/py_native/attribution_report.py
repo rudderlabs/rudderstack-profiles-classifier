@@ -29,10 +29,10 @@ class AttributionModel(BaseModelType):
     BuildSpecSchema = {
         "type": "object",
         "properties": {
+            **EntityKeyBuildSpecSchema["properties"],
             CONVERSION: {
                 "type": "object",
                 "properties": {
-                    ENTITY_KEY: {"type": "string"},
                     TOUCHPOINTS: {
                         "type": "array",
                         "items": {
@@ -57,7 +57,7 @@ class AttributionModel(BaseModelType):
                         },
                     },
                 },
-                "required": [ENTITY_KEY, TOUCHPOINTS, CONVERSION_VARS],
+                "required": [TOUCHPOINTS, CONVERSION_VARS],
             },
             CAMPAIGN: {
                 "type": "object",
@@ -93,7 +93,8 @@ class AttributionModel(BaseModelType):
                 "required": ["spend_inputs"],
             },
         },
-        "required": [CONVERSION, CAMPAIGN, CAMPAIGN_INFO],
+        "required": EntityKeyBuildSpecSchema["required"]
+        + [CONVERSION, CAMPAIGN, CAMPAIGN_INFO],
         "additionalProperties": False,
     }
 
@@ -112,11 +113,11 @@ class AttributionModelRecipe(PyNativeRecipe):
         self.logger = Logger("attribution_model")
         self.config = config
         self.inputs = [
-            f"{self.config[CONVERSION][ENTITY_KEY]}/all/var_table",
+            f"{self.config[ENTITY_KEY]}/all/var_table",
             f"{self.config[CAMPAIGN][ENTITY_KEY]}/all/var_table",
         ]
         campaign_id_column = f"{self.config[CAMPAIGN][ENTITY_KEY]}_profile_id"  # TODO: need to change it through wht_ctx
-        entity_id_column = f"{self.config[CONVERSION][ENTITY_KEY]}_main_id"  # TODO: need to change it through wht_ctx
+        entity_id_column = f"{self.config[ENTITY_KEY]}_main_id"  # TODO: need to change it through wht_ctx
         for obj in self.config[CONVERSION][TOUCHPOINTS]:
             tbl = obj["from"]
             self.inputs.extend(
@@ -428,7 +429,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         for dependency in self.inputs:
             this.de_ref(dependency)
 
-        entity_id_column_name = f"{self.config[CONVERSION][ENTITY_KEY]}_main_id"  # TODO: need to change it through wht_ctx
+        entity_id_column_name = f"{self.config[ENTITY_KEY]}_main_id"  # TODO: need to change it through wht_ctx
         campaign_id_column_name = f"{self.config[CAMPAIGN][ENTITY_KEY]}_profile_id"  # TODO: need to change it through wht_ctx
         user_journeys = self.config[CONVERSION][TOUCHPOINTS]
         conversions = self.config[CONVERSION][CONVERSION_VARS]

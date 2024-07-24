@@ -21,9 +21,6 @@ CAMPAIGN_END_DATE = "campaign_end_date"
 CAMPAIGN_VARS = "campaign_vars"
 CAMPAIGN_INFO = "campaign_info"
 
-ENTITY_ID_COL = "entity_id_col"
-CAMPAIGN_ID_COL = "campaign_id_col"
-
 
 class AttributionModel(BaseModelType):
     TypeName = "attribution"  # the name of the model type
@@ -36,7 +33,6 @@ class AttributionModel(BaseModelType):
             CONVERSION: {
                 "type": "object",
                 "properties": {
-                    ENTITY_ID_COL: {"type": "string"},
                     TOUCHPOINTS: {
                         "type": "array",
                         "items": {
@@ -61,20 +57,18 @@ class AttributionModel(BaseModelType):
                         },
                     },
                 },
-                "required": [ENTITY_ID_COL, TOUCHPOINTS, CONVERSION_VARS],
+                "required": [TOUCHPOINTS, CONVERSION_VARS],
             },
             CAMPAIGN: {
                 "type": "object",
                 "properties": {
                     ENTITY_KEY: {"type": "string"},
-                    CAMPAIGN_ID_COL: {"type": "string"},
                     CAMPAIGN_START_DATE: {"type": "string"},
                     CAMPAIGN_END_DATE: {"type": "string"},
                     CAMPAIGN_VARS: {"type": "array", "items": {"type": "string"}},
                 },
                 "required": [
                     ENTITY_KEY,
-                    CAMPAIGN_ID_COL,
                     CAMPAIGN_START_DATE,
                     CAMPAIGN_END_DATE,
                     CAMPAIGN_VARS,
@@ -118,38 +112,6 @@ class AttributionModelRecipe(PyNativeRecipe):
     def __init__(self, config: Dict) -> None:
         self.logger = Logger("attribution_model")
         self.config = config
-        self.inputs = [
-            f"{self.config[ENTITY_KEY]}/all/var_table",
-            f"{self.config[CAMPAIGN][ENTITY_KEY]}/all/var_table",
-        ]
-        campaign_id_column = self.config[CAMPAIGN][
-            CAMPAIGN_ID_COL
-        ]  # TODO: need to change it through wht_ctx
-        entity_id_column = self.config[CONVERSION][
-            ENTITY_ID_COL
-        ]  # TODO: need to change it through wht_ctx
-        for obj in self.config[CONVERSION][TOUCHPOINTS]:
-            tbl = obj["from"]
-            self.inputs.extend(
-                [
-                    tbl,
-                    f"{tbl}/var_table",
-                    f"{tbl}/var_table/{campaign_id_column}",
-                    f"{tbl}/var_table/{entity_id_column}",
-                ]
-            )
-
-        for obj in self.config[CAMPAIGN_INFO]["spend_inputs"]:
-            tbl = obj["from"]
-            self.inputs.extend(
-                [tbl, f"{tbl}/var_table", f"{tbl}/var_table/{campaign_id_column}"]
-            )
-        self.inputs.append(
-            f"entity/{self.config[CAMPAIGN][ENTITY_KEY]}/{self.config[CAMPAIGN][CAMPAIGN_START_DATE]}"
-        )
-        self.inputs.append(
-            f"entity/{self.config[CAMPAIGN][ENTITY_KEY]}/{self.config[CAMPAIGN][CAMPAIGN_END_DATE]}"
-        )
 
     def describe(self, this: WhtMaterial):
         return self.sql, ".sql"
@@ -435,26 +397,57 @@ class AttributionModelRecipe(PyNativeRecipe):
             counter += 1
         return journey_query, set_jouney_ref
 
-    def register_dependencies(self, this: WhtMaterial):
-        for dependency in self.inputs:
-            this.de_ref(dependency)
+    def _define_input_dependency(self, user_journeys, campaign_info):
+        self.inputs = [f"{self.conversion_entity}/all/var_table"]
+        for obj in user_journeys:
+            tbl = obj["from"]
+            self.inputs.extend(
+                [
+                    tbl,
+                    f"{tbl}/var_table",
+                    f"{tbl}/var_table/{self.campaign_id_column_name}",
+                    f"{tbl}/var_table/{self.entity_id_column_name}",
+                ]
+            )
 
-        entity_id_column_name = self.config[CONVERSION][
-            ENTITY_ID_COL
-        ]  # TODO: need to change it through wht_ctx
-        campaign_id_column_name = self.config[CAMPAIGN][
-            CAMPAIGN_ID_COL
-        ]  # TODO: need to change it through wht_ctx
+        for obj in campaign_info["spend_inputs"]:
+            tbl = obj["from"]
+            self.inputs.extend(
+                [
+                    tbl,
+                    f"{tbl}/var_table",
+                    f"{tbl}/var_table/{self.campaign_id_column_name}",
+                ]
+            )
+        self.inputs.append(f"entity/{self.campaign_entity}/{self.campaign_start_date}")
+        self.inputs.append(f"entity/{self.campaign_entity}/{self.campaign_end_date}")
+
+    def register_dependencies(self, this: WhtMaterial):
         user_journeys = self.config[CONVERSION][TOUCHPOINTS]
         conversions = self.config[CONVERSION][CONVERSION_VARS]
         campaign_info = self.config[CAMPAIGN_INFO]
+
+        self.conversion_entity = self.config[ENTITY_KEY]
+        self.campaign_entity = self.config[CAMPAIGN][ENTITY_KEY]
+        self.campaign_start_date = self.config[CAMPAIGN][CAMPAIGN_START_DATE]
+        self.campaign_end_date = self.config[CAMPAIGN][CAMPAIGN_END_DATE]
         self.index_table_name = f"{this.name()}_index_table_temp".upper()
 
+        entities = this.base_wht_project.entities()
+        self.entity_id_column_name = entities[self.conversion_entity]["IdColumnName"]
+        self.campaign_id_column_name = entities[self.campaign_entity]["IdColumnName"]
+
+        self.inputs = []
+        self._define_input_dependency(user_journeys, campaign_info)
+
+        for dependency in self.inputs:
+            this.de_ref(dependency)
+
         journey_query, set_jouney_ref = self._create_user_journey_cte(
-            user_journeys, entity_id_column_name, campaign_id_column_name
+            user_journeys, self.entity_id_column_name, self.campaign_id_column_name
         )
         spend_query, set_spend_ref = self._create_spend_cte(
-            campaign_info, campaign_id_column_name
+            campaign_info, self.campaign_id_column_name
         )
 
         # creating user conversion
@@ -469,7 +462,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             conversion_name_list.append(conversion_name)
             value_flag_list.append(value_flag)
 
-            select_info = f"SELECT {entity_id_column_name}, {conversion_info_column_name_timestamp} AS converted_date"
+            select_info = f"SELECT {self.entity_id_column_name}, {conversion_info_column_name_timestamp} AS converted_date"
 
             if value_flag:
                 conversion_info_column_name_value = (
@@ -489,8 +482,8 @@ class AttributionModelRecipe(PyNativeRecipe):
 
             with_query_template = self._create_with_query_template(
                 conversion_name,
-                entity_id_column_name,
-                campaign_id_column_name,
+                self.entity_id_column_name,
+                self.campaign_id_column_name,
                 value_flag,
                 journey_query,
                 conversion_query,
@@ -503,16 +496,16 @@ class AttributionModelRecipe(PyNativeRecipe):
         )
 
         journey_cte_query = self._get_journey_aggregation_cte(
-            journey_query, campaign_id_column_name, entity_id_column_name
+            journey_query, self.campaign_id_column_name, self.entity_id_column_name
         )
 
-        index_cte_query = self._get_index_cte(campaign_id_column_name)
+        index_cte_query = self._get_index_cte(self.campaign_id_column_name)
 
         selector_sql = self._get_final_selector_sql(
-            campaign_id_column_name, conversion_name_list, value_flag_list
+            self.campaign_id_column_name, conversion_name_list, value_flag_list
         )
 
-        input_material_template = f"this.DeRef(makePath({self.config[CONVERSION][CONVERSION_VARS][0]['timestamp']}.Model.GetVarTableRef()))"
+        input_material_template = f"this.DeRef(makePath({conversions[0]['timestamp']}.Model.GetVarTableRef()))"
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
@@ -534,12 +527,10 @@ class AttributionModelRecipe(PyNativeRecipe):
     def execute(self, this: WhtMaterial):
         self._create_index_table(
             this,
-            self.config[CAMPAIGN][
-                CAMPAIGN_ID_COL
-            ],  # TODO: need to change it through wht_ctx
-            self.config[CAMPAIGN][CAMPAIGN_START_DATE],
-            self.config[CAMPAIGN][CAMPAIGN_END_DATE],
-            self.config[CAMPAIGN][ENTITY_KEY],
+            self.campaign_id_column_name,
+            self.campaign_start_date,
+            self.campaign_end_date,
+            self.campaign_entity,
         )
         this.wht_ctx.client.query_sql_without_result(self.sql)
         query_drop_index_table = f"drop table if exists {this.wht_ctx.client.schema}.{self.index_table_name};"

@@ -11,11 +11,14 @@ import pandas as pd
 from datetime import datetime, timedelta
 
 # build spec constants
-ENTITY_ID_COLUMN_NAME = "entity_id_col"
-CAMPAIGN_ID_COLUMN_NAME = "campaign_id_col"
-CAMPAIGN_ENTITY = "campaign_entity"
+CONVERSION = "conversion"
+ENTITY_KEY = "entity_key"
 TOUCHPOINTS = "touchpoints"
-CONVERSIONS = "conversions"
+CONVERSION_VARS = "conversion_vars"
+CAMPAIGN = "campaign"
+CAMPAIGN_START_DATE = "campaign_start_date"
+CAMPAIGN_END_DATE = "campaign_end_date"
+CAMPAIGN_VARS = "campaign_vars"
 CAMPAIGN_INFO = "campaign_info"
 
 
@@ -26,38 +29,54 @@ class AttributionModel(BaseModelType):
     BuildSpecSchema = {
         "type": "object",
         "properties": {
-            **EntityKeyBuildSpecSchema["properties"],
-            CAMPAIGN_ENTITY: {"type": "string"},
-            ENTITY_ID_COLUMN_NAME: {"type": "string"},
-            CAMPAIGN_ID_COLUMN_NAME: {"type": "string"},
-            TOUCHPOINTS: {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "from": {"type": "string"},
-                        "timestamp": {"type": "string"},
+            CONVERSION: {
+                "type": "object",
+                "properties": {
+                    ENTITY_KEY: {"type": "string"},
+                    TOUCHPOINTS: {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "from": {"type": "string"},
+                                "timestamp": {"type": "string"},
+                            },
+                            "required": ["from", "timestamp"],
+                        },
                     },
-                    "required": ["from", "timestamp"],
+                    CONVERSION_VARS: {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {"type": "string"},
+                                "timestamp": {"type": "string"},
+                                "value": {"type": "string"},
+                            },
+                            "required": ["name", "timestamp"],
+                        },
+                    },
                 },
+                "required": [ENTITY_KEY, TOUCHPOINTS, CONVERSION_VARS],
             },
-            CONVERSIONS: {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "name": {"type": "string"},
-                        "timestamp": {"type": "string"},
-                        "value": {"type": "string"},
-                    },
-                    "required": ["name", "timestamp"],
+            CAMPAIGN: {
+                "type": "object",
+                "properties": {
+                    ENTITY_KEY: {"type": "string"},
+                    CAMPAIGN_START_DATE: {"type": "string"},
+                    CAMPAIGN_END_DATE: {"type": "string"},
+                    CAMPAIGN_VARS: {"type": "array", "items": {"type": "string"}},
                 },
+                "required": [
+                    ENTITY_KEY,
+                    CAMPAIGN_START_DATE,
+                    CAMPAIGN_END_DATE,
+                    CAMPAIGN_VARS,
+                ],
             },
             CAMPAIGN_INFO: {
                 "type": "object",
                 "properties": {
-                    "campaign_start_date": {"type": "string"},
-                    "campaign_end_date": {"type": "string"},
                     "spend_inputs": {
                         "type": "array",
                         "items": {
@@ -71,29 +90,15 @@ class AttributionModel(BaseModelType):
                         },
                     },
                 },
-                "required": [
-                    "campaign_start_date",
-                    "campaign_end_date",
-                    "spend_inputs",
-                ],
+                "required": ["spend_inputs"],
             },
         },
-        "required": EntityKeyBuildSpecSchema["required"]
-        + [CAMPAIGN_ENTITY, TOUCHPOINTS, CONVERSIONS, CAMPAIGN_INFO],
+        "required": [CONVERSION, CAMPAIGN, CAMPAIGN_INFO],
         "additionalProperties": False,
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         super().__init__(build_spec, schema_version, pb_version)
-        if ENTITY_ID_COLUMN_NAME not in self.build_spec:
-            self.build_spec[
-                ENTITY_ID_COLUMN_NAME
-            ] = f"{self.build_spec['entity_key']}_main_id"
-
-        if CAMPAIGN_ID_COLUMN_NAME not in self.build_spec:
-            self.build_spec[
-                CAMPAIGN_ID_COLUMN_NAME
-            ] = f"{self.build_spec[CAMPAIGN_ENTITY]}_main_id"
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return AttributionModelRecipe(self.build_spec)
@@ -106,10 +111,13 @@ class AttributionModelRecipe(PyNativeRecipe):
     def __init__(self, config: Dict) -> None:
         self.logger = Logger("attribution_model")
         self.config = config
-        self.inputs = [f'{self.config["entity_key"]}/all/var_table']
-        campaign_id_column = self.config[CAMPAIGN_ID_COLUMN_NAME]
-        entity_id_column = self.config[ENTITY_ID_COLUMN_NAME]
-        for obj in self.config[TOUCHPOINTS]:
+        self.inputs = [
+            f"{self.config[CONVERSION][ENTITY_KEY]}/all/var_table",
+            f"{self.config[CAMPAIGN][ENTITY_KEY]}/all/var_table",
+        ]
+        campaign_id_column = f"{self.config[CAMPAIGN][ENTITY_KEY]}_profile_id"  # TODO: need to change it through wht_ctx
+        entity_id_column = f"{self.config[CONVERSION][ENTITY_KEY]}_main_id"  # TODO: need to change it through wht_ctx
+        for obj in self.config[CONVERSION][TOUCHPOINTS]:
             tbl = obj["from"]
             self.inputs.extend(
                 [
@@ -119,10 +127,12 @@ class AttributionModelRecipe(PyNativeRecipe):
                     f"{tbl}/var_table/{entity_id_column}",
                 ]
             )
-        for obj in self.config[CONVERSIONS]:
+        for obj in self.config[CONVERSION][CONVERSION_VARS]:
             for key, value in obj.items():
                 if key != "name":
-                    self.inputs.append(f'entity/{self.config["entity_key"]}/{value}')
+                    self.inputs.append(
+                        f"entity/{self.config[CONVERSION][ENTITY_KEY]}/{value}"
+                    )
 
         for obj in self.config[CAMPAIGN_INFO]["spend_inputs"]:
             tbl = obj["from"]
@@ -130,10 +140,10 @@ class AttributionModelRecipe(PyNativeRecipe):
                 [tbl, f"{tbl}/var_table", f"{tbl}/var_table/{campaign_id_column}"]
             )
         self.inputs.append(
-            f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_start_date']}"
+            f"entity/{self.config[CAMPAIGN][ENTITY_KEY]}/{self.config[CAMPAIGN][CAMPAIGN_START_DATE]}"
         )
         self.inputs.append(
-            f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_end_date']}"
+            f"entity/{self.config[CAMPAIGN][ENTITY_KEY]}/{self.config[CAMPAIGN][CAMPAIGN_END_DATE]}"
         )
 
     def describe(self, this: WhtMaterial):
@@ -424,10 +434,10 @@ class AttributionModelRecipe(PyNativeRecipe):
         for dependency in self.inputs:
             this.de_ref(dependency)
 
-        entity_id_column_name = self.config[ENTITY_ID_COLUMN_NAME]
-        campaign_id_column_name = self.config[CAMPAIGN_ID_COLUMN_NAME]
-        user_journeys = self.config[TOUCHPOINTS]
-        conversions = self.config[CONVERSIONS]
+        entity_id_column_name = f"{self.config[CONVERSION][ENTITY_KEY]}_main_id"  # TODO: need to change it through wht_ctx
+        campaign_id_column_name = f"{self.config[CAMPAIGN][ENTITY_KEY]}_profile_id"  # TODO: need to change it through wht_ctx
+        user_journeys = self.config[CONVERSION][TOUCHPOINTS]
+        conversions = self.config[CONVERSION][CONVERSION_VARS]
         campaign_info = self.config[CAMPAIGN_INFO]
         self.index_table_name = f"{this.name()}_index_table_temp".upper()
 
@@ -490,7 +500,7 @@ class AttributionModelRecipe(PyNativeRecipe):
 
         # model_creator_sql
         input_material_template = (
-            f"this.DeRef('entity/{self.config['entity_key']}/var_table')"
+            f"this.DeRef('entity/{self.config[CONVERSION][ENTITY_KEY]}/var_table')"
         )
         query_template = f"""
             {{% macro begin_block() %}}
@@ -513,10 +523,10 @@ class AttributionModelRecipe(PyNativeRecipe):
     def execute(self, this: WhtMaterial):
         self._create_index_table(
             this,
-            self.config[CAMPAIGN_ID_COLUMN_NAME],
-            self.config[CAMPAIGN_INFO]["campaign_start_date"],
-            self.config[CAMPAIGN_INFO]["campaign_end_date"],
-            self.config[CAMPAIGN_ENTITY],
+            f"{self.config[CAMPAIGN][ENTITY_KEY]}_profile_id",  # TODO: need to change it through wht_ctx
+            self.config[CAMPAIGN][CAMPAIGN_START_DATE],
+            self.config[CAMPAIGN][CAMPAIGN_END_DATE],
+            self.config[CAMPAIGN][ENTITY_KEY],
         )
         this.wht_ctx.client.query_sql_without_result(self.sql)
         query_drop_index_table = f"drop table if exists {this.wht_ctx.client.schema}.{self.index_table_name};"

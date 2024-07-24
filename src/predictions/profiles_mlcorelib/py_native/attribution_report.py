@@ -378,44 +378,44 @@ class AttributionModelRecipe(PyNativeRecipe):
             counter += 1
         return journey_query, set_jouney_ref
 
+    def _define_input_dependency(self):
+        self.inputs = [f'{self.config["entity_key"]}/all/var_table']
+        for obj in self.config[TOUCHPOINTS]:
+            tbl = obj["from"]
+            self.inputs.extend(
+                [
+                    tbl,
+                    f"{tbl}/var_table",
+                    f"{tbl}/var_table/{self.campaign_id_column_name}",
+                    f"{tbl}/var_table/{self.entity_id_column_name}",
+                ]
+            )
+
+        for obj in self.config[CAMPAIGN_INFO]["spend_inputs"]:
+            tbl = obj["from"]
+            self.inputs.extend(
+                [
+                    tbl,
+                    f"{tbl}/var_table",
+                    f"{tbl}/var_table/{self.campaign_id_column_name}",
+                ]
+            )
+        self.inputs.append(
+            f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_start_date']}"
+        )
+        self.inputs.append(
+            f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_end_date']}"
+        )
+
     def register_dependencies(self, this: WhtMaterial):
         self.inputs = []
+        entities = this.base_wht_project.entities()
+        self.entity_id_column_name = entities[self.config["entity_key"]]["IdColumnName"]
+        self.campaign_id_column_name = entities[self.config[CAMPAIGN_ENTITY]][
+            "IdColumnName"
+        ]
 
-        def define_input_dependency():
-            self.inputs = [f'{self.config["entity_key"]}/all/var_table']
-
-            entities = this.base_wht_project.entities()
-            entity_id_column = entities[self.config["entity_key"]]["IdColumnName"]
-            campaign_id_column = entities[self.config[CAMPAIGN_ENTITY]]["IdColumnName"]
-
-            for obj in self.config[TOUCHPOINTS]:
-                tbl = obj["from"]
-                self.inputs.extend(
-                    [
-                        tbl,
-                        f"{tbl}/var_table",
-                        f"{tbl}/var_table/{campaign_id_column}",
-                        f"{tbl}/var_table/{entity_id_column}",
-                    ]
-                )
-
-            for obj in self.config[CAMPAIGN_INFO]["spend_inputs"]:
-                tbl = obj["from"]
-                self.inputs.extend(
-                    [tbl, f"{tbl}/var_table", f"{tbl}/var_table/{campaign_id_column}"]
-                )
-            self.inputs.append(
-                f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_start_date']}"
-            )
-            self.inputs.append(
-                f"entity/{self.config[CAMPAIGN_ENTITY]}/{self.config[CAMPAIGN_INFO]['campaign_end_date']}"
-            )
-            return entity_id_column, campaign_id_column
-
-        (
-            self.entity_id_column_name,
-            self.campaign_id_column_name,
-        ) = define_input_dependency()
+        self._define_input_dependency()
 
         for dependency in self.inputs:
             this.de_ref(dependency)

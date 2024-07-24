@@ -21,6 +21,9 @@ CAMPAIGN_END_DATE = "campaign_end_date"
 CAMPAIGN_VARS = "campaign_vars"
 CAMPAIGN_INFO = "campaign_info"
 
+ENTITY_ID_COL = "entity_id_col"
+CAMPAIGN_ID_COL = "campaign_id_col"
+
 
 class AttributionModel(BaseModelType):
     TypeName = "attribution"  # the name of the model type
@@ -33,6 +36,7 @@ class AttributionModel(BaseModelType):
             CONVERSION: {
                 "type": "object",
                 "properties": {
+                    ENTITY_ID_COL: {"type": "string"},
                     TOUCHPOINTS: {
                         "type": "array",
                         "items": {
@@ -57,18 +61,20 @@ class AttributionModel(BaseModelType):
                         },
                     },
                 },
-                "required": [TOUCHPOINTS, CONVERSION_VARS],
+                "required": [ENTITY_ID_COL, TOUCHPOINTS, CONVERSION_VARS],
             },
             CAMPAIGN: {
                 "type": "object",
                 "properties": {
                     ENTITY_KEY: {"type": "string"},
+                    CAMPAIGN_ID_COL: {"type": "string"},
                     CAMPAIGN_START_DATE: {"type": "string"},
                     CAMPAIGN_END_DATE: {"type": "string"},
                     CAMPAIGN_VARS: {"type": "array", "items": {"type": "string"}},
                 },
                 "required": [
                     ENTITY_KEY,
+                    CAMPAIGN_ID_COL,
                     CAMPAIGN_START_DATE,
                     CAMPAIGN_END_DATE,
                     CAMPAIGN_VARS,
@@ -116,8 +122,12 @@ class AttributionModelRecipe(PyNativeRecipe):
             f"{self.config[ENTITY_KEY]}/all/var_table",
             f"{self.config[CAMPAIGN][ENTITY_KEY]}/all/var_table",
         ]
-        campaign_id_column = f"{self.config[CAMPAIGN][ENTITY_KEY]}_profile_id"  # TODO: need to change it through wht_ctx
-        entity_id_column = f"{self.config[ENTITY_KEY]}_main_id"  # TODO: need to change it through wht_ctx
+        campaign_id_column = self.config[CAMPAIGN][
+            CAMPAIGN_ID_COL
+        ]  # TODO: need to change it through wht_ctx
+        entity_id_column = self.config[CONVERSION][
+            ENTITY_ID_COL
+        ]  # TODO: need to change it through wht_ctx
         for obj in self.config[CONVERSION][TOUCHPOINTS]:
             tbl = obj["from"]
             self.inputs.extend(
@@ -429,8 +439,12 @@ class AttributionModelRecipe(PyNativeRecipe):
         for dependency in self.inputs:
             this.de_ref(dependency)
 
-        entity_id_column_name = f"{self.config[ENTITY_KEY]}_main_id"  # TODO: need to change it through wht_ctx
-        campaign_id_column_name = f"{self.config[CAMPAIGN][ENTITY_KEY]}_profile_id"  # TODO: need to change it through wht_ctx
+        entity_id_column_name = self.config[CONVERSION][
+            ENTITY_ID_COL
+        ]  # TODO: need to change it through wht_ctx
+        campaign_id_column_name = self.config[CAMPAIGN][
+            CAMPAIGN_ID_COL
+        ]  # TODO: need to change it through wht_ctx
         user_journeys = self.config[CONVERSION][TOUCHPOINTS]
         conversions = self.config[CONVERSION][CONVERSION_VARS]
         campaign_info = self.config[CAMPAIGN_INFO]
@@ -520,7 +534,9 @@ class AttributionModelRecipe(PyNativeRecipe):
     def execute(self, this: WhtMaterial):
         self._create_index_table(
             this,
-            f"{self.config[CAMPAIGN][ENTITY_KEY]}_profile_id",  # TODO: need to change it through wht_ctx
+            self.config[CAMPAIGN][
+                CAMPAIGN_ID_COL
+            ],  # TODO: need to change it through wht_ctx
             self.config[CAMPAIGN][CAMPAIGN_START_DATE],
             self.config[CAMPAIGN][CAMPAIGN_END_DATE],
             self.config[CAMPAIGN][ENTITY_KEY],

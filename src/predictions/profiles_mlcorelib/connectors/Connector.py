@@ -18,16 +18,34 @@ class Connector(ABC):
         }
         return new_creds
 
+    def get_input_columns(self, trainer_obj, inputs_selector_sql_queries):
+        input_columns = set()
+        for query in inputs_selector_sql_queries:
+            query = query + " LIMIT 1"
+            input_columns.update(self.run_query(query)[0]._fields)
+
+        input_columns.difference_update(
+            {
+                trainer_obj.index_timestamp.upper(),
+                trainer_obj.index_timestamp.lower(),
+                trainer_obj.entity_column.upper(),
+                trainer_obj.entity_column.lower(),
+            }
+        )
+        return list(input_columns)
+
     def get_input_column_types(
         self,
         trainer_obj,
         input_columns: List[str],
+        input_models: Dict[str, str],
         table_name: str,
-        label_column: str,
-        entity_column: str,
-        ignore_features: List[str],
     ) -> Tuple:
         """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp, booleantype) for a given table."""
+        entity_column = trainer_obj.entity_column
+        label_column = trainer_obj.label_column
+        ignore_features = trainer_obj.prep.ignore_features
+
         lowercase_list = lambda features: [feature.lower() for feature in features]
         schema_fields = self.fetch_table_metadata(table_name)
 
@@ -81,33 +99,45 @@ class Connector(ABC):
             "booleantype": booleantype_columns,
         }
 
-        if ignore_features is None:
-            ignore_features = []
-
-        for column_type, columns in input_column_types.items():
-            input_column_types[column_type] = [
-                column
-                for column in columns
-                if column.lower() not in lowercase_list(ignore_features)
-            ]
-
         updated_input_column_types = dict()
         for key, value_list in input_column_types.items():
             updated_value_list = [item for item in value_list if item in input_columns]
             updated_input_column_types[key] = updated_value_list
 
+        if ignore_features is None:
+            ignore_features = []
+
+        try:
+            self.check_arraytype_conflicts(updated_input_column_types, input_models)
+            ignore_features.extend(updated_input_column_types["arraytype"])
+        except Exception as e:
+            raise Exception(str(e))
+
+        # Since ignore_features are applied later to arraytype_conflict check,
+        # that means even if someone adds a feature in ignore_features which is arraytype,
+        # it will still throw the exception if it is mentioned in inputs(which is important as well)
+        # and those in feature_table_model will be ignored.
+        for column_type, columns in updated_input_column_types.items():
+            updated_input_column_types[column_type] = [
+                column
+                for column in columns
+                if column.lower() not in lowercase_list(ignore_features)
+            ]
+
+        trainer_obj.prep.ignore_features = ignore_features
         return updated_input_column_types
 
-    def get_input_columns(self, trainer_obj, inputs):
-        input_columns = set()
-        for query in inputs:
-            query = query + " LIMIT 1"
-            input_columns.update(self.run_query(query)[0]._fields)
+    def check_arraytype_conflicts(self, updated_input_column_types, input_models):
+        arraytype_columns = updated_input_column_types.get("arraytype", [])
 
-        input_columns.difference_update(
-            {trainer_obj.index_timestamp.upper(), trainer_obj.index_timestamp.lower()}
-        )
-        return list(input_columns)
+        for column in arraytype_columns:
+            column_lower = column.lower()
+
+            for key, value in input_models.items():
+                if column_lower in key.lower() and value == "entity_var_item":
+                    raise Exception(
+                        f"Array type features are not supported. Please remove '{column_lower}' and any other array type features from inputs."
+                    )
 
     @abstractmethod
     def fetch_filtered_table(
@@ -167,7 +197,7 @@ class Connector(ABC):
         # session is being passed as argument since "self.session" is not available in Snowpark stored procedure
         session,
         table_name: str,
-        **kwargs
+        **kwargs,
     ) -> pd.DataFrame:
         pass
 

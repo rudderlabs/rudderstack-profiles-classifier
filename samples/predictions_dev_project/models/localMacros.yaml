@@ -38,4 +38,14 @@ macros:
       {% else %}
         case when RANDOM()>0.5 then TRUE when RANDOM()<0.3 then FALSE else NULL end
       {% endif %}
-   
+  - name: macro_random_agg_event
+    inputs:
+      - EVENT
+    value: |
+      {% if warehouse.DatabaseType() == "redshift" %}
+        case when RANDOM()>0.9 then NULL  else SPLIT_TO_ARRAY(listagg(distinct {{EVENT}}, ','), ',') end
+      {% elif warehouse.DatabaseType() == "bigquery" %}
+        case when RAND()>0.99 then NULL  else array_agg(distinct {{EVENT}}) end
+      {% else %}
+        case when RANDOM()>0.99 then NULL  else array_agg(distinct {{EVENT}}) end
+      {% endif %}

@@ -272,10 +272,8 @@ def _train(
     input_column_types = connector.get_input_column_types(
         trainer,
         input_columns,
+        absolute_input_models,
         latest_entity_var_table,
-        trainer.label_column,
-        trainer.entity_column,
-        trainer.prep.ignore_features,
     )
     logger.get().debug(f"Input column types detected: {input_column_types}")
 
@@ -292,7 +290,7 @@ def _train(
         entity_var_model_name=entity_var_model_name,
         model_hash=model_hash,
         prediction_horizon_days=trainer.prediction_horizon_days,
-        input_models=absolute_input_models,
+        input_models=list(absolute_input_models.keys()),
         inputs=inputs,
         feature_data_min_date_diff=feature_data_min_date_diff,
     )
@@ -303,7 +301,7 @@ def _train(
         train_table_pairs = trainer.check_and_generate_more_materials(
             get_material_names_partial,
             train_table_pairs,
-            absolute_input_models,
+            list(absolute_input_models.keys()),
             whtService,
             connector,
         )

@@ -1,6 +1,6 @@
 from datetime import datetime
 import re
-from typing import List, Optional, Sequence, Tuple
+from typing import List, Dict, Optional, Sequence, Tuple
 
 from .rudderPB import MATERIAL_PREFIX
 
@@ -43,8 +43,8 @@ class PythonWHT:
     def get_input_models(
         self,
         inputs: List[str],
-    ) -> List[str]:
-        """Returns List of input models - full paths in the profiles project for models
+    ) -> Dict[str, str]:
+        """Returns Dict of input models as keys and there model type as values - full paths in the profiles project for models
         that are required to generate the current model.
         """
 
@@ -72,18 +72,18 @@ class PythonWHT:
         )
 
         # Find matching models in the project
-        result = set()
+        result = dict()
 
         for partial_ref in partial_model_refs:
             matching_models = [
                 # Ignoring first element since it is the name of the project
-                key.split("/", 1)[-1]
+                (key.split("/", 1)[-1], models_info[key]["model_type"])
                 for key in models_info
                 if key.endswith(partial_ref)
             ]
 
             if len(matching_models) == 1:
-                result.add(matching_models[0])
+                result.update({matching_models[0][0]: matching_models[0][1]})
             elif len(matching_models) > 1:
                 raise ValueError(
                     f"Multiple models with name {partial_ref} are found. Please ensure the models added in inputs are named uniquely and retry"
@@ -92,7 +92,7 @@ class PythonWHT:
                 raise ValueError(f"No match found for ref {partial_ref} in show models")
 
         logger.get().info(f"Found input models: {result}")
-        return list(result)
+        return result
 
     def get_registry_table_name(self):
         if self.cached_registry_table_name == "":

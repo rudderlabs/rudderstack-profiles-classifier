@@ -322,7 +322,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         campaign_id_column_name,
         conversion_name_list,
         value_flag_list,
-        spend_key_behaviours,
+        daily_campaign_details_key_behaviours,
         campaign_vars,
         campaign_var_table,
     ):
@@ -371,8 +371,8 @@ class AttributionModelRecipe(PyNativeRecipe):
                 LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} """
         )
 
-        # Adding daily_spend_cte
-        for key_behaviour in spend_key_behaviours:
+        # Adding daily_campaign_details_cte
+        for key_behaviour in daily_campaign_details_key_behaviours:
             select_query = (
                 select_query
                 + f""" 
@@ -398,48 +398,56 @@ class AttributionModelRecipe(PyNativeRecipe):
         final_selector_sql = select_query + from_query
         return final_selector_sql
 
-    def _create_spend_cte(self, campaign_details, campaign_id_column_name):
-        # creating campaign daily spend view
-        spend_query_list, spend_key_behaviours, set_spend_ref = list(), list(), ""
+    def _create_daily_campaign_details_cte(
+        self, campaign_details, campaign_id_column_name
+    ):
+        # creating daily campaign details view
+        (
+            daily_campaign_details_query_list,
+            daily_campaign_details_key_behaviours,
+            set_daily_campaign_details_ref,
+        ) = (list(), list(), "")
 
         for campaign_detail in campaign_details:
-            spend_query_temp, spend_union_op = "", ""
+            daily_campaign_details_query_temp, union_op = "", ""
             key_behaviour = next(iter(campaign_detail))
             prefix, counter = f"{key_behaviour}_source", 1
 
-            for spend_info in campaign_detail[key_behaviour]:
-                set_spend_ref = (
-                    set_spend_ref
-                    + f"{prefix}{counter} = this.DeRef('{spend_info['from']}/var_table') "
+            for campaign_info_granular in campaign_detail[key_behaviour]:
+                set_daily_campaign_details_ref = (
+                    set_daily_campaign_details_ref
+                    + f"{prefix}{counter} = this.DeRef('{campaign_info_granular['from']}/var_table') "
                 )
-                select_info = f"SELECT {campaign_id_column_name}, {spend_info['date']} AS date, {spend_info['select']} AS {key_behaviour}"
+                select_info = f"SELECT {campaign_id_column_name}, {campaign_info_granular['date']} AS date, {campaign_info_granular['select']} AS {key_behaviour}"
                 from_info = f"FROM {{{{{prefix}{counter}}}}}"
-                group_by_info = (
-                    f"GROUP BY {campaign_id_column_name}, {spend_info['date']}"
-                )
-                spend_query_temp = f"""{spend_query_temp}
-                                    {spend_union_op}
+                group_by_info = f"GROUP BY {campaign_id_column_name}, {campaign_info_granular['date']}"
+                daily_campaign_details_query_temp = f"""{daily_campaign_details_query_temp}
+                                    {union_op}
                                     {select_info}
                                     {from_info}
                                     {group_by_info}
                                     """
-                spend_union_op = " UNION ALL "
+                union_op = " UNION ALL "
                 counter += 1
 
-            spend_query_temp = f""" 
+            daily_campaign_details_query_temp = f""" 
                                 daily_{key_behaviour}_cte AS 
                                     (SELECT {campaign_id_column_name}, date, 
-                                            SUM({key_behaviour}) AS {key_behaviour} FROM ({spend_query_temp})
+                                            SUM({key_behaviour}) AS {key_behaviour} FROM ({daily_campaign_details_query_temp})
                                             GROUP BY 
                                             {campaign_id_column_name}, date) """
-            spend_query_list.append(spend_query_temp)
-            spend_key_behaviours.append(key_behaviour)
+            daily_campaign_details_query_list.append(daily_campaign_details_query_temp)
+            daily_campaign_details_key_behaviours.append(key_behaviour)
 
-        spend_query = """,
+        daily_campaign_details_query = """,
                 """.join(
-            spend_query_list
+            daily_campaign_details_query_list
         )
-        return spend_query, spend_key_behaviours, set_spend_ref
+        return (
+            daily_campaign_details_query,
+            daily_campaign_details_key_behaviours,
+            set_daily_campaign_details_ref,
+        )
 
     def _create_user_journey_cte(
         self, user_journeys, entity_id_column_name, campaign_id_column_name
@@ -521,7 +529,11 @@ class AttributionModelRecipe(PyNativeRecipe):
         journey_query, set_jouney_ref = self._create_user_journey_cte(
             user_journeys, self.entity_id_column_name, self.campaign_id_column_name
         )
-        spend_query, spend_key_behaviours, set_spend_ref = self._create_spend_cte(
+        (
+            daily_campaign_details_query,
+            daily_campaign_details_key_behaviours,
+            set_daily_campaign_details_ref,
+        ) = self._create_daily_campaign_details_cte(
             campaign_details, self.campaign_id_column_name
         )
 
@@ -580,7 +592,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             self.campaign_id_column_name,
             conversion_name_list,
             value_flag_list,
-            spend_key_behaviours,
+            daily_campaign_details_key_behaviours,
             campaign_vars,
             campaign_var_table,
         )
@@ -589,10 +601,10 @@ class AttributionModelRecipe(PyNativeRecipe):
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
-                    {{% with entityVarTable = {input_material_template} {set_jouney_ref} {set_spend_ref} %}}
+                    {{% with entityVarTable = {input_material_template} {set_jouney_ref} {set_daily_campaign_details_ref} %}}
                     WITH {multiconversion_cte_query}
                         , {journey_cte_query}
-                        , {spend_query}
+                        , {daily_campaign_details_query}
                         , {index_cte_query}
                         {selector_sql}
                     {{% endwith %}}

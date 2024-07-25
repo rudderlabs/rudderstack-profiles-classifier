@@ -52,6 +52,7 @@ jobs:
           tar -czvf dist/profiles_mlcorelib_dist_${VERSION}.tar.gz -C src/predictions dist
 
       - name: bump version PR
+        if: ${{ !contains(env.VERSION, 'rc') }} # rc tags are for testing so no need to bump up version
         run: |
           git checkout -b release-${VERSION}
           git push origin release-${VERSION}

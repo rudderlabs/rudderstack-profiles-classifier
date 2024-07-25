@@ -19,7 +19,7 @@ CAMPAIGN = "campaign"
 CAMPAIGN_START_DATE = "campaign_start_date"
 CAMPAIGN_END_DATE = "campaign_end_date"
 CAMPAIGN_VARS = "campaign_vars"
-CAMPAIGN_INFO = "campaign_info"
+CAMPAIGN_DETAILS = "campaign_details"
 
 
 class AttributionModel(BaseModelType):
@@ -42,6 +42,7 @@ class AttributionModel(BaseModelType):
                                 "timestamp": {"type": "string"},
                             },
                             "required": ["from", "timestamp"],
+                            "additionalProperties": False,
                         },
                     },
                     CONVERSION_VARS: {
@@ -54,10 +55,12 @@ class AttributionModel(BaseModelType):
                                 "value": {"type": "string"},
                             },
                             "required": ["name", "timestamp"],
+                            "additionalProperties": False,
                         },
                     },
                 },
                 "required": [TOUCHPOINTS, CONVERSION_VARS],
+                "additionalProperties": False,
             },
             CAMPAIGN: {
                 "type": "object",
@@ -66,35 +69,40 @@ class AttributionModel(BaseModelType):
                     CAMPAIGN_START_DATE: {"type": "string"},
                     CAMPAIGN_END_DATE: {"type": "string"},
                     CAMPAIGN_VARS: {"type": "array", "items": {"type": "string"}},
+                    CAMPAIGN_DETAILS: {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "patternProperties": {
+                                "^.*$": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "from": {"type": "string"},
+                                            "date": {"type": "string"},
+                                            "select": {"type": "string"},
+                                        },
+                                        "required": ["from", "date", "select"],
+                                        "additionalProperties": False,
+                                    },
+                                },
+                            },
+                            "additionalProperties": False,
+                        },
+                    },
                 },
                 "required": [
                     ENTITY_KEY,
                     CAMPAIGN_START_DATE,
                     CAMPAIGN_END_DATE,
                     CAMPAIGN_VARS,
+                    CAMPAIGN_DETAILS,
                 ],
-            },
-            CAMPAIGN_INFO: {
-                "type": "object",
-                "properties": {
-                    "spend_inputs": {
-                        "type": "array",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "from": {"type": "string"},
-                                "date": {"type": "string"},
-                                "cost": {"type": "string"},
-                            },
-                            "required": ["from", "date", "cost"],
-                        },
-                    },
-                },
-                "required": ["spend_inputs"],
+                "additionalProperties": False,
             },
         },
-        "required": EntityKeyBuildSpecSchema["required"]
-        + [CONVERSION, CAMPAIGN, CAMPAIGN_INFO],
+        "required": EntityKeyBuildSpecSchema["required"] + [CONVERSION, CAMPAIGN],
         "additionalProperties": False,
     }
 
@@ -105,6 +113,16 @@ class AttributionModel(BaseModelType):
         return AttributionModelRecipe(self.build_spec)
 
     def validate(self) -> Tuple[bool, str]:
+        campaign_vars = self.build_spec[CAMPAIGN][CAMPAIGN_VARS]
+        campaign_details = self.build_spec[CAMPAIGN][CAMPAIGN_DETAILS]
+
+        campaign_details_keys = [next(iter(obj)) for obj in campaign_details]
+        for val in campaign_details_keys:
+            if val in campaign_vars:
+                return (
+                    False,
+                    f"campaign_vars and campaign_details have same var: {val}. Please provide unique vars in campaign_vars and campaign_details.",
+                )
         return True, "Validated successfully"
 
 
@@ -304,6 +322,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         campaign_id_column_name,
         conversion_name_list,
         value_flag_list,
+        daily_campaign_details_key_behaviours,
         campaign_vars,
         campaign_var_table,
     ):
@@ -339,50 +358,96 @@ class AttributionModelRecipe(PyNativeRecipe):
                 + f"""
                                 LEFT JOIN {conversion_name}_conversion_view ON a.date = {conversion_name}_conversion_view.date and a.{campaign_id_column_name} = {conversion_name}_conversion_view.{campaign_id_column_name} """
             )
-        # Adding journey_cte and daily_spend_cte
+        # Adding journey_cte
         select_query = (
             select_query
-            + """ coalesce(count_distinct_views, 0) as count_distinct_views,
-                  coalesce(count_total_views, 0) as count_total_views, coalesce(cost, 0) as cost """
+            + f""" 
+                coalesce(count_distinct_views, 0) as count_distinct_views,
+                coalesce(count_total_views, 0) as count_total_views, """
         )
         from_query = (
             from_query
-            + f""" LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} 
-                   LEFT JOIN daily_spend_cte ON a.date = daily_spend_cte.date and a.{campaign_id_column_name} = daily_spend_cte.{campaign_id_column_name} """
+            + f""" 
+                LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} """
         )
 
+        # Adding daily_campaign_details_cte
+        for key_behaviour in daily_campaign_details_key_behaviours:
+            select_query = (
+                select_query
+                + f""" 
+                coalesce({key_behaviour}, 0) as {key_behaviour}, """
+            )
+            from_query = (
+                from_query
+                + f""" 
+                LEFT JOIN daily_{key_behaviour}_cte ON a.date = daily_{key_behaviour}_cte.date and a.{campaign_id_column_name} = daily_{key_behaviour}_cte.{campaign_id_column_name} """
+            )
+
         campaign_vars_cte = f"SELECT {campaign_id_column_name}, {', '.join(campaign_vars)} FROM {campaign_var_table}"
-        select_query += f", {', '.join([f'campaign_var_cte.{var} as {var}' for var in campaign_vars])}"
-        from_query += f"""
-                       LEFT JOIN ({campaign_vars_cte}) AS campaign_var_cte ON a.{campaign_id_column_name} = campaign_var_cte.{campaign_id_column_name}"""
+        select_query = (
+            select_query
+            + f""" {', '.join([f'campaign_var_cte.{var} as {var}' for var in campaign_vars])}, """
+        )
+        from_query = (
+            from_query
+            + f"""
+                LEFT JOIN ({campaign_vars_cte}) AS campaign_var_cte ON a.{campaign_id_column_name} = campaign_var_cte.{campaign_id_column_name}"""
+        )
 
         final_selector_sql = select_query + from_query
         return final_selector_sql
 
-    def _create_spend_cte(self, campaign_info, campaign_id_column_name):
-        # creating campaign daily spend view
-        spend_query, spend_union_op, set_spend_ref = "", "", ""
-        prefix, counter = "adspend_source", 1
-        for spend_info in campaign_info["spend_inputs"]:
-            set_spend_ref = (
-                set_spend_ref
-                + f"{prefix}{counter} = this.DeRef('{spend_info['from']}/var_table') "
-            )
-            select_info = f"SELECT {campaign_id_column_name}, {spend_info['date']} AS date, {spend_info['cost']} AS cost"
-            from_info = f"FROM {{{{{prefix}{counter}}}}}"
-            spend_query = f"""{spend_query}
-                              {spend_union_op}
-                              {select_info}
-                              {from_info}
-                              """
-            spend_union_op = " UNION ALL "
-            counter += 1
-        spend_query = f""" daily_spend_cte as 
-                                  (select {campaign_id_column_name}, date, 
-                                           sum(cost) as cost from ({spend_query})
-                                            group by 
+    def _create_daily_campaign_details_cte(
+        self, campaign_details, campaign_id_column_name
+    ):
+        # creating daily campaign details view
+        (
+            daily_campaign_details_query_list,
+            daily_campaign_details_key_behaviours,
+            set_daily_campaign_details_ref,
+        ) = (list(), list(), "")
+
+        for campaign_detail in campaign_details:
+            daily_campaign_details_query_temp, union_op = "", ""
+            key_behaviour = next(iter(campaign_detail))
+            prefix, counter = f"{key_behaviour}_source", 1
+
+            for campaign_info_granular in campaign_detail[key_behaviour]:
+                set_daily_campaign_details_ref = (
+                    set_daily_campaign_details_ref
+                    + f"{prefix}{counter} = this.DeRef('{campaign_info_granular['from']}/var_table') "
+                )
+                select_info = f"SELECT {campaign_id_column_name}, {campaign_info_granular['date']} AS date, {campaign_info_granular['select']} AS {key_behaviour}"
+                from_info = f"FROM {{{{{prefix}{counter}}}}}"
+                group_by_info = f"GROUP BY {campaign_id_column_name}, {campaign_info_granular['date']}"
+                daily_campaign_details_query_temp = f"""{daily_campaign_details_query_temp}
+                                    {union_op}
+                                    {select_info}
+                                    {from_info}
+                                    {group_by_info}
+                                    """
+                union_op = " UNION ALL "
+                counter += 1
+
+            daily_campaign_details_query_temp = f""" 
+                                daily_{key_behaviour}_cte AS 
+                                    (SELECT {campaign_id_column_name}, date, 
+                                            SUM({key_behaviour}) AS {key_behaviour} FROM ({daily_campaign_details_query_temp})
+                                            GROUP BY 
                                             {campaign_id_column_name}, date) """
-        return spend_query, set_spend_ref
+            daily_campaign_details_query_list.append(daily_campaign_details_query_temp)
+            daily_campaign_details_key_behaviours.append(key_behaviour)
+
+        daily_campaign_details_query = """,
+                """.join(
+            daily_campaign_details_query_list
+        )
+        return (
+            daily_campaign_details_query,
+            daily_campaign_details_key_behaviours,
+            set_daily_campaign_details_ref,
+        )
 
     def _create_user_journey_cte(
         self, user_journeys, entity_id_column_name, campaign_id_column_name
@@ -408,35 +473,39 @@ class AttributionModelRecipe(PyNativeRecipe):
             counter += 1
         return journey_query, set_jouney_ref
 
-    def _define_input_dependency(self, user_journeys, campaign_info):
-        self.inputs = [f"{self.conversion_entity}/all/var_table"]
+    def _define_input_dependency(self, user_journeys, campaign_details):
+        self.inputs.add(f"{self.conversion_entity}/all/var_table")
         for obj in user_journeys:
             tbl = obj["from"]
-            self.inputs.extend(
-                [
+            self.inputs.update(
+                (
                     tbl,
                     f"{tbl}/var_table",
                     f"{tbl}/var_table/{self.campaign_id_column_name}",
                     f"{tbl}/var_table/{self.entity_id_column_name}",
-                ]
+                )
             )
 
-        for obj in campaign_info["spend_inputs"]:
-            tbl = obj["from"]
-            self.inputs.extend(
-                [
-                    tbl,
-                    f"{tbl}/var_table",
-                    f"{tbl}/var_table/{self.campaign_id_column_name}",
-                ]
-            )
-        self.inputs.append(f"entity/{self.campaign_entity}/{self.campaign_start_date}")
-        self.inputs.append(f"entity/{self.campaign_entity}/{self.campaign_end_date}")
+        for campaign_detail in campaign_details:
+            for _, values in campaign_detail.items():
+                for obj in values:
+                    tbl = obj["from"]
+                    self.inputs.update(
+                        (
+                            tbl,
+                            f"{tbl}/var_table",
+                            f"{tbl}/var_table/{self.campaign_id_column_name}",
+                        )
+                    )
+
+        self.inputs.add(f"entity/{self.campaign_entity}/{self.campaign_start_date}")
+        self.inputs.add(f"entity/{self.campaign_entity}/{self.campaign_end_date}")
 
     def register_dependencies(self, this: WhtMaterial):
         user_journeys = self.config[CONVERSION][TOUCHPOINTS]
-        conversions = self.config[CONVERSION][CONVERSION_VARS]
-        campaign_info = self.config[CAMPAIGN_INFO]
+        conversion_vars = self.config[CONVERSION][CONVERSION_VARS]
+        campaign_details = self.config[CAMPAIGN][CAMPAIGN_DETAILS]
+        campaign_vars = self.config[CAMPAIGN][CAMPAIGN_VARS]
 
         self.conversion_entity = self.config[ENTITY_KEY]
         self.campaign_entity = self.config[CAMPAIGN][ENTITY_KEY]
@@ -448,8 +517,8 @@ class AttributionModelRecipe(PyNativeRecipe):
         self.entity_id_column_name = entities[self.conversion_entity]["IdColumnName"]
         self.campaign_id_column_name = entities[self.campaign_entity]["IdColumnName"]
 
-        self.inputs = []
-        self._define_input_dependency(user_journeys, campaign_info)
+        self.inputs = set()
+        self._define_input_dependency(user_journeys, campaign_details)
         campaign_var_table = this.de_ref(
             f"entity/{self.campaign_entity}/var_table"
         ).string()
@@ -460,14 +529,18 @@ class AttributionModelRecipe(PyNativeRecipe):
         journey_query, set_jouney_ref = self._create_user_journey_cte(
             user_journeys, self.entity_id_column_name, self.campaign_id_column_name
         )
-        spend_query, set_spend_ref = self._create_spend_cte(
-            campaign_info, self.campaign_id_column_name
+        (
+            daily_campaign_details_query,
+            daily_campaign_details_key_behaviours,
+            set_daily_campaign_details_ref,
+        ) = self._create_daily_campaign_details_cte(
+            campaign_details, self.campaign_id_column_name
         )
 
         # creating user conversion
         conversion_query = ""
         cte_query_list, conversion_name_list, value_flag_list = list(), list(), list()
-        for conversion_info in conversions:
+        for conversion_info in conversion_vars:
             conversion_name = conversion_info["name"]
             conversion_info_column_name_timestamp = (
                 f"{{{{{conversion_info['timestamp']}.Model.DbObjectNamePrefix()}}}}"
@@ -519,18 +592,19 @@ class AttributionModelRecipe(PyNativeRecipe):
             self.campaign_id_column_name,
             conversion_name_list,
             value_flag_list,
-            self.config[CAMPAIGN]["campaign_vars"],
+            daily_campaign_details_key_behaviours,
+            campaign_vars,
             campaign_var_table,
         )
 
-        input_material_template = f"this.DeRef(makePath({conversions[0]['timestamp']}.Model.GetVarTableRef()))"
+        input_material_template = f"this.DeRef(makePath({conversion_vars[0]['timestamp']}.Model.GetVarTableRef()))"
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
-                    {{% with entityVarTable = {input_material_template} {set_jouney_ref} {set_spend_ref} %}}
+                    {{% with entityVarTable = {input_material_template} {set_jouney_ref} {set_daily_campaign_details_ref} %}}
                     WITH {multiconversion_cte_query}
                         , {journey_cte_query}
-                        , {spend_query}
+                        , {daily_campaign_details_query}
                         , {index_cte_query}
                         {selector_sql}
                     {{% endwith %}}

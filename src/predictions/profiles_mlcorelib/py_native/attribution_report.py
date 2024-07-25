@@ -387,7 +387,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         campaign_vars_cte = f"SELECT {campaign_id_column_name}, {', '.join(campaign_vars)} FROM {campaign_var_table}"
         select_query = (
             select_query
-            + f""", {', '.join([f'campaign_var_cte.{var} as {var}' for var in campaign_vars])}"""
+            + f""" {', '.join([f'campaign_var_cte.{var} as {var}' for var in campaign_vars])}, """
         )
         from_query = (
             from_query

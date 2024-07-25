@@ -313,6 +313,8 @@ class AttributionModelRecipe(PyNativeRecipe):
         conversion_name_list,
         value_flag_list,
         spend_key_behaviours,
+        campaign_vars,
+        campaign_var_table,
     ):
         select_query = f"""
                         SELECT a.date, a.{campaign_id_column_name},"""
@@ -371,6 +373,17 @@ class AttributionModelRecipe(PyNativeRecipe):
                 + f""" 
                 LEFT JOIN daily_{key_behaviour}_cte ON a.date = daily_{key_behaviour}_cte.date and a.{campaign_id_column_name} = daily_{key_behaviour}_cte.{campaign_id_column_name} """
             )
+
+        campaign_vars_cte = f"SELECT {campaign_id_column_name}, {', '.join(campaign_vars)} FROM {campaign_var_table}"
+        select_query = (
+            select_query
+            + f""", {', '.join([f'campaign_var_cte.{var} as {var}' for var in campaign_vars])}"""
+        )
+        from_query = (
+            from_query
+            + f"""
+                LEFT JOIN ({campaign_vars_cte}) AS campaign_var_cte ON a.{campaign_id_column_name} = campaign_var_cte.{campaign_id_column_name}"""
+        )
 
         final_selector_sql = select_query + from_query
         return final_selector_sql
@@ -472,8 +485,9 @@ class AttributionModelRecipe(PyNativeRecipe):
 
     def register_dependencies(self, this: WhtMaterial):
         user_journeys = self.config[CONVERSION][TOUCHPOINTS]
-        conversions = self.config[CONVERSION][CONVERSION_VARS]
+        conversion_vars = self.config[CONVERSION][CONVERSION_VARS]
         campaign_details = self.config[CAMPAIGN][CAMPAIGN_DETAILS]
+        campaign_vars = self.config[CAMPAIGN][CAMPAIGN_VARS]
 
         self.conversion_entity = self.config[ENTITY_KEY]
         self.campaign_entity = self.config[CAMPAIGN][ENTITY_KEY]
@@ -487,6 +501,9 @@ class AttributionModelRecipe(PyNativeRecipe):
 
         self.inputs = set()
         self._define_input_dependency(user_journeys, campaign_details)
+        campaign_var_table = this.de_ref(
+            f"entity/{self.campaign_entity}/var_table"
+        ).string()
 
         for dependency in self.inputs:
             this.de_ref(dependency)
@@ -501,7 +518,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         # creating user conversion
         conversion_query = ""
         cte_query_list, conversion_name_list, value_flag_list = list(), list(), list()
-        for conversion_info in conversions:
+        for conversion_info in conversion_vars:
             conversion_name = conversion_info["name"]
             conversion_info_column_name_timestamp = (
                 f"{{{{{conversion_info['timestamp']}.Model.DbObjectNamePrefix()}}}}"
@@ -554,9 +571,11 @@ class AttributionModelRecipe(PyNativeRecipe):
             conversion_name_list,
             value_flag_list,
             spend_key_behaviours,
+            campaign_vars,
+            campaign_var_table,
         )
 
-        input_material_template = f"this.DeRef(makePath({conversions[0]['timestamp']}.Model.GetVarTableRef()))"
+        input_material_template = f"this.DeRef(makePath({conversion_vars[0]['timestamp']}.Model.GetVarTableRef()))"
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}

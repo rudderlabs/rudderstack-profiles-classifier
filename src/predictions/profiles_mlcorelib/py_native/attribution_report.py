@@ -300,7 +300,12 @@ class AttributionModelRecipe(PyNativeRecipe):
         return index_cte_query
 
     def _get_final_selector_sql(
-        self, campaign_id_column_name, conversion_name_list, value_flag_list
+        self,
+        campaign_id_column_name,
+        conversion_name_list,
+        value_flag_list,
+        campaign_vars,
+        campaign_var_table,
     ):
         select_query = f"""
                         SELECT a.date, a.{campaign_id_column_name},"""
@@ -345,6 +350,12 @@ class AttributionModelRecipe(PyNativeRecipe):
             + f""" LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} 
                    LEFT JOIN daily_spend_cte ON a.date = daily_spend_cte.date and a.{campaign_id_column_name} = daily_spend_cte.{campaign_id_column_name} """
         )
+
+        campaign_vars_cte = f"SELECT {campaign_id_column_name}, {', '.join(campaign_vars)} FROM {campaign_var_table}"
+        select_query += f", {', '.join([f'campaign_var_cte.{var} as {var}' for var in campaign_vars])}"
+        from_query += f"""
+                       LEFT JOIN ({campaign_vars_cte}) AS campaign_var_cte ON a.{campaign_id_column_name} = campaign_var_cte.{campaign_id_column_name}"""
+
         final_selector_sql = select_query + from_query
         return final_selector_sql
 
@@ -439,6 +450,9 @@ class AttributionModelRecipe(PyNativeRecipe):
 
         self.inputs = []
         self._define_input_dependency(user_journeys, campaign_info)
+        campaign_var_table = this.de_ref(
+            f"entity/{self.campaign_entity}/var_table"
+        ).string()
 
         for dependency in self.inputs:
             this.de_ref(dependency)
@@ -502,7 +516,11 @@ class AttributionModelRecipe(PyNativeRecipe):
         index_cte_query = self._get_index_cte(self.campaign_id_column_name)
 
         selector_sql = self._get_final_selector_sql(
-            self.campaign_id_column_name, conversion_name_list, value_flag_list
+            self.campaign_id_column_name,
+            conversion_name_list,
+            value_flag_list,
+            self.config[CAMPAIGN]["campaign_vars"],
+            campaign_var_table,
         )
 
         input_material_template = f"this.DeRef(makePath({conversions[0]['timestamp']}.Model.GetVarTableRef()))"

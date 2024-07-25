@@ -113,6 +113,16 @@ class AttributionModel(BaseModelType):
         return AttributionModelRecipe(self.build_spec)
 
     def validate(self) -> Tuple[bool, str]:
+        campaign_vars = self.build_spec[CAMPAIGN][CAMPAIGN_VARS]
+        campaign_details = self.build_spec[CAMPAIGN][CAMPAIGN_DETAILS]
+
+        campaign_details_keys = [next(iter(obj)) for obj in campaign_details]
+        for val in campaign_details_keys:
+            if val in campaign_vars:
+                return (
+                    False,
+                    f"campaign_vars and campaign_details have same var: {val}. Please provide unique vars in campaign_vars and campaign_details.",
+                )
         return True, "Validated successfully"
 
 

@@ -134,62 +134,6 @@ class AttributionModelRecipe(PyNativeRecipe):
     def describe(self, this: WhtMaterial):
         return self.sql, ".sql"
 
-    def _create_index_table(
-        self,
-        this: WhtMaterial,
-        campaign_id_column: str,
-        campaign_start_dt_col: str,
-        campaign_end_dt_col: str,
-        campaign_entity_var: str,
-    ):
-        # Fetch the start date, end date, campaign id from campaign var table
-        campaign_var_table = this.de_ref(
-            f"entity/{campaign_entity_var}/var_table"
-        ).string()
-        query = f"select {campaign_id_column}, {campaign_start_dt_col}, {campaign_end_dt_col} from {campaign_var_table};"
-        campaign_start_end_dates = this.wht_ctx.client.query_sql_with_result(query)
-        campaign_start_end_dates.columns = [
-            campaign_id_column,
-            campaign_start_dt_col,
-            campaign_end_dt_col,
-        ]  # To handle case sensitivity
-
-        ## Create a table with all the dates between start and end date
-        # Function to generate date range
-        def date_range(start, end):
-            today = datetime.now().date()
-            end = min(end.date(), today)
-            for n in range(int((end - start.date()).days) + 1):
-                yield start + timedelta(n)
-
-        # Create the expanded DataFrame
-        expanded_df = pd.DataFrame(
-            [
-                (row[campaign_id_column], date)
-                for _, row in campaign_start_end_dates.iterrows()
-                for date in date_range(
-                    row[campaign_start_dt_col], row[campaign_end_dt_col]
-                )
-            ],
-            columns=[campaign_id_column, "date"],
-        )
-        schema = this.wht_ctx.client.schema
-        # Sort the DataFrame
-        expanded_df = expanded_df.sort_values([campaign_id_column, "date"])
-        this.wht_ctx.client.write_df_to_table(
-            expanded_df, self.index_table_name, schema=schema
-        )
-
-        if this.wht_ctx.client.is_snowpark_enabled:
-            # Snowpark write_df_to_table converts date to int by default. So, we need to convert it back to date
-            update_query = f"CREATE OR REPLACE TABLE {schema}.{self.index_table_name} AS SELECT {campaign_id_column}, date(date) as date FROM {schema}.{self.index_table_name};"
-            this.wht_ctx.client.query_sql_without_result(update_query)
-        # Check that the table is created
-        check_query = f"select * from {schema}.{self.index_table_name} limit 5;"
-        res = this.wht_ctx.client.query_sql_with_result(check_query)
-        # print(f"Checking the table {self.index_table_name} is created. Top 5 rows:{res.head()}")
-        _ = res.head()
-
     def _create_with_query_template(
         self,
         conversion_name: str,
@@ -216,7 +160,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             )
             + f"""
                                 first_value({campaign_id_column_name}) over (partition by journey.{entity_id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_{campaign_id_column_name},
-                                first_value({campaign_id_column_name}) over (partition by journey.{entity_id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_{campaign_id_column_name},
+                                first_value({campaign_id_column_name}) over (partition by journey.{entity_id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_{campaign_id_column_name}
                         FROM (
                             {conversion_query}
                         ) AS conversion_tbl
@@ -233,10 +177,10 @@ class AttributionModelRecipe(PyNativeRecipe):
                                     (
                                     select first_touch_date as date,
                                         first_touch_{campaign_id_column_name} as {campaign_id_column_name}, 
-                                        count(distinct {entity_id_column_name}) as first_touch_count, 
+                                        count(distinct {entity_id_column_name}) as first_touch_count
                                         """
             + (
-                f"""sum(first_touch_conversion_value) as first_touch_conversion_value"""
+                f""", sum(first_touch_conversion_value) as first_touch_conversion_value"""
                 if value_flag
                 else ""
             )
@@ -251,10 +195,10 @@ class AttributionModelRecipe(PyNativeRecipe):
                                     (
                                     select last_touch_date as date,
                                         last_touch_{campaign_id_column_name} as {campaign_id_column_name}, 
-                                        count(distinct {entity_id_column_name}) as last_touch_count,
+                                        count(distinct {entity_id_column_name}) as last_touch_count
                                         """
             + (
-                f"""sum(last_touch_conversion_value) as last_touch_conversion_value"""
+                f""", sum(last_touch_conversion_value) as last_touch_conversion_value"""
                 if value_flag
                 else ""
             )
@@ -270,11 +214,11 @@ class AttributionModelRecipe(PyNativeRecipe):
                                     select coalesce({conversion_name}_first_touch_view.date, {conversion_name}_last_touch_view.date) as date, 
                                             coalesce({conversion_name}_first_touch_view.{campaign_id_column_name}, {conversion_name}_last_touch_view.{campaign_id_column_name}) as {campaign_id_column_name}, 
                                             coalesce(first_touch_count, 0) as {conversion_name}_first_touch_count,
-                                            coalesce(last_touch_count, 0) as {conversion_name}_last_touch_count,
+                                            coalesce(last_touch_count, 0) as {conversion_name}_last_touch_count
                                             """
             + (
-                f"""coalesce(first_touch_conversion_value, 0) AS {conversion_name}_first_touch_conversion_value,
-                                            coalesce(last_touch_conversion_value, 0) AS {conversion_name}_last_touch_conversion_value,"""
+                f""", coalesce(first_touch_conversion_value, 0) AS {conversion_name}_first_touch_conversion_value,
+                                            coalesce(last_touch_conversion_value, 0) AS {conversion_name}_last_touch_conversion_value"""
                 if value_flag
                 else ""
             )
@@ -310,11 +254,28 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 """
         return journey_cte_query
 
-    def _get_index_cte(self, campaign_id_column_name):
+    def _get_index_cte(
+        self, campaign_id_column_name, campaign_start_date, campaign_end_date
+    ):
         index_cte_query = f"""
-                         index_cte as 
-                         (select date, {campaign_id_column_name} from {self.index_table_name})
-                          """
+                                RECURSIVE date_range(date) AS (
+                                        SELECT DATE '2000-01-01' AS date
+                                        UNION ALL
+                                        SELECT (date + INTERVAL '1 day')::DATE
+                                        FROM date_range
+                                        WHERE date < CURRENT_DATE
+                                ),
+                                CAMPAIGN_INFO AS (
+                                        SELECT {campaign_id_column_name},  DATE({campaign_start_date}) as start_date, DATE({campaign_end_date}) as end_date 
+                                        FROM {{{{campaignVarTable}}}}
+                                ),
+                                index_cte as (
+                                        SELECT {campaign_id_column_name}, date 
+                                        FROM CAMPAIGN_INFO a 
+                                            LEFT OUTER JOIN date_range b ON start_date <= date AND date <= end_date 
+                                        WHERE {campaign_id_column_name} is not NULL
+                                )
+                                """
         return index_cte_query
 
     def _get_final_selector_sql(
@@ -324,30 +285,29 @@ class AttributionModelRecipe(PyNativeRecipe):
         value_flag_list,
         daily_campaign_details_key_behaviours,
         campaign_vars,
-        campaign_var_table,
     ):
         select_query = f"""
-                        SELECT a.date, a.{campaign_id_column_name},"""
+                        SELECT a.date, a.{campaign_id_column_name}"""
         from_query = f"""
                         FROM index_cte a"""
         for conversion_name, value_flag in zip(conversion_name_list, value_flag_list):
             select_query = (
                 select_query
                 + f"""
-                                    coalesce({conversion_name}_first_touch_count, 0) as {conversion_name}_first_touch_count,
-                                    coalesce({conversion_name}_last_touch_count, 0) as {conversion_name}_last_touch_count,
+                                    , coalesce({conversion_name}_first_touch_count, 0) as {conversion_name}_first_touch_count,
+                                    coalesce({conversion_name}_last_touch_count, 0) as {conversion_name}_last_touch_count
                                     """
                 + (
-                    f"""coalesce({conversion_name}_first_touch_conversion_value, 0) AS {conversion_name}_first_touch_conversion_value,
-                                    coalesce({conversion_name}_last_touch_conversion_value, 0) AS {conversion_name}_last_touch_conversion_value,"""
+                    f""", coalesce({conversion_name}_first_touch_conversion_value, 0) AS {conversion_name}_first_touch_conversion_value,
+                                    coalesce({conversion_name}_last_touch_conversion_value, 0) AS {conversion_name}_last_touch_conversion_value"""
                     if value_flag
                     else ""
                 )
-                + f"""coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_count, 0), 0),0) AS {conversion_name}_first_touch_cost_per_conv,
-                                    coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_count, 0), 0),0) AS {conversion_name}_last_touch_cost_per_conv,"""
+                + f""", coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_count, 0), 0),0) AS {conversion_name}_first_touch_cost_per_conv,
+                                    coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_count, 0), 0),0) AS {conversion_name}_last_touch_cost_per_conv """
                 + (
-                    f"""coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_conversion_value, 0), 0),0) AS {conversion_name}_first_touch_roas,
-                                        coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_conversion_value, 0), 0),0) AS {conversion_name}_last_touch_roas,"""
+                    f""", coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_conversion_value, 0), 0),0) AS {conversion_name}_first_touch_roas,
+                                        coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_conversion_value, 0), 0),0) AS {conversion_name}_last_touch_roas """
                     if value_flag
                     else ""
                 )
@@ -358,12 +318,13 @@ class AttributionModelRecipe(PyNativeRecipe):
                 + f"""
                                 LEFT JOIN {conversion_name}_conversion_view ON a.date = {conversion_name}_conversion_view.date and a.{campaign_id_column_name} = {conversion_name}_conversion_view.{campaign_id_column_name} """
             )
+
         # Adding journey_cte
         select_query = (
             select_query
             + f""" 
-                coalesce(count_distinct_views, 0) as count_distinct_views,
-                coalesce(count_total_views, 0) as count_total_views, """
+                , coalesce(count_distinct_views, 0) as count_distinct_views,
+                coalesce(count_total_views, 0) as count_total_views """
         )
         from_query = (
             from_query
@@ -376,7 +337,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             select_query = (
                 select_query
                 + f""" 
-                coalesce({key_behaviour}, 0) as {key_behaviour}, """
+                , coalesce({key_behaviour}, 0) as {key_behaviour} """
             )
             from_query = (
                 from_query
@@ -384,10 +345,10 @@ class AttributionModelRecipe(PyNativeRecipe):
                 LEFT JOIN daily_{key_behaviour}_cte ON a.date = daily_{key_behaviour}_cte.date and a.{campaign_id_column_name} = daily_{key_behaviour}_cte.{campaign_id_column_name} """
             )
 
-        campaign_vars_cte = f"SELECT {campaign_id_column_name}, {', '.join(campaign_vars)} FROM {campaign_var_table}"
+        campaign_vars_cte = f"SELECT {campaign_id_column_name}, {', '.join(campaign_vars)} FROM {{{{campaignVarTable}}}}"
         select_query = (
             select_query
-            + f""" {', '.join([f'campaign_var_cte.{var} as {var}' for var in campaign_vars])}, """
+            + f""" , {', '.join([f'campaign_var_cte.{var} as {var}' for var in campaign_vars])} """
         )
         from_query = (
             from_query
@@ -432,10 +393,9 @@ class AttributionModelRecipe(PyNativeRecipe):
 
             daily_campaign_details_query_temp = f""" 
                                 daily_{key_behaviour}_cte AS 
-                                    (SELECT {campaign_id_column_name}, date, 
-                                            SUM({key_behaviour}) AS {key_behaviour} FROM ({daily_campaign_details_query_temp})
-                                            GROUP BY 
-                                            {campaign_id_column_name}, date) """
+                                    (SELECT {campaign_id_column_name}, date, SUM({key_behaviour}) AS {key_behaviour} 
+                                     FROM ({daily_campaign_details_query_temp})
+                                     GROUP BY {campaign_id_column_name}, date) """
             daily_campaign_details_query_list.append(daily_campaign_details_query_temp)
             daily_campaign_details_key_behaviours.append(key_behaviour)
 
@@ -473,7 +433,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             counter += 1
         return journey_query, set_jouney_ref
 
-    def _define_input_dependency(self, user_journeys, campaign_details):
+    def _define_input_dependency(self, user_journeys, campaign_details, campaign_vars):
         self.inputs.add(f"{self.conversion_entity}/all/var_table")
         for obj in user_journeys:
             tbl = obj["from"]
@@ -498,6 +458,9 @@ class AttributionModelRecipe(PyNativeRecipe):
                         )
                     )
 
+        for var in campaign_vars:
+            self.inputs.add(f"entity/{self.campaign_entity}/{var}")
+
         self.inputs.add(f"entity/{self.campaign_entity}/{self.campaign_start_date}")
         self.inputs.add(f"entity/{self.campaign_entity}/{self.campaign_end_date}")
 
@@ -511,17 +474,13 @@ class AttributionModelRecipe(PyNativeRecipe):
         self.campaign_entity = self.config[CAMPAIGN][ENTITY_KEY]
         self.campaign_start_date = self.config[CAMPAIGN][CAMPAIGN_START_DATE]
         self.campaign_end_date = self.config[CAMPAIGN][CAMPAIGN_END_DATE]
-        self.index_table_name = f"{this.name()}_index_table_temp".upper()
 
         entities = this.base_wht_project.entities()
         self.entity_id_column_name = entities[self.conversion_entity]["IdColumnName"]
         self.campaign_id_column_name = entities[self.campaign_entity]["IdColumnName"]
 
         self.inputs = set()
-        self._define_input_dependency(user_journeys, campaign_details)
-        campaign_var_table = this.de_ref(
-            f"entity/{self.campaign_entity}/var_table"
-        ).string()
+        self._define_input_dependency(user_journeys, campaign_details, campaign_vars)
 
         for dependency in self.inputs:
             this.de_ref(dependency)
@@ -586,7 +545,11 @@ class AttributionModelRecipe(PyNativeRecipe):
             journey_query, self.campaign_id_column_name, self.entity_id_column_name
         )
 
-        index_cte_query = self._get_index_cte(self.campaign_id_column_name)
+        index_cte_query = self._get_index_cte(
+            self.campaign_id_column_name,
+            self.campaign_start_date,
+            self.campaign_end_date,
+        )
 
         selector_sql = self._get_final_selector_sql(
             self.campaign_id_column_name,
@@ -594,18 +557,18 @@ class AttributionModelRecipe(PyNativeRecipe):
             value_flag_list,
             daily_campaign_details_key_behaviours,
             campaign_vars,
-            campaign_var_table,
         )
 
         input_material_template = f"this.DeRef(makePath({conversion_vars[0]['timestamp']}.Model.GetVarTableRef()))"
+        campaign_var_template = f"this.DeRef('entity/{self.campaign_entity}/var_table')"
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
-                    {{% with entityVarTable = {input_material_template} {set_jouney_ref} {set_daily_campaign_details_ref} %}}
-                    WITH {multiconversion_cte_query}
+                    {{% with entityVarTable = {input_material_template} campaignVarTable = {campaign_var_template} {set_jouney_ref} {set_daily_campaign_details_ref} %}}
+                    WITH {index_cte_query}
+                        , {multiconversion_cte_query}
                         , {journey_cte_query}
                         , {daily_campaign_details_query}
-                        , {index_cte_query}
                         {selector_sql}
                     {{% endwith %}}
                 {{% endmacro %}}
@@ -617,13 +580,4 @@ class AttributionModelRecipe(PyNativeRecipe):
         return
 
     def execute(self, this: WhtMaterial):
-        self._create_index_table(
-            this,
-            self.campaign_id_column_name,
-            self.campaign_start_date,
-            self.campaign_end_date,
-            self.campaign_entity,
-        )
         this.wht_ctx.client.query_sql_without_result(self.sql)
-        query_drop_index_table = f"drop table if exists {this.wht_ctx.client.schema}.{self.index_table_name};"
-        this.wht_ctx.client.query_sql_without_result(query_drop_index_table)

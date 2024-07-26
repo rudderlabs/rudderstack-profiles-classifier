@@ -263,11 +263,11 @@ class AttributionModelRecipe(PyNativeRecipe):
                                         UNION ALL
                                         SELECT (date + INTERVAL '1 day')::DATE
                                         FROM date_range
-                                        WHERE date < CURRENT_DATE
+                                        WHERE date <= CURRENT_DATE
                                 ),
                                 CAMPAIGN_INFO AS (
                                         SELECT {campaign_id_column_name},  DATE({campaign_start_date}) as start_date, DATE({campaign_end_date}) as end_date 
-                                        FROM {{{{campaignVarTable}}}}
+                                        FROM {{{{campaign_var_table}}}}
                                 ),
                                 index_cte as (
                                         SELECT {campaign_id_column_name}, date 
@@ -345,7 +345,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                 LEFT JOIN daily_{key_behaviour}_cte ON a.date = daily_{key_behaviour}_cte.date and a.{campaign_id_column_name} = daily_{key_behaviour}_cte.{campaign_id_column_name} """
             )
 
-        campaign_vars_cte = f"SELECT {campaign_id_column_name}, {', '.join(campaign_vars)} FROM {{{{campaignVarTable}}}}"
+        campaign_vars_cte = f"SELECT {campaign_id_column_name}, {', '.join(campaign_vars)} FROM {{{{campaign_var_table}}}}"
         select_query = (
             select_query
             + f""" , {', '.join([f'campaign_var_cte.{var} as {var}' for var in campaign_vars])} """
@@ -518,7 +518,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                     f", {conversion_info_column_name_value} AS conversion_value"
                 )
 
-            from_info = f"FROM {{{{entityVarTable}}}}"
+            from_info = f"FROM {{{{entity_var_table}}}}"
             where_info = f"WHERE {conversion_info_column_name_timestamp} is not NULL"
 
             conversion_query = f"""
@@ -564,7 +564,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
-                    {{% with entityVarTable = {input_material_template} campaignVarTable = {campaign_var_template} {set_jouney_ref} {set_daily_campaign_details_ref} %}}
+                    {{% with entity_var_table = {input_material_template} campaign_var_table = {campaign_var_template} {set_jouney_ref} {set_daily_campaign_details_ref} %}}
                     WITH {index_cte_query}
                         , {multiconversion_cte_query}
                         , {journey_cte_query}

@@ -7,6 +7,7 @@ inputs:
         - select: id
           type: campaign_id
           entity: campaign
+          to_default_stitcher: false
   - name: lkdn_ad_analytic_campaign
     app_defaults:
       table: dev.attribution_data.linkedin_ads_ad_analytics_by_campaign
@@ -15,6 +16,7 @@ inputs:
         - select: campaign_id
           type: campaign_id
           entity: campaign
+          to_default_stitcher: false
   - name: fb_basic_campaign
     app_defaults:
       table: dev.attribution_data.facebook_ads_basic_campaign
@@ -23,10 +25,11 @@ inputs:
         - select: campaign_id
           type: campaign_id
           entity: campaign
+          to_default_stitcher: false
         - select: lower(campaign_name)
           type: campaign_name
           entity: campaign
-
+          to_default_stitcher: false
 models:
   - name: campaign_id_graph
     model_type: id_stitcher
@@ -38,7 +41,6 @@ models:
         - from: inputs/lkdn_ad_analytic_campaign
         - from: inputs/fb_basic_campaign
         - from: inputs/rsMarketingPages
-
 var_groups:
   - name: campaign_vars
     entity_key: campaign
@@ -46,21 +48,28 @@ var_groups:
       - entity_var:
           name: campaign_start_date
           select: DATE '2023-02-01'
+          is_feature: false
       - entity_var:
           name: campaign_end_date
           select: DATE '2024-06-01'
+          is_feature: false
       - entity_var:
           name: fb_ads_conversions_value
           select: CAST((RANDOM()*49) + 1 AS INT)
+          is_feature: false
       - entity_var:
           name: google_ads_utm_campaign
           select: case when RANDOM()>0.5 then 1 else 0 end
+          is_feature: false
       - entity_var:
           name: fb_ads_impressions
           select: CAST((RANDOM()*10) + 1 AS INT)
+          is_feature: false
       - entity_var:
           name: fb_ads_conversions
           select: case when RANDOM()>0.5 then 5 else 2 end
+          is_feature: false
       - entity_var:
           name: google_ads_clicks
           select: CAST((RANDOM()*15) + 1 AS INT)
+          is_feature: false

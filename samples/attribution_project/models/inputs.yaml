@@ -16,7 +16,7 @@ inputs:
         - select: "user_pseudo_id"
           type: user_pseudo_id
           entity: user
-
+          to_default_stitcher: false
   - name: rsMarketingPages
     app_defaults:
       table: dev.attribution_data.marketing_website_pages
@@ -25,6 +25,8 @@ inputs:
         - select: ANONYMOUS_ID
           type: anonymous_id
           entity: user
+          to_default_stitcher: false
         - select: UTM_CAMPAIGN
           type: utm_campaign
           entity: campaign
+          to_default_stitcher: false

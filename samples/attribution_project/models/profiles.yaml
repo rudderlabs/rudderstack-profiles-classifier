@@ -7,30 +7,15 @@ models:
       edge_sources:
         - from: inputs/rsUserVar
         - from: inputs/rsMarketingPages
-
   - name: attribution_feature_model
     model_type: feature_table_model
     model_spec:
       validity_time: 0s # 1 day
       entity_key: user
-      vars:
-        - entity_var:
-            name: first_order_date
-            select: ANY_VALUE(first_order_date)
-            from: inputs/rsUserVar
-        - entity_var:
-            name: first_invoice_amount
-            select: ANY_VALUE(first_invoice_amount)
-            from: inputs/rsUserVar
-        - entity_var:
-            name: subscription_start_date
-            select: ANY_VALUE(subscription_start_date)
-            from: inputs/rsUserVar
       features:
         - first_order_date
         - first_invoice_amount
         - subscription_start_date
-
   # Beginning of the attribution model which will combine the user and campaign entity data
   - name: campaign_performance_report
     model_type: attribution
@@ -60,31 +45,47 @@ models:
         campaign_details: #These represent columns that will be computed daily
           - cost:
               - from: inputs/ga_campaign_stats
-                date: date 
+                date: date
                 select: sum(cost_micros / 1000000 )
               - from: inputs/lkdn_ad_analytic_campaign
-                date: day 
+                date: day
                 select: sum(cost_in_usd)
               - from: inputs/fb_basic_campaign
-                date: date 
+                date: date
                 select: sum(spend)
           - impressions:
               - from: inputs/ga_campaign_stats
-                date: date 
+                date: date
                 select: sum(impressions)
               - from: inputs/lkdn_ad_analytic_campaign
-                date: day 
+                date: day
                 select: sum(impressions)
               - from: inputs/fb_basic_campaign
-                date: date 
+                date: date
                 select: sum(impressions)
           - clicks:
               - from: inputs/ga_campaign_stats
-                date: date 
+                date: date
                 select: sum(clicks)
               - from: inputs/lkdn_ad_analytic_campaign
-                date: day 
+                date: day
                 select: sum(clicks)
               - from: inputs/fb_basic_campaign
-                date: date 
+                date: date
                 select: sum(reach)
+var_groups:
+  - name: user_vars
+    entity_key: user
+    vars:
+      - entity_var:
+          name: first_order_date
+          select: ANY_VALUE(first_order_date)
+          from: inputs/rsUserVar
+      - entity_var:
+          name: first_invoice_amount
+          select: ANY_VALUE(first_invoice_amount)
+          from: inputs/rsUserVar
+      - entity_var:
+          name: subscription_start_date
+          select: ANY_VALUE(subscription_start_date)
+          from: inputs/rsUserVar

@@ -1,12 +1,9 @@
 # Project name
 name: attribution_input_test
 # Project's yaml schema version
-schema_version: 44
+schema_version: 69
 # WH Connection Profile to use.
 connection: redshift_sample
-# Whether to allow inputs having no timestamps,
-# if true, data without timestamps are included when running models
-include_untimed: true
 # Model folders to use.
 model_folders:
   - models
@@ -19,19 +16,17 @@ entities:
       - anonymous_id
   - name: campaign
     id_stitcher: models/campaign_id_graph
-    id_column_name: campaign_profile_id 
+    id_column_name: campaign_profile_id
     id_types:
       - campaign_id
       - utm_campaign
       - campaign_name
-
 id_types:
   - name: user_pseudo_id
   - name: anonymous_id
   - name: campaign_id
   - name: utm_campaign
   - name: campaign_name
-
 python_requirements:
   - profiles-rudderstack
   - profiles_mlcorelib

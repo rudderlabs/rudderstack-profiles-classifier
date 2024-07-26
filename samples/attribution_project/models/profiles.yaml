@@ -1,95 +1,91 @@
 models:
-  - name: user_id_graph
+  - name: rudder_user_id_stitcher
     model_type: id_stitcher
     model_spec:
-      validity_time: 24h
+      validity_time: 24h # 1 day
       entity_key: user
       edge_sources:
-        - from: inputs/app_identifies
-        - from: inputs/app_user_roles
-        - from: inputs/app_organizations
-        - from: inputs/app_user_accounts
-        - from: inputs/app_users
-        - from: inputs/cio_email_converted
-        - from: inputs/mkt_identifies
-        - from: inputs/mkt_identifies_historical
-        - from: inputs/mkt_pages
-        - from: inputs/mkt_pages_historical
-        - from: inputs/mkt_basin_and_sf_enrich
-        - from: inputs/mkt_form_submit
-        - from: inputs/mkt_form_submit_historical
-        - from: inputs/sf_lead
-        - from: inputs/sf_contact
-        - from: inputs/mkt_qualified_meeting_booked
-        - from: inputs/mkt_qualified_email_captured
-  - name: account_id_graph
-    model_type: id_stitcher
-    model_spec:
-      validity_time: 24h
-      entity_key: account
-      edge_sources:
-        - from: inputs/app_user_roles
-        - from: inputs/app_organizations
-        - from: inputs/app_user_accounts
-        - from: inputs/sf_account
-        - from: inputs/sf_contact
-        - from: inputs/sf_lead
-
-  - name: attribution_scores
-    model_type: attribution_report
-    model_spec:
-      entity_key: user
-      # id_column_name: rudder_id #optional
-      user_journeys:
-        - from: inputs/mkt_pages
-          timestamp: timestamp
-          touch:
-            utm_source: context_traits_utm_source
-            utm_campaign: context_traits_utm_campaign
-        - from: inputs/mkt_pages_historical
-          timestamp: timestamp
-          touch:
-            utm_source: utm_source
-      spend_inputs:
-        - models/Union_Event_Data
-      conversions:
-        - name: sf_mql
-          timestamp: sf_mql_date
-          # value: user.Var("first_order_amount") -- optional
-        - name: sf_iql
-          timestamp: sf_iql_date
-
-  - name: user_base_features
+        - from: inputs/rsUserVar
+        - from: inputs/rsMarketingPages
+  - name: attribution_feature_model
     model_type: feature_table_model
     model_spec:
-      validity_time: 24h
+      validity_time: 0s # 1 day
       entity_key: user
       features:
-        - sf_iql
-        - sf_mql
-        - sf_iql_date
-        - sf_mql_date
+        - first_order_date
+        - first_invoice_amount
+        - subscription_start_date
+  # Beginning of the attribution model which will combine the user and campaign entity data
+  - name: campaign_performance_report
+    model_type: attribution
+    model_spec:
+      # what events contribute the user journey and outcome we are seeking to measure
+      entity_key: user
+      conversion:
+        touchpoints: # Defines the user journey sequence allowing us to evaluatel first, last and multi-touch models
+          - from: inputs/rsMarketingPages
+            timestamp: timestamp
+        conversion_vars: # What are the activities, outcomes, etc. that we actually want to measure. You can define more than 1. You can also define a value in addition to the count.
+          - name: sf_order
+            timestamp: user.Var('first_order_date')
+            value: user.Var('first_invoice_amount') # Optional - adding this creates an extra column called <conversion>_<model>_value (ex: signup_first_touch_value)
+          - name: sf_subscription
+            timestamp: user.Var('subscription_start_date')
+      campaign:
+        entity_key: campaign
+        campaign_start_date: campaign_start_date # Defines the beginning boundary for each campaign
+        campaign_end_date: campaign_end_date # Defines the ending boundary for each campaign
+        campaign_vars: #These represent columns that will be repeated and are pulled from the campaign_var table
+          - fb_ads_conversions_value
+          - google_ads_utm_campaign
+          - fb_ads_impressions
+          - fb_ads_conversions
+          - google_ads_clicks
+        campaign_details: #These represent columns that will be computed daily
+          - cost:
+              - from: inputs/ga_campaign_stats
+                date: date
+                select: sum(cost_micros / 1000000 )
+              - from: inputs/lkdn_ad_analytic_campaign
+                date: day
+                select: sum(cost_in_usd)
+              - from: inputs/fb_basic_campaign
+                date: date
+                select: sum(spend)
+          - impressions:
+              - from: inputs/ga_campaign_stats
+                date: date
+                select: sum(impressions)
+              - from: inputs/lkdn_ad_analytic_campaign
+                date: day
+                select: sum(impressions)
+              - from: inputs/fb_basic_campaign
+                date: date
+                select: sum(impressions)
+          - clicks:
+              - from: inputs/ga_campaign_stats
+                date: date
+                select: sum(clicks)
+              - from: inputs/lkdn_ad_analytic_campaign
+                date: day
+                select: sum(clicks)
+              - from: inputs/fb_basic_campaign
+                date: date
+                select: sum(reach)
 var_groups:
   - name: user_vars
     entity_key: user
     vars:
       - entity_var:
-          name: sf_iql
-          select: any_value(iql_c)
-          from: inputs/sf_lead
-          description: IQL flag from the Lead record in Salesforce
+          name: first_order_date
+          select: ANY_VALUE(first_order_date)
+          from: inputs/rsUserVar
       - entity_var:
-          name: sf_iql_date
-          select: any_value(iql_date_c)
-          from: inputs/sf_lead
-          description: Timestamp of IQL flag being set in Salesforce
+          name: first_invoice_amount
+          select: ANY_VALUE(first_invoice_amount)
+          from: inputs/rsUserVar
       - entity_var:
-          name: sf_mql
-          select: any_value(mql_c)
-          from: inputs/sf_lead
-          description: MQL flag from the Lead record in Salesforce
-      - entity_var:
-          name: sf_mql_date
-          select: any_value(mql_date_c)
-          from: inputs/sf_lead
-          description: Timestamp of MQL flag being set in Salesforce
+          name: subscription_start_date
+          select: ANY_VALUE(subscription_start_date)
+          from: inputs/rsUserVar

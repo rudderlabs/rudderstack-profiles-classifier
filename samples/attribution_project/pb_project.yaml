@@ -1,98 +1,32 @@
 # Project name
-name: rudderstack_internal_profiles
+name: attribution_input_test
 # Project's yaml schema version
-schema_version: 49
-# WH Connection to use.
-connection: wyze
-# Whether to allow inputs having no timestamps,
-# if true, data without timestamps are included when running models
-include_untimed: true
+schema_version: 69
+# WH Connection Profile to use.
+connection: redshift_sample
 # Model folders to use.
 model_folders:
   - models
 # Entities in this project and their ids.
 entities:
   - name: user
-    id_stitcher: models/user_id_graph
+    id_stitcher: models/rudder_user_id_stitcher
     id_types:
-      - user_id
+      - user_pseudo_id
       - anonymous_id
-      - email
-      - cio_id
-      - sf_lead_id
-      - sf_contact_id
-    serve_traits:
-      - id_served: email
-        name: user_profile_sample_by_email
-      - id_served: user_id
-        name: user_profile_sample_by_user_id
-      - id_served: anonymous_id
-        name: user_profile_sample_by_anonymous_id
-  - name: account
-    id_stitcher: models/account_id_graph
+  - name: campaign
+    id_stitcher: models/campaign_id_graph
+    id_column_name: campaign_profile_id
     id_types:
-      - domain
-      - organization_id
-      - sf_account_id
-      - sf_account_name
-      - workspace_id
-      - email
-      - sf_lead_id
-      - company
+      - campaign_id
+      - utm_campaign
+      - campaign_name
 id_types:
-  - name: user_id
-    filters:
-      - type: exclude
-        value: "sources"
-      - type: exclude
-        value: "test@company.com"
-      - type: exclude
-        regex: ".+@rudderstack.com"
-      - type: exclude
-        regex: ".+@rudderlabs.com"
-      - type: exclude
-        regex: ".+@example.com"
-      - type: exclude
-        regex: ".+@qq.com"
-      - type: exclude
-        regex: ".+@redcrackle.com"
-      - type: exclude
-        regex: ".+testing+."
+  - name: user_pseudo_id
   - name: anonymous_id
-    filters:
-      - type: exclude
-        value: ""
-      - type: exclude
-        value: "unknown"
-      - type: exclude
-        value: "NaN"
-  - name: email
-    filters:
-      - type: include
-        regex: ".+@.+"
-      - type: exclude
-        value: "test@company.com"
-      - type: exclude
-        regex: ".+@rudderstack.com"
-      - type: exclude
-        regex: ".+@rudderlabs.com"
-      - type: exclude
-        regex: ".+@example.com"
-      - type: exclude
-        regex: ".+@qq.com"
-      - type: exclude
-        regex: ".+@redcrackle.com"
-      - type: exclude
-        regex: ".+testing+."
-  - name: cio_id
-  - name: organization_id
-  - name: domain
-  - name: sf_lead_id
-  - name: sf_contact_id
-  - name: sf_account_id
-  - name: sf_account_name
-  - name: workspace_id
-  - name: company
+  - name: campaign_id
+  - name: utm_campaign
+  - name: campaign_name
 python_requirements:
-  - profiles_mlcorelib
   - profiles-rudderstack
+  - profiles_mlcorelib

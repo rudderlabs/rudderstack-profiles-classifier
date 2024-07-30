@@ -255,7 +255,7 @@ def _train(
         entity_var_model_name, model_hash, latest_seq_no
     )
 
-    start_date, end_date = utils.get_date_range(
+    start_date, end_date = whtService.get_date_range(
         creation_ts, trainer.prediction_horizon_days
     )
 

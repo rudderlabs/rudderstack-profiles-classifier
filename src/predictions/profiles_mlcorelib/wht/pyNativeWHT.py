@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 from typing import List, Tuple, Dict
 
 from ..utils import utils
@@ -21,6 +22,24 @@ class PyNativeWHT:
         project_folder_path: str,
     ) -> None:
         self.pythonWHT.init(connector, site_config_path, project_folder_path)
+
+    def get_date_range(
+        self, creation_ts: datetime, prediction_horizon_days: int
+    ) -> Tuple:
+        start_date, end_date = self.whtMaterial.wht_ctx.time_info()
+        if start_date is None and end_date is None:
+            start_date, end_date = self.pythonWHT.get_date_range(
+                creation_ts, prediction_horizon_days
+            )
+        elif end_date is None:
+            end_date = start_date + timedelta(days=prediction_horizon_days)
+        elif start_date is None:
+            start_date = end_date - timedelta(days=prediction_horizon_days)
+
+        if isinstance(start_date, datetime):
+            start_date = start_date.date()
+            end_date = end_date.date()
+        return str(start_date), str(end_date)
 
     def get_latest_entity_var_table(self, entity_key: str) -> Tuple[str, str, str]:
         model_ref = f"entity/{entity_key}/var_table"

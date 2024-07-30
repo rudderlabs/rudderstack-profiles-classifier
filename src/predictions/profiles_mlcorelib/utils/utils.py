@@ -444,15 +444,6 @@ def delete_folder(folder_path: str) -> None:
         logger.get().error(f"Error occurred while deleting folder '{folder_path}': {e}")
 
 
-def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple:
-    start_date = creation_ts - timedelta(days=2 * prediction_horizon_days)
-    end_date = creation_ts - timedelta(days=prediction_horizon_days)
-    if isinstance(start_date, datetime):
-        start_date = start_date.date()
-        end_date = end_date.date()
-    return str(start_date), str(end_date)
-
-
 def date_add(reference_date: str, add_days: int) -> str:
     """
     Adds the horizon days to the reference date (in the format "YYYY-MM-DD") and

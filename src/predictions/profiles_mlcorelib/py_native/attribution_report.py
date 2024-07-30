@@ -160,7 +160,8 @@ class AttributionModelRecipe(PyNativeRecipe):
             )
             + f"""
                                 first_value({campaign_id_column_name}) over (partition by journey.{entity_id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_{campaign_id_column_name},
-                                first_value({campaign_id_column_name}) over (partition by journey.{entity_id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_{campaign_id_column_name}
+                                first_value({campaign_id_column_name}) over (partition by journey.{entity_id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_{campaign_id_column_name},
+                                converted_date as converted_date
                         FROM (
                             {conversion_query}
                         ) AS conversion_tbl
@@ -285,8 +286,25 @@ class AttributionModelRecipe(PyNativeRecipe):
         value_flag_list,
         daily_campaign_details_key_behaviours,
         campaign_vars,
+        conversion_vars,
     ):
-        select_query = f"""
+        # Defining User_conversion_days_cte
+        user_conversion_days_cte = "user_conversion_days_cte AS ("
+        union_all_needed = False
+        for conversion_info in conversion_vars:
+            table = conversion_info["name"]
+            if union_all_needed:
+                user_conversion_days_cte += " UNION ALL "
+            user_conversion_days_cte += f"""
+                SELECT 
+                    user_main_id,
+                    DATEDIFF(day, first_touch_date, converted_date) AS conversion_days
+                FROM {table}_user_view
+                WHERE converted_date IS NOT NULL"""
+            union_all_needed = True
+        user_conversion_days_cte += ")"
+        select_query = f""" , {user_conversion_days_cte} """
+        select_query += f"""
                         SELECT a.date, a.{campaign_id_column_name}"""
         from_query = f"""
                         FROM index_cte a"""
@@ -322,13 +340,13 @@ class AttributionModelRecipe(PyNativeRecipe):
         # Adding journey_cte
         select_query = (
             select_query
-            + f""" 
+            + f"""
                 , coalesce(count_distinct_views, 0) as count_distinct_views,
                 coalesce(count_total_views, 0) as count_total_views """
         )
         from_query = (
             from_query
-            + f""" 
+            + f"""
                 LEFT JOIN journey_views_cte ON a.date = journey_views_cte.date and a.{campaign_id_column_name} = journey_views_cte.{campaign_id_column_name} """
         )
 
@@ -336,12 +354,12 @@ class AttributionModelRecipe(PyNativeRecipe):
         for key_behaviour in daily_campaign_details_key_behaviours:
             select_query = (
                 select_query
-                + f""" 
+                + f"""
                 , coalesce({key_behaviour}, 0) as {key_behaviour} """
             )
             from_query = (
                 from_query
-                + f""" 
+                + f"""
                 LEFT JOIN daily_{key_behaviour}_cte ON a.date = daily_{key_behaviour}_cte.date and a.{campaign_id_column_name} = daily_{key_behaviour}_cte.{campaign_id_column_name} """
             )
 
@@ -355,6 +373,10 @@ class AttributionModelRecipe(PyNativeRecipe):
             + f"""
                 LEFT JOIN ({campaign_vars_cte}) AS campaign_var_cte ON a.{campaign_id_column_name} = campaign_var_cte.{campaign_id_column_name}"""
         )
+        select_query += f"""
+            , coalesce(sf_order_first_touch_count, 0) + coalesce(sf_subscription_first_touch_count, 0) as total_conversions,
+            (SELECT coalesce(sum(conversion_days), 0) FROM user_conversion_days_cte) as total_days,
+            (SELECT coalesce(avg(conversion_days), 0) FROM user_conversion_days_cte) as avg_days_to_convert"""
 
         final_selector_sql = select_query + from_query
         return final_selector_sql
@@ -557,6 +579,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             value_flag_list,
             daily_campaign_details_key_behaviours,
             campaign_vars,
+            conversion_vars,
         )
 
         input_material_template = f"this.DeRef(makePath({conversion_vars[0]['timestamp']}.Model.GetVarTableRef()))"

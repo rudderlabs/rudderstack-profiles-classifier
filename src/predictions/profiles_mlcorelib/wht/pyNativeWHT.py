@@ -27,18 +27,30 @@ class PyNativeWHT:
         self, creation_ts: datetime, prediction_horizon_days: int
     ) -> Tuple:
         start_date, end_date = self.whtMaterial.wht_ctx.time_info()
-        if start_date is None and end_date is None:
+        if end_date is None:
             start_date, end_date = self.pythonWHT.get_date_range(
                 creation_ts, prediction_horizon_days
             )
-        elif end_date is None:
-            end_date = start_date + timedelta(days=prediction_horizon_days)
-        elif start_date is None:
-            start_date = end_date - timedelta(days=prediction_horizon_days)
+        else:
+            if (start_date is None) or (
+                start_date is not None
+                and (end_date - start_date)
+                >= timedelta(days=2 * prediction_horizon_days)
+            ):
+                start_date, end_date = self.pythonWHT.get_date_range(
+                    end_date, prediction_horizon_days
+                )
+            elif start_date is not None and (end_date - start_date) < timedelta(
+                days=2 * prediction_horizon_days
+            ):
+                raise Exception(
+                    f"begin_time and end_time needs to be atleast 2*prediction_horizon_days apart for the predictive feature."
+                )
+            else:
+                raise Exception(
+                    f"unconfigured scenario. Please define start_date and end_date properly."
+                )
 
-        if isinstance(start_date, datetime):
-            start_date = start_date.date()
-            end_date = end_date.date()
         return str(start_date), str(end_date)
 
     def get_latest_entity_var_table(self, entity_key: str) -> Tuple[str, str, str]:

@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import MagicMock, Mock
+from datetime import datetime, timedelta
 
 from src.predictions.profiles_mlcorelib.wht.pyNativeWHT import PyNativeWHT
 
@@ -16,6 +17,52 @@ class TestPyNativeWHT(unittest.TestCase):
         self.pyNativeWHT.pythonWHT.run.assert_called_once_with(
             "entity/user/is_churned", "2021-10-10"
         )
+
+    def test_get_date_range_with_both_none(self):
+        creation_ts = datetime.strptime("2024-07-30 15:30:45", "%Y-%m-%d %H:%M:%S")
+        prediction_horizon_days = 7
+        self.pyNativeWHT.whtMaterial.wht_ctx.time_info = Mock(return_value=(None, None))
+        result = self.pyNativeWHT.get_date_range(creation_ts, prediction_horizon_days)
+        expected_result = ("2024-07-16", "2024-07-23")
+        self.assertEqual(result, expected_result)
+
+    def test_get_date_range_with_only_start_date_none(self):
+        creation_ts = datetime.strptime("2024-07-30 15:30:45", "%Y-%m-%d %H:%M:%S")
+        end_date = datetime.strptime("2024-07-29 15:30:45", "%Y-%m-%d %H:%M:%S")
+        prediction_horizon_days = 7
+        self.pyNativeWHT.whtMaterial.wht_ctx.time_info = Mock(
+            return_value=(None, end_date)
+        )
+        result = self.pyNativeWHT.get_date_range(creation_ts, prediction_horizon_days)
+        expected_result = ("2024-07-15", "2024-07-22")
+        self.assertEqual(result, expected_result)
+
+    def test_get_date_range_with_less_than_expected_value(self):
+        creation_ts = datetime.strptime("2024-07-30 15:30:45", "%Y-%m-%d %H:%M:%S")
+        end_date = datetime.strptime("2024-07-29 15:30:45", "%Y-%m-%d %H:%M:%S")
+        begin_time = datetime.strptime("2024-07-20 15:30:45", "%Y-%m-%d %H:%M:%S")
+        prediction_horizon_days = 7
+        self.pyNativeWHT.whtMaterial.wht_ctx.time_info = Mock(
+            return_value=(begin_time, end_date)
+        )
+        with self.assertRaises(Exception) as context:
+            _ = self.pyNativeWHT.get_date_range(creation_ts, prediction_horizon_days)
+        self.assertIn(
+            str(context.exception),
+            "begin_time and end_time needs to be atleast 2*prediction_horizon_days apart for the predictive feature.",
+        )
+
+    def test_get_date_range_with_expected_value(self):
+        creation_ts = datetime.strptime("2024-07-30 15:30:45", "%Y-%m-%d %H:%M:%S")
+        end_date = datetime.strptime("2024-07-29 15:30:45", "%Y-%m-%d %H:%M:%S")
+        begin_time = datetime.strptime("2024-07-10 15:30:45", "%Y-%m-%d %H:%M:%S")
+        prediction_horizon_days = 7
+        self.pyNativeWHT.whtMaterial.wht_ctx.time_info = Mock(
+            return_value=(begin_time, end_date)
+        )
+        result = self.pyNativeWHT.get_date_range(creation_ts, prediction_horizon_days)
+        expected_result = ("2024-07-15", "2024-07-22")
+        self.assertEqual(result, expected_result)
 
     def test_get_material_names(self):
         self.pyNativeWHT.pythonWHT.get_material_names = Mock()

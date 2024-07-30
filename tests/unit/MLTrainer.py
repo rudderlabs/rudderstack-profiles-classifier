@@ -15,8 +15,6 @@ def build_trainer_config():
     config["data"]["entity_key"] = None
     config["data"]["output_profiles_ml_model"] = None
     config["data"]["index_timestamp"] = None
-    config["data"]["train_start_dt"] = None
-    config["data"]["train_end_dt"] = None
     config["data"]["eligible_users"] = None
     config["data"]["prediction_horizon_days"] = None
     config["data"]["inputs"] = None

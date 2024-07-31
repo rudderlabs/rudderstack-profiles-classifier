@@ -24,8 +24,8 @@ model_file_name = constants.MODEL_FILE_NAME
 
 def train_and_store_model_results(
     feature_df: pd.DataFrame,
+    input_column_types: dict,
     train_config: dict,
-    feature_table_column_types: dict,
     metrics_table: str,
     **kwargs,
 ) -> dict:
@@ -37,7 +37,6 @@ def train_and_store_model_results(
         and is input to training and prediction.
         train_config (dict): configs from profiles.yaml which should
         overwrite corresponding values from model_configs.yaml file
-        feature_table_column_types (dict): column types of the feature table
         From kwargs:
             connector (RedshiftConnector): RedshiftConnector object
             trainer (MLTrainer): MLTrainer object which has all the configs and methods required for training
@@ -52,8 +51,6 @@ def train_and_store_model_results(
         raise ValueError(
             "connector and trainer are required in kwargs for training in train_and_store_model_results"
         )
-    numeric_columns = feature_table_column_types["numeric"]
-    categorical_columns = feature_table_column_types["categorical"]
 
     model_file = connector.join_file_path(
         f"{trainer.output_profiles_ml_model}_{model_file_name}"
@@ -61,7 +58,7 @@ def train_and_store_model_results(
     feature_df.columns = [col.upper() for col in feature_df.columns]
 
     train_x, test_x, test_y, pipe, model_id, metrics_df, results = trainer.train_model(
-        feature_df, categorical_columns, numeric_columns, train_config, model_file
+        feature_df, input_column_types, train_config, model_file
     )
     logger.get().info(f"Generating plots and saving them to the output directory.")
     trainer.plot_diagnostics(
@@ -161,7 +158,7 @@ def preprocess_and_train(
         )
         feature_table_instance = prepare_feature_table(
             train_table_pair,
-            input_column_types["timestamp"],
+            list(input_column_types["timestamp"].keys()),
             input_columns,
             connector=connector,
             trainer=trainer,
@@ -172,7 +169,7 @@ def preprocess_and_train(
 
     high_cardinal_features = connector.get_high_cardinal_features(
         feature_table,
-        input_column_types["categorical"],
+        list(input_column_types["categorical"].keys()),
         trainer.label_column,
         trainer.entity_column,
         cardinal_feature_threshold,
@@ -181,16 +178,10 @@ def preprocess_and_train(
         f"Following features are detected as having high cardinality, and will be ignored for training: {high_cardinal_features}"
     )
 
-    transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
-        feature_table,
-        input_column_types["arraytype"],
-        trainer.prep.top_k_array_categories,
-    )
-
     feature_table = connector.transform_booleantype_features(
-        feature_table, input_column_types["booleantype"]
+        feature_table, list(input_column_types["booleantype"].keys())
     )
-    transformed_booleantype_cols = input_column_types["booleantype"]
+    transformed_booleantype_cols = list(input_column_types["booleantype"].keys())
     logger.get().debug("Boolean Type Columns transformed to numeric")
 
     ignore_features = utils.get_all_ignore_features(
@@ -198,7 +189,15 @@ def preprocess_and_train(
         trainer.prep.ignore_features,
         high_cardinal_features,
     )
-    logger.get().info(f"List of all features to be ignored: {ignore_features}")
+
+    transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
+        feature_table,
+        list(input_column_types["arraytype"].keys()),
+        trainer.prep.top_k_array_categories,
+    )
+    logger.get().debug("Arraytype features have been transformed.")
+
+    logger.get().debug(f"Ignore features detected: {ignore_features}")
     feature_table = connector.drop_cols(feature_table, ignore_features)
 
     logger.get().debug("Fetching feature table column types")
@@ -209,6 +208,7 @@ def preprocess_and_train(
         trainer.entity_column,
         transformed_arraytype_cols,
         transformed_booleantype_cols,
+        connector.dtype_utils_mapping,
     )
     logger.get().debug(
         f"Feature_table column types detected: {feature_table_column_types}"
@@ -237,8 +237,8 @@ def preprocess_and_train(
         train_results_json = connector.call_procedure(
             train_procedure,
             filtered_feature_table,
+            input_column_types,
             train_config,
-            feature_table_column_types,
             metrics_table,
             connector=connector,
             trainer=trainer,
@@ -252,7 +252,9 @@ def preprocess_and_train(
 
     logger.get().info("Saving column names info. to the output json.")
     train_results_json["column_names"] = {}
-    train_results_json["column_names"]["input_column_types"] = input_column_types
+    train_results_json["column_names"]["input_column_types"] = {
+        key: list(input_column_types[key].keys()) for key in input_column_types
+    }
     train_results_json["column_names"]["ignore_features"] = ignore_features
     train_results_json["column_names"][
         "feature_table_column_types"

@@ -50,6 +50,12 @@ models:
             where: "{{macro_datediff_n('timestamp','90')}}"
             description: Total amount spent in past 90 days.
         - entity_var:
+            name: is_churned_10_days
+            select: case when {{user.Var("days_since_last_seen")}} > 10 then 1 else 0 end
+            description: Depending on the n value, it specifies if there is any activity observed in the last 10 days.
+            dependencies:
+              - days_since_last_seen
+        - entity_var:
             name: total_sessions_till_date
             from: models/rsTracksUnionPages
             select: count(distinct context_session_id)
@@ -66,6 +72,7 @@ models:
         - days_since_last_seen
         # - total_sessions_till_date
         - n_orders_completed
+        - is_churned_10_days
         - gross_amt_spent_in_past_90_days
         # - is_churned_7_days
         - random_boolean_feature

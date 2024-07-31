@@ -8,21 +8,13 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
+from pycaret.classification import predict_model as classification_predict_model
+from pycaret.regression import predict_model as regression_predict_model
+
 from sklearn.metrics import (
-    precision_recall_fscore_support,
-    roc_auc_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    accuracy_score,
-    average_precision_score,
-    average_precision_score,
     auc,
     roc_curve,
     precision_recall_curve,
-    mean_absolute_error,
-    mean_squared_error,
-    r2_score,
 )
 
 from sklearn.model_selection import train_test_split
@@ -67,10 +59,11 @@ class PreprocessorConfig:
     timestamp_columns: List[str]
     arraytype_columns: List[str]
     booleantype_columns: List[str]
+    booleantype_columns: List[str]
     ignore_features: List[str]
-    numeric_pipeline: dict
-    categorical_pipeline: dict
-    feature_selectors: dict
+    numeric_features: List[str]
+    categorical_features: List[str]
+    imputation_strategy: dict
     train_size: float
     test_size: float
     val_size: float
@@ -85,178 +78,29 @@ class OutputsConfig:
     feature_meta_data: List[dict]
 
 
-class TrainerUtils:
-    evalution_metrics_map_regressor = {
-        metric.__name__: metric
-        for metric in [mean_absolute_error, mean_squared_error, r2_score]
-    }
-
-    def get_classification_metrics(
-        self,
-        y_true: pd.DataFrame,
-        y_pred_proba: np.array,
-        th: float = 0.5,
-        recall_to_precision_importance: float = 1.0,
-        binary_predictions: bool = False,
-    ) -> dict:
-        """Returns classification metrics in form of a dict for the given threshold."""
-        y_pred = (
-            np.where(y_pred_proba > th, 1, 0)
-            if not binary_predictions
-            else y_pred_proba
-        )
-
-        precision, recall, f1, _ = precision_recall_fscore_support(
-            y_true,
-            y_pred,
-            beta=recall_to_precision_importance,
-        )
-        precision = precision[1]
-        recall = recall[1]
-        f1 = f1[1]
-        metrics = {
-            "precision": precision,
-            "recall": recall,
-            "f1_score": f1,
-        }
-
-        if not binary_predictions:
-            roc_auc = roc_auc_score(y_true, y_pred_proba)
-            pr_auc = average_precision_score(y_true, y_pred_proba)
-            user_count = y_true.shape[0]
-            metrics["roc_auc"] = roc_auc
-            metrics["pr_auc"] = pr_auc
-            metrics["users"] = user_count
-
-        return metrics
-
-    def get_best_th(
-        self,
-        y_true: pd.DataFrame,
-        y_pred_proba: np.array,
-        metric_to_optimize: str,
-        recall_to_precision_importance: float = 1.0,
-    ) -> Tuple:
-        """This function calculates the threshold that maximizes f1 score based on y_true and y_pred_proba
-        and classification metrics on basis of that."""
-
-        metric_functions = {
-            "f1_score": f1_score,
-            "precision": precision_score,
-            "recall": recall_score,
-            "accuracy": accuracy_score,
-        }
-
-        if metric_to_optimize not in metric_functions:
-            raise ValueError(f"Unsupported metric: {metric_to_optimize}")
-
-        objective_function = metric_functions[metric_to_optimize]
-        objective = lambda th: -objective_function(
-            y_true, np.where(y_pred_proba > th, 1, 0)
-        )
-
-        result = minimize_scalar(objective, bounds=(0, 1), method="bounded")
-        best_th = result.x
-        best_metrics = self.get_classification_metrics(
-            y_true, y_pred_proba, best_th, recall_to_precision_importance
-        )
-        return best_metrics, best_th
-
-    def get_metrics_classifier(
-        self,
-        clf,
-        X_train: pd.DataFrame,
-        y_train: pd.DataFrame,
-        X_test: pd.DataFrame,
-        y_test: pd.DataFrame,
-        X_val: pd.DataFrame,
-        y_val: pd.DataFrame,
-        train_config: dict,
-        recall_to_precision_importance: float = 1.0,
-    ) -> Tuple:
-        """Generates classification metrics and predictions for train,
-        validation and test data along with the best probability threshold.
-        """
-        train_preds = clf.predict_proba(X_train)[:, 1]
-        metric_to_optimize = train_config["model_params"]["validation_on"]
-        train_metrics, prob_threshold = self.get_best_th(
-            y_train, train_preds, metric_to_optimize, recall_to_precision_importance
-        )
-
-        test_preds = clf.predict_proba(X_test)[:, 1]
-        test_metrics = self.get_classification_metrics(
-            y_test, test_preds, prob_threshold, recall_to_precision_importance
-        )
-
-        val_preds = clf.predict_proba(X_val)[:, 1]
-        val_metrics = self.get_classification_metrics(
-            y_val, val_preds, prob_threshold, recall_to_precision_importance
-        )
-
-        metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
-        predictions = {"train": train_preds, "val": val_preds, "test": test_preds}
-
-        return metrics, predictions, round(prob_threshold, 2)
-
-    def get_regression_metrics(self, y_true, y_pred):
-        """Calculate and return regression metrics for given ground truth and predictions."""
-        metrics = {}
-        for metric_name, metric_func in self.evalution_metrics_map_regressor.items():
-            metrics[metric_name] = float(metric_func(y_true, y_pred))
-        return metrics
-
-    def get_metrics_regressor(
-        self, model, train_x, train_y, test_x, test_y, val_x, val_y
-    ):
-        """Calculate and return regression metrics for the trained model."""
-        train_pred = model.predict(train_x)
-        test_pred = model.predict(test_x)
-        val_pred = model.predict(val_x)
-
-        train_metrics = {}
-        test_metrics = {}
-        val_metrics = {}
-
-        for metric_name, metric_func in self.evalution_metrics_map_regressor.items():
-            train_metrics[metric_name] = float(metric_func(train_y, train_pred))
-            test_metrics[metric_name] = float(metric_func(test_y, test_pred))
-            val_metrics[metric_name] = float(metric_func(val_y, val_pred))
-
-        metrics = {"train": train_metrics, "val": val_metrics, "test": test_metrics}
-
-        return metrics
-
-
 def split_train_test(
     feature_df: pd.DataFrame,
     label_column: str,
     entity_column: str,
     train_size: float,
-    val_size: float,
-    test_size: float,
     isStratify: bool,
 ) -> Tuple:
     """Returns the train_x, train_y, test_x, test_y, val_x, val_y in form of pd.DataFrame"""
     feature_df.columns = feature_df.columns.str.upper()
-    X_train, X_temp = train_test_split(
+    X_train, X_test = train_test_split(
         feature_df,
         train_size=train_size,
         random_state=42,
         stratify=feature_df[label_column.upper()].values if isStratify else None,
     )
-    X_val, X_test = train_test_split(
-        X_temp,
-        train_size=val_size / (val_size + test_size),
-        random_state=42,
-        stratify=X_temp[label_column.upper()].values if isStratify else None,
-    )
+
     train_x = X_train.drop([entity_column.upper(), label_column.upper()], axis=1)
     train_y = X_train[[label_column.upper()]]
-    val_x = X_val.drop([entity_column.upper(), label_column.upper()], axis=1)
-    val_y = X_val[[label_column.upper()]]
+
     test_x = X_test.drop([entity_column.upper(), label_column.upper()], axis=1)
     test_y = X_test[[label_column.upper()]]
-    return train_x, train_y, test_x, test_y, val_x, val_y
+
+    return train_x, train_y, test_x, test_y
 
 
 def load_yaml(file_path: str) -> dict:
@@ -299,37 +143,30 @@ def get_feature_table_column_types(
     entity_column: str,
     transformed_arraytype_cols: List[str],
     transformed_booleantype_cols: List[str],
+    dtype_mapping: dict,
 ):
-    feature_table_column_types = {"numeric": [], "categorical": []}
-    uppercase_columns = lambda columns: [col.upper() for col in columns]
+    feature_table_column_types = {}
 
-    # Add the trannsformed array type cols to numeric cols
-    # coomenting the below as this might lead to a change in input column types. ideally only feature table should change
-    # for col in transformed_arraytype_cols:
-    #     input_column_types["numeric"].append(col)
+    for col in transformed_arraytype_cols:
+        input_column_types["numeric"][col] = dtype_mapping["numeric"]
 
-    upper_numeric_input_cols = (
-        uppercase_columns(input_column_types["numeric"])
-        + uppercase_columns(transformed_arraytype_cols)
-        + uppercase_columns(transformed_booleantype_cols)
-    )
-    upper_timestamp_input_cols = uppercase_columns(input_column_types["timestamp"])
-    upper_feature_table_numeric_cols = merge_lists_to_unique(
-        upper_numeric_input_cols, upper_timestamp_input_cols
-    )
+    for col in transformed_booleantype_cols:
+        input_column_types["numeric"][col] = dtype_mapping["numeric"]
+
+    for col in input_column_types["timestamp"]:
+        input_column_types["numeric"][col] = dtype_mapping["numeric"]
 
     for col in feature_table.columns:
         if col.upper() in (label_column.upper(), entity_column.upper()):
             continue
-        elif col.upper() in upper_feature_table_numeric_cols:
-            feature_table_column_types["numeric"].append(col.upper())
-        elif col.upper() in uppercase_columns(input_column_types["categorical"]):
-            feature_table_column_types["categorical"].append(col.upper())
+        elif col in input_column_types["numeric"]:
+            feature_table_column_types[col] = input_column_types["numeric"][col]
+        elif col in input_column_types["categorical"]:
+            feature_table_column_types[col] = input_column_types["categorical"][col]
         else:
             raise Exception(
                 f"Column {col.upper()} in feature table is not numeric or categorical"
             )
-
     return feature_table_column_types
 
 
@@ -396,9 +233,11 @@ def transform_null(
 ) -> pd.DataFrame:
     for col in numeric_columns:
         df[col] = df[col].astype("float64")
-
-    df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-    df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+    """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
+    for col in numeric_columns:
+        df[col] = df[col].astype("float64")
+    df[numeric_columns] = df[numeric_columns].replace({pd.NA: 0})
+    df[categorical_columns] = df[categorical_columns].replace({pd.NA: "unknown"})
     return df
 
 
@@ -580,11 +419,17 @@ def subprocess_run(args):
     return response
 
 
-def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
+def plot_regression_deciles(
+    y_pred: np.array, y_true: np.array, deciles_file: str, label_column: str
+):
+    y_true = pd.Series(y_true)
+    y_pred = pd.Series(y_pred)
+
     deciles = pd.qcut(y_pred, q=10, labels=False, duplicates="drop")
     deciles_df = pd.DataFrame(
         {"Actual": y_true, "Predicted": y_pred, "Deciles": deciles}
     )
+
     deciles_agg = (
         deciles_df.groupby("Deciles")
         .agg({"Actual": "mean", "Predicted": "mean"})
@@ -610,7 +455,7 @@ def plot_regression_deciles(y_pred, y_true, deciles_file, label_column):
     plt.clf()
 
 
-def plot_regression_residuals(y_pred, y_true, residuals_file):
+def plot_regression_residuals(y_pred: np.array, y_true: np.array, residuals_file: str):
     residuals = y_true - y_pred
     sns.set(style="ticks", context="notebook")
     plt.figure(figsize=(8, 6))
@@ -661,7 +506,7 @@ def regression_evaluation_plot(y_pred, y_true, regression_chart_file, num_bins=1
     plt.clf()
 
 
-def plot_roc_auc_curve(y_pred, y_true, roc_auc_file) -> None:
+def plot_roc_auc_curve(y_pred: np.array, y_true: np.array, roc_auc_file: str) -> None:
     fpr, tpr, _ = roc_curve(y_true, y_pred)
     roc_auc = auc(fpr, tpr)
     sns.set(style="ticks", context="notebook")
@@ -678,7 +523,7 @@ def plot_roc_auc_curve(y_pred, y_true, roc_auc_file) -> None:
     plt.clf()
 
 
-def plot_pr_auc_curve(y_pred, y_true, pr_auc_file) -> None:
+def plot_pr_auc_curve(y_pred: np.array, y_true: np.array, pr_auc_file: str) -> None:
     precision, recall, _ = precision_recall_curve(y_true, y_pred)
     pr_auc = auc(recall, precision)
     sns.set(style="ticks", context="notebook")
@@ -696,7 +541,7 @@ def plot_pr_auc_curve(y_pred, y_true, pr_auc_file) -> None:
     plt.clf()
 
 
-def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
+def plot_lift_chart(y_pred: np.array, y_true: np.array, lift_chart_file: str) -> None:
     """Generates a lift chart for a binary classification model."""
     data = pd.DataFrame()
     data["label"] = y_true
@@ -745,58 +590,34 @@ def plot_lift_chart(y_pred, y_true, lift_chart_file) -> None:
 
 
 def plot_top_k_feature_importance(
-    pipe,
-    train_x,
-    figure_file,
-    top_k_features=10,
-) -> pd.DataFrame:
-    train_x_processed = pipe["preprocessor"].transform(train_x)
-    train_x_processed = train_x_processed.astype(np.int_)
-
+    model, train_x, figure_file, top_k_features=20
+) -> None:
     try:
-        shap_values = shap.TreeExplainer(pipe["model"]).shap_values(train_x_processed)
+        if len(train_x) < 100:
+            sample_data = train_x
+        else:
+            sample_data = train_x.sample(100, random_state=42)
+
+        for col in list(sample_data):
+            sample_data[col] = sample_data[col].astype(float)
+
+        model_class = model.__class__.__name__
+        explainer_class = constants.EXPLAINER_MAP[model_class]
+        explainer = explainer_class(model, sample_data)
+
+        shap_values = explainer(sample_data)
+        if len(shap_values.shape) == 3:
+            shap_values = shap_values[:, :, 1]
+
+        model_name = model.__class__.__name__
+        shap.plots.beeswarm(shap_values, max_display=top_k_features, show=False)
+        plt.title(f"Feature Importance for trained {model_name}")
+        plt.savefig(figure_file, bbox_inches="tight")
+
+        return None
+
     except Exception as e:
-        logger.get().error(
-            f"Exception occured while calculating shap values {e}, using KernelExplainer"
-        )
-        return
-
-    x_label = "Importance scores"
-    if isinstance(shap_values, list):
-        logger.get().debug(
-            "Got List output, suggesting that the model is a multi-output model. \
-                Using the second output for plotting feature importance"
-        )
-        x_label = "Importance scores of positive label"
-        shap_values = shap_values[1]
-    elif (
-        isinstance(shap_values, np.ndarray)
-        and len(shap_values.shape) == 3
-        and shap_values.shape[2] == 2
-    ):
-        logger.get().debug(
-            "Got 3D numpy array with last dimension having depth of 2. Taking the second output for plotting feature importance"
-        )
-        shap_values = shap_values[:, :, 1]
-    col_names_ = list(dict(pipe.steps)["preprocessor"].get_feature_names_out())
-    shap_df = pd.DataFrame(shap_values, columns=col_names_)
-    vals = np.abs(shap_df.values).mean(0)
-    feature_names = shap_df.columns
-    shap_importance = pd.DataFrame(
-        data=vals, index=feature_names, columns=["feature_importance_vals"]
-    )
-    shap_importance.sort_values(
-        by=["feature_importance_vals"], ascending=False, inplace=True
-    )
-
-    ax = shap_importance[:top_k_features][::-1].plot(
-        kind="barh", figsize=(8, 6), color="#86bf91", width=0.3
-    )
-    ax.set_xlabel(x_label)
-    ax.set_ylabel("Feature Name")
-    plt.title(f"Top Features")
-    plt.savefig(figure_file, bbox_inches="tight")
-    plt.clf()
+        logger.get().error(f"Exception occured while plotting feature importance {e}")
 
 
 def fetch_staged_file(

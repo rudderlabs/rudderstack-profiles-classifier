@@ -49,10 +49,8 @@ class Connector(ABC):
         lowercase_list = lambda features: [feature.lower() for feature in features]
         schema_fields = self.fetch_table_metadata(table_name)
 
-        config_numeric_features = trainer_obj.prep.numeric_pipeline["numeric_columns"]
-        config_categorical_features = trainer_obj.prep.categorical_pipeline[
-            "categorical_columns"
-        ]
+        config_numeric_features = trainer_obj.prep.numeric_features
+        config_categorical_features = trainer_obj.prep.categorical_features
         config_arraytype_features = trainer_obj.prep.arraytype_columns
         config_timestamp_features = trainer_obj.prep.timestamp_columns
         config_booleantype_features = trainer_obj.prep.booleantype_columns
@@ -64,16 +62,29 @@ class Connector(ABC):
             + config_booleantype_features
         )
 
-        # The get_all_columns_of_a_type is used to get all the columns of a particular type. Set has been used so that the config_agg_columns can be removed from the inferred columns so that there wont be any duplicates. Finally its converted back to list as we have to return a list of columns.
-        def get_all_columns_of_a_type(get_features, columns):
-            agg_columns = utils.merge_lists_to_unique(
-                list(
-                    set(get_features(schema_fields, label_column, entity_column))
-                    - config_agg_columns
-                ),
-                columns,
+        """The get_columns_of_given_datatype function retrieves all columns of a specified datatype from a dataset. 
+           A set is utilized to eliminate duplicates that may arise from including config_agg_columns in the inferred columns. 
+           Once duplicates are removed, the result is converted back to a list."""
+
+        def get_all_columns_of_a_type(
+            get_datatype_features_fn, config_datatype_columns
+        ):
+            datatype_features_dict = get_datatype_features_fn(
+                schema_fields, label_column, entity_column
             )
-            return agg_columns
+
+            given_datatype_columns = {}
+
+            for col, datatype in datatype_features_dict.items():
+                if col not in config_agg_columns:
+                    given_datatype_columns[col] = datatype
+
+            for col in config_datatype_columns:
+                given_datatype_columns[col] = next(
+                    iter(self.data_type_mapping["numeric"].values())
+                )
+
+            return given_datatype_columns
 
         numeric_columns = get_all_columns_of_a_type(
             self.get_numeric_features, config_numeric_features
@@ -100,9 +111,12 @@ class Connector(ABC):
         }
 
         updated_input_column_types = dict()
-        for key, value_list in input_column_types.items():
-            updated_value_list = [item for item in value_list if item in input_columns]
-            updated_input_column_types[key] = updated_value_list
+        for column_type, columns in input_column_types.items():
+            updated_input_column_types[column_type] = {
+                key: value
+                for key, value in columns.items()
+                if key.lower() in lowercase_list(input_columns)
+            }
 
         if ignore_features is None:
             ignore_features = []
@@ -118,11 +132,11 @@ class Connector(ABC):
         # it will still throw the exception if it is mentioned in inputs(which is important as well)
         # and those in feature_table_model will be ignored.
         for column_type, columns in updated_input_column_types.items():
-            updated_input_column_types[column_type] = [
-                column
-                for column in columns
-                if column.lower() not in lowercase_list(ignore_features)
-            ]
+            updated_input_column_types[column_type] = {
+                key: value
+                for key, value in columns.items()
+                if key.lower() not in lowercase_list(ignore_features)
+            }
 
         trainer_obj.prep.ignore_features = ignore_features
         return updated_input_column_types
@@ -260,7 +274,7 @@ class Connector(ABC):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         pass
 
     @abstractmethod
@@ -269,7 +283,7 @@ class Connector(ABC):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         pass
 
     @abstractmethod
@@ -278,7 +292,7 @@ class Connector(ABC):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         pass
 
     @abstractmethod
@@ -298,7 +312,7 @@ class Connector(ABC):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         pass
 
     @abstractmethod
@@ -307,7 +321,7 @@ class Connector(ABC):
         schema_fields: List,
         label_column: str,
         entity_column: str,
-    ) -> List[str]:
+    ) -> Dict:
         pass
 
     @abstractmethod
@@ -440,8 +454,8 @@ class Connector(ABC):
         percentile_column_name: str,
         output_label_column: str,
         train_model_id: str,
-        prob_th: float,
         input: Any,
+        pred_output_df_columns: Dict,
     ) -> pd.DataFrame:
         pass
 

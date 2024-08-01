@@ -44,11 +44,7 @@ class PyNativeWHT:
                 days=2 * prediction_horizon_days
             ):
                 raise Exception(
-                    f"begin_time and end_time needs to be atleast 2*prediction_horizon_days apart for the predictive feature."
-                )
-            else:
-                raise Exception(
-                    f"unconfigured scenario. Please define start_date and end_date properly."
+                    f"begin_time and end_time needs to be atleast {2*prediction_horizon_days} days apart for the predictive feature {self.whtMaterial.model.name()} with prediction_horizon_days: {prediction_horizon_days}"
                 )
 
         return str(start_date), str(end_date)

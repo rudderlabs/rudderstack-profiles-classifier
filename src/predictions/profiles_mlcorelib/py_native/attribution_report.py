@@ -293,13 +293,12 @@ class AttributionModelRecipe(PyNativeRecipe):
         union_all_needed = False
         for conversion_info in conversion_vars:
             table = conversion_info["name"]
-            conversion_type = conversion_info["type"]
             if union_all_needed:
                 user_conversion_days_cte += " UNION ALL "
             user_conversion_days_cte += f"""
                 SELECT 
                     user_main_id,
-                    '{conversion_type}' AS conversion_type,
+                    '{table}' AS conversion_type,
                     DATEDIFF(day, first_touch_date, converted_date) AS conversion_days
                 FROM {table}_user_view
                 WHERE converted_date IS NOT NULL"""
@@ -376,7 +375,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                 LEFT JOIN ({campaign_vars_cte}) AS campaign_var_cte ON a.{campaign_id_column_name} = campaign_var_cte.{campaign_id_column_name}"""
         )
         for conversion_info in conversion_vars:
-            conversion_type = conversion_info["type"]
+            conversion_type = conversion_info["name"]
             select_query += f"""
                 , (SELECT coalesce(sum(conversion_days), 0) 
                    FROM user_conversion_days_cte 

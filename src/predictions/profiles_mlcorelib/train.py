@@ -255,12 +255,9 @@ def _train(
         entity_var_model_name, model_hash, latest_seq_no
     )
 
-    start_date, end_date = trainer.train_start_dt, trainer.train_end_dt
-
-    if start_date is None or end_date is None:
-        start_date, end_date = utils.get_date_range(
-            creation_ts, trainer.prediction_horizon_days
-        )
+    start_date, end_date = whtService.get_date_range(
+        creation_ts, trainer.prediction_horizon_days
+    )
 
     absolute_input_models = whtService.get_input_models(inputs, latest_entity_var_table)
 

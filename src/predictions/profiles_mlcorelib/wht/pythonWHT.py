@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 from typing import List, Dict, Optional, Sequence, Tuple
 
@@ -39,6 +39,16 @@ class PythonWHT:
         if mock:
             return MockPB()
         return RudderPB()
+
+    def get_date_range(
+        self, creation_ts: datetime, prediction_horizon_days: int
+    ) -> Tuple:
+        start_date = creation_ts - timedelta(days=2 * prediction_horizon_days)
+        end_date = creation_ts - timedelta(days=prediction_horizon_days)
+        if isinstance(start_date, datetime):
+            start_date = start_date.date()
+            end_date = end_date.date()
+        return str(start_date), str(end_date)
 
     def _get_selector_sql(self, entity_var_table, input, model_ref, model_type):
         if "select" in input.lower():

@@ -100,14 +100,23 @@ def _train(
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
 
     merged_config = utils.combine_config(default_config, config)
+    entity = whtService.get_entity_info()
+    if 'data' in merged_config:
+        if 'entity_key' in merged_config['data']:
+            merged_config['data']['entity_key'] = entity.get('entity_name', '')
+        if 'entity_column' in merged_config['data']:
+            merged_config['data']['entity_column'] = entity.get('entity_column', '')
 
+    # Update entity_column
+    if 'data' in merged_config:
+        if 'entity_column' in merged_config['data']:
+            merged_config['data']['entity_column'] = entity.get('entity_column', '')
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None
     )
 
     connector = ConnectorFactory.create(creds, folder_path)
     whtService.init(connector, site_config_path, project_folder)
-
     (
         model_hash,
         entity_var_model_name,

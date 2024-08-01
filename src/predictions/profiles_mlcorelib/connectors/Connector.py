@@ -134,7 +134,10 @@ class Connector(ABC):
             column_lower = column.lower()
 
             for key, value in input_models.items():
-                if column_lower in key.lower() and value == "entity_var_item":
+                if (
+                    column_lower in key.lower()
+                    and value["model_type"] == "entity_var_item"
+                ):
                     raise Exception(
                         f"Array type features are not supported. Please remove '{column_lower}' and any other array type features from inputs."
                     )

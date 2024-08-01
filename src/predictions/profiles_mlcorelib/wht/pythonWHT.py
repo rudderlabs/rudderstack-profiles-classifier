@@ -40,12 +40,27 @@ class PythonWHT:
             return MockPB()
         return RudderPB()
 
+    def _get_selector_sql(self, entity_var_table, input, model_ref, model_type):
+        if "select" in input.lower():
+            return input
+
+        if model_type == "feature_table_model":
+            return f"SELECT * FROM {self.connector.schema}.{input}"
+        elif model_type == "entity_var_item":
+            var_name = model_ref.split("/")[-1]
+            return f"SELECT {var_name} FROM {self.connector.get_entity_var_table_ref(entity_var_table)}"
+        else:
+            raise Exception(
+                f"Error creating selector sql from given input models. Unknown model type: {model_type} for given inputs. Please check inputs."
+            )
+
     def get_input_models(
         self,
         inputs: List[str],
-    ) -> Dict[str, str]:
-        """Returns Dict of input models as keys and there model type as values - full paths in the profiles project for models
-        that are required to generate the current model.
+        entity_var_table: str,
+    ) -> Dict[str, Dict[str, str]]:
+        """Returns Dict of input model_refs as keys and another dictionary with key-value pair as it's selector_sql and model_type as values -
+        full paths in the profiles project for models that are required to generate the current model.
         """
 
         def extract_ref_from_query(query: str):
@@ -74,7 +89,8 @@ class PythonWHT:
         # Find matching models in the project
         result = dict()
 
-        for partial_ref in partial_model_refs:
+        for ind in range(len(partial_model_refs)):
+            partial_ref = partial_model_refs[ind]
             matching_models = [
                 # Ignoring first element since it is the name of the project
                 (key.split("/", 1)[-1], models_info[key]["model_type"])
@@ -82,8 +98,20 @@ class PythonWHT:
                 if key.endswith(partial_ref)
             ]
 
+            model_ref, model_type = matching_models[0][0], matching_models[0][1]
+            selector_sql = self._get_selector_sql(
+                entity_var_table, inputs[ind], model_ref, model_type
+            )
+
             if len(matching_models) == 1:
-                result.update({matching_models[0][0]: matching_models[0][1]})
+                result.update(
+                    {
+                        model_ref: {
+                            "selector_sql": selector_sql,
+                            "model_type": model_type,
+                        }
+                    }
+                )
             elif len(matching_models) > 1:
                 raise ValueError(
                     f"Multiple models with name {partial_ref} are found. Please ensure the models added in inputs are named uniquely and retry"

@@ -262,7 +262,7 @@ def _train(
             creation_ts, trainer.prediction_horizon_days
         )
 
-    absolute_input_models = whtService.get_input_models(inputs)
+    absolute_input_models = whtService.get_input_models(inputs, latest_entity_var_table)
 
     logger.get().info(
         f"Getting input column types from table: {latest_entity_var_table}"

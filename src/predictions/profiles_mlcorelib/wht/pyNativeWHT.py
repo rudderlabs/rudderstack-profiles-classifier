@@ -8,6 +8,7 @@ from ..connectors.Connector import Connector
 from .pythonWHT import PythonWHT
 from profiles_rudderstack.material import WhtMaterial
 
+
 class PyNativeWHT:
     def __init__(self, whtMaterial: WhtMaterial) -> None:
         self.pythonWHT = PythonWHT()
@@ -32,13 +33,15 @@ class PyNativeWHT:
             entity_key,
         )
         return material_split["model_hash"], material_split["model_name"], creation_ts
+
     def get_entity_info(self):
         entity = self.whtMaterial.model.entity()
         result = {
             "entity_name": entity.get("Name", ""),
-            "entity_column": entity.get("IdColumnName", "")
+            "entity_column": entity.get("IdColumnName", ""),
         }
         return result
+
     def get_material_names(
         self,
         start_date: str,

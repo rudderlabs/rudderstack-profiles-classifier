@@ -18,10 +18,11 @@ class Connector(ABC):
         }
         return new_creds
 
-    def get_input_columns(self, trainer_obj, inputs_selector_sql_queries):
+    def get_input_columns(self, trainer_obj, absolute_input_models):
         input_columns = set()
-        for query in inputs_selector_sql_queries:
-            query = query + " LIMIT 1"
+
+        for _, value in absolute_input_models.items():
+            query = value["selector_sql"] + " LIMIT 1"
             input_columns.update(self.run_query(query)[0]._fields)
 
         input_columns.difference_update(

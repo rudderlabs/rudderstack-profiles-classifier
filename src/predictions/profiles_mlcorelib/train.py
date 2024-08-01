@@ -268,7 +268,7 @@ def _train(
         f"Getting input column types from table: {latest_entity_var_table}"
     )
 
-    input_columns = connector.get_input_columns(trainer, inputs)
+    input_columns = connector.get_input_columns(trainer, absolute_input_models)
     input_column_types = connector.get_input_column_types(
         trainer,
         input_columns,

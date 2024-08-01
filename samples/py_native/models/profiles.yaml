@@ -5,7 +5,12 @@ models:
       occurred_at_col: insert_ts
       entity_key: user
       inputs:
-        - packages/feature_table/models/shopify_user_features
+        # - packages/feature_table/models/shopify_user_features
+        - packages/feature_table/entity/user/is_churned_7_days
+        - packages/feature_table/entity/user/days_since_last_seen
+        - packages/feature_table/entity/user/has_seen_recently
+        - packages/feature_table/entity/user/last_seen_category
+        - packages/feature_table/entity/user/n_orders_completed
       ml_config:
         data:
           label_column: is_churned_7_days
@@ -18,7 +23,12 @@ models:
       occurred_at_col: insert_ts
       entity_key: user
       inputs:
-        - packages/feature_table/models/shopify_user_features
+        # - packages/feature_table/models/shopify_user_features
+        - packages/feature_table/entity/user/is_churned_7_days
+        - packages/feature_table/entity/user/days_since_last_seen
+        - packages/feature_table/entity/user/has_seen_recently
+        - packages/feature_table/entity/user/last_seen_category
+        - packages/feature_table/entity/user/n_orders_completed
       ml_config:
         data:
           task: regression
@@ -33,7 +43,12 @@ models:
       entity_key: user
       training_model: models/training_model
       inputs:
-        - packages/feature_table/models/shopify_user_features
+        # - packages/feature_table/models/shopify_user_features
+        - packages/feature_table/entity/user/is_churned_7_days
+        - packages/feature_table/entity/user/days_since_last_seen
+        - packages/feature_table/entity/user/has_seen_recently
+        - packages/feature_table/entity/user/last_seen_category
+        - packages/feature_table/entity/user/n_orders_completed
       ml_config:
         data:
           label_column: is_churned_7_days
@@ -53,7 +68,12 @@ models:
       entity_key: user
       training_model: models/training_regression_model
       inputs:
-        - packages/feature_table/models/shopify_user_features
+        # - packages/feature_table/models/shopify_user_features
+        - packages/feature_table/entity/user/is_churned_7_days
+        - packages/feature_table/entity/user/days_since_last_seen
+        - packages/feature_table/entity/user/has_seen_recently
+        - packages/feature_table/entity/user/last_seen_category
+        - packages/feature_table/entity/user/n_orders_completed
       ml_config:
         data:
           task: regression

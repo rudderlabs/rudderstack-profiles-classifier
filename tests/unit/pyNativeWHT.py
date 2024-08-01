@@ -45,11 +45,15 @@ class TestPyNativeWHT(unittest.TestCase):
         self.pyNativeWHT.whtMaterial.wht_ctx.time_info = Mock(
             return_value=(begin_time, end_date)
         )
+
+        model_name = "prediction_model"
+        self.whtMaterial.model.name = Mock(return_value=model_name)
+
         with self.assertRaises(Exception) as context:
             _ = self.pyNativeWHT.get_date_range(creation_ts, prediction_horizon_days)
         self.assertIn(
             str(context.exception),
-            "begin_time and end_time needs to be atleast 2*prediction_horizon_days apart for the predictive feature.",
+            f"begin_time and end_time needs to be atleast {2*prediction_horizon_days} days apart for the predictive feature {self.whtMaterial.model.name()} with prediction_horizon_days: {prediction_horizon_days}",
         )
 
     def test_get_date_range_with_expected_value(self):

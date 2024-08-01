@@ -293,11 +293,13 @@ class AttributionModelRecipe(PyNativeRecipe):
         union_all_needed = False
         for conversion_info in conversion_vars:
             table = conversion_info["name"]
+            conversion_type = conversion_info["type"]
             if union_all_needed:
                 user_conversion_days_cte += " UNION ALL "
             user_conversion_days_cte += f"""
                 SELECT 
                     user_main_id,
+                    '{conversion_type}' AS conversion_type,
                     DATEDIFF(day, first_touch_date, converted_date) AS conversion_days
                 FROM {table}_user_view
                 WHERE converted_date IS NOT NULL"""
@@ -373,10 +375,18 @@ class AttributionModelRecipe(PyNativeRecipe):
             + f"""
                 LEFT JOIN ({campaign_vars_cte}) AS campaign_var_cte ON a.{campaign_id_column_name} = campaign_var_cte.{campaign_id_column_name}"""
         )
-        select_query += f"""
-            , coalesce(sf_order_first_touch_count, 0) + coalesce(sf_subscription_first_touch_count, 0) as total_conversions,
-            (SELECT coalesce(sum(conversion_days), 0) FROM user_conversion_days_cte) as total_days,
-            (SELECT coalesce(avg(conversion_days), 0) FROM user_conversion_days_cte) as avg_days_to_convert"""
+        for conversion_info in conversion_vars:
+            conversion_type = conversion_info["type"]
+            select_query += f"""
+                , (SELECT coalesce(sum(conversion_days), 0) 
+                   FROM user_conversion_days_cte 
+                   WHERE conversion_type = '{conversion_type}') 
+                  AS {conversion_type}_total_days_to_convert_from_first_touch_across_users
+                , (SELECT coalesce(avg(conversion_days), 0) 
+                   FROM user_conversion_days_cte 
+                   WHERE conversion_type = '{conversion_type}') 
+                  AS {conversion_type}_avg_days_to_convert_from_first_touch
+            """
 
         final_selector_sql = select_query + from_query
         return final_selector_sql

@@ -9,6 +9,7 @@ sys.path.append(
 
 from profiles_mlcorelib.predict import _predict
 from profiles_mlcorelib.utils import constants
+from src.predictions.profiles_mlcorelib.wht.pythonWHT import PythonWHT
 
 
 def predict(
@@ -41,4 +42,5 @@ def predict(
         config,
         runtime_info,
         constants.ML_CORE_PYTHON_PATH,
+        PythonWHT,
     )

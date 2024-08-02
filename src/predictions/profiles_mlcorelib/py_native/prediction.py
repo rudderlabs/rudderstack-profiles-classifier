@@ -135,4 +135,5 @@ class PredictionRecipe(PyNativeRecipe):
             config,
             runtime_info,
             constants.ML_CORE_PYNATIVE_PATH,
+            PyNativeWHT(this),
         )

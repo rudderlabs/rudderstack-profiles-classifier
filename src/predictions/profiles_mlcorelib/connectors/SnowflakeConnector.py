@@ -903,7 +903,7 @@ class SnowflakeConnector(Connector):
             )
 
             temp_table = self.join_feature_table_label_table(
-                feature_table, label_table, entity_column, "inner"
+                feature_table.select(entity_column), label_table, entity_column, "inner"
             )
             final_feature_table = self.get_merged_table(final_feature_table, temp_table)
 

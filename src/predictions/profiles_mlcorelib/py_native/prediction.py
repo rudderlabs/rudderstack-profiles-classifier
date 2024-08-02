@@ -122,15 +122,15 @@ class PredictionRecipe(PyNativeRecipe):
         )
         runtime_info = {"site_config_path": site_config_path}
         config = self.build_spec.get("ml_config", {})
-        input_selector_queries = []
+        input_material_names = []
         train_output = self._get_train_output_filepath(this)
         for input in self.build_spec["inputs"]:
             material = this.de_ref(input)
-            input_selector_queries.append(material.name())
+            input_material_names.append(material.name())
         _predict(
             creds,
             train_output,
-            input_selector_queries,
+            input_material_names,
             standardize_ref_name(creds["type"], this.name()),
             config,
             runtime_info,

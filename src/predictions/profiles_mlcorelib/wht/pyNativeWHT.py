@@ -69,7 +69,7 @@ class PyNativeWHT:
         model_hash: str,
         prediction_horizon_days: int,
         input_models: List[str],
-        inputs: List[str],
+        input_material_or_selector_sql: List[str],
         feature_data_min_date_diff: int,
     ) -> List[TrainTablesInfo]:
         return self.pythonWHT.get_material_names(
@@ -79,7 +79,7 @@ class PyNativeWHT:
             model_hash,
             prediction_horizon_days,
             input_models,
-            inputs,
+            input_material_or_selector_sql,
             False,
             feature_data_min_date_diff,
         )
@@ -96,9 +96,11 @@ class PyNativeWHT:
         return self.pythonWHT.get_registry_table_name()
 
     def get_input_models(
-        self, inputs: List[str], entity_var_table: str
+        self, input_material_or_selector_sql: List[str], entity_var_table: str
     ) -> Dict[str, Dict[str, str]]:
-        return self.pythonWHT.get_input_models(inputs, entity_var_table)
+        return self.pythonWHT.get_input_models(
+            input_material_or_selector_sql, entity_var_table
+        )
 
     def get_credentials(self, project_path: str, site_config_path: str) -> str:
         connection_name = utils.load_yaml(

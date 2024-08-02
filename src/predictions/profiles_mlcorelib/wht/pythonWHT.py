@@ -61,12 +61,12 @@ class PythonWHT:
             return f"SELECT {var_name} FROM {self.connector.get_entity_var_table_ref(entity_var_table)}"
         else:
             raise Exception(
-                f"Error creating selector sql from given input models. Unknown model type: {model_type} for given inputs. Please check inputs."
+                f"Error creating selector sql from given input models. Unknown model type: {model_type} for the input {model_ref}. Please ensure all the inputs are either feature table models, or entity vars."
             )
 
     def get_input_models(
         self,
-        inputs: List[str],
+        input_material_or_selector_sql: List[str],
         entity_var_table: str,
     ) -> Dict[str, Dict[str, str]]:
         """Returns Dict of input model_refs as keys and another dictionary with key-value pair as it's selector_sql and model_type as values -
@@ -83,7 +83,10 @@ class PythonWHT:
                 return column_name
             return self.split_material_name(query)["model_name"]
 
-        partial_model_refs = [extract_ref_from_query(input_) for input_ in inputs]
+        model_names = [
+            extract_ref_from_query(input_material_or_selector_sql_)
+            for input_material_or_selector_sql_ in input_material_or_selector_sql
+        ]
 
         args = {
             "site_config_path": self.site_config_path,
@@ -97,24 +100,27 @@ class PythonWHT:
         )
 
         # Find matching models in the project
-        result = dict()
-
-        for ind in range(len(partial_model_refs)):
-            partial_ref = partial_model_refs[ind]
+        input_model_info = dict()
+        for input_material_or_selector_sql_instance, input_model_name in zip(
+            input_material_or_selector_sql, model_names
+        ):
             matching_models = [
                 # Ignoring first element since it is the name of the project
                 (key.split("/", 1)[-1], models_info[key]["model_type"])
                 for key in models_info
-                if key.endswith(partial_ref)
+                if key.endswith(input_model_name)
             ]
 
             model_ref, model_type = matching_models[0][0], matching_models[0][1]
             selector_sql = self._get_selector_sql(
-                entity_var_table, inputs[ind], model_ref, model_type
+                entity_var_table,
+                input_material_or_selector_sql_instance,
+                model_ref,
+                model_type,
             )
 
             if len(matching_models) == 1:
-                result.update(
+                input_model_info.update(
                     {
                         model_ref: {
                             "selector_sql": selector_sql,
@@ -124,13 +130,15 @@ class PythonWHT:
                 )
             elif len(matching_models) > 1:
                 raise ValueError(
-                    f"Multiple models with name {partial_ref} are found. Please ensure the models added in inputs are named uniquely and retry"
+                    f"Multiple models with name {input_model_name} are found. Please ensure the models added in inputs are named uniquely and retry"
                 )
             elif len(matching_models) == 0:
-                raise ValueError(f"No match found for ref {partial_ref} in show models")
+                raise ValueError(
+                    f"No match found for ref {input_model_name} in show models"
+                )
 
-        logger.get().info(f"Found input models: {result}")
-        return result
+        logger.get().info(f"Found input models: {input_model_info}")
+        return input_model_info
 
     def get_registry_table_name(self):
         if self.cached_registry_table_name == "":
@@ -211,7 +219,7 @@ class PythonWHT:
         table_row,
         entity_var_model_name,
         model_hash,
-        inputs,
+        input_material_or_selector_sql,
         materials,
         return_partial_pairs: bool = False,
     ):
@@ -256,9 +264,9 @@ class PythonWHT:
         ):
             return
 
-        # Iterate over inputs and validate material names
+        # Iterate over input_material_or_selector_sql and validate material names
         validation_flag = True
-        for input_material_query in inputs:
+        for input_material_query in input_material_or_selector_sql:
             if not self._validate_historical_materials_hash(
                 input_material_query,
                 table_row.FEATURE_SEQ_NO,
@@ -295,7 +303,7 @@ class PythonWHT:
         entity_var_model_name: str,
         model_hash: str,
         prediction_horizon_days: int,
-        inputs: List[str],
+        input_material_or_selector_sql: List[str],
         return_partial_pairs: bool = False,
         feature_data_min_date_diff: int = 3,
     ) -> List[TrainTablesInfo]:
@@ -321,7 +329,7 @@ class PythonWHT:
                 row,
                 entity_var_model_name,
                 model_hash,
-                inputs,
+                input_material_or_selector_sql,
                 materials,
                 return_partial_pairs,
             )
@@ -488,7 +496,7 @@ class PythonWHT:
         model_hash: str,
         prediction_horizon_days: int,
         input_models: List[str],
-        inputs: List[str],
+        input_material_or_selector_sql: List[str],
         return_partial_pairs: bool = False,
         feature_data_min_date_diff: int = 3,
     ) -> List[TrainTablesInfo]:
@@ -519,7 +527,7 @@ class PythonWHT:
             entity_var_model_name,
             model_hash,
             prediction_horizon_days,
-            inputs,
+            input_material_or_selector_sql,
             return_partial_pairs,
         )
 
@@ -542,7 +550,7 @@ class PythonWHT:
                 entity_var_model_name,
                 model_hash,
                 prediction_horizon_days,
-                inputs,
+                input_material_or_selector_sql,
             )
 
         complete_sequences_materials = get_complete_sequences(materials)

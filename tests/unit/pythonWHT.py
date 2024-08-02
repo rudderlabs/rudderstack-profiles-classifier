@@ -127,7 +127,7 @@ class MockConnector:
 class TestFetchValidHistoricMaterials(unittest.TestCase):
     def setUp(self) -> None:
         self.pythonWHT = PythonWHT()
-        self.inputs = [
+        self.input_material_or_selector_sql = [
             "SELECT * FROM Material_user_var_table_54ddc22a_333",
             "SELECT * FROM Material_user_var_table_54ddc22a_383",
         ]
@@ -156,7 +156,12 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
 
         # Call the function
         self.pythonWHT._fetch_valid_historic_materials(
-            table_row, "user_var_table", "54ddc22a", self.inputs, materials, False
+            table_row,
+            "user_var_table",
+            "54ddc22a",
+            self.input_material_or_selector_sql,
+            materials,
+            False,
         )
 
         # Assertions
@@ -184,7 +189,12 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
 
         # Call the function
         self.pythonWHT._fetch_valid_historic_materials(
-            table_row, "user_var_table", "54ddc22a", self.inputs, materials, True
+            table_row,
+            "user_var_table",
+            "54ddc22a",
+            self.input_material_or_selector_sql,
+            materials,
+            True,
         )
 
         # Assertions
@@ -194,7 +204,12 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
 
         # Call the function
         self.pythonWHT._fetch_valid_historic_materials(
-            table_row, "user_var_table", "54ddc22a", self.inputs, materials, False
+            table_row,
+            "user_var_table",
+            "54ddc22a",
+            self.input_material_or_selector_sql,
+            materials,
+            False,
         )
 
         # Assertions
@@ -205,7 +220,12 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
 
         # Call the function
         self.pythonWHT._fetch_valid_historic_materials(
-            table_row, "user_var_table", "54ddc22a", self.inputs, materials, False
+            table_row,
+            "user_var_table",
+            "54ddc22a",
+            self.input_material_or_selector_sql,
+            materials,
+            False,
         )
 
         # Assertions
@@ -213,7 +233,12 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
 
         # Call the function
         self.pythonWHT._fetch_valid_historic_materials(
-            table_row, "user_var_table", "54ddc22a", self.inputs, materials, True
+            table_row,
+            "user_var_table",
+            "54ddc22a",
+            self.input_material_or_selector_sql,
+            materials,
+            True,
         )
 
         # Assertions

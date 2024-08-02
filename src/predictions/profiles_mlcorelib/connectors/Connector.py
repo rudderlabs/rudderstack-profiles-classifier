@@ -182,6 +182,17 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def get_entity_var_table_ref(self, table_name: str) -> str:
+        """
+        This fn is being used to create entity_var_table_ref for generating the input selector sql.
+        for ex:
+        in case of snowflake: SELECT * FROM "MATERIAL_ENTITY_VAR_MODE_HASH_SEQ"
+        in case of redshift: SELECT * FROM "schema_name"."material_entity_var_mode_hash_seq"
+        in case of bigquery: SELECT * FROM `schema_name`.`Material_entity_var_mode_hash_seq`
+        """
+        pass
+
+    @abstractmethod
     def get_merged_table(self, feature_table, feature_table_instance):
         pass
 

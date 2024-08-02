@@ -1011,8 +1011,8 @@ def replace_seq_no_in_query(query: str, seq_no: int) -> str:
     return replaced_query
 
 
-def extract_seq_no_from_select_query(select_query: str) -> int:
-    schema_table_name = select_query.split(" ")[-1]
+def extract_seq_no_from_select_query(material_or_selector_sql: str) -> int:
+    schema_table_name = material_or_selector_sql.split(" ")[-1]
     table_name_wo_schema = schema_table_name.split(".")[-1]
     if table_name_wo_schema.startswith("`") and table_name_wo_schema.endswith("`"):
         table_name = table_name_wo_schema[1:-1]

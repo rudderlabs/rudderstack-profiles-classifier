@@ -96,11 +96,9 @@ class PyNativeWHT:
         return self.pythonWHT.get_registry_table_name()
 
     def get_input_models(
-        self, input_material_or_selector_sql: List[str], entity_var_table: str
+        self, input_material: List[str], entity_var_table: str
     ) -> Dict[str, Dict[str, str]]:
-        return self.pythonWHT.get_input_models(
-            input_material_or_selector_sql, entity_var_table
-        )
+        return self.pythonWHT.get_input_models(input_material, entity_var_table)
 
     def get_credentials(self, project_path: str, site_config_path: str) -> str:
         connection_name = utils.load_yaml(

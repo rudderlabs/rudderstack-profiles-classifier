@@ -96,7 +96,7 @@ def _train(
         "features_profiles_model", None
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
     _ = config["data"].pop(
-        "input_material_or_selector_sql", None
+        "inputs", None
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
 
     merged_config = utils.combine_config(default_config, config)
@@ -261,7 +261,7 @@ def _train(
         creation_ts, trainer.prediction_horizon_days
     )
 
-    absolute_input_models = whtService.get_input_models(
+    absolute_input_model_info = whtService.get_input_models(
         input_material_or_selector_sql, latest_entity_var_table
     )
 
@@ -269,11 +269,11 @@ def _train(
         f"Getting input column types from table: {latest_entity_var_table}"
     )
 
-    input_columns = connector.get_input_columns(trainer, absolute_input_models)
+    input_columns = connector.get_input_columns(trainer, absolute_input_model_info)
     input_column_types = connector.get_input_column_types(
         trainer,
         input_columns,
-        absolute_input_models,
+        absolute_input_model_info,
         latest_entity_var_table,
     )
     logger.get().debug(f"Input column types detected: {input_column_types}")
@@ -291,7 +291,7 @@ def _train(
         entity_var_model_name=entity_var_model_name,
         model_hash=model_hash,
         prediction_horizon_days=trainer.prediction_horizon_days,
-        input_models=list(absolute_input_models.keys()),
+        input_models=list(absolute_input_model_info.keys()),
         input_material_or_selector_sql=input_material_or_selector_sql,
         feature_data_min_date_diff=feature_data_min_date_diff,
     )
@@ -302,7 +302,7 @@ def _train(
         train_table_pairs = trainer.check_and_generate_more_materials(
             get_material_names_partial,
             train_table_pairs,
-            list(absolute_input_models.keys()),
+            list(absolute_input_model_info.keys()),
             whtService,
             connector,
         )

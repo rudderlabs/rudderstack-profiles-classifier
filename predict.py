@@ -27,7 +27,7 @@ def predict(
         creds (dict): credentials to access the data warehouse - in same format as site_config.yaml from profiles
         s3_config (dict): aws credentials - not required for snowflake. only used for redshift
         model_path (str): path to the file where the model details including model id etc are present. Created in training step
-        input_material_or_selector_sql: (List[str]), containing sql queries such as "select * from <feature_table_name>" from which the script infers input tables or material names of input_models
+        input_material_or_selector_sql: (List[str]), containing sql queries such as "select * from <feature_table_name>" from which the script infers input tables in case of python model, or material names of input_models in case of pynative mode
         output_tablename (str): name of output table where prediction results are written
         config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
         runtime_info (dict): Whether the code is running on rudder infra or local. Useful to decide if redshift processor should run locally or in k8s

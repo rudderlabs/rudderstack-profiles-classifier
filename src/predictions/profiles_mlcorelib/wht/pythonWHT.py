@@ -50,12 +50,16 @@ class PythonWHT:
             end_date = end_date.date()
         return str(start_date), str(end_date)
 
-    def _get_selector_sql(self, entity_var_table, input, model_ref, model_type):
-        if "select" in input.lower():
-            return input
+    def _get_selector_sql(
+        self, entity_var_table, material_or_selector_sql, model_ref, model_type
+    ):
+        # in case if it is selector sql coming from pythonWHT
+        if "select" in material_or_selector_sql.lower():
+            return material_or_selector_sql
 
+        # in case if it is material name coming from pyNativeWHT
         if model_type == "feature_table_model":
-            return f"SELECT * FROM {self.connector.schema}.{input}"
+            return f"SELECT * FROM {self.connector.schema}.{material_or_selector_sql}"
         elif model_type == "entity_var_item":
             var_name = model_ref.split("/")[-1]
             return f"SELECT {var_name} FROM {self.connector.get_entity_var_table_ref(entity_var_table)}"

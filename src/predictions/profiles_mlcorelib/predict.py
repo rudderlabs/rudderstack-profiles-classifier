@@ -45,7 +45,7 @@ def _predict(
 
     folder_path = os.path.dirname(model_path)
     connector = ConnectorFactory.create(creds, folder_path)
-    whtService.init(connector, site_config_path, "")
+    whtService.init(connector, site_config_path, "dummpy_path")
     default_config = utils.load_yaml(utils.get_model_configs_file_path())
     _ = config["data"].pop(
         "package_name", None

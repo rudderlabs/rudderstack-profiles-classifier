@@ -31,8 +31,13 @@ class TrainingModel(BaseModelType):
             "occurred_at_col": {"type": "string"},
             **EntityKeyBuildSpecSchema["properties"],
             **MaterializationBuildSpecSchema["properties"],
-            "training_file_lookup_path": {"type": "string"},
-            "validity_time": {"type": "string", "enum": ["day", "week", "month"]},
+            "training_file_lookup_path": {"type": ["string", "null"]},
+            "validity_time": {
+                "oneOf": [
+                    {"type": "string", "enum": ["day", "week", "month"]},
+                    {"type": "null"},
+                ]
+            },
             "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
             "ml_config": {
                 "type": "object",

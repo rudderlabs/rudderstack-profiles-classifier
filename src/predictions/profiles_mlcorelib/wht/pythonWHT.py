@@ -34,7 +34,7 @@ class PythonWHT:
         self.project_folder_path = project_folder_path
         self.cached_registry_table_name = ""
 
-    def get_entity_info(self, merged_config):
+    def update_entity_info_config(self, merged_config):
         return merged_config
 
     def _getPB(self):

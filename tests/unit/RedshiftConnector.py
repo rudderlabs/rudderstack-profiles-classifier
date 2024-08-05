@@ -133,7 +133,9 @@ class TestGetMaterialNames(unittest.TestCase):
         self.model_hash = "model_hash"
         self.prediction_horizon_days = 7
         self.input_models = ["model1.yaml", "model2.yaml"]
-        self.inputs = ["""select * from material_user_var_736465_0"""]
+        self.input_material_or_selector_sql = [
+            """select * from material_user_var_736465_0"""
+        ]
         self.whtService = PythonWHT()
         self.whtService.init(self.connector, "siteconfig.yaml", "project_folder")
 
@@ -366,7 +368,7 @@ class TestGetMaterialNames(unittest.TestCase):
             self.model_hash,
             self.prediction_horizon_days,
             self.input_models,
-            self.inputs,
+            self.input_material_or_selector_sql,
         )
         # Assert the result
         self.assertEqual(materials, expected_materials)
@@ -402,7 +404,7 @@ class TestGetMaterialNames(unittest.TestCase):
             self.model_hash,
             self.prediction_horizon_days,
             self.input_models,
-            self.inputs,
+            self.input_material_or_selector_sql,
         )
 
         # Assert the result
@@ -437,7 +439,7 @@ class TestGetMaterialNames(unittest.TestCase):
                 self.model_hash,
                 self.prediction_horizon_days,
                 self.input_models,
-                self.inputs,
+                self.input_material_or_selector_sql,
             )
         # Check the exception message
         self.assertIn(
@@ -1031,7 +1033,9 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
         self.site_config_path = "siteconfig.yaml"
         self.project_folder = "project_folder"
         self.input_models = ["model1.yaml", "model2.yaml"]
-        self.inputs = ["""select * from material_user_var_736465_0"""]
+        self.input_material_or_selector_sql = [
+            """select * from material_user_var_736465_0"""
+        ]
         self.whtService = PythonWHT()
         self.whtService.init(self.connector, "", "")
         self.connector.get_tables_by_prefix = Mock(return_value=["material_table_1"])

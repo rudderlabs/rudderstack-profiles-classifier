@@ -63,6 +63,9 @@ class BigQueryConnector(CommonWarehouseConnector):
         except Exception as e:
             raise Exception(f"Couldn't run the query: {query}. Error: {str(e)}")
 
+    def get_entity_var_table_ref(self, table_name: str) -> str:
+        return f"`{self.schema}`.`{table_name.capitalize()}`"
+
     def get_table_as_dataframe(
         self, _: google.cloud.bigquery.client.Client, table_name: str, **kwargs
     ) -> pd.DataFrame:

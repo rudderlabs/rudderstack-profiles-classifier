@@ -138,14 +138,14 @@ class RudderPB:
         return model_hash, entity_var_model_name
 
     def get_latest_entity_var_table_name(
-        model_hash: str, entity_var_model: str, inputs: list
+        model_hash: str, entity_var_model: str, input_material_or_selector_sql: list
     ) -> str:
         try:
-            input = inputs[0]
+            input = input_material_or_selector_sql[0]
             seq_no = int(input.split("_")[-1])
             return MATERIAL_PREFIX + entity_var_model + "_" + f"{seq_no:.0f}"
         except IndexError:
             raise Exception(
                 "Error while getting feature table name using model "
-                f"hash {model_hash}, feature profile model {entity_var_model} and input {inputs}"
+                f"hash {model_hash}, feature profile model {entity_var_model} and input {input_material_or_selector_sql[0]}"
             )

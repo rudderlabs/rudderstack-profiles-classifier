@@ -37,7 +37,7 @@ class Processor(ABC):
         creds,
         s3_config,
         model_path,
-        inputs,
+        input_material_or_selector_sql,
         output_tablename,
         merged_config,
         site_config: dict,

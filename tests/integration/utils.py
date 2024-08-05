@@ -116,7 +116,7 @@ def assert_training_artefacts():
     output_folder = get_pynative_output_folder()
     models = [
         {
-            "regex": "Material_traininG_model_.+",
+            "regex": "Material_propensity_model_training_.+",
             "reports": [
                 "01-feature-importance-chart",
                 "02-test-lift-chart",
@@ -126,7 +126,7 @@ def assert_training_artefacts():
             "classification": True,
         },
         {
-            "regex": "Material_training_regression_model_.+",
+            "regex": "Material_training_Regression_model_.+",
             "reports": [
                 "01-feature-importance-chart",
                 "02-residuals-chart",
@@ -274,7 +274,7 @@ def validate_predictions_df_classification(creds: dict):
 
 
 def validate_py_native_df_classification(creds: dict):
-    material_name = get_file_name("Material_prediction_model_.+")
+    material_name = get_file_name("Material_propensity_model_prediction_.+")
     table_name = standardize_ref_name(creds["type"], material_name)
     column_name = standardize_ref_name(creds["type"], "classification_churn_7_days")
     required_columns = [

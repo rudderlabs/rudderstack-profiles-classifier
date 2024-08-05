@@ -42,5 +42,5 @@ def predict(
         config,
         runtime_info,
         constants.ML_CORE_PYTHON_PATH,
-        PythonWHT,
+        PythonWHT(),
     )

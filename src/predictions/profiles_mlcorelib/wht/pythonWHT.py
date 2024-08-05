@@ -25,9 +25,9 @@ def split_key(item):
 class PythonWHT:
     def init(
         self,
-        connector: Connector,
-        site_config_path: str,
-        project_folder_path: str,
+        connector: Connector = None,
+        site_config_path: str = None,
+        project_folder_path: str = None,
     ) -> None:
         self.connector = connector
         self.site_config_path = site_config_path

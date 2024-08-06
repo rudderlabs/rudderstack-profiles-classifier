@@ -444,6 +444,8 @@ class PythonWHT:
         # TODO - Move this logic to bigquery conenctor
         if "`" in name:  # BigQuery case table name
             table_name = name.split("`")[-2]
+        elif '"' in name:  # Redshift case table name
+            table_name = name.split('"')[-2]
         else:
             table_name = name.split()[-1]
         table_suffix = table_name.strip("\"'")

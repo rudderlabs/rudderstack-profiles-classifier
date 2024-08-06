@@ -25,14 +25,17 @@ def split_key(item):
 class PythonWHT:
     def init(
         self,
-        connector: Connector,
-        site_config_path: str,
-        project_folder_path: str,
+        connector: Connector = None,
+        site_config_path: str = None,
+        project_folder_path: str = None,
     ) -> None:
         self.connector = connector
         self.site_config_path = site_config_path
         self.project_folder_path = project_folder_path
         self.cached_registry_table_name = ""
+
+    def update_entity_info_config(self, merged_config):
+        return merged_config
 
     def _getPB(self):
         mock = False

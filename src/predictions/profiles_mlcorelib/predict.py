@@ -34,6 +34,7 @@ def _predict(
     config: dict,
     runtime_info: dict,
     ml_core_path: str,
+    whtService,
 ) -> None:
     logger.get().debug("Starting Predict job")
 
@@ -43,13 +44,13 @@ def _predict(
     site_config_path = utils.fetch_key_from_dict(runtime_info, "site_config_path", "")
 
     folder_path = os.path.dirname(model_path)
-
+    connector = ConnectorFactory.create(creds, folder_path)
     default_config = utils.load_yaml(utils.get_model_configs_file_path())
     _ = config["data"].pop(
         "package_name", None
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
     merged_config = utils.combine_config(default_config, config)
-
+    merged_config = whtService.update_entity_info_config(merged_config)
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None
     )
@@ -58,7 +59,6 @@ def _predict(
     logger.get().debug(
         f"Started Predicting for {trainer.output_profiles_ml_model} to predict {trainer.label_column}"
     )
-    connector = ConnectorFactory.create(creds, folder_path)
 
     connector.compute_udf_name(model_path)
     connector.pre_job_cleanup()

@@ -91,7 +91,7 @@ class PythonWHT:
             if match_column:
                 column_name = match_column.group(1)
                 return column_name
-            return self.split_material_name(query)["model_name"]
+            return self.split_material_name(query)["model_name"].lower()
 
         model_names = [
             extract_ref_from_query(input_material_or_selector_sql_)
@@ -448,6 +448,9 @@ class PythonWHT:
             table_name = name.split('"')[-2]
         else:
             table_name = name.split()[-1]
+
+        if "." in table_name:
+            table_name = table_name.split(".")[-1]
         table_suffix = table_name.strip("\"'")
         split_parts = table_suffix.split("_")
         try:

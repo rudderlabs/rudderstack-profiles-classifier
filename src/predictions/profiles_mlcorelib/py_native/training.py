@@ -64,10 +64,12 @@ class TrainingModel(BaseModelType):
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         if (
             "materialization" not in build_spec
-            or "enable_status" not in build_spec["materialization"]
+            or "requested_enable_status" not in build_spec["materialization"]
         ):
             # This will ensure that the training model won't run if there is no prediction model in the project
-            build_spec["materialization"] = {"enable_status": "only_if_necessary"}
+            build_spec["materialization"] = {
+                "requested_enable_status": "only_if_necessary"
+            }
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:
@@ -192,19 +194,19 @@ class TrainingRecipe(PyNativeRecipe):
         project_folder = this.base_wht_project.project_path()
         runtime_info = {"is_rudder_backend": this.base_wht_project.is_rudder_backend()}
         config = self.build_spec.get("ml_config", {})
-        input_selector_queries = []
+        input_material_names = []
         for input in self.build_spec["inputs"]:
             material = this.de_ref(input)
-            input_selector_queries.append(f"select * from {material.name()}")
+            input_material_names.append(material.name())
         _train(
             creds,
-            input_selector_queries,
+            input_material_names,
             output_filename,
             config,
             site_config_path,
             project_folder,
             runtime_info,
-            input_model_refs,
+            None,
             whtService,
             constants.ML_CORE_PYNATIVE_PATH,
             standardize_ref_name(creds["type"], this.name()),

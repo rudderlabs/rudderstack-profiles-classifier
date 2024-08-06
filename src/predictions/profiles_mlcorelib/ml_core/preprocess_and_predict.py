@@ -34,7 +34,7 @@ def preprocess_and_predict(
     creds,
     s3_config,
     model_path,
-    inputs,
+    input_material_or_selector_sql,
     output_tablename,
     connector,
     trainer: MLTrainer,
@@ -73,9 +73,13 @@ def preprocess_and_predict(
     seq_no = None
 
     try:
-        seq_no = int(utils.extract_seq_no_from_select_query(inputs[0]))
+        seq_no = int(
+            utils.extract_seq_no_from_select_query(input_material_or_selector_sql[0])
+        )
     except Exception as e:
-        raise Exception(f"Error while parsing seq_no from inputs: {inputs}. Error: {e}")
+        raise Exception(
+            f"Error while parsing seq_no from inputs: {input_material_or_selector_sql[0]}. Error: {e}"
+        )
 
     whtService = PyNativeWHT(None)
     whtService.init(connector, "", "")
@@ -299,7 +303,7 @@ if __name__ == "__main__":
     parser.add_argument("--wh_creds", type=json.loads)
     parser.add_argument("--s3_config", type=json.loads)
     parser.add_argument("--json_output_filename", type=str)
-    parser.add_argument("--inputs", type=json.loads)
+    parser.add_argument("--input_material_or_selector_sql", type=json.loads)
     parser.add_argument("--output_tablename", type=str)
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--output_path", type=str)
@@ -339,7 +343,7 @@ if __name__ == "__main__":
         wh_creds,
         args.s3_config,
         model_path,
-        args.inputs,
+        args.input_material_or_selector_sql,
         args.output_tablename,
         connector=connector,
         trainer=trainer,

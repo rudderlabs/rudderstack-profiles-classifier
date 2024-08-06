@@ -13,7 +13,7 @@ from profiles_mlcorelib.utils import constants
 
 def train(
     creds: dict,
-    inputs: str,
+    input_selector_sql: str,
     output_filename: str,
     config: dict,
     site_config_path: str = None,
@@ -23,7 +23,7 @@ def train(
     input_models = None
     _train(
         creds,
-        inputs,
+        input_selector_sql,
         output_filename,
         config,
         site_config_path,

@@ -18,10 +18,11 @@ class Connector(ABC):
         }
         return new_creds
 
-    def get_input_columns(self, trainer_obj, inputs_selector_sql_queries):
+    def get_input_columns(self, trainer_obj, absolute_input_model_info):
         input_columns = set()
-        for query in inputs_selector_sql_queries:
-            query = query + " LIMIT 1"
+
+        for _, value in absolute_input_model_info.items():
+            query = value["selector_sql"] + " LIMIT 1"
             input_columns.update(self.run_query(query)[0]._fields)
 
         input_columns.difference_update(
@@ -134,7 +135,10 @@ class Connector(ABC):
             column_lower = column.lower()
 
             for key, value in input_models.items():
-                if column_lower in key.lower() and value == "entity_var_item":
+                if (
+                    column_lower in key.lower()
+                    and value["model_type"] == "entity_var_item"
+                ):
                     raise Exception(
                         f"Array type features are not supported. Please remove '{column_lower}' and any other array type features from inputs."
                     )
@@ -175,6 +179,17 @@ class Connector(ABC):
 
     @abstractmethod
     def call_procedure(self, *args, **kwargs):
+        pass
+
+    @abstractmethod
+    def get_entity_var_table_ref(self, table_name: str) -> str:
+        """
+        This fn is being used to create entity_var_table_ref for generating the input selector sql.
+        for ex:
+        in case of snowflake: SELECT * FROM "MATERIAL_ENTITY_VAR_MODE_HASH_SEQ"
+        in case of redshift: SELECT * FROM "schema_name"."material_entity_var_mode_hash_seq"
+        in case of bigquery: SELECT * FROM `schema_name`.`Material_entity_var_mode_hash_seq`
+        """
         pass
 
     @abstractmethod

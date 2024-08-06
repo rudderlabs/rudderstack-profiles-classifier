@@ -49,8 +49,6 @@ class MLTrainer(ABC):
         self.output_profiles_ml_model = kwargs["data"]["output_profiles_ml_model"]
         self.index_timestamp = kwargs["data"]["index_timestamp"]
         self.eligible_users = kwargs["data"]["eligible_users"]
-        self.train_start_dt = kwargs["data"]["train_start_dt"]
-        self.train_end_dt = kwargs["data"]["train_end_dt"]
         self.prediction_horizon_days = kwargs["data"]["prediction_horizon_days"]
         self.max_row_count = kwargs["data"]["max_row_count"]
         self.recall_to_precision_importance = kwargs["data"][

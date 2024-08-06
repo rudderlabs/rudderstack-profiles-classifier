@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timedelta
 from typing import List, Tuple, Dict
 
 from ..utils import utils
@@ -21,6 +22,32 @@ class PyNativeWHT:
         project_folder_path: str,
     ) -> None:
         self.pythonWHT.init(connector, site_config_path, project_folder_path)
+
+    def get_date_range(
+        self, creation_ts: datetime, prediction_horizon_days: int
+    ) -> Tuple:
+        start_date, end_date = self.whtMaterial.wht_ctx.time_info()
+        if end_date is None:
+            start_date, end_date = self.pythonWHT.get_date_range(
+                creation_ts, prediction_horizon_days
+            )
+        else:
+            if (start_date is None) or (
+                start_date is not None
+                and (end_date - start_date)
+                >= timedelta(days=2 * prediction_horizon_days)
+            ):
+                start_date, end_date = self.pythonWHT.get_date_range(
+                    end_date, prediction_horizon_days
+                )
+            elif start_date is not None and (end_date - start_date) < timedelta(
+                days=2 * prediction_horizon_days
+            ):
+                raise Exception(
+                    f"begin_time and end_time needs to be atleast {2*prediction_horizon_days} days apart for the predictive feature {self.whtMaterial.model.name()} with prediction_horizon_days: {prediction_horizon_days}"
+                )
+
+        return str(start_date), str(end_date)
 
     def get_latest_entity_var_table(self, entity_key: str) -> Tuple[str, str, str]:
         model_ref = f"entity/{entity_key}/var_table"
@@ -48,7 +75,7 @@ class PyNativeWHT:
         model_hash: str,
         prediction_horizon_days: int,
         input_models: List[str],
-        inputs: List[str],
+        input_material_or_selector_sql: List[str],
         feature_data_min_date_diff: int,
     ) -> List[TrainTablesInfo]:
         return self.pythonWHT.get_material_names(
@@ -58,7 +85,7 @@ class PyNativeWHT:
             model_hash,
             prediction_horizon_days,
             input_models,
-            inputs,
+            input_material_or_selector_sql,
             False,
             feature_data_min_date_diff,
         )
@@ -74,8 +101,10 @@ class PyNativeWHT:
     def get_registry_table_name(self) -> str:
         return self.pythonWHT.get_registry_table_name()
 
-    def get_input_models(self, inputs: List[str]) -> Dict[str, str]:
-        return self.pythonWHT.get_input_models(inputs)
+    def get_input_models(
+        self, input_material: List[str], entity_var_table: str
+    ) -> Dict[str, Dict[str, str]]:
+        return self.pythonWHT.get_input_models(input_material, entity_var_table)
 
     def get_credentials(self, project_path: str, site_config_path: str) -> str:
         connection_name = utils.load_yaml(

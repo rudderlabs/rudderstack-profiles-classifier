@@ -444,15 +444,6 @@ def delete_folder(folder_path: str) -> None:
         logger.get().error(f"Error occurred while deleting folder '{folder_path}': {e}")
 
 
-def get_date_range(creation_ts: datetime, prediction_horizon_days: int) -> Tuple:
-    start_date = creation_ts - timedelta(days=2 * prediction_horizon_days)
-    end_date = creation_ts - timedelta(days=prediction_horizon_days)
-    if isinstance(start_date, datetime):
-        start_date = start_date.date()
-        end_date = end_date.date()
-    return str(start_date), str(end_date)
-
-
 def date_add(reference_date: str, add_days: int) -> str:
     """
     Adds the horizon days to the reference date (in the format "YYYY-MM-DD") and
@@ -1020,8 +1011,8 @@ def replace_seq_no_in_query(query: str, seq_no: int) -> str:
     return replaced_query
 
 
-def extract_seq_no_from_select_query(select_query: str) -> int:
-    schema_table_name = select_query.split(" ")[-1]
+def extract_seq_no_from_select_query(material_or_selector_sql: str) -> int:
+    schema_table_name = material_or_selector_sql.split(" ")[-1]
     table_name_wo_schema = schema_table_name.split(".")[-1]
     if table_name_wo_schema.startswith("`") and table_name_wo_schema.endswith("`"):
         table_name = table_name_wo_schema[1:-1]

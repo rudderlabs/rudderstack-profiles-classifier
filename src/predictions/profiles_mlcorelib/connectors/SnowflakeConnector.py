@@ -57,6 +57,7 @@ class SnowflakeConnector(Connector):
         return
 
     def build_session(self, credentials: dict) -> snowflake.snowpark.Session:
+        self.schema = credentials.get("schema", None)
         self.connection_parameters = self.remap_credentials(credentials)
         session = Session.builder.configs(self.connection_parameters).create()
         return session
@@ -79,6 +80,9 @@ class SnowflakeConnector(Connector):
         del feature_table_df
 
         return self.session.call(*args)
+
+    def get_entity_var_table_ref(self, table_name: str) -> str:
+        return f'"{table_name.upper()}"'
 
     def get_merged_table(self, base_table, incoming_table):
         return (
@@ -899,7 +903,7 @@ class SnowflakeConnector(Connector):
             )
 
             temp_table = self.join_feature_table_label_table(
-                feature_table, label_table, entity_column, "inner"
+                feature_table.select(entity_column), label_table, entity_column, "inner"
             )
             final_feature_table = self.get_merged_table(final_feature_table, temp_table)
 

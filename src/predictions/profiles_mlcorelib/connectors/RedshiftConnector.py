@@ -61,11 +61,14 @@ class RedshiftConnector(CommonWarehouseConnector):
                 query_output = [Row(*row) for row in row_outputs]
                 return query_output
             else:
-                raise exception(
+                raise Exception(
                     "No result set is present for given query. Please check the query."
                 )
         else:
             return self.session.execute(query)
+
+    def get_entity_var_table_ref(self, table_name: str) -> str:
+        return f'"{self.schema}"."{table_name.lower()}"'
 
     def get_table_as_dataframe(
         self, _: redshift_connector.cursor.Cursor, table_name: str, **kwargs

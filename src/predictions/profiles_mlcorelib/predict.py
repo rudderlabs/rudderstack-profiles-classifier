@@ -29,7 +29,7 @@ model_file_name = constants.MODEL_FILE_NAME
 def _predict(
     creds: dict,
     model_path: str,
-    inputs: str,
+    input_material_or_selector_sql: str,
     output_tablename: str,
     config: dict,
     runtime_info: dict,
@@ -86,7 +86,7 @@ def _predict(
         creds,
         s3_config,
         model_path,
-        inputs,
+        input_material_or_selector_sql,
         output_tablename,
         merged_config,
         site_config,

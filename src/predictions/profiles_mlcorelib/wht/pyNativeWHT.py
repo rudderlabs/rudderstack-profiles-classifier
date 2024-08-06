@@ -64,7 +64,7 @@ class PyNativeWHT:
     def update_entity_info_config(self, merged_config):
         entity = self.whtMaterial.model.entity()
         merged_config["data"]["entity_key"] = entity.get("Name", "")
-        merged_config["data"]["entity_column"] = entity.get("IdColumnName", "")
+        merged_config["data"]["entity_column"] = entity.get("IdColumnName", "").lower()
         return merged_config
 
     def get_material_names(

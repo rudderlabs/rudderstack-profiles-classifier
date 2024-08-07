@@ -27,8 +27,10 @@ class Connector(ABC):
 
         input_columns.difference_update(
             {
+                trainer_obj.index_timestamp,
                 trainer_obj.index_timestamp.upper(),
                 trainer_obj.index_timestamp.lower(),
+                trainer_obj.entity_column,
                 trainer_obj.entity_column.upper(),
                 trainer_obj.entity_column.lower(),
             }
@@ -143,6 +145,9 @@ class Connector(ABC):
                         f"Array type features are not supported. Please remove '{column_lower}' and any other array type features from inputs."
                     )
 
+    def get_entity_column(self, entity_column: str) -> str:
+        return entity_column
+
     @abstractmethod
     def fetch_filtered_table(
         self,
@@ -230,7 +235,7 @@ class Connector(ABC):
 
     @abstractmethod
     def check_table_entry_in_material_registry(
-        self, registry_table_name: str, material: dict
+        self, registry_table_name: str, entity_var_model_name: str, material: dict
     ) -> bool:
         pass
 

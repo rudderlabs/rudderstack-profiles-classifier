@@ -1036,6 +1036,7 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
         self.input_material_or_selector_sql = [
             """select * from material_user_var_736465_0"""
         ]
+        self.entity_var_model_name = "entity_var_table"
         self.whtService = PythonWHT()
         self.whtService.init(self.connector, "", "")
         self.connector.get_tables_by_prefix = Mock(return_value=["material_table_1"])
@@ -1044,7 +1045,7 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
     def test_valid_arguments_all_tables_exist(self):
         self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
         result = self.whtService._validate_historical_materials_hash(
-            "SELECT * FROM material_table_3", 1, 2
+            "SELECT * FROM material_table_3", self.entity_var_model_name, 1, 2
         )
         self.assertTrue(result)
 
@@ -1053,7 +1054,7 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
             side_effect=[True, False]
         )
         result = self.whtService._validate_historical_materials_hash(
-            "SELECT * FROM material_table_3", 1, 2
+            "SELECT * FROM material_table_3", self.entity_var_model_name, 1, 2
         )
         self.assertFalse(result)
 

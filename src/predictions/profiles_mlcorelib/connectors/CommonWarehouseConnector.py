@@ -201,7 +201,7 @@ class CommonWarehouseConnector(Connector):
             return False
 
     def check_table_entry_in_material_registry(
-        self, registry_table_name: str, material: dict
+        self, registry_table_name: str, entity_var_model_name: str, material: dict
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
@@ -209,8 +209,25 @@ class CommonWarehouseConnector(Connector):
         """
         material_registry_table = self.get_material_registry_table(registry_table_name)
         result = material_registry_table.loc[
-            (material_registry_table["model_name"] == material["model_name"])
-            & (material_registry_table["model_hash"] == material["model_hash"])
+            (
+                material_registry_table["model_name"].isin(
+                    [
+                        material["model_name"],
+                        material["model_name"].lower(),
+                        material["model_name"].upper(),
+                        entity_var_model_name,
+                    ]
+                )
+            )
+            & (
+                material_registry_table["model_hash"].isin(
+                    [
+                        material["model_hash"],
+                        material["model_hash"].lower(),
+                        material["model_hash"].upper(),
+                    ]
+                )
+            )
             & (material_registry_table["seq_no"] == material["seq_no"])
         ]
         row_count = result.shape[0]

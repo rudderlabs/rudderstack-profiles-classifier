@@ -299,7 +299,9 @@ class AttributionModelRecipe(PyNativeRecipe):
                 SELECT 
                     user_main_id,
                     '{table}' AS conversion_type,
-                    DATEDIFF(day, first_touch_date, converted_date) AS conversion_days
+                    DATEDIFF(day, first_touch_date, converted_date) AS conversion_days,
+                    {table}_user_view.first_touch_date as date,
+                    {table}_user_view.first_touch_campaign_profile_id as campaign_profile_id
                 FROM {table}_user_view
                 WHERE converted_date IS NOT NULL"""
             union_all_needed = True
@@ -372,19 +374,24 @@ class AttributionModelRecipe(PyNativeRecipe):
         from_query = (
             from_query
             + f"""
-                LEFT JOIN ({campaign_vars_cte}) AS campaign_var_cte ON a.{campaign_id_column_name} = campaign_var_cte.{campaign_id_column_name}"""
+                        LEFT JOIN ({campaign_vars_cte}) AS campaign_var_cte ON a.{campaign_id_column_name} = campaign_var_cte.{campaign_id_column_name}
+                        LEFT JOIN user_conversion_days_cte 
+                    ON a.date = user_conversion_days_cte.date
+                    AND a.{campaign_id_column_name} = user_conversion_days_cte.{campaign_id_column_name}
+        """
         )
+
         for conversion_info in conversion_vars:
             conversion_type = conversion_info["name"]
             select_query += f"""
-                , (SELECT coalesce(sum(conversion_days), 0) 
-                   FROM user_conversion_days_cte 
-                   WHERE conversion_type = '{conversion_type}') 
-                  AS {conversion_type}_total_days_to_convert_from_first_touch_across_users
-                , (SELECT coalesce(avg(conversion_days), 0) 
-                   FROM user_conversion_days_cte 
-                   WHERE conversion_type = '{conversion_type}') 
-                  AS {conversion_type}_avg_days_to_convert_from_first_touch
+                , CASE
+                    WHEN COALESCE({conversion_type}_conversion_view.{conversion_type}_first_touch_count, 0) = 0 THEN NULL
+                    ELSE COALESCE(SUM(CASE WHEN user_conversion_days_cte.conversion_type = '{conversion_type}' THEN user_conversion_days_cte.conversion_days ELSE 0 END) OVER (PARTITION BY a.date, a.{campaign_id_column_name}), 0)
+                  END AS {conversion_type}_total_days_to_convert_from_first_touch_across_users
+                , CASE
+                    WHEN COALESCE({conversion_type}_conversion_view.{conversion_type}_first_touch_count, 0) = 0 THEN NULL
+                    ELSE COALESCE(AVG(CASE WHEN user_conversion_days_cte.conversion_type = '{conversion_type}' THEN user_conversion_days_cte.conversion_days ELSE NULL END) OVER (PARTITION BY a.date, a.{campaign_id_column_name}), 0)
+                  END AS {conversion_type}_avg_days_to_convert_from_first_touch
             """
 
         final_selector_sql = select_query + from_query

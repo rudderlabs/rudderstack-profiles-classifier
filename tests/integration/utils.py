@@ -62,7 +62,8 @@ pred_column_regression = (
     f"{output_model_name_regression}_{pred_horizon_days}_days".upper()
 )
 output_label = "OUTPUT_LABEL"
-p_output_tablename = "test_run_can_delete_3"
+p_output_tablename_classification = "classification_test_run_can_delete_1"
+p_output_tablename_regression = "regression_test_run_can_delete_1"
 entity_key = "user"
 material_registry_table_name = "MATERIAL_REGISTRY_4"
 
@@ -243,7 +244,7 @@ def validate_predictions_df_regressor(creds: dict):
         "MODEL_ID",
         f"PERCENTILE_{pred_column_regression}",
     ]
-    _validate_predictions_df(creds, required_columns, p_output_tablename)
+    _validate_predictions_df(creds, required_columns, p_output_tablename_regression)
 
 
 def validate_py_native_df_regressor(creds: dict):
@@ -269,7 +270,7 @@ def validate_predictions_df_classification(creds: dict):
         output_label,
         f"PERCENTILE_{pred_column_classification}",
     ]
-    _validate_predictions_df(creds, required_columns, p_output_tablename)
+    _validate_predictions_df(creds, required_columns, p_output_tablename_classification)
 
 
 def validate_py_native_df_classification(creds: dict):

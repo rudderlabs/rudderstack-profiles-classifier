@@ -45,13 +45,13 @@ def preprocess_and_predict(
     and predicting on the data.
     """
 
-    model_file_name = constants.MODEL_FILE_NAME
     connector.compute_udf_name(model_path)
 
     with open(model_path, "r") as f:
         results = json.load(f)
     train_model_id = results["model_info"]["model_id"]
     stage_name = results["model_info"]["file_location"]["stage"]
+    model_name = results["model_info"]["file_location"]["file_name"]
     model_hash = results["config"]["material_hash"]
     input_model_name = results["config"]["input_model_name"]
 
@@ -67,7 +67,6 @@ def preprocess_and_predict(
         for word in arraytype_columns
     }
 
-    model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
     seq_no = None
 
     try:

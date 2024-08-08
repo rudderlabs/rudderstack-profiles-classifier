@@ -150,7 +150,7 @@ def test_regressor():
             s3_config,
             output_filename,
             predict_inputs,
-            p_output_tablename,
+            p_output_tablename_regression,
             predict_config,
             runtime_info,
         )

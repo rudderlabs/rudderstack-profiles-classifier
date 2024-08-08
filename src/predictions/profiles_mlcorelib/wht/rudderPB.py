@@ -24,7 +24,7 @@ class RudderPB:
             f"Fetching latest model hash by running command: {' '.join(pb_args)}"
         )
         pb_compile_output_response = utils.subprocess_run(pb_args)
-        pb_compile_output = (pb_compile_output_response.stdout).lower()
+        pb_compile_output = pb_compile_output_response.stdout
         logger.get().info(f"pb compile output: {pb_compile_output}")
         return pb_compile_output
 
@@ -124,16 +124,15 @@ class RudderPB:
             raise Exception(
                 f"Could not find any matching var table in the output of pb compile command"
             )
-        material_file_prefix = (MATERIAL_PREFIX + entity_var_model_name + "_").lower()
 
         try:
             model_hash = pb_compile_output[
-                pb_compile_output.index(material_file_prefix)
-                + len(material_file_prefix) :
-            ].split("_")[0]
+                pb_compile_output.index(entity_var_model_name)
+                + len(entity_var_model_name) :
+            ].split("_")[1]
         except ValueError:
             raise Exception(
-                f"Could not find material file prefix {material_file_prefix} in the output of pb compile command: {pb_compile_output}"
+                f"Could not find entity-var-model '{entity_var_model_name}' in the output of pb compile command: {pb_compile_output}"
             )
         return model_hash, entity_var_model_name
 

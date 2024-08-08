@@ -35,6 +35,11 @@ class PythonWHT:
         self.cached_registry_table_name = ""
 
     def update_entity_info_config(self, merged_config):
+        merged_config["data"][
+            "entity_column"
+        ] = self.connector.get_entity_column_case_corrected(
+            merged_config["data"]["entity_column"]
+        )
         return merged_config
 
     def _getPB(self):
@@ -88,7 +93,7 @@ class PythonWHT:
             if match_column:
                 column_name = match_column.group(1)
                 return column_name
-            return self.split_material_name(query)["model_name"]
+            return self.split_material_name(query)["model_name"].lower()
 
         model_names = [
             extract_ref_from_query(input_material_or_selector_sql_)
@@ -438,21 +443,25 @@ class PythonWHT:
         return feature_date, label_date
 
     def split_material_name(self, name: str) -> dict:
-        mlower = name.lower()
         # TODO - Move this logic to bigquery conenctor
-        if "`" in mlower:  # BigQuery case table name
-            table_name = mlower.split("`")[-2]
+        if "`" in name:  # BigQuery case table name
+            table_name = name.split("`")[-2]
+        elif '"' in name:  # Redshift case table name
+            table_name = name.split('"')[-2]
         else:
-            table_name = mlower.split()[-1]
-        table_suffix = table_name.split(MATERIAL_PREFIX.lower())[-1]
-        table_suffix = table_suffix.strip("\"'")
+            table_name = name.split()[-1]
+
+        if "." in table_name:
+            table_name = table_name.split(".")[-1]
+        table_suffix = table_name.strip("\"'")
         split_parts = table_suffix.split("_")
         try:
             seq_no = int(split_parts[-1])
         except ValueError:
             raise Exception(f"Unable to extract seq_no from material name {name}")
         model_hash = split_parts[-2]
-        model_name = "_".join(split_parts[0:-2])
+        material_prefix = split_parts[0]
+        model_name = "_".join(split_parts[1:-2])
         return {
             "model_name": model_name,
             "model_hash": model_hash,

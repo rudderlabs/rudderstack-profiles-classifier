@@ -17,9 +17,9 @@ class PyNativeWHT:
 
     def init(
         self,
-        connector: Connector,
-        site_config_path: str,
-        project_folder_path: str,
+        connector: Connector = None,
+        site_config_path: str = None,
+        project_folder_path: str = None,
     ) -> None:
         self.pythonWHT.init(connector, site_config_path, project_folder_path)
 
@@ -64,7 +64,11 @@ class PyNativeWHT:
     def update_entity_info_config(self, merged_config):
         entity = self.whtMaterial.model.entity()
         merged_config["data"]["entity_key"] = entity["Name"]
-        merged_config["data"]["entity_column"] = entity["IdColumnName"]
+        merged_config["data"][
+            "entity_column"
+        ] = self.pythonWHT.connector.get_entity_column_case_corrected(
+            entity["IdColumnName"]
+        )
         return merged_config
 
     def get_material_names(

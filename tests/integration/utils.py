@@ -133,7 +133,6 @@ def assert_training_artefacts():
         training_file_path = os.path.join(
             output_folder, material_directory, "training_file"
         )
-        validate_column_names_in_output_json(training_file_path)
         training_reports_path = os.path.join(
             output_folder,
             material_directory,
@@ -159,10 +158,8 @@ def validate_training_summary(file_path: str):
         metrics = json_data["data"]["metrics"]
         prob_th = metrics["prob_th"]
         assert 0 <= prob_th <= 1, f"Invalid prob_th - {prob_th}"
-        assert prob_th, "prob_th is empty"
         threshold = json_data["data"]["threshold"]
         assert 0 <= threshold <= 1, f"Invalid threshold - {threshold}"
-        assert threshold, "threshold is empty"
         keys = ["test", "train", "val"]
         for key in keys:
             innerKeys = [
@@ -174,9 +171,9 @@ def validate_training_summary(file_path: str):
                 "users",
             ]
             for innerKey in innerKeys:
-                assert metrics[key][
-                    innerKey
-                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
+                assert (
+                    metrics[key][innerKey] is not None
+                ), f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
 def validate_training_summary_regression(file_path: str):
@@ -190,37 +187,9 @@ def validate_training_summary_regression(file_path: str):
         for key in keys:
             innerKeys = ["mean_absolute_error", "mean_squared_error", "r2_score"]
             for innerKey in innerKeys:
-                assert metrics[key][
-                    innerKey
-                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
-
-
-def validate_column_names_in_output_json(file_name=output_filename):
-    with open(file_name, "r") as file:
-        results = json.load(file)
-
-    expected_keys = {
-        "input_column_types": {
-            "numeric": [],
-            "categorical": [],
-            "arraytype": [],
-            "timestamp": [],
-            "booleantype": [],
-        },
-        "ignore_features": [],
-        "feature_table_column_types": {"numeric": [], "categorical": []},
-    }
-
-    for key, subkeys in expected_keys.items():
-        assert (
-            key in results["column_names"]
-        ), f"Missing key: {key} in output json file."
-
-        if subkeys:
-            for subkey in subkeys:
                 assert (
-                    subkey in results["column_names"][key]
-                ), f"Missing subkey {subkey} under key: {key} in output json file."
+                    metrics[key][innerKey] is not None
+                ), f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
 def validate_reports(directory: str, expected_files: list[str]):

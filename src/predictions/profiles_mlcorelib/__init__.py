@@ -16,3 +16,7 @@ def register_extensions(project):
     from .py_native.attribution_report import AttributionModel
 
     project.register_model_type(AttributionModel)
+
+    from .py_native.ml import MlModel
+
+    project.register_model_type(MlModel)

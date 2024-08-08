@@ -28,7 +28,6 @@ class PredictionModel(BaseModelType):
             "occurred_at_col": {"type": "string"},
             **EntityKeyBuildSpecSchema["properties"],
             **FeatureDetailsBuildSpecSchema["properties"],
-            "validity_time": {"type": "string"},
             "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
             "training_model": {"type": "string"},
             "ml_config": {

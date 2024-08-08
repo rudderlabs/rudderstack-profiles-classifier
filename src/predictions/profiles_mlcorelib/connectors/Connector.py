@@ -146,6 +146,14 @@ class Connector(ABC):
                     )
 
     def get_entity_column(self, entity_column: str) -> str:
+        """Returns the entity column. In case of redshift, even if entity_column is case-sensitive but still
+        while fetching data from table in form of pandas dataframe, entity_column is converted to lowercase.
+        But this is not the case in Bigquery.
+        ex: given entity_column: 'Entity_Main_Id'
+            Redshift pandas df will have column 'entity_main_id'
+            while in Bigquery pandas df will have column 'Entity_Main_Id'
+            and snowflake snowpark handles it though .select() method which is case-insensitive.
+        """
         return entity_column
 
     @abstractmethod

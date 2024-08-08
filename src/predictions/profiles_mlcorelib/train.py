@@ -100,7 +100,7 @@ def _train(
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
 
     merged_config = utils.combine_config(default_config, config)
-    merged_config = whtService.update_entity_info_config(merged_config)
+    merged_config = whtService.update_config_info(merged_config)
 
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None

@@ -61,10 +61,13 @@ class PyNativeWHT:
         )
         return material_split["model_hash"], material_split["model_name"], creation_ts
 
-    def update_entity_info_config(self, merged_config):
+    def update_config_info(self, merged_config):
         entity = self.whtMaterial.model.entity()
         merged_config["data"]["entity_key"] = entity["Name"]
         merged_config["data"]["entity_column"] = entity["IdColumnName"]
+        merged_config["data"][
+            "output_profiles_ml_model"
+        ] = self.whtMaterial.model.name()
         return merged_config
 
     def get_material_names(

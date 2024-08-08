@@ -66,7 +66,9 @@ class PyNativeWHT:
         merged_config["data"]["entity_key"] = entity["Name"]
         merged_config["data"][
             "entity_column"
-        ] = self.pythonWHT.connector.get_entity_column(entity["IdColumnName"])
+        ] = self.pythonWHT.connector.get_entity_column_case_corrected(
+            entity["IdColumnName"]
+        )
         return merged_config
 
     def get_material_names(

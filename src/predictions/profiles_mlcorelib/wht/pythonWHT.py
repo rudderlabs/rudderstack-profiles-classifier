@@ -35,7 +35,9 @@ class PythonWHT:
         self.cached_registry_table_name = ""
 
     def update_entity_info_config(self, merged_config):
-        merged_config["data"]["entity_column"] = self.connector.get_entity_column(
+        merged_config["data"][
+            "entity_column"
+        ] = self.connector.get_entity_column_case_corrected(
             merged_config["data"]["entity_column"]
         )
         return merged_config
@@ -181,7 +183,6 @@ class PythonWHT:
     def _validate_historical_materials_hash(
         self,
         material_table_query: str,
-        entity_var_model_name: str,
         feature_material_seq_no: Optional[int],
         label_material_seq_no: Optional[int],
     ) -> bool:
@@ -206,7 +207,6 @@ class PythonWHT:
                 )
                 assert self.connector.check_table_entry_in_material_registry(
                     self.get_registry_table_name(),
-                    entity_var_model_name,
                     self.split_material_name(feature_table_query),
                 ), f"Material table {feature_table_query} does not exist"
 
@@ -216,7 +216,6 @@ class PythonWHT:
                 )
                 assert self.connector.check_table_entry_in_material_registry(
                     self.get_registry_table_name(),
-                    entity_var_model_name,
                     self.split_material_name(label_table_query),
                 ), f"Material table {label_table_query} does not exist"
 
@@ -282,7 +281,6 @@ class PythonWHT:
         for input_material_query in input_material_or_selector_sql:
             if not self._validate_historical_materials_hash(
                 input_material_query,
-                entity_var_model_name,
                 table_row.FEATURE_SEQ_NO,
                 table_row.LABEL_SEQ_NO,
             ):

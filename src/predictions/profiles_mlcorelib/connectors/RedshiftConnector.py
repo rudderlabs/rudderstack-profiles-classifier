@@ -70,7 +70,7 @@ class RedshiftConnector(CommonWarehouseConnector):
     def get_entity_var_table_ref(self, table_name: str) -> str:
         return f'"{self.schema}"."{table_name.lower()}"'
 
-    def get_entity_column(self, entity_column: str) -> str:
+    def get_entity_column_case_corrected(self, entity_column: str) -> str:
         return entity_column.lower()
 
     def get_table_as_dataframe(

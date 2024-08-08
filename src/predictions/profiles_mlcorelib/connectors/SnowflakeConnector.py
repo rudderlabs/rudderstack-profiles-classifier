@@ -112,7 +112,6 @@ class SnowflakeConnector(Connector):
     def check_table_entry_in_material_registry(
         self,
         registry_table_name: str,
-        entity_var_model_name: str,
         material: dict,
     ) -> bool:
         """
@@ -126,21 +125,8 @@ class SnowflakeConnector(Connector):
                 "status", F.get_path("metadata", F.lit("complete.status"))
             )
             .filter(F.col("status") == 2)
-            .filter(
-                col("model_name").isin(
-                    material["model_name"],
-                    material["model_name"].lower(),
-                    material["model_name"].upper(),
-                    entity_var_model_name,
-                )
-            )
-            .filter(
-                col("model_hash").isin(
-                    material["model_hash"],
-                    material["model_hash"].lower(),
-                    material["model_hash"].upper(),
-                )
-            )
+            .filter(F.lower(col("model_name")) == material["model_name"].lower())
+            .filter(F.lower(col("model_hash")) == material["model_hash"].lower())
             .filter(col("seq_no") == material["seq_no"])
             .count()
         )

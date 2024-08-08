@@ -145,7 +145,7 @@ class Connector(ABC):
                         f"Array type features are not supported. Please remove '{column_lower}' and any other array type features from inputs."
                     )
 
-    def get_entity_column(self, entity_column: str) -> str:
+    def get_entity_column_case_corrected(self, entity_column: str) -> str:
         """Returns the entity column. In case of redshift, even if entity_column is case-sensitive but still
         while fetching data from table in form of pandas dataframe, entity_column is converted to lowercase.
         But this is not the case in Bigquery.
@@ -243,7 +243,7 @@ class Connector(ABC):
 
     @abstractmethod
     def check_table_entry_in_material_registry(
-        self, registry_table_name: str, entity_var_model_name: str, material: dict
+        self, registry_table_name: str, material: dict
     ) -> bool:
         pass
 

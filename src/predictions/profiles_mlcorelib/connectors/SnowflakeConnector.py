@@ -1111,11 +1111,6 @@ class SnowflakeConnector(Connector):
             entity_column, index_timestamp, F.lit(train_model_id).alias("model_id")
         )
 
-        # # Get the predictions
-        # column_names = input.columns
-        # prediction_df= input.select(prediction_udf(*column_names).over(partition_by=[column_names[0]]))
-        # extracted_df = prediction_df.select(pycaret_score_column_name, pycaret_label_column_name)
-
         # Apply prediction_udf and select columns
         prediction_df = input.select(
             prediction_udf(*input.columns).over(partition_by=[input.columns[0]])

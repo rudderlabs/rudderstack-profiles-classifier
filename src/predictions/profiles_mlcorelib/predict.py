@@ -6,6 +6,7 @@ import sys
 from .trainers.TrainerFactory import TrainerFactory
 
 from .utils.S3Utils import S3Utils
+from .wht.pythonWHT import PythonWHT
 
 from .processors.ProcessorFactory import ProcessorFactory
 
@@ -34,7 +35,7 @@ def _predict(
     config: dict,
     runtime_info: dict,
     ml_core_path: str,
-    whtService,
+    whtService: PythonWHT,
 ) -> None:
     logger.get().debug("Starting Predict job")
 
@@ -44,7 +45,10 @@ def _predict(
     site_config_path = utils.fetch_key_from_dict(runtime_info, "site_config_path", "")
 
     folder_path = os.path.dirname(model_path)
+
     connector = ConnectorFactory.create(creds, folder_path)
+    whtService.init(connector=connector)
+
     default_config = utils.load_yaml(utils.get_model_configs_file_path())
     _ = config["data"].pop(
         "package_name", None

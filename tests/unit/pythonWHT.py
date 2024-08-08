@@ -26,11 +26,11 @@ class TestGetInputModels(unittest.TestCase):
     def test_get_input_models(self, mock_rudderpb_show_models):
         original_input_models = [
             '''SELECT last_seen FROM "schema"."material_user_var_table_54ddc22a_383"''',
-            '''SELECT 'last_seen' FROM "schema"."material_user_var_table_54ddc22a_383"''',
-            '''SELECT "last_seen" FROM "schema"."material_user_var_table_54ddc22a_383"''',
+            """SELECT last_seen FROM `schema`.`material_user_var_table_54ddc22a_383`""",
+            '''SELECT last_seen FROM "material_user_var_table_54ddc22a_383"''',
             '''SELECT last_seen2 FROM "schema"."material_user_var_table_54ddc22a_383"''',
             """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384""",
-            """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384""",
+            """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL2_45223ds1_384""",
             "MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384",
             "MATERIAL_FEATURE_TABLE_MODEL2_55223ds1_384",
             "MATERIAL_LAST_SEEN_65223ds1_384",

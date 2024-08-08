@@ -14,25 +14,26 @@ from .CommonWarehouseConnector import CommonWarehouseConnector
 class RedshiftConnector(CommonWarehouseConnector):
     def __init__(self, creds: dict, folder_path: str) -> None:
         data_type_mapping = {
-            "numeric": (
-                "integer",
-                "bigint",
-                "float",
-                "smallint",
-                "decimal",
-                "numeric",
-                "real",
-                "double precision",
-            ),
-            "categorical": ("character varying"),
-            "timestamp": (
-                "timestamp without time zone",
-                "date",
-                "time without time zone",
-            ),
-            "arraytype": ("super",),
-            "booleantype": ("boolean", "bool"),
+            "numeric": {
+                "integer": int,
+                "bigint": int,
+                "float": int,
+                "smallint": int,
+                "decimal": int,
+                "numeric": int,
+                "real": int,
+                "double precision": int,
+            },
+            "categorical": {"str": str, "character varying": str},
+            "timestamp": {
+                "timestamp without time zone": None,
+                "date": None,
+                "time without time zone": None,
+            },
+            "arraytype": {"super": None},
+            "booleantype": {"boolean": None, "bool": None},
         }
+        self.dtype_utils_mapping = {"numeric": "float", "categorical": "str"}
         super().__init__(creds, folder_path, data_type_mapping)
 
     def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:
@@ -69,6 +70,9 @@ class RedshiftConnector(CommonWarehouseConnector):
 
     def get_entity_var_table_ref(self, table_name: str) -> str:
         return f'"{self.schema}"."{table_name.lower()}"'
+
+    def get_entity_column_case_corrected(self, entity_column: str) -> str:
+        return entity_column.lower()
 
     def get_table_as_dataframe(
         self, _: redshift_connector.cursor.Cursor, table_name: str, **kwargs

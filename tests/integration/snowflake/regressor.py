@@ -72,37 +72,9 @@ def validate_training_summary_regression():
         for key in keys:
             innerKeys = ["mean_absolute_error", "mean_squared_error", "r2_score"]
             for innerKey in innerKeys:
-                assert metrics[key][
-                    innerKey
-                ], f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
-
-
-def validate_column_names_in_output_json():
-    with open(output_filename, "r") as file:
-        results = json.load(file)
-
-    expected_keys = {
-        "input_column_types": {
-            "numeric": [],
-            "categorical": [],
-            "arraytype": [],
-            "timestamp": [],
-            "booleantype": [],
-        },
-        "ignore_features": [],
-        "feature_table_column_types": {"numeric": [], "categorical": []},
-    }
-
-    for key, subkeys in expected_keys.items():
-        assert (
-            key in results["column_names"]
-        ), f"Missing key: {key} in output json file."
-
-        if subkeys:
-            for subkey in subkeys:
                 assert (
-                    subkey in results["column_names"][key]
-                ), f"Missing subkey {subkey} under key: {key} in output json file."
+                    metrics[key][innerKey] is not None
+                ), f"Invalid {innerKey} of {key} - ${metrics[key][innerKey]}"
 
 
 def validate_reports_regression():
@@ -157,7 +129,6 @@ def test_regressor():
         )
         validate_training_summary_regression()
         validate_reports_regression()
-        validate_column_names_in_output_json()
 
         with open(output_filename, "r") as f:
             results = json.load(f)

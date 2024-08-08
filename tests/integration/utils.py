@@ -62,7 +62,7 @@ pred_column_regression = (
     f"{output_model_name_regression}_{pred_horizon_days}_days".upper()
 )
 output_label = "OUTPUT_LABEL"
-p_output_tablename = "test_run_can_delete_2"
+p_output_tablename = "test_run_can_delete_3"
 entity_key = "user"
 material_registry_table_name = "MATERIAL_REGISTRY_4"
 

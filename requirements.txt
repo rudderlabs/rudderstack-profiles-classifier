@@ -7,7 +7,7 @@ numpy>=1.24.4
 pandas>=2.0.3,<2.2.0
 pyarrow>=14.0.2
 PyYAML>=6.0.1
-scikit_learn>=1.3.2
+scikit_learn>=1.4.0,<=1.4.2
 shap>=0.44.0
 platformdirs>=3.11.0
 xgboost>=2.0.3
@@ -28,4 +28,4 @@ setuptools>=68.2.2
 # pyOpenSSL>=24.0.0
 # cryptography>=42.0.4
 pillow>=10.2.0
-pycaret==3.3.0
+pycaret==3.3.1

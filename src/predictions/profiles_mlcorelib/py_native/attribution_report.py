@@ -108,9 +108,9 @@ class AttributionModel(BaseModelType):
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
-        for conversion_var in build_spec[CONVERSION][CONVERSION_VARS]:
-            if "conversion_window" not in conversion_var:
-                conversion_var["conversion_window"] = "90d"
+        # for conversion_var in build_spec[CONVERSION][CONVERSION_VARS]:
+        #     if "conversion_window" not in conversion_var:
+        #         conversion_var["conversion_window"] = "90d"
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:
@@ -146,8 +146,9 @@ class AttributionModelRecipe(PyNativeRecipe):
         value_flag: bool,
         journey_query: str,
         conversion_query: str,
-        conversion_window: str,
-        conversion_flag: str,
+        conversion_window: str = 0,
+        conversion_granularity: str = "None",
+        conversion_flag: bool = False,
     ):
         user_view_query = (
             f"""
@@ -180,30 +181,40 @@ class AttributionModelRecipe(PyNativeRecipe):
             {conversion_name}_user_view AS (
                 SELECT 
                     {entity_id_column_name},
-                    CASE 
-                        WHEN DATEDIFF({conversion_flag}, first_touch_timestamp, converted_date) <= {conversion_window} THEN DATE(first_touch_timestamp) 
+                    """
+            + (
+                f"""CASE 
+                        WHEN DATEDIFF({conversion_granularity}, first_touch_timestamp, converted_date) <= {conversion_window} THEN DATE(first_touch_timestamp) 
                         ELSE NULL 
                     END AS first_touch_date,
                     CASE 
-                        WHEN DATEDIFF({conversion_flag}, last_touch_timestamp, converted_date) <= {conversion_window} THEN DATE(last_touch_timestamp) 
+                        WHEN DATEDIFF({conversion_granularity}, last_touch_timestamp, converted_date) <= {conversion_window} THEN DATE(last_touch_timestamp) 
                         ELSE NULL 
                     END AS last_touch_date,
+                    """
+                if conversion_flag
+                else f"DATE(first_touch_timestamp) AS first_touch_date, DATE(last_touch_timestamp) AS last_touch_date,"
+            )
+            + f"""
                     first_touch_{campaign_id_column_name},
                     last_touch_{campaign_id_column_name},
-        """
+                    """
             + (
-                f"""
-                    CASE 
-                        WHEN DATEDIFF({conversion_flag}, first_touch_timestamp, converted_date) <= {conversion_window} THEN first_touch_conversion_value 
+                f"""CASE 
+                        WHEN DATEDIFF({conversion_granularity}, first_touch_timestamp, converted_date) <= {conversion_window} THEN first_touch_conversion_value 
                         ELSE NULL 
                     END AS first_touch_conversion_value,
                     CASE 
-                        WHEN DATEDIFF({conversion_flag}, last_touch_timestamp, converted_date) <= {conversion_window} THEN last_touch_conversion_value 
+                        WHEN DATEDIFF({conversion_granularity}, last_touch_timestamp, converted_date) <= {conversion_window} THEN last_touch_conversion_value 
                         ELSE NULL 
                     END AS last_touch_conversion_value,
-        """
-                if value_flag
-                else ""
+                    """
+                if conversion_flag and value_flag
+                else (
+                    f"first_touch_conversion_value AS first_touch_conversion_value, last_touch_conversion_value AS last_touch_conversion_value,"
+                    if value_flag
+                    else ""
+                )
             )
             + f"""
                     converted_date
@@ -541,27 +552,6 @@ class AttributionModelRecipe(PyNativeRecipe):
         cte_query_list, conversion_name_list, value_flag_list = list(), list(), list()
         for conversion_info in conversion_vars:
             conversion_name = conversion_info["name"]
-            conversion_window = conversion_info["conversion_window"]
-            match = re.match(r"(\d+)([mhd])", conversion_window)
-            if not match:
-                raise ValueError(
-                    "Invalid conversion window format. Use formats like 30m, 2h, 7d."
-                )
-
-            quantity = int(match.group(1))
-            granularity = match.group(2)
-
-            # Convert conversion window to days for SQL comparison
-            if granularity == "m":
-                conversion_window_days = quantity  # 1 day = 1440 minutes
-                conversion_flag = "minute"
-            elif granularity == "h":
-                conversion_window_days = quantity  # 1 day = 24 hours
-                conversion_flag = "hour"
-            elif granularity == "d":
-                conversion_window_days = quantity
-                conversion_flag = "day"
-
             conversion_info_column_name_timestamp = (
                 f"{{{{{conversion_info['timestamp']}.Model.DbObjectNamePrefix()}}}}"
             )
@@ -586,17 +576,47 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 {select_info} 
                                 {from_info} 
                                 {where_info}"""
+            if "conversion_window" not in conversion_info:
+                with_query_template = self._create_with_query_template(
+                    conversion_name,
+                    self.entity_id_column_name,
+                    self.campaign_id_column_name,
+                    value_flag,
+                    journey_query,
+                    conversion_query,
+                )
+            else:
+                conversion_window = conversion_info["conversion_window"]
+                match = re.match(r"^\d+[mhd]$", conversion_window)
+                if not match:
+                    raise ValueError(
+                        "Invalid conversion window format. Use formats like 30m, 2h, 7d."
+                    )
 
-            with_query_template = self._create_with_query_template(
-                conversion_name,
-                self.entity_id_column_name,
-                self.campaign_id_column_name,
-                value_flag,
-                journey_query,
-                conversion_query,
-                str(conversion_window_days),
-                conversion_flag,
-            )
+                n_conversion_window = int(
+                    conversion_window[:-1]
+                )  # All characters except the last one (the number part)
+                granularity = conversion_window[-1]
+
+                # Convert conversion window to days for SQL comparison
+                if granularity == "m":
+                    conversion_granularity = "minute"
+                elif granularity == "h":
+                    conversion_granularity = "hour"
+                elif granularity == "d":
+                    conversion_granularity = "day"
+
+                with_query_template = self._create_with_query_template(
+                    conversion_name,
+                    self.entity_id_column_name,
+                    self.campaign_id_column_name,
+                    value_flag,
+                    journey_query,
+                    conversion_query,
+                    str(n_conversion_window),
+                    conversion_granularity,
+                    True,
+                )
             cte_query_list.append(with_query_template)
 
         multiconversion_cte_query = """,

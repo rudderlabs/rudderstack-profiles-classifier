@@ -18,7 +18,7 @@ data = {
     "eligible_users": "1=1",
     "label_column": regressor_label_column,
     "task": "regression",
-    "output_profiles_ml_model": output_model_name,
+    "output_profiles_ml_model": output_model_name_regression,
 }
 
 train_config = {"data": data}
@@ -29,14 +29,14 @@ predict_config = {
     "preprocessing": preprocessing,
     "outputs": {
         "column_names": {
-            "percentile": f"percentile_{output_model_name}_{pred_horizon_days}_days",
-            "score": f"{output_model_name}_{pred_horizon_days}_days",
+            "percentile": f"percentile_{output_model_name_regression}_{pred_horizon_days}_days",
+            "score": f"{output_model_name_regression}_{pred_horizon_days}_days",
         },
         "feature_meta_data": {
             "features": [
                 {
                     "description": "Percentile of churn score. Higher the percentile, higher the probability of churn",
-                    "name": f"percentile_{output_model_name}_{pred_horizon_days}_days",
+                    "name": f"percentile_{output_model_name_regression}_{pred_horizon_days}_days",
                 }
             ]
         },

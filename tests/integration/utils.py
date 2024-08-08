@@ -53,8 +53,14 @@ regressor_label_column = "days_since_last_seen"
 inputs = [f"packages/{package_name}/models/{feature_table_name}"]
 s3_config = {}
 pred_horizon_days = 7
-output_model_name = "ltv_classification_integration_test"
-pred_column = f"{output_model_name}_{pred_horizon_days}_days".upper()
+output_model_name_classification = "prediction_model"
+output_model_name_regression = "prediction_regression_model"
+pred_column_classification = (
+    f"{output_model_name_classification}_{pred_horizon_days}_days".upper()
+)
+pred_column_regression = (
+    f"{output_model_name_regression}_{pred_horizon_days}_days".upper()
+)
 output_label = "OUTPUT_LABEL"
 p_output_tablename = "test_run_can_delete_2"
 entity_key = "user"
@@ -264,9 +270,9 @@ def validate_predictions_df_regressor(creds: dict):
     required_columns = [
         "USER_MAIN_ID",
         "VALID_AT",
-        pred_column,
+        pred_column_regression,
         "MODEL_ID",
-        f"PERCENTILE_{pred_column}",
+        f"PERCENTILE_{pred_column_regression}",
     ]
     _validate_predictions_df(creds, required_columns, p_output_tablename)
 
@@ -289,10 +295,10 @@ def validate_predictions_df_classification(creds: dict):
     required_columns = [
         "USER_MAIN_ID",
         "VALID_AT",
-        pred_column,
+        pred_column_classification,
         "MODEL_ID",
         output_label,
-        f"PERCENTILE_{pred_column}",
+        f"PERCENTILE_{pred_column_classification}",
     ]
     _validate_predictions_df(creds, required_columns, p_output_tablename)
 

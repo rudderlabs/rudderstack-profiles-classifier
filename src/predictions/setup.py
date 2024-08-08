@@ -23,7 +23,7 @@ setup(
         "pandas>=2.0.3,<2.2.0",
         "pyarrow>=14.0.2",
         "PyYAML>=6.0.1",
-        "scikit_learn>=1.3.2",
+        "scikit_learn>=1.4.0,<=1.4.2",
         "shap>=0.44.0",
         "xgboost>=2.0.3",
         "redshift-connector>=2.0.918",
@@ -35,6 +35,7 @@ setup(
         "google-cloud-bigquery>=3.17.2",
         "sqlalchemy-bigquery>=1.9.0",
         "db-dtypes>=1.2.0",
+        "pycaret==3.3.1",
     ],
     include_package_data=True,
 )

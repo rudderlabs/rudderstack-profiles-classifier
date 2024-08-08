@@ -2,6 +2,7 @@
 import unittest
 import pandas as pd
 import numpy as np
+import numpy as np
 from datetime import datetime
 from collections import namedtuple
 from unittest.mock import Mock, patch, call
@@ -510,33 +511,6 @@ class TestSelectRelevantColumns(unittest.TestCase):
             f"Expected columns {training_features_columns} not found in table ['COL1', 'COL2', 'COL3']",
             str(context.exception),
         )
-
-
-class TestGenerateTypeHint(unittest.TestCase):
-    def setUp(self) -> None:
-        self.connector = RedshiftConnectorV2("data")
-        self.column_types = {
-            "categorical": ["col2"],
-            "numeric": ["col1"],
-        }
-
-    # Returns a list of type hints for given pandas DataFrame's fields
-    def test_returns_type_hints(self):
-        df = pd.DataFrame({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
-        type_hints = self.connector.generate_type_hint(df, self.column_types)
-        self.assertEqual(type_hints, [float, str])
-
-    # Handles empty DataFrame
-    def test_handles_empty_dataframe(self):
-        df = pd.DataFrame()
-        type_hints = self.connector.generate_type_hint(df, self.column_types)
-        self.assertEqual(type_hints, [])
-
-    # Handles DataFrame with single row and column
-    def test_handles_single_row_and_column(self):
-        df = pd.DataFrame({"col1": [1]})
-        type_hints = self.connector.generate_type_hint(df, self.column_types)
-        self.assertEqual(type_hints, [float])
 
 
 class TestValidations(unittest.TestCase):
@@ -1530,12 +1504,8 @@ class Testget_input_column_types(unittest.TestCase):
         self.trainer_input["preprocessing"]["timestamp_columns"] = ["COL2"]
         self.trainer_input["preprocessing"]["arraytype_columns"] = ["COL3"]
         self.trainer_input["preprocessing"]["booleantype_columns"] = ["COL8"]
-        self.trainer_input["preprocessing"]["numeric_pipeline"] = {
-            "numeric_columns": ["COL4", "COL7"]
-        }
-        self.trainer_input["preprocessing"]["categorical_pipeline"] = {
-            "categorical_columns": ["COL5"]
-        }
+        self.trainer_input["preprocessing"]["numeric_features"] = ["COL4", "COL7"]
+        self.trainer_input["preprocessing"]["categorical_features"] = ["COL5"]
         self.trainer = TrainerFactory.create(self.trainer_input)
 
         schema_fields = namedtuple("schema_field", ["name", "field_type"])

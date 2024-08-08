@@ -111,19 +111,19 @@ def assert_training_artefacts():
         {
             "regex": "Material_traininG_model_.+",
             "reports": [
-                "01-feature-importance-chart-ltv_classification",
-                "02-test-lift-chart-ltv_classification",
-                "03-test-pr-auc-ltv_classification",
-                "04-test-roc-auc-ltv_classification",
+                "01-feature-importance-chart",
+                "02-test-lift-chart",
+                "03-test-pr-auc",
+                "04-test-roc-auc",
             ],
             "classification": True,
         },
         {
             "regex": "Material_training_regression_model_.+",
             "reports": [
-                "01-feature-importance-chart-ltv_regression_integration_test",
-                "02-residuals-chart-ltv_regression_integration_test",
-                "03-deciles-plot-ltv_regression_integration_test",
+                "01-feature-importance-chart",
+                "02-residuals-chart",
+                "03-deciles-plot",
             ],
             "classification": False,
         },

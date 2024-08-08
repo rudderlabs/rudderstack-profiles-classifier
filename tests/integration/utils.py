@@ -53,6 +53,7 @@ regressor_label_column = "days_since_last_seen"
 inputs = [f"packages/{package_name}/models/{feature_table_name}"]
 s3_config = {}
 pred_horizon_days = 7
+output_model_name = "ltv_classification_integration_test"
 output_model_name_classification = "prediction_model"
 output_model_name_regression = "prediction_regression_model"
 pred_column_classification = (

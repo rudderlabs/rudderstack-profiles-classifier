@@ -99,6 +99,9 @@ def _train(
         "inputs", None
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
 
+    connector = ConnectorFactory.create(creds, folder_path)
+    whtService.init(connector, site_config_path, project_folder)
+
     merged_config = utils.combine_config(default_config, config)
     merged_config = whtService.update_entity_info_config(merged_config)
 
@@ -106,8 +109,6 @@ def _train(
         "user_preference_order_infra", None
     )
 
-    connector = ConnectorFactory.create(creds, folder_path)
-    whtService.init(connector, site_config_path, project_folder)
     (
         model_hash,
         entity_var_model_name,

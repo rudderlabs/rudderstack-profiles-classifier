@@ -209,8 +209,14 @@ class CommonWarehouseConnector(Connector):
         """
         material_registry_table = self.get_material_registry_table(registry_table_name)
         result = material_registry_table.loc[
-            (material_registry_table["model_name"] == material["model_name"])
-            & (material_registry_table["model_hash"] == material["model_hash"])
+            (
+                material_registry_table["model_name"].str.lower()
+                == material["model_name"].lower()
+            )
+            & (
+                material_registry_table["model_hash"].str.lower()
+                == material["model_hash"].lower()
+            )
             & (material_registry_table["seq_no"] == material["seq_no"])
         ]
         row_count = result.shape[0]

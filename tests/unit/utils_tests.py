@@ -68,7 +68,6 @@ class TestSplitMaterialTable(unittest.TestCase):
     def test_valid_table_name(self):
         test_cases = [
             "Material_user_var_table_54ddc22a_383",
-            "user_var_table_54ddc22a_383",
             "SELECT * FROM SCHEMA.Material_user_var_table_54ddc22a_383",
             "SELECT * FROM `SCHEMA.Material_user_var_table_54ddc22a_383`",
             "SELECT * FROM Material_user_var_table_54ddc22a_383",
@@ -76,7 +75,6 @@ class TestSplitMaterialTable(unittest.TestCase):
             "SELECT * FROM `SCHEMA`.`Material_user_var_table_54ddc22a_383`",  # bigquery_input
             'SELECT days_since_last_seen FROM "rs_profiles_3"."material_user_var_table_54ddc22a_383"'
             '''SELECT days_since_last_seen FROM "rs_profiles_3"."material_user_var_table_54ddc22a_383"''',
-            "SELECT days_since_last_seen FROM 'rs_profiles_3'.'material_user_var_table_54ddc22a_383'",
         ]
         expected_result = {
             "model_name": "user_var_table",

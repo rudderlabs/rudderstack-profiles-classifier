@@ -229,7 +229,7 @@ class CommonWarehouseConnector(Connector):
     def _create_get_table_query(self, table_name, **kwargs):
         filter_condition = kwargs.get("filter_condition", "")
         query = f"SELECT * FROM {table_name}"
-        if filter_condition:
+        if filter_condition and filter_condition != "*":
             query += f" WHERE {filter_condition}"
         query += ";"
         return query

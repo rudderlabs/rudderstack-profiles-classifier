@@ -20,6 +20,7 @@ class LocalProcessor(Processor):
         metrics_table: str,
         wh_creds: dict,
         site_config: dict,
+        pkl_model_file_name: str,
     ):
         local_dir = self.connector.get_local_dir()
         output_path = os.path.dirname(local_dir)
@@ -44,6 +45,8 @@ class LocalProcessor(Processor):
             constants.LOCAL_MODE,
             "--metrics_table",
             metrics_table,
+            "--pkl_model_file_name",
+            pkl_model_file_name,
         ]
         response_for_train = utils.subprocess_run(commands)
         if response_for_train.returncode != 0:

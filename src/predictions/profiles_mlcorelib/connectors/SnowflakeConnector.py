@@ -153,7 +153,7 @@ class SnowflakeConnector(Connector):
         if not self.is_valid_table(table_name):
             raise Exception(f"Table {table_name} does not exist or not authorized")
         table = self.session.table(table_name)
-        if filter_condition:
+        if filter_condition and filter_condition != "*":
             table = self.filter_table(table, filter_condition)
         return table
 

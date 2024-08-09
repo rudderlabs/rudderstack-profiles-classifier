@@ -45,13 +45,13 @@ def preprocess_and_predict(
     and predicting on the data.
     """
 
-    model_file_name = constants.MODEL_FILE_NAME
     connector.compute_udf_name(model_path)
 
     with open(model_path, "r") as f:
         results = json.load(f)
     train_model_id = results["model_info"]["model_id"]
     stage_name = results["model_info"]["file_location"]["stage"]
+    pkl_model_file_name = results["model_info"]["file_location"]["file_name"]
     model_hash = results["config"]["material_hash"]
     input_model_name = results["config"]["input_model_name"]
 
@@ -67,7 +67,6 @@ def preprocess_and_predict(
         for word in arraytype_columns
     }
 
-    model_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
     seq_no = None
 
     try:
@@ -146,8 +145,8 @@ def preprocess_and_predict(
         model = trainer.load_model(filename)
         return model
 
-    def predict_helper(df, model_name: str) -> Any:
-        trained_model = load_model(model_name)
+    def predict_helper(df, pkl_model_file_name: str) -> Any:
+        trained_model = load_model(pkl_model_file_name)
         df.columns = [x.upper() for x in df.columns]
         return trainer.predict(trained_model, df)
 
@@ -172,7 +171,8 @@ def preprocess_and_predict(
             ),
             input_types=[PandasDataFrameType(types)],
             input_names=features,
-            imports=[f"{stage_name}/{model_name}.pkl"] + connector.delete_files,
+            imports=[f"{stage_name}/{pkl_model_file_name}.pkl"]
+            + connector.delete_files,
             packages=constants.SNOWFLAKE_TRAINING_PACKAGES + ["cachetools==4.2.2"],
         )
         class predict_scores:
@@ -185,7 +185,7 @@ def preprocess_and_predict(
                 df[numeric_columns] = df[numeric_columns].fillna(0)
                 df[categorical_columns] = df[categorical_columns].fillna("unknown")
 
-                predictions = predict_helper(df, model_name)
+                predictions = predict_helper(df, pkl_model_file_name)
 
                 # Create a new DataFrame with the extracted column names
                 prediction_df = pd.DataFrame()
@@ -208,7 +208,7 @@ def preprocess_and_predict(
 
         def predict_scores_rs(df: pd.DataFrame) -> pd.DataFrame:
             df.columns = features
-            predictions = predict_helper(df, model_name)
+            predictions = predict_helper(df, pkl_model_file_name)
             return predictions
 
         prediction_udf = predict_scores_rs

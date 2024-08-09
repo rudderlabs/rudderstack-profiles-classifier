@@ -520,7 +520,7 @@ class Connector(ABC):
         self,
         lookahead_days: int,
         current_date: str,
-        model_id: str,
+        model_name: str,
         material_registry: str,
     ):
         pass

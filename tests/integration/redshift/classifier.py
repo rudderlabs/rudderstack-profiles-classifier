@@ -18,10 +18,10 @@ data = {
     "prediction_horizon_days": pred_horizon_days,
     "features_profiles_model": feature_table_name,
     "inputs": inputs,
-    "eligible_users": "1=1",
+    "eligible_users": eligible_users,
     "label_column": classifier_label_column,
     "task": "classification",
-    "output_profiles_ml_model": output_model_name,
+    "output_profiles_ml_model": output_model_name_classification,
 }
 
 train_config = {"data": data}
@@ -32,14 +32,14 @@ predict_config = {
     "preprocessing": preprocessing,
     "outputs": {
         "column_names": {
-            "percentile": f"percentile_{output_model_name}_{pred_horizon_days}_days",
-            "score": f"{output_model_name}_{pred_horizon_days}_days",
+            "percentile": f"percentile_{output_model_name_classification}_{pred_horizon_days}_days",
+            "score": f"{output_model_name_classification}_{pred_horizon_days}_days",
         },
         "feature_meta_data": {
             "features": [
                 {
                     "description": "Percentile of churn score. Higher the percentile, higher the probability of churn",
-                    "name": f"percentile_{output_model_name}_{pred_horizon_days}_days",
+                    "name": f"percentile_{output_model_name_classification}_{pred_horizon_days}_days",
                 }
             ]
         },
@@ -159,7 +159,7 @@ def test_classification():
             s3_config,
             output_filename,
             predict_inputs,
-            p_output_tablename,
+            p_output_tablename_classification,
             predict_config,
             runtime_info,
         )

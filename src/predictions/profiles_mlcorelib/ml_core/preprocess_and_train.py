@@ -19,8 +19,6 @@ from ..utils import constants
 from ..utils.S3Utils import S3Utils
 from ..connectors.ConnectorFactory import ConnectorFactory
 
-model_file_name = constants.MODEL_FILE_NAME
-
 
 def train_and_store_model_results(
     feature_df: pd.DataFrame,
@@ -45,16 +43,15 @@ def train_and_store_model_results(
         dict: returns the model_id which is basically the time converted to key at which results were generated
         along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
     """
+    pkl_model_file_name = kwargs.get("pkl_model_file_name")
     connector = kwargs.get("connector")
     trainer = kwargs.get("trainer")
     if connector is None or trainer is None:
         raise ValueError(
-            "connector and trainer are required in kwargs for training in train_and_store_model_results"
+            "connector, trainer and pkl_model_file_name are required in kwargs for training in train_and_store_model_results"
         )
 
-    model_file = connector.join_file_path(
-        f"{trainer.output_profiles_ml_model}_{model_file_name}"
-    )
+    model_file = connector.join_file_path(pkl_model_file_name)
     feature_df.columns = [col.upper() for col in feature_df.columns]
 
     train_x, test_x, test_y, pipe, model_id, metrics_df, results = trainer.train_model(
@@ -142,6 +139,7 @@ def preprocess_and_train(
     input_column_types: dict,
     input_columns: List[str],
     metrics_table: str,
+    pkl_model_file_name: str,
     **kwargs,
 ):
     connector = kwargs.get("connector", None)
@@ -240,6 +238,7 @@ def preprocess_and_train(
             input_column_types,
             train_config,
             metrics_table,
+            pkl_model_file_name=pkl_model_file_name,
             connector=connector,
             trainer=trainer,
         )
@@ -279,6 +278,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
     parser.add_argument("--metrics_table", type=str)
+    parser.add_argument("--pkl_model_file_name", type=str)
     args = parser.parse_args()
 
     output_dir = (
@@ -321,6 +321,7 @@ if __name__ == "__main__":
         args.input_column_types,
         args.input_columns,
         args.metrics_table,
+        args.pkl_model_file_name,
         connector=connector,
         trainer=trainer,
     )
@@ -337,7 +338,7 @@ if __name__ == "__main__":
         train_upload_whitelist = utils.merge_lists_to_unique(
             list(trainer.figure_names.values()),
             [
-                f"{trainer.output_profiles_ml_model}_{model_file_name}",
+                args.pkl_model_file_name,
                 constants.TRAIN_JSON_RESULT_FILE,
             ],
         )

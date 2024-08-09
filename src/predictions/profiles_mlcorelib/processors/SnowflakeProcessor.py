@@ -17,6 +17,7 @@ class SnowflakeProcessor(Processor):
         metrics_table: str,
         wh_creds: dict,
         site_config: dict,
+        pkl_model_file_name: str,
     ):
         return preprocess_and_train(
             train_procedure,
@@ -25,6 +26,7 @@ class SnowflakeProcessor(Processor):
             input_column_types,
             input_columns,
             metrics_table,
+            pkl_model_file_name,
             connector=self.connector,
             trainer=self.trainer,
         )

@@ -103,7 +103,7 @@ def _train(
     whtService.init(connector, site_config_path, project_folder)
 
     merged_config = utils.combine_config(default_config, config)
-    merged_config = whtService.update_entity_info_config(merged_config)
+    merged_config = whtService.update_config_info(merged_config)
 
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None
@@ -130,6 +130,7 @@ def _train(
         logger.get().debug(
             "Consider shortlisting the users through eligible_users flag to get better results for a specific user group - such as payers only, monthly active users etc."
         )
+    pkl_model_file_name = f"{trainer.output_profiles_ml_model}_{model_file_name}"
 
     """ Building session """
     warehouse = creds["type"]
@@ -184,9 +185,7 @@ def _train(
 
             feature_df = connector.get_table_as_dataframe(session, feature_table_name)
 
-            model_file = connector.join_file_path(
-                f"{trainer.output_profiles_ml_model}_{model_file_name}"
-            )
+            model_file = connector.join_file_path(pkl_model_file_name)
 
             (
                 train_x,
@@ -322,6 +321,7 @@ def _train(
         metrics_table,
         creds,
         utils.load_yaml(site_config_path),
+        pkl_model_file_name,
     )
     logger.get().debug("Training completed. Saving the artefacts")
 
@@ -350,7 +350,7 @@ def _train(
             "model_name": train_results["model_class_name"],
             "file_location": {
                 "stage": stage_name,
-                "file_name": f"{trainer.output_profiles_ml_model}_{model_file_name}",
+                "file_name": pkl_model_file_name,
             },
             "model_id": model_id,
             "threshold": 0,

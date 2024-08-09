@@ -34,7 +34,7 @@ class PythonWHT:
         self.project_folder_path = project_folder_path
         self.cached_registry_table_name = ""
 
-    def update_entity_info_config(self, merged_config):
+    def update_config_info(self, merged_config):
         merged_config["data"][
             "entity_column"
         ] = self.connector.get_entity_column_case_corrected(

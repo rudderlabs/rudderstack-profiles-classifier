@@ -46,7 +46,7 @@ folder_path_output_file = os.path.dirname(output_filename)
 
 package_name = "feature_table"
 feature_table_name = "shopify_user_features"
-eligible_users = "1=1"
+eligible_users = "*"
 package_name = "feature_table"
 classifier_label_column = "is_churned_7_days"
 regressor_label_column = "days_since_last_seen"

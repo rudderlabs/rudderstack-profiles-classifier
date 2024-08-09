@@ -14,6 +14,7 @@ models:
         data:
           label_column: is_churned_7_days
           prediction_horizon_days: 7
+          eligible_users: '*'
           output_profiles_ml_model: ltv_classification_integration_test
   - name: training_regression_model
     model_type: training_model
@@ -32,6 +33,7 @@ models:
           task: regression
           label_column: days_since_last_seen
           prediction_horizon_days: 7
+          eligible_users: '*'
           output_profiles_ml_model: ltv_regression_integration_test
   - name: prediction_model
     model_type: prediction_model
@@ -75,6 +77,7 @@ models:
           task: regression
           label_column: days_since_last_seen
           prediction_horizon_days: 7
+          eligible_users: '*'
           output_profiles_ml_model: ltv_regression_integration_test
         outputs:
           column_names:

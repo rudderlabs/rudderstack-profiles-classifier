@@ -7,7 +7,7 @@ data:
   output_profiles_ml_model: 'ltv_test'
   task: classification # classification or regression; Can support a few other tasks in the future, like ltv, churn etc which can be super classes of classification/regression.
   index_timestamp: valid_at
-  eligible_users: '*' # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'
+  eligible_users: # Can add an sql where condition to filter users. Ex: is_active = 1 and lower(country) = 'us'
   prediction_horizon_days: 7 # Days in advance to predict the label_column. 
   user_preference_order_infra: 
     - local

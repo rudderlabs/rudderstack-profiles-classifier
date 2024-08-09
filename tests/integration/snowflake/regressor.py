@@ -15,7 +15,7 @@ data = {
     "prediction_horizon_days": pred_horizon_days,
     "features_profiles_model": feature_table_name,
     "inputs": inputs,
-    "eligible_users": "1=1",
+    "eligible_users": eligible_users,
     "label_column": regressor_label_column,
     "task": "regression",
     "output_profiles_ml_model": output_model_name_regression,

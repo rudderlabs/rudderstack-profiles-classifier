@@ -37,7 +37,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     train_file_extension = ".json"
-    eligible_users = "1=1"
+    eligible_users = "*"
     package_name = "feature_table"
     label_value = 1
     pred_horizon_days = 7

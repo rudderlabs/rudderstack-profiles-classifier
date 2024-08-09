@@ -53,6 +53,7 @@ class AttributionModel(BaseModelType):
                                 "name": {"type": "string"},
                                 "timestamp": {"type": "string"},
                                 "value": {"type": "string"},
+                                "conversion_window": {"type": "string"},
                             },
                             "required": ["name", "timestamp"],
                             "additionalProperties": False,
@@ -134,6 +135,67 @@ class AttributionModelRecipe(PyNativeRecipe):
     def describe(self, this: WhtMaterial):
         return self.sql, ".sql"
 
+    def _generate_date_case(
+        self, field, conversion_flag, conversion_granularity, conversion_window
+    ):
+        if conversion_flag:
+            return f"""CASE 
+                WHEN DATEDIFF({conversion_granularity}, {field}_timestamp, converted_date) <= {conversion_window} THEN DATE({field}_timestamp) 
+                ELSE NULL 
+            END AS {field}_date"""
+        else:
+            return f"DATE({field}_timestamp) AS {field}_date"
+
+    def _generate_value_case(
+        self,
+        field,
+        conversion_flag,
+        value_flag,
+        conversion_granularity,
+        conversion_window,
+    ):
+        if conversion_flag and value_flag:
+            return f"""CASE 
+                WHEN DATEDIFF({conversion_granularity}, {field}_timestamp, converted_date) <= {conversion_window} THEN {field}_conversion_value 
+                ELSE NULL 
+            END AS {field}_conversion_value"""
+        elif value_flag:
+            return f"{field}_conversion_value AS {field}_conversion_value"
+        else:
+            return ""
+
+    def generate_query_part(
+        self,
+        campaign_id_column_name,
+        conversion_flag,
+        value_flag,
+        conversion_granularity,
+        conversion_window,
+    ):
+        query_parts = []
+
+        for attribution_type in ["first_touch", "last_touch"]:
+            query_parts.append(
+                self._generate_date_case(
+                    attribution_type,
+                    conversion_flag,
+                    conversion_granularity,
+                    conversion_window,
+                )
+            )
+            query_parts.append(f"{attribution_type}_{campaign_id_column_name}")
+            query_parts.append(
+                self._generate_value_case(
+                    attribution_type,
+                    conversion_flag,
+                    value_flag,
+                    conversion_granularity,
+                    conversion_window,
+                )
+            )
+
+        return ",\n".join(filter(None, query_parts))
+
     def _create_with_query_template(
         self,
         conversion_name: str,
@@ -142,35 +204,46 @@ class AttributionModelRecipe(PyNativeRecipe):
         value_flag: bool,
         journey_query: str,
         conversion_query: str,
+        conversion_window: str = 0,
+        conversion_granularity: str = "None",
+        conversion_flag: bool = False,
     ):
         user_view_query = (
             f"""
-                    {conversion_name}_user_view AS
-                        (
-                        SELECT distinct
-                                journey.{entity_id_column_name} as {entity_id_column_name},
-                                first_value(DATE(journey.timestamp)) over (partition by journey.{entity_id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_date,
-                                first_value(DATE(journey.timestamp)) over (partition by journey.{entity_id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_date,
-                                """
+            sub_{conversion_name}_user_view AS
+            (
+                SELECT DISTINCT
+                    journey.{entity_id_column_name} AS {entity_id_column_name},
+                    first_value(journey.timestamp) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_touch_timestamp,
+                    first_value(journey.timestamp) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_touch_timestamp,
+                    """
             + (
-                f"""first_value(conversion_value) over (partition by journey.{entity_id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_conversion_value,
-                                first_value(conversion_value) over (partition by journey.{entity_id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_conversion_value,"""
+                f"""first_value(conversion_value) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_touch_conversion_value,
+                    first_value(conversion_value) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_touch_conversion_value,"""
                 if value_flag
                 else ""
             )
             + f"""
-                                first_value({campaign_id_column_name}) over (partition by journey.{entity_id_column_name} order by journey.timestamp asc rows between unbounded preceding and unbounded following) as first_touch_{campaign_id_column_name},
-                                first_value({campaign_id_column_name}) over (partition by journey.{entity_id_column_name} order by journey.timestamp desc rows between unbounded preceding and unbounded following) as last_touch_{campaign_id_column_name},
-                                converted_date as converted_date
-                        FROM (
-                            {conversion_query}
-                        ) AS conversion_tbl
-                        JOIN 
-                        (
-                            {journey_query}
-                        ) AS journey
-                        ON conversion_tbl.{entity_id_column_name} = journey.{entity_id_column_name} and journey.timestamp <= conversion_tbl.converted_date)        
-                    """
+                    first_value({campaign_id_column_name}) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_touch_{campaign_id_column_name},
+                    first_value({campaign_id_column_name}) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_touch_{campaign_id_column_name},
+                    conversion_tbl.converted_date AS converted_date
+                FROM (
+                    {conversion_query}
+                ) AS conversion_tbl
+                JOIN 
+                (
+                    {journey_query}
+                ) AS journey
+                ON conversion_tbl.{entity_id_column_name} = journey.{entity_id_column_name} AND journey.timestamp <= conversion_tbl.converted_date
+            ), 
+            {conversion_name}_user_view AS (
+                SELECT 
+                    {entity_id_column_name},
+                    {self.generate_query_part(campaign_id_column_name, conversion_flag, value_flag, conversion_granularity, conversion_window)},
+                    converted_date
+                FROM sub_{conversion_name}_user_view
+            )
+        """
         )
         first_touch_view_query = (
             f"""
@@ -576,15 +649,47 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 {select_info} 
                                 {from_info} 
                                 {where_info}"""
+            if "conversion_window" not in conversion_info:
+                with_query_template = self._create_with_query_template(
+                    conversion_name,
+                    self.entity_id_column_name,
+                    self.campaign_id_column_name,
+                    value_flag,
+                    journey_query,
+                    conversion_query,
+                )
+            else:
+                conversion_window = conversion_info["conversion_window"]
+                match = re.match(r"^\d+[mhd]$", conversion_window)
+                if not match:
+                    raise ValueError(
+                        "Invalid conversion window format. Use formats like 30m, 2h, 7d."
+                    )
 
-            with_query_template = self._create_with_query_template(
-                conversion_name,
-                self.entity_id_column_name,
-                self.campaign_id_column_name,
-                value_flag,
-                journey_query,
-                conversion_query,
-            )
+                n_conversion_window = int(
+                    conversion_window[:-1]
+                )  # All characters except the last one (the number part)
+                granularity = conversion_window[-1]
+
+                # Convert conversion window to days for SQL comparison
+                if granularity == "m":
+                    conversion_granularity = "minute"
+                elif granularity == "h":
+                    conversion_granularity = "hour"
+                elif granularity == "d":
+                    conversion_granularity = "day"
+
+                with_query_template = self._create_with_query_template(
+                    conversion_name,
+                    self.entity_id_column_name,
+                    self.campaign_id_column_name,
+                    value_flag,
+                    journey_query,
+                    conversion_query,
+                    str(n_conversion_window),
+                    conversion_granularity,
+                    True,
+                )
             cte_query_list.append(with_query_template)
 
         multiconversion_cte_query = """,

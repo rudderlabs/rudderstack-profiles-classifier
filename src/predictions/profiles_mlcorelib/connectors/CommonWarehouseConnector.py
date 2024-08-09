@@ -675,7 +675,7 @@ class CommonWarehouseConnector(Connector):
         total_negative_samples = 0
         total_samples = 0
         where_condition = ""
-        if filter_condition is not None:
+        if filter_condition and filter_condition != "*":
             where_condition = f" WHERE {filter_condition}"
 
         for m in materials:
@@ -721,7 +721,7 @@ class CommonWarehouseConnector(Connector):
     ) -> bool:
         total_samples = 0
         where_condition = ""
-        if filter_condition is not None:
+        if filter_condition and filter_condition != "*":
             where_condition = f" WHERE {filter_condition}"
 
         for material in materials:

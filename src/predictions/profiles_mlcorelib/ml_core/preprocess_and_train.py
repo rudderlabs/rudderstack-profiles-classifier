@@ -19,8 +19,6 @@ from ..utils import constants
 from ..utils.S3Utils import S3Utils
 from ..connectors.ConnectorFactory import ConnectorFactory
 
-model_file_name = constants.MODEL_FILE_NAME
-
 
 def train_and_store_model_results(
     feature_df: pd.DataFrame,
@@ -52,9 +50,13 @@ def train_and_store_model_results(
             "connector and trainer are required in kwargs for training in train_and_store_model_results"
         )
 
-    model_file = connector.join_file_path(
-        f"{trainer.output_profiles_ml_model}_{model_file_name}"
-    )
+    pkl_model_file_name = kwargs.get("pkl_model_file_name", None)
+    if pkl_model_file_name is None:
+        raise ValueError(
+            "pkl_model_file_name is required in kwargs for training in train_and_store_model_results"
+        )
+
+    model_file = connector.join_file_path(pkl_model_file_name)
     feature_df.columns = [col.upper() for col in feature_df.columns]
 
     train_x, test_x, test_y, pipe, model_id, metrics_df, results = trainer.train_model(
@@ -142,6 +144,7 @@ def preprocess_and_train(
     input_column_types: dict,
     input_columns: List[str],
     metrics_table: str,
+    pkl_model_file_name: str,
     **kwargs,
 ):
     connector = kwargs.get("connector", None)
@@ -240,6 +243,7 @@ def preprocess_and_train(
             input_column_types,
             train_config,
             metrics_table,
+            pkl_model_file_name=pkl_model_file_name,
             connector=connector,
             trainer=trainer,
         )
@@ -279,6 +283,7 @@ if __name__ == "__main__":
     parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
     parser.add_argument("--metrics_table", type=str)
+    parser.add_argument("--pkl_model_file_name", type=str)
     args = parser.parse_args()
 
     output_dir = (
@@ -321,6 +326,7 @@ if __name__ == "__main__":
         args.input_column_types,
         args.input_columns,
         args.metrics_table,
+        args.pkl_model_file_name,
         connector=connector,
         trainer=trainer,
     )
@@ -337,7 +343,7 @@ if __name__ == "__main__":
         train_upload_whitelist = utils.merge_lists_to_unique(
             list(trainer.figure_names.values()),
             [
-                f"{trainer.output_profiles_ml_model}_{model_file_name}",
+                args.pkl_model_file_name,
                 constants.TRAIN_JSON_RESULT_FILE,
             ],
         )

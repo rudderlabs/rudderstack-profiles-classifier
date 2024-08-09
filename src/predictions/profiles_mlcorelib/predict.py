@@ -24,8 +24,6 @@ from .connectors.ConnectorFactory import ConnectorFactory
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
-model_file_name = constants.MODEL_FILE_NAME
-
 
 def _predict(
     creds: dict,

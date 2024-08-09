@@ -28,6 +28,7 @@ class Processor(ABC):
         metrics_table: str,
         wh_creds: dict,
         site_config: dict,
+        pkl_model_file_name: str,
     ):
         pass
 

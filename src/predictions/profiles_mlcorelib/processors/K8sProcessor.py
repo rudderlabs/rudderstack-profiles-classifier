@@ -273,13 +273,14 @@ class K8sProcessor(Processor):
         output_tablename: str,
         merged_config: dict,
         site_config: dict,
+        pkl_model_file_name: str,
     ):
         credentials_presets = site_config["py_models"]["credentials_presets"]
         k8s_config = credentials_presets["kubernetes"]
         s3_config = credentials_presets["s3"]
         json_output_filename = model_path.split("/")[-1]
         predict_upload_whitelist = [
-            f"{self.trainer.output_profiles_ml_model}_{constants.MODEL_FILE_NAME}",
+            pkl_model_file_name,
             json_output_filename,
         ]
         logger.get().debug("Uploading files required for prediction to S3")
@@ -308,6 +309,8 @@ class K8sProcessor(Processor):
             output_tablename,
             "--merged_config",
             json.dumps(merged_config),
+            "--pkl_model_file_name",
+            pkl_model_file_name,
         ]
         job_name = "ml-prediction-" + str(uuid.uuid4())
         self._execute(

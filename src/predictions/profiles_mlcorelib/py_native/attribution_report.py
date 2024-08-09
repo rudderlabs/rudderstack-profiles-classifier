@@ -108,9 +108,6 @@ class AttributionModel(BaseModelType):
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
-        # for conversion_var in build_spec[CONVERSION][CONVERSION_VARS]:
-        #     if "conversion_window" not in conversion_var:
-        #         conversion_var["conversion_window"] = "90d"
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:
@@ -137,6 +134,218 @@ class AttributionModelRecipe(PyNativeRecipe):
 
     def describe(self, this: WhtMaterial):
         return self.sql, ".sql"
+
+    # def _create_with_query_template(
+    #     self,
+    #     conversion_name: str,
+    #     entity_id_column_name: str,
+    #     campaign_id_column_name: str,
+    #     value_flag: bool,
+    #     journey_query: str,
+    #     conversion_query: str,
+    #     conversion_window: str = 0,
+    #     conversion_granularity: str = "None",
+    #     conversion_flag: bool = False,
+    # ):
+    #     user_view_query = (
+    #         f"""
+    #         sub_{conversion_name}_user_view AS
+    #         (
+    #             SELECT DISTINCT
+    #                 journey.{entity_id_column_name} AS {entity_id_column_name},
+    #                 first_value(journey.timestamp) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_touch_timestamp,
+    #                 first_value(journey.timestamp) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_touch_timestamp,
+    #                 """
+    #         + (
+    #             f"""first_value(conversion_value) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_touch_conversion_value,
+    #                 first_value(conversion_value) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_touch_conversion_value,"""
+    #             if value_flag
+    #             else ""
+    #         )
+    #         + f"""
+    #
+    #                 first_value({campaign_id_column_name}) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_touch_{campaign_id_column_name},
+    #                 first_value({campaign_id_column_name}) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_touch_{campaign_id_column_name},
+    #                 conversion_tbl.converted_date AS converted_date
+    #             FROM (
+    #                 {conversion_query}
+    #             ) AS conversion_tbl
+    #             JOIN
+    #             (
+    #                 {journey_query}
+    #             ) AS journey
+    #             ON conversion_tbl.{entity_id_column_name} = journey.{entity_id_column_name} AND journey.timestamp <= conversion_tbl.converted_date
+    #         ),
+    #         {conversion_name}_user_view AS (
+    #             SELECT
+    #                 {entity_id_column_name},
+    #                 """
+    #         + (
+    #             f"""CASE
+    #                     WHEN DATEDIFF({conversion_granularity}, first_touch_timestamp, converted_date) <= {conversion_window} THEN DATE(first_touch_timestamp)
+    #                     ELSE NULL
+    #                 END AS first_touch_date,
+    #                 CASE
+    #                     WHEN DATEDIFF({conversion_granularity}, last_touch_timestamp, converted_date) <= {conversion_window} THEN DATE(last_touch_timestamp)
+    #                     ELSE NULL
+    #                 END AS last_touch_date,
+    #                 """
+    #             if conversion_flag
+    #             else f"DATE(first_touch_timestamp) AS first_touch_date, DATE(last_touch_timestamp) AS last_touch_date,"
+    #         )
+    #         + f"""
+    #                 first_touch_{campaign_id_column_name},
+    #                 last_touch_{campaign_id_column_name},
+    #                 """
+    #         + (
+    #             f"""CASE
+    #                     WHEN DATEDIFF({conversion_granularity}, first_touch_timestamp, converted_date) <= {conversion_window} THEN first_touch_conversion_value
+    #                     ELSE NULL
+    #                 END AS first_touch_conversion_value,
+    #                 CASE
+    #                     WHEN DATEDIFF({conversion_granularity}, last_touch_timestamp, converted_date) <= {conversion_window} THEN last_touch_conversion_value
+    #                     ELSE NULL
+    #                 END AS last_touch_conversion_value,
+    #                 """
+    #             if conversion_flag and value_flag
+    #             else (
+    #                 f"first_touch_conversion_value AS first_touch_conversion_value, last_touch_conversion_value AS last_touch_conversion_value,"
+    #                 if value_flag
+    #                 else ""
+    #             )
+    #         )
+    #         + f"""
+    #                 converted_date
+    #             FROM sub_{conversion_name}_user_view
+    #         )
+    #     """
+    #     )
+    #     first_touch_view_query = (
+    #         f"""
+    #                                 {conversion_name}_first_touch_view as
+    #                                 (
+    #                                 select first_touch_date as date,
+    #                                     first_touch_{campaign_id_column_name} as {campaign_id_column_name},
+    #                                     count(distinct {entity_id_column_name}) as first_touch_count
+    #                                     """
+    #         + (
+    #             f""", sum(first_touch_conversion_value) as first_touch_conversion_value"""
+    #             if value_flag
+    #             else ""
+    #         )
+    #         + f"""
+    #                                 from {conversion_name}_user_view
+    #                                 group by first_touch_date, first_touch_{campaign_id_column_name})
+    #                                 """
+    #     )
+    #     last_touch_view_query = (
+    #         f"""
+    #                                 {conversion_name}_last_touch_view as
+    #                                 (
+    #                                 select last_touch_date as date,
+    #                                     last_touch_{campaign_id_column_name} as {campaign_id_column_name},
+    #                                     count(distinct {entity_id_column_name}) as last_touch_count
+    #                                     """
+    #         + (
+    #             f""", sum(last_touch_conversion_value) as last_touch_conversion_value"""
+    #             if value_flag
+    #             else ""
+    #         )
+    #         + f"""
+    #                                 from {conversion_name}_user_view
+    #                                 group by last_touch_date, last_touch_{campaign_id_column_name})
+    #                                 """
+    #     )
+    #     conversion_view_query = (
+    #         f"""
+    #                             {conversion_name}_conversion_view AS
+    #                             (
+    #                                 select coalesce({conversion_name}_first_touch_view.date, {conversion_name}_last_touch_view.date) as date,
+    #                                         coalesce({conversion_name}_first_touch_view.{campaign_id_column_name}, {conversion_name}_last_touch_view.{campaign_id_column_name}) as {campaign_id_column_name},
+    #                                         coalesce(first_touch_count, 0) as {conversion_name}_first_touch_count,
+    #                                         coalesce(last_touch_count, 0) as {conversion_name}_last_touch_count
+    #                                         """
+    #         + (
+    #             f""", coalesce(first_touch_conversion_value, 0) AS {conversion_name}_first_touch_conversion_value,
+    #                                         coalesce(last_touch_conversion_value, 0) AS {conversion_name}_last_touch_conversion_value"""
+    #             if value_flag
+    #             else ""
+    #         )
+    #         + f"""
+    #                                 from {conversion_name}_first_touch_view
+    #                                 full outer join {conversion_name}_last_touch_view
+    #                                 on {conversion_name}_first_touch_view.date = {conversion_name}_last_touch_view.date
+    #                                     AND {conversion_name}_first_touch_view.{campaign_id_column_name} = {conversion_name}_last_touch_view.{campaign_id_column_name})
+    #                             """
+    #     )
+    #     with_query_template = f"""
+    #                             {user_view_query},
+    #                             {first_touch_view_query},
+    #                             {last_touch_view_query},
+    #                             {conversion_view_query}
+    #                             """
+    #     return with_query_template
+
+    def _generate_date_case(
+        self, field, conversion_flag, conversion_granularity, conversion_window
+    ):
+        if conversion_flag:
+            return f"""CASE 
+                WHEN DATEDIFF({conversion_granularity}, {field}_timestamp, converted_date) <= {conversion_window} THEN DATE({field}_timestamp) 
+                ELSE NULL 
+            END AS {field}_date"""
+        else:
+            return f"DATE({field}_timestamp) AS {field}_date"
+
+    def _generate_value_case(
+        self,
+        field,
+        conversion_flag,
+        value_flag,
+        conversion_granularity,
+        conversion_window,
+    ):
+        if conversion_flag and value_flag:
+            return f"""CASE 
+                WHEN DATEDIFF({conversion_granularity}, {field}_timestamp, converted_date) <= {conversion_window} THEN {field}_conversion_value 
+                ELSE NULL 
+            END AS {field}_conversion_value"""
+        elif value_flag:
+            return f"{field}_conversion_value AS {field}_conversion_value"
+        else:
+            return ""
+
+    def generate_query_part(
+        self,
+        campaign_id_column_name,
+        conversion_flag,
+        value_flag,
+        conversion_granularity,
+        conversion_window,
+    ):
+        query_parts = []
+
+        for attribution_type in ["first_touch", "last_touch"]:
+            query_parts.append(
+                self._generate_date_case(
+                    attribution_type,
+                    conversion_flag,
+                    conversion_granularity,
+                    conversion_window,
+                )
+            )
+            query_parts.append(f"{attribution_type}_{campaign_id_column_name}")
+            query_parts.append(
+                self._generate_value_case(
+                    attribution_type,
+                    conversion_flag,
+                    value_flag,
+                    conversion_granularity,
+                    conversion_window,
+                )
+            )
+
+        return ",\n".join(filter(None, query_parts))
 
     def _create_with_query_template(
         self,
@@ -166,7 +375,6 @@ class AttributionModelRecipe(PyNativeRecipe):
                 else ""
             )
             + f"""
-
                     first_value({campaign_id_column_name}) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp ASC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS first_touch_{campaign_id_column_name},
                     first_value({campaign_id_column_name}) OVER (PARTITION BY journey.{entity_id_column_name} ORDER BY journey.timestamp DESC ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_touch_{campaign_id_column_name},
                     conversion_tbl.converted_date AS converted_date
@@ -182,42 +390,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             {conversion_name}_user_view AS (
                 SELECT 
                     {entity_id_column_name},
-                    """
-            + (
-                f"""CASE 
-                        WHEN DATEDIFF({conversion_granularity}, first_touch_timestamp, converted_date) <= {conversion_window} THEN DATE(first_touch_timestamp) 
-                        ELSE NULL 
-                    END AS first_touch_date,
-                    CASE 
-                        WHEN DATEDIFF({conversion_granularity}, last_touch_timestamp, converted_date) <= {conversion_window} THEN DATE(last_touch_timestamp) 
-                        ELSE NULL 
-                    END AS last_touch_date,
-                    """
-                if conversion_flag
-                else f"DATE(first_touch_timestamp) AS first_touch_date, DATE(last_touch_timestamp) AS last_touch_date,"
-            )
-            + f"""
-                    first_touch_{campaign_id_column_name},
-                    last_touch_{campaign_id_column_name},
-                    """
-            + (
-                f"""CASE 
-                        WHEN DATEDIFF({conversion_granularity}, first_touch_timestamp, converted_date) <= {conversion_window} THEN first_touch_conversion_value 
-                        ELSE NULL 
-                    END AS first_touch_conversion_value,
-                    CASE 
-                        WHEN DATEDIFF({conversion_granularity}, last_touch_timestamp, converted_date) <= {conversion_window} THEN last_touch_conversion_value 
-                        ELSE NULL 
-                    END AS last_touch_conversion_value,
-                    """
-                if conversion_flag and value_flag
-                else (
-                    f"first_touch_conversion_value AS first_touch_conversion_value, last_touch_conversion_value AS last_touch_conversion_value,"
-                    if value_flag
-                    else ""
-                )
-            )
-            + f"""
+                    {self.generate_query_part(campaign_id_column_name, conversion_flag, value_flag, conversion_granularity, conversion_window)},
                     converted_date
                 FROM sub_{conversion_name}_user_view
             )

@@ -43,17 +43,12 @@ def train_and_store_model_results(
         dict: returns the model_id which is basically the time converted to key at which results were generated
         along with precision, recall, fpr and tpr to generate pr-auc and roc-auc curve.
     """
+    pkl_model_file_name = kwargs.get("pkl_model_file_name")
     connector = kwargs.get("connector")
     trainer = kwargs.get("trainer")
     if connector is None or trainer is None:
         raise ValueError(
-            "connector and trainer are required in kwargs for training in train_and_store_model_results"
-        )
-
-    pkl_model_file_name = kwargs.get("pkl_model_file_name", None)
-    if pkl_model_file_name is None:
-        raise ValueError(
-            "pkl_model_file_name is required in kwargs for training in train_and_store_model_results"
+            "connector, trainer and pkl_model_file_name are required in kwargs for training in train_and_store_model_results"
         )
 
     model_file = connector.join_file_path(pkl_model_file_name)

@@ -1123,8 +1123,12 @@ class SnowflakeConnector(Connector):
         preds = preds.withColumn("columnindex", F.row_number().over(w))
         extracted_df = extracted_df.withColumn("columnindex", F.row_number().over(w))
         preds = preds.join(
-            extracted_df, preds.columnindex == extracted_df.columnindex, "inner"
-        ).drop("columnindex")
+            extracted_df,
+            preds.columnindex == extracted_df.columnindex,
+            "inner",
+            lsuffix="_left",
+            rsuffix="_right",
+        ).drop("columnindex_left", "columnindex_right")
 
         # Remove the dummy label column in case of Regression
         if "label" not in pred_output_df_columns:
@@ -1132,7 +1136,7 @@ class SnowflakeConnector(Connector):
 
         preds_with_percentile = preds.withColumn(
             percentile_column_name,
-            F.percent_rank().over(Window.orderBy(F.col(score_column_name))),
+            (F.percent_rank().over(Window.orderBy(F.col(score_column_name)))) * 100,
         )
 
         return preds_with_percentile

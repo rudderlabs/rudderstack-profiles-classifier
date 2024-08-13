@@ -104,7 +104,10 @@ class TrainingRecipe(PyNativeRecipe):
         if "credentials_presets" in py_models:
             # This flow is for runs in the UI
             credentials_presets = py_models["credentials_presets"]
-            if "run_artefacts_s3" in credentials_presets:
+            if (
+                credentials_presets is not None
+                and "run_artefacts_s3" in credentials_presets
+            ):
                 run_artefacts_config = credentials_presets["run_artefacts_s3"]
                 bucket = run_artefacts_config["bucket"]
                 region = run_artefacts_config["region"]

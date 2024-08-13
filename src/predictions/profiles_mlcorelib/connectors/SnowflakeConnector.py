@@ -1078,17 +1078,11 @@ class SnowflakeConnector(Connector):
     def generate_type_hint(
         self,
         df: snowflake.snowpark.Table,
-        column_types: Dict[str, List[str]],
     ):
         types = []
-
-        for col in df.columns:
-            dtype_str = column_types[col]
-            for category, mapping in self.data_type_mapping.items():
-                if dtype_str in mapping:
-                    types.append(mapping[dtype_str])
-                    break
-
+        schema_fields = df.schema.fields
+        for field in schema_fields:
+            types.append(field.datatype)
         return types
 
     def call_prediction_udf(
@@ -1129,8 +1123,12 @@ class SnowflakeConnector(Connector):
         preds = preds.withColumn("columnindex", F.row_number().over(w))
         extracted_df = extracted_df.withColumn("columnindex", F.row_number().over(w))
         preds = preds.join(
-            extracted_df, preds.columnindex == extracted_df.columnindex, "inner"
-        ).drop("columnindex")
+            extracted_df,
+            preds.columnindex == extracted_df.columnindex,
+            "inner",
+            lsuffix="_left",
+            rsuffix="_right",
+        ).drop("columnindex_left", "columnindex_right")
 
         # Remove the dummy label column in case of Regression
         if "label" not in pred_output_df_columns:
@@ -1138,7 +1136,7 @@ class SnowflakeConnector(Connector):
 
         preds_with_percentile = preds.withColumn(
             percentile_column_name,
-            F.percent_rank().over(Window.orderBy(F.col(score_column_name))),
+            (F.percent_rank().over(Window.orderBy(F.col(score_column_name)))) * 100,
         )
 
         return preds_with_percentile

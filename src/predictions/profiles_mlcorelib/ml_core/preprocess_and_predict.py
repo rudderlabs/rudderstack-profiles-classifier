@@ -120,9 +120,7 @@ def preprocess_and_predict(
     input_df = connector.select_relevant_columns(
         predict_data, required_features_upper_case
     )
-    types = connector.generate_type_hint(
-        input_df, results["column_names"]["feature_table_column_types"]
-    )
+    types = connector.generate_type_hint(input_df)
 
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
         predict_data, trainer.index_timestamp, end_ts

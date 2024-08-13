@@ -4,6 +4,7 @@ models:
     model_spec:
       occurred_at_col: insert_ts
       entity_key: user
+      validity_time: day
       inputs:
         - packages/feature_table/entity/user/is_churned_7_days
         - packages/feature_table/entity/user/days_since_last_seen

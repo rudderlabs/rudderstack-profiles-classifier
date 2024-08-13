@@ -5,6 +5,7 @@ setup(
     name="profiles_mlcorelib",
     version=version,
     author="rudderstack",
+    python_requires="<3.12",
     packages=find_packages(),
     long_description_content_type="text/markdown",
     classifiers=[

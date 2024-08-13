@@ -161,7 +161,10 @@ class RegressionTrainer(MLTrainer):
     ) -> dict:
         training_summary = {
             "timestamp": model_timestamp,
-            "data": {"metrics": model_results["metrics"]},
+            "data": {
+                "model": model_results["model_class_name"],
+                "metrics": model_results["metrics"],
+            },
         }
         return training_summary
 

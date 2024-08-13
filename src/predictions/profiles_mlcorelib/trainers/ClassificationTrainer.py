@@ -1,4 +1,4 @@
-from typing import List, Tuple
+from typing import Tuple
 import pandas as pd
 from ..utils import utils
 from ..utils.logger import logger
@@ -13,7 +13,6 @@ from pycaret.classification import (
     tune_model as classification_tune_model,
     get_config as classification_get_config,
     save_model as classification_save_model,
-    pull as classification_results_pull,
     load_model as classification_load_model,
     predict_model as classification_predict_model,
     add_metric as classification_add_metric,
@@ -23,8 +22,6 @@ from sklearn.metrics import (
     average_precision_score,
     precision_recall_fscore_support,
     roc_auc_score,
-    fbeta_score,
-    fbeta_score,
 )
 
 

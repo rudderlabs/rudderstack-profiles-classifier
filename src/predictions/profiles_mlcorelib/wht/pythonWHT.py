@@ -12,8 +12,6 @@ from ..connectors.Connector import Connector
 from .rudderPB import RudderPB
 from .mockPB import MockPB
 
-import json
-
 
 def split_key(item):
     parts = item.split("_")

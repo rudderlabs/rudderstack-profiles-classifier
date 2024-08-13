@@ -2,8 +2,6 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict
 
-from ..utils import utils
-
 
 class Connector(ABC):
     def __init__(self, creds: dict) -> None:

@@ -1,4 +1,3 @@
-import os
 from tests.integration.utils import *
 from train import *
 import shutil

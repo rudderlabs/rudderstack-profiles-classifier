@@ -8,9 +8,9 @@ pandas>=2.0.3,<2.2.0
 pyarrow>=14.0.2
 PyYAML>=6.0.1
 scikit_learn>=1.4.0,<=1.4.2
-shap>=0.44.0
+ #shap>=0.44.0
 platformdirs>=3.11.0
-xgboost>=2.0.3
+ #xgboost>=2.0.3
 redshift-connector>=2.0.918
 pandas-redshift>=2.0.5
 sqlalchemy-redshift>=0.8.14
@@ -33,6 +33,5 @@ pycaret==3.3.0
 # Additional packages based on imports
 google-auth
 google-auth-oauthlib
-sqlalchemy
 boto3
 kubernetes

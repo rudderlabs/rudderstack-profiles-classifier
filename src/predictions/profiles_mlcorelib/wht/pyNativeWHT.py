@@ -98,10 +98,9 @@ class PyNativeWHT:
         merged_config["data"]["eligible_users"] = self.update_conditions(
             merged_config["data"]["eligible_users"]
         )
-        merged_config["data"]["label_column"] = self.update_conditions(
-            merged_config["data"]["label_column"]
-        )
-        print(merged_config)
+        # merged_config["data"]["label_column"] = self.update_conditions(
+        #     merged_config["data"]["label_column"]
+        # )
         return merged_config
 
     def get_material_names(

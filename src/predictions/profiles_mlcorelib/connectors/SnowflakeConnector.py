@@ -1078,17 +1078,11 @@ class SnowflakeConnector(Connector):
     def generate_type_hint(
         self,
         df: snowflake.snowpark.Table,
-        column_types: Dict[str, List[str]],
     ):
         types = []
-
-        for col in df.columns:
-            dtype_str = column_types[col]
-            for category, mapping in self.data_type_mapping.items():
-                if dtype_str in mapping:
-                    types.append(mapping[dtype_str])
-                    break
-
+        schema_fields = df.schema.fields
+        for field in schema_fields:
+            types.append(field.datatype)
         return types
 
     def call_prediction_udf(

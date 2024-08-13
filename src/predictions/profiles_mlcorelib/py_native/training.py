@@ -103,7 +103,7 @@ class TrainingRecipe(PyNativeRecipe):
         mat_name_without_seq = this.name().rsplit("_", 1)[0]
         if "credentials_presets" in py_models:
             # This flow is for runs in the UI
-            credentials_presets = py_models["credentials_presets"]
+            credentials_presets = py_models.get("credentials_presets", {})
             if "run_artefacts_s3" in credentials_presets:
                 run_artefacts_config = credentials_presets["run_artefacts_s3"]
                 bucket = run_artefacts_config["bucket"]

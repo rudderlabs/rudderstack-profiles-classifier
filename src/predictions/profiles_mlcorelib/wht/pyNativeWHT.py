@@ -62,7 +62,6 @@ class PyNativeWHT:
         return material_split["model_hash"], material_split["model_name"], creation_ts
 
     def get_column_name(self, condition_string):
-        # Combined logic from get_column_names and update_conditions
         column_name = self.whtMaterial.de_ref(
             condition_string
         ).model.db_object_name_prefix()
@@ -80,11 +79,9 @@ class PyNativeWHT:
             "output_profiles_ml_model"
         ] = self.whtMaterial.model.name()
 
-        # Only updating label_column now
         merged_config["data"]["label_column"] = self.get_column_name(
             merged_config["data"]["label_column"]
         )
-        print(merged_config)
         return merged_config
 
     def get_material_names(

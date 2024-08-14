@@ -43,16 +43,26 @@ class TestClassificationTrainer(unittest.TestCase):
     def test_prepare_training_summary(self):
         config = build_trainer_config()
         trainer = TrainerFactory.create(config)
+        model_class_name = "MODEL_NAME"
         metrics = {"test": {}, "train": {}, "val": {}}
         timestamp = "2023-11-08"
         threshold = 0.62
         result = trainer.prepare_training_summary(
-            {"metrics": metrics, "prob_th": threshold}, timestamp
+            {
+                "model_class_name": model_class_name,
+                "metrics": metrics,
+                "prob_th": threshold,
+            },
+            timestamp,
         )
         self.assertEqual(
             result,
             {
-                "data": {"metrics": metrics, "threshold": threshold},
+                "data": {
+                    "model": model_class_name,
+                    "metrics": metrics,
+                    "threshold": threshold,
+                },
                 "timestamp": timestamp,
             },
         )
@@ -177,10 +187,19 @@ class TestRegressionTrainer(unittest.TestCase):
     def test_prepare_training_summary(self):
         config = build_trainer_config(task="regression")
         trainer = TrainerFactory.create(config)
+        model_class_name = "MODEL_NAME"
         metrics = {"test": {}, "train": {}, "val": {}}
         timestamp = "2023-11-08"
-        result = trainer.prepare_training_summary({"metrics": metrics}, timestamp)
-        self.assertEqual(result, {"data": {"metrics": metrics}, "timestamp": timestamp})
+        result = trainer.prepare_training_summary(
+            {"model_class_name": model_class_name, "metrics": metrics}, timestamp
+        )
+        self.assertEqual(
+            result,
+            {
+                "data": {"model": model_class_name, "metrics": metrics},
+                "timestamp": timestamp,
+            },
+        )
 
     def test_validate_data(self):
         config = build_trainer_config(task="regression")

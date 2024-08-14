@@ -222,6 +222,7 @@ class ClassificationTrainer(MLTrainer):
         training_summary = {
             "timestamp": model_timestamp,
             "data": {
+                "model": model_results["model_class_name"],
                 "metrics": model_results["metrics"],
                 "threshold": model_results["prob_th"],
             },

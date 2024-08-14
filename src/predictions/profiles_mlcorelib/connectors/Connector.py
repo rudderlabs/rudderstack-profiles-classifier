@@ -468,7 +468,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def generate_type_hint(self, df: Any, column_types: Dict[str, List[str]]):
+    def generate_type_hint(self, df: Any):
         pass
 
     @abstractmethod

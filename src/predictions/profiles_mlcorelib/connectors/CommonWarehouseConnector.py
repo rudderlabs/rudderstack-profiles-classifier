@@ -893,7 +893,6 @@ class CommonWarehouseConnector(Connector):
     def generate_type_hint(
         self,
         df: pd.DataFrame,
-        column_types: Dict[str, List[str]],
     ):
         return None
 

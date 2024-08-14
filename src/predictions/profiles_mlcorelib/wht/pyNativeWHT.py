@@ -62,9 +62,7 @@ class PyNativeWHT:
         return material_split["model_hash"], material_split["model_name"], creation_ts
 
     def get_column_name(self, model_ref):
-        column_name = self.whtMaterial.de_ref(
-            model_ref
-        ).model.db_object_name_prefix()
+        column_name = self.whtMaterial.de_ref(model_ref).model.db_object_name_prefix()
         return column_name
 
     def update_config_info(self, merged_config):

@@ -78,14 +78,14 @@ class TrainingModel(BaseModelType):
     def validate(self) -> tuple[bool, str]:
         data_config = self.build_spec["ml_config"]["data"]
         task = data_config.get("task", "")
-        if task != "regression" and task != "":
+        if task != "regression" and task != "" and task != "classification":
             return (
                 False,
                 f"Invalid task {task}. Supported tasks - classification, regression",
             )
         label_value = data_config.get("label_value", "")
-        if label_value == "" and task == "regression":
-            return False, "label_value is required for regression task"
+        if label_value != "" and task == "regression":
+            return False, "label_value is not allowed for regression task"
         return super().validate()
 
 

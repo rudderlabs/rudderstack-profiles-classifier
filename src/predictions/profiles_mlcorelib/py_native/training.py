@@ -178,7 +178,10 @@ class TrainingRecipe(PyNativeRecipe):
 
     def register_dependencies(self, this: WhtMaterial):
         for input in self.build_spec["inputs"]:
-            this.de_ref(input)
+            if input == self.build_spec["ml_config"]["data"]["label_column"]:
+                this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
+            else:
+                this.de_ref(input)
 
     def get_training_file_path(this: WhtMaterial):
         folder = this.get_output_folder()

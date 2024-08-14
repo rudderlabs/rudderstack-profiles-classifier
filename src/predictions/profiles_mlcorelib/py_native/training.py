@@ -76,9 +76,16 @@ class TrainingModel(BaseModelType):
         return TrainingRecipe(self.build_spec)
 
     def validate(self) -> tuple[bool, str]:
-        min_version = constants.MIN_PB_VERSION
-        if self.schema_version < min_version:
-            return False, f"schema version should >= {min_version}"
+        data_config = self.build_spec["ml_config"]["data"]
+        task = data_config.get("task", "")
+        if task != "regression" and task != "":
+            return (
+                False,
+                f"Invalid task {task}. Supported tasks - classification, regression",
+            )
+        label_value = data_config.get("label_value", "")
+        if label_value == "" and task == "regression":
+            return False, "label_value is required for regression task"
         return super().validate()
 
 

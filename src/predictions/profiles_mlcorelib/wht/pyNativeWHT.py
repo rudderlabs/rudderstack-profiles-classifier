@@ -1,5 +1,4 @@
 import os
-import re
 from datetime import datetime, timedelta
 from typing import List, Tuple, Dict
 
@@ -62,15 +61,12 @@ class PyNativeWHT:
         )
         return material_split["model_hash"], material_split["model_name"], creation_ts
 
-    def get_column_names(self, var_names):
-        return [
-            self.whtMaterial.de_ref(var).model.db_object_name_prefix()
-            for var in var_names
-        ]
-
-    def update_conditions(self, condition_string):
-        column_names = self.get_column_names([condition_string])
-        return column_names[0]
+    def get_column_name(self, condition_string):
+        # Combined logic from get_column_names and update_conditions
+        column_name = self.whtMaterial.de_ref(
+            condition_string
+        ).model.db_object_name_prefix()
+        return column_name
 
     def update_config_info(self, merged_config):
         entity = self.whtMaterial.model.entity()
@@ -85,10 +81,10 @@ class PyNativeWHT:
         ] = self.whtMaterial.model.name()
 
         # Only updating label_column now
-        merged_config["data"]["label_column"] = self.update_conditions(
+        merged_config["data"]["label_column"] = self.get_column_name(
             merged_config["data"]["label_column"]
         )
-
+        print(merged_config)
         return merged_config
 
     def get_material_names(

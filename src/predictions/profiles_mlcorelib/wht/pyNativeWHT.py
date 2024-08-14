@@ -62,26 +62,15 @@ class PyNativeWHT:
         )
         return material_split["model_hash"], material_split["model_name"], creation_ts
 
-    def extract_conditions(self, condition_string):
-        pattern = r"user\.Var\('(\w+)'\)([<=!]+[0-9]+)"
-        return re.findall(pattern, condition_string)
-
     def get_column_names(self, var_names):
-        return [f"{{{{{var}.Model.DbObjectNamePrefix()}}}}" for var in var_names]
+        return [
+            self.whtMaterial.de_ref(var).model.db_object_name_prefix()
+            for var in var_names
+        ]
 
     def update_conditions(self, condition_string):
-        conditions = self.extract_conditions(condition_string)
-        var_names = [var[0] for var in conditions]
-        column_names = self.get_column_names(var_names)
-
-        updated_condition = condition_string
-        for i, (var_name, condition) in enumerate(conditions):
-            var_placeholder = f"user.Var('{var_name}'){condition}"
-            updated_condition = updated_condition.replace(
-                var_placeholder, f"{column_names[i]}{condition}", 1
-            )
-
-        return updated_condition
+        column_names = self.get_column_names([condition_string])
+        return column_names[0]
 
     def update_config_info(self, merged_config):
         entity = self.whtMaterial.model.entity()
@@ -95,12 +84,11 @@ class PyNativeWHT:
             "output_profiles_ml_model"
         ] = self.whtMaterial.model.name()
 
-        merged_config["data"]["eligible_users"] = self.update_conditions(
-            merged_config["data"]["eligible_users"]
+        # Only updating label_column now
+        merged_config["data"]["label_column"] = self.update_conditions(
+            merged_config["data"]["label_column"]
         )
-        # merged_config["data"]["label_column"] = self.update_conditions(
-        #     merged_config["data"]["label_column"]
-        # )
+
         return merged_config
 
     def get_material_names(

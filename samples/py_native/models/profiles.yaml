@@ -14,6 +14,7 @@ models:
       ml_config:
         data:
           label_column: is_churned_7_days
+          label_value: 1
           prediction_horizon_days: 7
           eligible_users: '*'
           output_profiles_ml_model: ltv_classification_integration_test

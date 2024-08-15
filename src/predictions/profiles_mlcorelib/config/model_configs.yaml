@@ -61,12 +61,12 @@ train:
     models:
       include :
         classifiers :
-          - xgboost # Xgboost Classifier
+#          - xgboost # Xgboost Classifier
           - rf      # Random Forest Classifier
           - ada     # AdaBoost Classifier
           - gbc     # Gradient Boosting Classifier
         regressors :
-          - xgboost # Xgboost Regressor
+#          - xgboost # Xgboost Regressor
           - rf      # Random Forest Regressor
           - ada     # AdaBoost Regressor
           - gbr     # Gradient Boosting Regressor

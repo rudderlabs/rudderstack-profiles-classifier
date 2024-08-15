@@ -26,7 +26,7 @@ setup(
         "PyYAML>=6.0.1",
         "scikit_learn>=1.4.0,<=1.4.2",
         "shap>=0.44.0",
-        "xgboost>=2.0.3",
+ #       "xgboost>=2.0.3",
         "redshift-connector>=2.0.918",
         "pandas-redshift>=2.0.5",
         "sqlalchemy-redshift>=0.8.14",

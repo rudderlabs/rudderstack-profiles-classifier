@@ -15,12 +15,14 @@ dependencies:
     # ML
     - scikit-learn==1.1.1
     - lightgbm==3.2.1
-#    - xgboost==1.5.0
     - hyperopt==0.2.7
     # Visualization
     - scipy==1.7.1
     - seaborn==0.11.2
     - matplotlib
+    # Google
+    - google-auth
+    - google-auth-oauthlib
     # Misc
     - cloudpickle==2.0.0
     - jupyter
@@ -29,3 +31,5 @@ dependencies:
     - optuna
     - joblib==1.2.0
     - PyYAML==6.0
+    - boto3
+    - kubernetes

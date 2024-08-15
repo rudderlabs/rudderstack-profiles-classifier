@@ -26,7 +26,6 @@ setup(
         "PyYAML>=6.0.1",
         "scikit_learn>=1.4.0,<=1.4.2",
         "shap>=0.44.0",
- #       "xgboost>=2.0.3",
         "redshift-connector>=2.0.918",
         "pandas-redshift>=2.0.5",
         "sqlalchemy-redshift>=0.8.14",
@@ -37,6 +36,8 @@ setup(
         "sqlalchemy-bigquery>=1.9.0",
         "db-dtypes>=1.2.0",
         "pycaret==3.3.1",
+        "boto3",
+        "kubernetes",
     ],
     include_package_data=True,
 )

@@ -5,6 +5,7 @@ model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/profiles-features-integration-test/tag/schema_{{best_schema_version}}
+    url: https://github.com/rudderlabs/profiles-features-integration-test/tree/feature/prml-856-add-float-point-datatype-in-integration-tests
+#    url: https://github.com/rudderlabs/profiles-features-integration-test/tag/schema_{{best_schema_version}}
 python_requirements:
   - profiles_mlcorelib

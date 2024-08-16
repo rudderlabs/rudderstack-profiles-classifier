@@ -72,6 +72,7 @@ from typing import NamedTuple
 SNOWFLAKE_TRAINING_PACKAGES = [
     "snowflake-snowpark-python==1.11.1",
     "scikit-learn==1.1.1",
+    "xgboost==1.5.0",
     "joblib==1.2.0",
     "PyYAML==6.0.1",
     "numpy==1.23.1",

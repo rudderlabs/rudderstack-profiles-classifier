@@ -103,10 +103,8 @@ class PredictionRecipe(PyNativeRecipe):
     def register_dependencies(self, this: WhtMaterial):
         this.de_ref(self.build_spec["training_model"])
         for input in self.build_spec["inputs"]:
-            if input == self.build_spec["ml_config"]["data"]["label_column"]:
-                this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
-            else:
-                this.de_ref(input)
+            this.de_ref(input)
+        this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
 
     def _get_train_output_filepath(self, this: WhtMaterial):
         # If training is skipped, this function will return incorrect path

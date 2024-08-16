@@ -62,6 +62,7 @@ class TestClassificationTrainer(unittest.TestCase):
                     "metrics": metrics,
                     "threshold": threshold,
                 },
+                "task": "classification",
                 "timestamp": timestamp,
             },
         )
@@ -197,6 +198,7 @@ class TestRegressionTrainer(unittest.TestCase):
             {
                 "data": {"model": model_class_name, "metrics": metrics},
                 "timestamp": timestamp,
+                "task": "regression",
             },
         )
 

@@ -72,6 +72,10 @@ class PyNativeWHT:
         merged_config["data"][
             "output_profiles_ml_model"
         ] = self.whtMaterial.model.name()
+        self.pythonWHT.connector.feature_table_name = (
+            f"{self.whtMaterial.model.name()}_feature_table"
+        )
+        print(self.pythonWHT.connector.feature_table_name)
         return merged_config
 
     def get_material_names(

@@ -40,6 +40,7 @@ class PythonWHT:
         ] = self.connector.get_entity_column_case_corrected(
             merged_config["data"]["entity_column"]
         )
+        self.connector.feature_table_name = "jhsagdhas_feature_table"
         return merged_config
 
     def _getPB(self):

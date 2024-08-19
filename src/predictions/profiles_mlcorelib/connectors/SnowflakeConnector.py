@@ -1017,6 +1017,7 @@ class SnowflakeConnector(Connector):
         ]
 
         if len(no_invalid_rows) > 0:
+            self.write_table(feature_table, self.feature_table_name)
             error_msg = ""
             for row in result_table:
                 error_msg += f"\t{row[label_column.upper()]} - user count:  {row['COUNT']} ({100*row['NORMALIZED_COUNT']:.2f}%)\n"

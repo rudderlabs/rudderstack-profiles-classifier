@@ -31,7 +31,5 @@ pillow>=10.2.0
 pycaret==3.3.0
 
 # Additional imports
-google-auth
 google-auth-oauthlib
 boto3
-kubernetes

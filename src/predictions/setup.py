@@ -38,7 +38,6 @@ setup(
         "db-dtypes>=1.2.0",
         "pycaret==3.3.1",
         "boto3",
-        "kubernetes",
     ],
     include_package_data=True,
 )

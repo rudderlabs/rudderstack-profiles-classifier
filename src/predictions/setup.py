@@ -38,7 +38,7 @@ setup(
         "db-dtypes>=1.2.0",
         "pycaret==3.3.1",
         "boto3",
-        "google-auth-oauthlib>=1.0.0,<2.0.0",
+        "google-auth-oauthlib>=1.0.0,<1.2.1",
     ],
     include_package_data=True,
 )

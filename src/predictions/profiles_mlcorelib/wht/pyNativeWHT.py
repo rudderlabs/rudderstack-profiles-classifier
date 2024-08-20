@@ -78,8 +78,10 @@ class PyNativeWHT:
         ] = self.whtMaterial.model.name()
         self.pythonWHT.connector.feature_table_name = (
             f"{self.whtMaterial.name()}_feature_table"
+        )
         merged_config["data"]["label_column"] = self.get_column_name(
             merged_config["data"]["label_column"]
+        )
         return merged_config
 
     def get_material_names(

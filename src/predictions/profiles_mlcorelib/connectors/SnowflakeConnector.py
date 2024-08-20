@@ -903,6 +903,7 @@ class SnowflakeConnector(Connector):
         min_sample_for_training: int,
     ) -> snowflake.snowpark.Table:
         if feature_table.count() < min_sample_for_training:
+            self.write_table(feature_table, self.feature_table_name)
             raise Exception(
                 f"Insufficient data for training. Only {feature_table.count()} user records found. \
                     Required minimum {min_sample_for_training} user records."
@@ -1033,6 +1034,7 @@ class SnowflakeConnector(Connector):
         num_distinct_values = distinct_values_count.count()
         req_distinct_values = int(constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES)
         if num_distinct_values < req_distinct_values:
+            self.write_table(feature_table, self.feature_table_name)
             raise Exception(
                 f"Label column {label_column} has {num_distinct_values} distinct values while we expect minimum {req_distinct_values} values for a regression problem.\
                     Please check your label column and modify task in your python model to 'classification' if that's a better fit. "

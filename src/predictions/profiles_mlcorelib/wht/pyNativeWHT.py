@@ -61,6 +61,10 @@ class PyNativeWHT:
         )
         return material_split["model_hash"], material_split["model_name"], creation_ts
 
+    def get_column_name(self, model_ref):
+        column_name = self.whtMaterial.de_ref(model_ref).model.db_object_name_prefix()
+        return column_name
+
     def update_config_info(self, merged_config):
         entity = self.whtMaterial.model.entity()
         merged_config["data"]["entity_key"] = entity["Name"]
@@ -74,7 +78,8 @@ class PyNativeWHT:
         ] = self.whtMaterial.model.name()
         self.pythonWHT.connector.feature_table_name = (
             f"{self.whtMaterial.name()}_feature_table"
-        )
+        merged_config["data"]["label_column"] = self.get_column_name(
+            merged_config["data"]["label_column"]
         return merged_config
 
     def get_material_names(

@@ -37,7 +37,7 @@ setup(
         "sqlalchemy-bigquery>=1.9.0",
         "db-dtypes>=1.2.0",
         "pycaret==3.3.1",
-        "boto3>=0.0.1",
+        "boto3>=1.34.153",
         "google-auth-oauthlib>=1.0.0",
     ],
     include_package_data=True,

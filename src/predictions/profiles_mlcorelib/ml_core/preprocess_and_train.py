@@ -179,6 +179,7 @@ def preprocess_and_train(
     feature_table = connector.transform_booleantype_features(
         feature_table, list(input_column_types["booleantype"].keys())
     )
+    transformed_booleantype_cols = list(input_column_types["booleantype"].keys())
     logger.get().debug("Boolean Type Columns transformed to numeric")
 
     ignore_features = utils.get_all_ignore_features(
@@ -187,7 +188,7 @@ def preprocess_and_train(
         high_cardinal_features,
     )
 
-    _, feature_table = connector.transform_arraytype_features(
+    transformed_arraytype_cols, feature_table = connector.transform_arraytype_features(
         feature_table,
         list(input_column_types["arraytype"].keys()),
         trainer.prep.top_k_array_categories,
@@ -200,8 +201,12 @@ def preprocess_and_train(
     logger.get().debug("Fetching feature table column types")
     feature_table_column_types = utils.get_feature_table_column_types(
         feature_table,
+        input_column_types,
         trainer.label_column,
         trainer.entity_column,
+        transformed_arraytype_cols,
+        transformed_booleantype_cols,
+        connector.dtype_utils_mapping,
     )
     logger.get().debug(
         f"Feature_table column types detected: {feature_table_column_types}"

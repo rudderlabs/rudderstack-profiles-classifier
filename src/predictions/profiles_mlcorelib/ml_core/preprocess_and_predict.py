@@ -115,10 +115,7 @@ def preprocess_and_predict(
     predict_data = connector.drop_cols(raw_data, ignore_features)
 
     required_features_upper_case = set(
-        [
-            col.upper()
-            for col in results["column_names"]["feature_table_column_types"].keys()
-        ]
+        [col.upper() for col in results["column_names"]["feature_table_column_types"]]
     )
     input_df = connector.select_relevant_columns(
         predict_data, required_features_upper_case

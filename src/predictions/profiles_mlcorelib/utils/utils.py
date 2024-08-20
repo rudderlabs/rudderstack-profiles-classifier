@@ -138,35 +138,15 @@ def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
 
 def get_feature_table_column_types(
     feature_table,
-    input_column_types: dict,
     label_column: str,
     entity_column: str,
-    transformed_arraytype_cols: List[str],
-    transformed_booleantype_cols: List[str],
-    dtype_mapping: dict,
 ):
-    feature_table_column_types = {}
-
-    for col in transformed_arraytype_cols:
-        input_column_types["numeric"][col] = dtype_mapping["numeric"]
-
-    for col in transformed_booleantype_cols:
-        input_column_types["numeric"][col] = dtype_mapping["numeric"]
-
-    for col in input_column_types["timestamp"]:
-        input_column_types["numeric"][col] = dtype_mapping["numeric"]
+    feature_table_column_types = list()
 
     for col in feature_table.columns:
         if col.upper() in (label_column.upper(), entity_column.upper()):
             continue
-        elif col in input_column_types["numeric"]:
-            feature_table_column_types[col] = input_column_types["numeric"][col]
-        elif col in input_column_types["categorical"]:
-            feature_table_column_types[col] = input_column_types["categorical"][col]
-        else:
-            raise Exception(
-                f"Column {col.upper()} in feature table is not numeric or categorical"
-            )
+        feature_table_column_types.append(col)
     return feature_table_column_types
 
 

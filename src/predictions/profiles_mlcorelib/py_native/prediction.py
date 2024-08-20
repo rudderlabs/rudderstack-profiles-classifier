@@ -104,6 +104,7 @@ class PredictionRecipe(PyNativeRecipe):
         this.de_ref(self.build_spec["training_model"])
         for input in self.build_spec["inputs"]:
             this.de_ref(input)
+        this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
 
     def _get_train_output_filepath(self, this: WhtMaterial):
         # If training is skipped, this function will return incorrect path

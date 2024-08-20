@@ -7,7 +7,6 @@ import google.cloud
 from google.cloud import bigquery
 from google.oauth2 import service_account
 
-from ..utils import constants
 from .CommonWarehouseConnector import CommonWarehouseConnector
 
 

@@ -1,4 +1,3 @@
-import json
 from tests.integration.utils import *
 import os
 import subprocess

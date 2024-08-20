@@ -1,6 +1,6 @@
 import unittest
-from unittest.mock import MagicMock, Mock
-from datetime import datetime, timedelta
+from unittest.mock import Mock
+from datetime import datetime
 
 from src.predictions.profiles_mlcorelib.wht.pyNativeWHT import PyNativeWHT
 

@@ -903,10 +903,12 @@ class SnowflakeConnector(Connector):
         min_sample_for_training: int,
     ) -> snowflake.snowpark.Table:
         if feature_table.count() < min_sample_for_training:
-            self.write_table(feature_table, self.feature_table_name)
+            self.write_table(
+                feature_table, self.feature_table_name, write_mode="overwrite"
+            )
             raise Exception(
                 f"Insufficient data for training. Only {feature_table.count()} user records found. \
-                    Required minimum {min_sample_for_training} user records."
+                    Required minimum {min_sample_for_training} user records.For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
             )
         elif feature_table.count() <= max_row_count:
             return feature_table
@@ -1018,12 +1020,14 @@ class SnowflakeConnector(Connector):
         ]
 
         if len(no_invalid_rows) > 0:
-            self.write_table(feature_table, self.feature_table_name)
+            self.write_table(
+                feature_table, self.feature_table_name, write_mode="overwrite"
+            )
             error_msg = ""
             for row in result_table:
                 error_msg += f"\t{row[label_column.upper()]} - user count:  {row['COUNT']} ({100*row['NORMALIZED_COUNT']:.2f}%)\n"
             raise Exception(
-                f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}."
+                f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}. For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
             )
         return True
 
@@ -1034,10 +1038,12 @@ class SnowflakeConnector(Connector):
         num_distinct_values = distinct_values_count.count()
         req_distinct_values = int(constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES)
         if num_distinct_values < req_distinct_values:
-            self.write_table(feature_table, self.feature_table_name)
+            self.write_table(
+                feature_table, self.feature_table_name, write_mode="overwrite"
+            )
             raise Exception(
                 f"Label column {label_column} has {num_distinct_values} distinct values while we expect minimum {req_distinct_values} values for a regression problem.\
-                    Please check your label column and modify task in your python model to 'classification' if that's a better fit. "
+                    Please check your label column and modify task in your python model to 'classification' if that's a better fit. For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
             )
         return True
 

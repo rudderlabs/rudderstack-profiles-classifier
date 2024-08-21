@@ -37,10 +37,10 @@ class PythonWHT:
         self.cached_registry_table_name = ""
 
     def update_config_info(self, merged_config):
-        merged_config["data"][
-            "entity_column"
-        ] = self.connector.get_entity_column_case_corrected(
-            merged_config["data"]["entity_column"]
+        merged_config["data"]["entity_column"] = (
+            self.connector.get_entity_column_case_corrected(
+                merged_config["data"]["entity_column"]
+            )
         )
         return merged_config
 
@@ -121,9 +121,11 @@ class PythonWHT:
                 input_model_info.add(
                     AbsoluteInputModelInfo(
                         table_name=table_name,
-                        column_name=None
-                        if model_type != "entity_var_item"
-                        else input_model_name,
+                        column_name=(
+                            None
+                            if model_type != "entity_var_item"
+                            else input_model_name
+                        ),
                         validate_main_id=False,
                         model_ref=model_ref,
                     )

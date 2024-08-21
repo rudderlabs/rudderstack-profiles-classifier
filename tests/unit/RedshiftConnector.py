@@ -14,7 +14,10 @@ from src.predictions.profiles_mlcorelib.trainers.TrainerFactory import (
 from src.predictions.profiles_mlcorelib.wht.pythonWHT import PythonWHT
 
 import src.predictions.profiles_mlcorelib.utils.utils as utils
-from src.predictions.profiles_mlcorelib.utils.constants import TrainTablesInfo
+from src.predictions.profiles_mlcorelib.utils.constants import (
+    TrainTablesInfo,
+    AbsoluteInputModelInfo,
+)
 from src.predictions.profiles_mlcorelib.connectors.RedshiftConnector import (
     RedshiftConnector,
 )
@@ -1519,12 +1522,32 @@ class Testget_input_column_types(unittest.TestCase):
             schema_fields(name="COL8", field_type="boolean"),
         ]
 
-        input_models = {
-            "inputs/user_var_table1": "input_var_item",
-            "inputs/user_var_table2": "input_var_item",
-            "user/all/last_seen": "entity_var_item",
-            "user/all/last_seen2": "entity_var_item",
-        }
+        input_models = [
+            AbsoluteInputModelInfo(
+                table_name="material_user_var_table1_4dhh141_2",
+                column_name=None,
+                validate_main_id=False,
+                model_ref="inputs/user_var_table1",
+            ),
+            AbsoluteInputModelInfo(
+                table_name="material_user_var_table2_5dhh411_2",
+                column_name=None,
+                validate_main_id=False,
+                model_ref="inputs/user_var_table2",
+            ),
+            AbsoluteInputModelInfo(
+                table_name="material_user_var_table_6dhh411_2",
+                column_name="last_seen",
+                validate_main_id=False,
+                model_ref="user/all/last_seen",
+            ),
+            AbsoluteInputModelInfo(
+                table_name="material_user_var_table_6dhh411_2",
+                column_name="last_seen2",
+                validate_main_id=False,
+                model_ref="user/all/last_seen2",
+            ),
+        ]
 
         input_ignore_features = (
             []

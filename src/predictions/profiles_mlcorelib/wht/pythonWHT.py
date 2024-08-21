@@ -6,7 +6,11 @@ from .rudderPB import MATERIAL_PREFIX
 
 from ..utils import utils
 
-from ..utils.constants import TrainTablesInfo, MATERIAL_DATE_FORMAT
+from ..utils.constants import (
+    TrainTablesInfo,
+    AbsoluteInputModelInfo,
+    MATERIAL_DATE_FORMAT,
+)
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
 from .rudderPB import RudderPB
@@ -58,32 +62,11 @@ class PythonWHT:
             end_date = end_date.date()
         return str(start_date), str(end_date)
 
-    def _get_selector_sql(
-        self, entity_var_table, material_or_selector_sql, model_ref, model_type
-    ):
-        # in case if it is selector sql coming from pythonWHT
-        if "select" in material_or_selector_sql.lower():
-            return material_or_selector_sql
-
-        # in case if it is material name coming from pyNativeWHT
-        if model_type == "feature_table_model":
-            return f"SELECT * FROM {self.connector.schema}.{material_or_selector_sql}"
-        elif model_type == "entity_var_item":
-            var_name = model_ref.split("/")[-1]
-            return f"SELECT {var_name} FROM {self.connector.get_entity_var_table_ref(entity_var_table)}"
-        else:
-            raise Exception(
-                f"Error creating selector sql from given input models. Unknown model type: {model_type} for the input {model_ref}. Please ensure all the inputs are either feature table models, or entity vars."
-            )
-
     def get_input_models(
         self,
         input_material_or_selector_sql: List[str],
-        entity_var_table: str,
-    ) -> Dict[str, Dict[str, str]]:
-        """Returns Dict of input model_refs as keys and another dictionary with key-value pair as it's selector_sql and model_type as values -
-        full paths in the profiles project for models that are required to generate the current model.
-        """
+    ) -> List[AbsoluteInputModelInfo]:
+        """Returns List of AbsoluteInputModelInfo containing table_name, column_name, validate_main_id and model_ref."""
 
         def extract_ref_from_query(query: str):
             select_column_pattern = re.compile(
@@ -94,6 +77,11 @@ class PythonWHT:
                 column_name = match_column.group(1)
                 return column_name
             return self.split_material_name(query)["model_name"].lower()
+
+        def extract_material_name_from_query(query: str):
+            pattern = r'(?:from|`|\.)[\s`"]*([^`"\s.]+)[\s`"]*(?:$|where|\))'
+            material_name = re.search(pattern, query, re.IGNORECASE).group(1)
+            return material_name
 
         model_names = [
             extract_ref_from_query(input_material_or_selector_sql_)
@@ -112,7 +100,7 @@ class PythonWHT:
         )
 
         # Find matching models in the project
-        input_model_info = dict()
+        input_model_info = set()
         for input_material_or_selector_sql_instance, input_model_name in zip(
             input_material_or_selector_sql, model_names
         ):
@@ -124,21 +112,23 @@ class PythonWHT:
             ]
 
             model_ref, model_type = matching_models[0][0], matching_models[0][1]
-            selector_sql = self._get_selector_sql(
-                entity_var_table,
-                input_material_or_selector_sql_instance,
-                model_ref,
-                model_type,
-            )
 
             if len(matching_models) == 1:
-                input_model_info.update(
-                    {
-                        model_ref: {
-                            "selector_sql": selector_sql,
-                            "model_type": model_type,
-                        }
-                    }
+                if "select" in input_material_or_selector_sql_instance.lower():
+                    table_name = extract_material_name_from_query(
+                        input_material_or_selector_sql_instance
+                    )
+                else:
+                    table_name = input_material_or_selector_sql_instance
+                input_model_info.add(
+                    AbsoluteInputModelInfo(
+                        table_name=table_name,
+                        column_name=None
+                        if model_type != "entity_var_item"
+                        else input_model_name,
+                        validate_main_id=False,
+                        model_ref=model_ref,
+                    )
                 )
             elif len(matching_models) > 1:
                 raise ValueError(
@@ -150,7 +140,7 @@ class PythonWHT:
                 )
 
         logger.get().info(f"Found input models: {input_model_info}")
-        return input_model_info
+        return list(input_model_info)
 
     def get_registry_table_name(self):
         if self.cached_registry_table_name == "":

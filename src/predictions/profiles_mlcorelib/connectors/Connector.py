@@ -2,12 +2,13 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict
 
-from ..utils import utils
+from ..utils import utils, constants
 
 
 class Connector(ABC):
     def __init__(self, creds: dict) -> None:
         self.session = self.build_session(creds)
+        self.schema = None
 
     def remap_credentials(self, credentials: dict) -> dict:
         """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses"""
@@ -18,11 +19,31 @@ class Connector(ABC):
         }
         return new_creds
 
-    def get_input_columns(self, trainer_obj, absolute_input_model_info):
-        input_columns = set()
+    def _get_selector_sql(
+        self,
+        entity_var_table: str,
+        ind_input_model_info: constants.AbsoluteInputModelInfo,
+    ):
+        # in case if it is material name coming from pyNativeWHT
+        if ind_input_model_info.column_name is None:
+            return f"SELECT * FROM {self.schema}.{ind_input_model_info.table_name}"
+        elif ind_input_model_info.column_name is not None:
+            return f"SELECT {ind_input_model_info.column_name} FROM {self.get_entity_var_table_ref(entity_var_table)}"
+        else:
+            raise Exception(
+                f"""Error creating selector sql from given input models. Unknown input_model_info: {ind_input_model_info} for the input {ind_input_model_info.model_ref}. 
+                Please ensure all the inputs are either feature table models, or entity vars."""
+            )
 
-        for _, value in absolute_input_model_info.items():
-            query = value["selector_sql"] + " LIMIT 1"
+    def get_input_columns(
+        self, trainer_obj, entity_var_table, absolute_input_model_info
+    ):
+        input_columns = set()
+        for ind_input_model_info in absolute_input_model_info:
+            selector_sql = self._get_selector_sql(
+                entity_var_table, ind_input_model_info
+            )
+            query = selector_sql + " LIMIT 1"
             input_columns.update(self.run_query(query)[0]._fields)
 
         input_columns.difference_update(
@@ -41,9 +62,9 @@ class Connector(ABC):
         self,
         trainer_obj,
         input_columns: List[str],
-        input_models: Dict[str, str],
+        input_models: constants.AbsoluteInputModelInfo,
         table_name: str,
-    ) -> Tuple:
+    ) -> Dict:
         """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp, booleantype) for a given table."""
         entity_column = trainer_obj.entity_column
         label_column = trainer_obj.label_column
@@ -144,16 +165,20 @@ class Connector(ABC):
         trainer_obj.prep.ignore_features = ignore_features
         return updated_input_column_types
 
-    def check_arraytype_conflicts(self, updated_input_column_types, input_models):
+    def check_arraytype_conflicts(
+        self,
+        updated_input_column_types: dict,
+        input_models: constants.AbsoluteInputModelInfo,
+    ):
         arraytype_columns = updated_input_column_types.get("arraytype", [])
 
         for column in arraytype_columns:
             column_lower = column.lower()
 
-            for key, value in input_models.items():
+            for input_model in input_models:
                 if (
-                    column_lower in key.lower()
-                    and value["model_type"] == "entity_var_item"
+                    input_model.column_name is not None
+                    and column_lower == input_model.column_name.lower()
                 ):
                     raise Exception(
                         f"Array type features are not supported. Please remove '{column_lower}' and any other array type features from inputs."

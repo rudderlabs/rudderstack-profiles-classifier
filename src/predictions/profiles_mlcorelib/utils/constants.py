@@ -91,3 +91,10 @@ class TrainTablesInfo(NamedTuple):
     feature_table_date: int
     label_table_name: str
     label_table_date: int
+
+
+class AbsoluteInputModelInfo(NamedTuple):
+    table_name: str
+    column_name: str
+    validate_main_id: bool
+    model_ref: str

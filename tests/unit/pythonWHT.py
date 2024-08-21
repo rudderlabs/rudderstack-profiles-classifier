@@ -3,7 +3,10 @@ import unittest
 from datetime import datetime
 from unittest.mock import patch, Mock
 from src.predictions.profiles_mlcorelib.wht.pythonWHT import PythonWHT
-from src.predictions.profiles_mlcorelib.utils.constants import TrainTablesInfo
+from src.predictions.profiles_mlcorelib.utils.constants import (
+    TrainTablesInfo,
+    AbsoluteInputModelInfo,
+)
 from src.predictions.profiles_mlcorelib.connectors.RedshiftConnector import (
     RedshiftConnector,
 )
@@ -30,7 +33,7 @@ class TestGetInputModels(unittest.TestCase):
             '''SELECT last_seen FROM "material_user_var_table_54ddc22a_383"''',
             '''SELECT last_seen2 FROM "schema"."material_user_var_table_54ddc22a_383"''',
             """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384""",
-            """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL2_45223ds1_384""",
+            """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL2_55223ds1_384""",
             "MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384",
             "MATERIAL_FEATURE_TABLE_MODEL2_55223ds1_384",
             "MATERIAL_LAST_SEEN_65223ds1_384",
@@ -83,29 +86,47 @@ class TestGetInputModels(unittest.TestCase):
         mock_rudderpb_show_models.return_value = stdout
 
         # Calling the function under test
-        result = self.pythonWHT.get_input_models(
-            original_input_models,
-            entity_var_table="MATERIAL_USER_VAR_TABLE_54ddc22a_383",
-        )
+        result = self.pythonWHT.get_input_models(original_input_models)
 
-        expected = {
-            "models/feature_table_model1": {
-                "selector_sql": "SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384",
-                "model_type": "input_var_item",
-            },
-            "models/feature_table_model2": {
-                "selector_sql": "SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL2_55223ds1_384",
-                "model_type": "input_var_item",
-            },
-            "user/all/last_seen": {
-                "selector_sql": 'SELECT last_seen FROM "MATERIAL_USER_VAR_TABLE_54ddc22a_383" ',
-                "model_type": "entity_var_item",
-            },
-            "user/all/last_seen2": {
-                "selector_sql": 'SELECT last_seen2 FROM "MATERIAL_USER_VAR_TABLE_54ddc22a_383" ',
-                "model_type": "entity_var_item",
-            },
-        }
+        expected = [
+            AbsoluteInputModelInfo(
+                table_name="MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384",
+                column_name=None,
+                validate_main_id=False,
+                model_ref="models/feature_table_model1",
+            ),
+            AbsoluteInputModelInfo(
+                table_name="MATERIAL_FEATURE_TABLE_MODEL2_55223ds1_384",
+                column_name=None,
+                validate_main_id=False,
+                model_ref="models/feature_table_model2",
+            ),
+            AbsoluteInputModelInfo(
+                table_name="material_user_var_table_54ddc22a_383",
+                column_name="last_seen",
+                validate_main_id=False,
+                model_ref="user/all/last_seen",
+            ),
+            AbsoluteInputModelInfo(
+                table_name="material_user_var_table_54ddc22a_383",
+                column_name="last_seen2",
+                validate_main_id=False,
+                model_ref="user/all/last_seen2",
+            ),
+            AbsoluteInputModelInfo(
+                table_name="MATERIAL_LAST_SEEN_65223ds1_384",
+                column_name="last_seen",
+                validate_main_id=False,
+                model_ref="user/all/last_seen",
+            ),
+            AbsoluteInputModelInfo(
+                table_name="MATERIAL_LAST_SEEN2_85223ds1_384",
+                column_name="last_seen2",
+                validate_main_id=False,
+                model_ref="user/all/last_seen2",
+            ),
+        ]
+
         self.assertEqual(len(result), len(expected))
         self.assertEqual(
             set(result),

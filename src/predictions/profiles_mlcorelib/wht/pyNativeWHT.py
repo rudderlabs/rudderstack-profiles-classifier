@@ -4,7 +4,7 @@ from typing import List, Tuple, Dict
 
 from ..utils import utils
 
-from ..utils.constants import TrainTablesInfo
+from ..utils.constants import TrainTablesInfo, AbsoluteInputModelInfo
 from ..connectors.Connector import Connector
 from .pythonWHT import PythonWHT
 from profiles_rudderstack.material import WhtMaterial
@@ -116,9 +116,9 @@ class PyNativeWHT:
         return self.pythonWHT.get_registry_table_name()
 
     def get_input_models(
-        self, input_material: List[str], entity_var_table: str
-    ) -> Dict[str, Dict[str, str]]:
-        return self.pythonWHT.get_input_models(input_material, entity_var_table)
+        self, input_material: List[str]
+    ) -> List[AbsoluteInputModelInfo]:
+        return self.pythonWHT.get_input_models(input_material)
 
     def get_credentials(self, project_path: str, site_config_path: str) -> str:
         connection_name = utils.load_yaml(

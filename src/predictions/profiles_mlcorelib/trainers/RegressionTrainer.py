@@ -1,4 +1,3 @@
-from typing import List
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from ..trainers.MLTrainer import MLTrainer
@@ -12,7 +11,6 @@ from pycaret.regression import (
     tune_model as regression_tune_model,
     get_config as regression_get_config,
     save_model as regression_save_model,
-    pull as regression_results_pull,
     load_model as regression_load_model,
     predict_model as regression_predict_model,
     add_metric as regression_add_metric,

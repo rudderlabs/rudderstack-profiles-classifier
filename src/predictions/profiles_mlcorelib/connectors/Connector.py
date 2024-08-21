@@ -2,7 +2,7 @@ import pandas as pd
 from abc import ABC, abstractmethod
 from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict
 
-from ..utils import utils, constants
+from ..utils.constants import AbsoluteInputModelInfo
 
 
 class Connector(ABC):
@@ -22,7 +22,7 @@ class Connector(ABC):
     def _get_selector_sql(
         self,
         entity_var_table: str,
-        ind_input_model_info: constants.AbsoluteInputModelInfo,
+        ind_input_model_info: AbsoluteInputModelInfo,
     ):
         # in case if it is material name coming from pyNativeWHT
         if ind_input_model_info.column_name is None:
@@ -62,7 +62,7 @@ class Connector(ABC):
         self,
         trainer_obj,
         input_columns: List[str],
-        input_models: constants.AbsoluteInputModelInfo,
+        input_models: AbsoluteInputModelInfo,
         table_name: str,
     ) -> Dict:
         """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp, booleantype) for a given table."""
@@ -168,7 +168,7 @@ class Connector(ABC):
     def check_arraytype_conflicts(
         self,
         updated_input_column_types: dict,
-        input_models: constants.AbsoluteInputModelInfo,
+        input_models: AbsoluteInputModelInfo,
     ):
         arraytype_columns = updated_input_column_types.get("arraytype", [])
 

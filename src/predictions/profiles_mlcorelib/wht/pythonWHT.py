@@ -16,8 +16,6 @@ from ..connectors.Connector import Connector
 from .rudderPB import RudderPB
 from .mockPB import MockPB
 
-import json
-
 
 def split_key(item):
     parts = item.split("_")
@@ -39,10 +37,10 @@ class PythonWHT:
         self.cached_registry_table_name = ""
 
     def update_config_info(self, merged_config):
-        merged_config["data"][
-            "entity_column"
-        ] = self.connector.get_entity_column_case_corrected(
-            merged_config["data"]["entity_column"]
+        merged_config["data"]["entity_column"] = (
+            self.connector.get_entity_column_case_corrected(
+                merged_config["data"]["entity_column"]
+            )
         )
         return merged_config
 

@@ -1,4 +1,3 @@
-from functools import reduce
 import math
 import re
 import warnings
@@ -8,8 +7,6 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
-from pycaret.classification import predict_model as classification_predict_model
-from pycaret.regression import predict_model as regression_predict_model
 
 from sklearn.metrics import (
     auc,
@@ -20,8 +17,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
-from typing import Tuple, List, Union, Dict
-from scipy.optimize import minimize_scalar
+from typing import Tuple, List
 
 import snowflake.snowpark
 from snowflake.snowpark.session import Session

@@ -1,7 +1,5 @@
 import os
-import sys
 import json
-import joblib
 import logging
 import warnings
 import cachetools
@@ -9,7 +7,6 @@ import numpy as np
 import pandas as pd
 from typing import Any
 
-import snowflake.snowpark.types as T
 from snowflake.snowpark.types import *
 import snowflake.snowpark.functions as F
 

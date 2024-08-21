@@ -1,4 +1,4 @@
-from typing import List, Dict, Tuple, Union
+from typing import Dict, Tuple
 from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
@@ -7,8 +7,6 @@ from profiles_rudderstack.schema import (
 )
 from profiles_rudderstack.logger import Logger
 import re
-import pandas as pd
-from datetime import datetime, timedelta
 
 # build spec constants
 CONVERSION = "conversion"

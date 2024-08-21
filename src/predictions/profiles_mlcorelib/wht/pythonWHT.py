@@ -37,10 +37,10 @@ class PythonWHT:
         self.cached_registry_table_name = ""
 
     def update_config_info(self, merged_config):
-        merged_config["data"]["entity_column"] = (
-            self.connector.get_entity_column_case_corrected(
-                merged_config["data"]["entity_column"]
-            )
+        merged_config["data"][
+            "entity_column"
+        ] = self.connector.get_entity_column_case_corrected(
+            merged_config["data"]["entity_column"]
         )
         return merged_config
 

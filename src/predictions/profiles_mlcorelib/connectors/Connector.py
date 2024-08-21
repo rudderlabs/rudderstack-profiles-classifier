@@ -43,7 +43,10 @@ class Connector(ABC):
                 entity_var_table, ind_input_model_info
             )
             query = selector_sql + " LIMIT 1"
-            input_columns.update(self.run_query(query)[0]._fields)
+            if "*" in query:
+                input_columns.update(self.run_query(query)[0]._fields)
+            else:
+                input_columns.add(ind_input_model_info.column_name)
 
         input_columns.difference_update(
             {

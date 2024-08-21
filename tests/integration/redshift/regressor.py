@@ -1,11 +1,6 @@
 from train import *
-import shutil
 import time
 from predict import *
-from src.predictions.profiles_mlcorelib.connectors.RedshiftConnector import (
-    RedshiftConnector,
-)
-import json
 from tests.integration.utils import *
 import os
 

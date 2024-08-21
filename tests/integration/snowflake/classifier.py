@@ -1,8 +1,6 @@
 from train import *
-import shutil
 import time
 from predict import *
-import json
 from tests.integration.utils import *
 import os
 

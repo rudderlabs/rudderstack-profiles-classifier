@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
 import os
-import sys
 
 from .trainers.TrainerFactory import TrainerFactory
 
@@ -16,7 +15,6 @@ import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
 from .utils import utils
-from .utils import constants
 
 from .connectors.ConnectorFactory import ConnectorFactory
 

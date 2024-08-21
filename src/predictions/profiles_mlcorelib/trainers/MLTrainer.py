@@ -1,19 +1,11 @@
 from datetime import datetime
-import joblib
 import time
-import numpy as np
 import pandas as pd
 
-from copy import deepcopy
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Any, Tuple, List, Union, Dict
-from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
-
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
+from typing import Any, List
+from hyperopt import hp
 
 
 from ..utils.constants import TrainTablesInfo, MATERIAL_DATE_FORMAT
@@ -22,7 +14,6 @@ from ..wht.pythonWHT import PythonWHT
 from ..utils import utils
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
-from ..utils import constants
 
 
 @dataclass

@@ -16,3 +16,7 @@ def register_extensions(project):
     from .py_native.attribution_report import AttributionModel
 
     project.register_model_type(AttributionModel)
+
+    from .py_native.propensity import PropensityModel
+
+    project.register_model_type(PropensityModel)

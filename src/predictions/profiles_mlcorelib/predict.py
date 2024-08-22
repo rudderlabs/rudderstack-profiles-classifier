@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 import os
+from typing import List
 
 from .trainers.TrainerFactory import TrainerFactory
 
@@ -26,7 +27,7 @@ warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 def _predict(
     creds: dict,
     model_path: str,
-    input_material_or_selector_sql: str,
+    inputs: List[dict],
     output_tablename: str,
     config: dict,
     runtime_info: dict,
@@ -43,7 +44,7 @@ def _predict(
     folder_path = os.path.dirname(model_path)
 
     connector = ConnectorFactory.create(creds, folder_path)
-    whtService.init(connector=connector)
+    whtService.set_connector(connector)
 
     default_config = utils.load_yaml(utils.get_model_configs_file_path())
     _ = config["data"].pop(
@@ -86,7 +87,7 @@ def _predict(
         creds,
         s3_config,
         model_path,
-        input_material_or_selector_sql,
+        inputs,
         output_tablename,
         merged_config,
         site_config,

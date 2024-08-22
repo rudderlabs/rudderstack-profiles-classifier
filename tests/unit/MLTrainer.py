@@ -39,6 +39,17 @@ def build_trainer_config(task="classification"):
 
 
 class TestClassificationTrainer(unittest.TestCase):
+    def setUp(self) -> None:
+        self.min_sample_for_training = 3
+        self.train_table_pairs = [
+            Mock(
+                feature_table_name="feature_table_1", label_table_name="label_table_1"
+            ),
+            Mock(
+                feature_table_name="feature_table_2", label_table_name="label_table_2"
+            ),
+        ]
+
     def test_prepare_training_summary(self):
         config = build_trainer_config()
         trainer = TrainerFactory.create(config)
@@ -132,15 +143,43 @@ class TestClassificationTrainer(unittest.TestCase):
         mock_connector.validate_columns_are_present = Mock(return_value=True)
         mock_connector.validate_class_proportions = Mock(return_value=True)
         mock_connector.validate_label_distinct_values = Mock(return_value=False)
-        self.assertTrue(trainer.validate_data(mock_connector, None))
+        self.assertTrue(
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
+        )
         mock_connector.validate_class_proportions = Mock(return_value=False)
-        self.assertFalse(trainer.validate_data(mock_connector, None))
+        self.assertFalse(
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
+        )
         mock_connector.validate_columns_are_present = Mock(return_value=False)
         mock_connector.validate_class_proportions = Mock(return_value=True)
-        self.assertFalse(trainer.validate_data(mock_connector, None))
+        self.assertFalse(
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
+        )
         mock_connector.validate_columns_are_present = Mock(return_value=False)
         mock_connector.validate_class_proportions = Mock(return_value=False)
-        self.assertFalse(trainer.validate_data(mock_connector, None))
+        self.assertFalse(
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
+        )
 
     def test_validate_data_raises_exception_on_failure(self):
         config = build_trainer_config()
@@ -151,7 +190,12 @@ class TestClassificationTrainer(unittest.TestCase):
         )
         mock_connector.validate_class_proportions = Mock(return_value=True)
         with self.assertRaises(Exception) as context:
-            trainer.validate_data(mock_connector, None)
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
         self.assertIn(
             "Raise exception",
             str(context.exception),
@@ -162,7 +206,12 @@ class TestClassificationTrainer(unittest.TestCase):
         )
         mock_connector.validate_class_proportions = Mock(return_value=False)
         with self.assertRaises(Exception) as context:
-            trainer.validate_data(mock_connector, None)
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
         self.assertIn(
             "Raise exception",
             str(context.exception),
@@ -175,7 +224,12 @@ class TestClassificationTrainer(unittest.TestCase):
             "Raise exception"
         )
         with self.assertRaises(Exception) as context:
-            trainer.validate_data(mock_connector, None)
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
         self.assertIn(
             "Raise exception",
             str(context.exception),
@@ -184,6 +238,17 @@ class TestClassificationTrainer(unittest.TestCase):
 
 
 class TestRegressionTrainer(unittest.TestCase):
+    def setUp(self) -> None:
+        self.min_sample_for_training = 3
+        self.train_table_pairs = [
+            Mock(
+                feature_table_name="feature_table_1", label_table_name="label_table_1"
+            ),
+            Mock(
+                feature_table_name="feature_table_2", label_table_name="label_table_2"
+            ),
+        ]
+
     def test_prepare_training_summary(self):
         config = build_trainer_config(task="regression")
         trainer = TrainerFactory.create(config)
@@ -209,15 +274,44 @@ class TestRegressionTrainer(unittest.TestCase):
         mock_connector.validate_columns_are_present = Mock(return_value=True)
         mock_connector.validate_label_distinct_values = Mock(return_value=True)
         mock_connector.validate_class_proportions = Mock(return_value=False)
-        self.assertTrue(trainer.validate_data(mock_connector, None))
+        mock_connector.validate_row_count = Mock(return_value=False)
+        self.assertFalse(
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
+        )
         mock_connector.validate_label_distinct_values = Mock(return_value=False)
-        self.assertFalse(trainer.validate_data(mock_connector, None))
+        self.assertFalse(
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
+        )
         mock_connector.validate_columns_are_present = Mock(return_value=False)
         mock_connector.validate_label_distinct_values = Mock(return_value=True)
-        self.assertFalse(trainer.validate_data(mock_connector, None))
+        self.assertFalse(
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
+        )
         mock_connector.validate_columns_are_present = Mock(return_value=False)
         mock_connector.validate_label_distinct_values = Mock(return_value=False)
-        self.assertFalse(trainer.validate_data(mock_connector, None))
+        self.assertFalse(
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
+        )
 
     def test_validate_data_raises_exception_on_failure(self):
         config = build_trainer_config(task="regression")
@@ -228,7 +322,12 @@ class TestRegressionTrainer(unittest.TestCase):
         )
         mock_connector.validate_label_distinct_values = Mock(return_value=True)
         with self.assertRaises(Exception) as context:
-            trainer.validate_data(mock_connector, None)
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
         self.assertIn(
             "Raise exception",
             str(context.exception),
@@ -239,7 +338,12 @@ class TestRegressionTrainer(unittest.TestCase):
         )
         mock_connector.validate_label_distinct_values = Mock(return_value=False)
         with self.assertRaises(Exception) as context:
-            trainer.validate_data(mock_connector, None)
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
         self.assertIn(
             "Raise exception",
             str(context.exception),
@@ -252,7 +356,12 @@ class TestRegressionTrainer(unittest.TestCase):
             "Raise exception"
         )
         with self.assertRaises(Exception) as context:
-            trainer.validate_data(mock_connector, None)
+            trainer.validate_data(
+                mock_connector,
+                None,
+                self.train_table_pairs,
+                self.min_sample_for_training,
+            )
         self.assertIn(
             "Raise exception",
             str(context.exception),

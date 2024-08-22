@@ -527,6 +527,15 @@ class TestValidations(unittest.TestCase):
             }
         )
         self.table = df
+        self.min_sample_for_training = 5
+        self.train_table_pairs = [
+            Mock(
+                feature_table_name="feature_table_1", label_table_name="label_table_1"
+            ),
+            Mock(
+                feature_table_name="feature_table_2", label_table_name="label_table_2"
+            ),
+        ]
 
     # Checks for assertion error if label column is not present in the feature table.
     def test_label_column_not_present(self):
@@ -557,6 +566,7 @@ class TestValidations(unittest.TestCase):
             self.connector.validate_class_proportions(
                 self.table[["COL1", "COL2", "COL3"]],
                 label_column,
+                self.train_table_pairs,
             )
         mock_write_table.assert_called_once()
         error_msg = "Label: 1 - users :(50.00%)\n\tLabel: 2 - users :(50.00%)"
@@ -569,7 +579,9 @@ class TestValidations(unittest.TestCase):
     def test_expects_error_if_label_count_is_low_regression(self):
         label_column = "COL1"
         with self.assertRaises(Exception) as context:
-            self.connector.validate_label_distinct_values(self.table, label_column)
+            self.connector.validate_label_distinct_values(
+                self.table, label_column, self.train_table_pairs
+            )
             distinct_values_count = self.table.groupBy(label_column).count()
             num_distinct_values = distinct_values_count.count()
             self.assertIn(
@@ -596,7 +608,11 @@ class TestValidations(unittest.TestCase):
             }
         )
         self.assertTrue(self.connector.validate_columns_are_present(table, "COL1"))
-        self.assertTrue(self.connector.validate_class_proportions(table, "COL1"))
+        self.assertTrue(
+            self.connector.validate_class_proportions(
+                table, "COL1", self.train_table_pairs
+            )
+        )
 
     @patch(
         "src.predictions.profiles_mlcorelib.utils.constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES",
@@ -612,7 +628,33 @@ class TestValidations(unittest.TestCase):
             }
         )
         self.assertTrue(self.connector.validate_columns_are_present(table, "COL1"))
-        self.assertTrue(self.connector.validate_label_distinct_values(table, "COL1"))
+        self.assertTrue(
+            self.connector.validate_label_distinct_values(
+                table, "COL1", self.train_table_pairs
+            )
+        )
+
+    @patch.object(RedshiftConnectorV2, "write_table")
+    def test_validate_row_count_insufficient_data(self, mock_write_table):
+        with self.assertRaises(Exception) as context:
+            self.connector.validate_row_count(
+                self.table, self.min_sample_for_training, self.train_table_pairs
+            )
+
+        mock_write_table.assert_called_once_with(
+            self.table, self.connector.feature_table_name, write_mode="overwrite"
+        )
+
+        expected_error_msg = (
+            "Insufficient data for training. Only 2 user records found, "
+            "while a minimum of 5 user records is required.\n"
+            "For further information, you can check the table in the warehouse with the name: None.\n"
+            "Additionally, feature tables feature_table_1, feature_table_2 are being used to create the feature table, "
+            "while label tables label_table_1, label_table_2 are being used as label data. "
+            "Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
+        )
+
+        self.assertIn(expected_error_msg, str(context.exception))
 
 
 class TestCheckForClassificationDataRequirement(unittest.TestCase):

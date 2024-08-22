@@ -653,16 +653,8 @@ class CommonWarehouseConnector(Connector):
         self,
         feature_table: pd.DataFrame,
         max_row_count: int,
-        min_sample_for_training: int,
     ) -> pd.DataFrame:
-        if len(feature_table) < min_sample_for_training:
-            self.write_table(
-                feature_table, self.feature_table_name, write_mode="overwrite"
-            )
-            raise Exception(
-                f"Insufficient data for training. Only {len(feature_table)} user records found. Required minimum {min_sample_for_training} user records.For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
-            )
-        elif len(feature_table) <= max_row_count:
+        if len(feature_table) <= max_row_count:
             return feature_table
         else:
             return feature_table.sample(n=max_row_count)
@@ -764,30 +756,33 @@ class CommonWarehouseConnector(Connector):
             )
         return True
 
-    # def validate_class_proportions(
-    #     self,
-    #     feature_table: pd.DataFrame,
-    #     label_column: str,
-    #     train_table_pairs
-    # ) -> bool:
-    #     min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
-    #     max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
-    #     label_proportion = feature_table[label_column].value_counts(normalize=True)
-    #     found_invalid_rows = (
-    #         (label_proportion < min_label_proportion)
-    #         | (label_proportion > max_label_proportion)
-    #     ).any()
-    #     if found_invalid_rows:
-    #         self.write_table(
-    #             feature_table, self.feature_table_name, write_mode="overwrite"
-    #         )
-    #         error_msg = ""
-    #         for row in label_proportion.reset_index().values:
-    #             error_msg += f"\tLabel: {row[0]:.0f} - users :({100*row[1]:.2f}%)\n"
-    #         raise Exception(
-    #             f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}.You can look for the feature_table saved with this name {self.feature_table_name} for more context. For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
-    #         )
-    #     return True
+    def validate_row_count(
+        self,
+        feature_table: pd.DataFrame,
+        min_sample_for_training: int,
+        train_table_pairs,
+    ) -> bool:
+        if len(feature_table) < min_sample_for_training:
+            self.write_table(
+                feature_table, self.feature_table_name, write_mode="overwrite"
+            )
+
+            # Extracting table names from train_table_pairs
+            feature_tables = ", ".join(
+                [pair.feature_table_name for pair in train_table_pairs]
+            )
+            label_tables = ", ".join(
+                [pair.label_table_name for pair in train_table_pairs]
+            )
+
+            raise Exception(
+                f"Insufficient data for training. Only {len(feature_table)} user records found, "
+                f"while a minimum of {min_sample_for_training} user records is required.\n"
+                f"For further information, you can check the table in the warehouse with the name: {self.feature_table_name}.\n"
+                f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
+                f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
+            )
+        return True
 
     def validate_class_proportions(
         self, feature_table: pd.DataFrame, label_column: str, train_table_pairs
@@ -826,25 +821,6 @@ class CommonWarehouseConnector(Connector):
             )
 
         return True
-
-    # def validate_label_distinct_values(
-    #     self,
-    #     feature_table: pd.DataFrame,
-    #     label_column: str,
-    #     train_table_pairs,
-    # ) -> bool:
-    #     distinct_values_count_list = feature_table[label_column].value_counts()
-    #     num_distinct_values = len(distinct_values_count_list)
-    #     req_distinct_values = constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
-    #     if num_distinct_values < req_distinct_values:
-    #         self.write_table(
-    #             feature_table, self.feature_table_name, write_mode="overwrite"
-    #         )
-    #         raise Exception(
-    #             f"Label column {label_column} has {num_distinct_values} of distinct values while we expect minimum {req_distinct_values} values for a regression problem.\
-    #                 Please check your label column and modify task in your python model to 'classification' if that's a better fit.For further information you can check the table in the warehouse with the name : {self.feature_table_name} "
-    #         )
-    #     return True
 
     def validate_label_distinct_values(
         self,

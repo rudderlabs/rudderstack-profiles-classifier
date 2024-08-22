@@ -215,13 +215,14 @@ def preprocess_and_train(
     task_type = trainer.get_name()
     logger.get().debug(f"Performing data validation for {task_type}")
 
-    trainer.validate_data(connector, feature_table, train_table_pairs)
+    trainer.validate_data(
+        connector, feature_table, train_table_pairs, min_sample_for_training
+    )
     logger.get().debug("Data validation is completed")
 
     filtered_feature_table = connector.filter_feature_table(
         feature_table,
         trainer.max_row_count,
-        min_sample_for_training,
     )
 
     connector.send_table_to_train_env(

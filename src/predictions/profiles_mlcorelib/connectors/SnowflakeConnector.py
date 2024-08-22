@@ -900,17 +900,8 @@ class SnowflakeConnector(Connector):
         self,
         feature_table: snowflake.snowpark.Table,
         max_row_count: int,
-        min_sample_for_training: int,
     ) -> snowflake.snowpark.Table:
-        if feature_table.count() < min_sample_for_training:
-            self.write_table(
-                feature_table, self.feature_table_name, write_mode="overwrite"
-            )
-            raise Exception(
-                f"Insufficient data for training. Only {feature_table.count()} user records found. \
-                    Required minimum {min_sample_for_training} user records.For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
-            )
-        elif feature_table.count() <= max_row_count:
+        if feature_table.count() <= max_row_count:
             return feature_table
         else:
             return feature_table.sample(n=int(max_row_count))
@@ -1000,36 +991,36 @@ class SnowflakeConnector(Connector):
             )
         return True
 
-    # def validate_class_proportions(
-    #     self, feature_table: snowflake.snowpark.Table, label_column: str
-    # ) -> bool:
-    #     distinct_values_count = feature_table.groupBy(label_column).count()
-    #     total_count = int(feature_table.count())
-    #     result_table = distinct_values_count.withColumn(
-    #         "NORMALIZED_COUNT", F.col("count") / total_count
-    #     ).collect()
-    #
-    #     min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
-    #     max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
-    #
-    #     no_invalid_rows = [
-    #         row
-    #         for row in result_table
-    #         if row["NORMALIZED_COUNT"] < min_label_proportion
-    #         or row["NORMALIZED_COUNT"] > max_label_proportion
-    #     ]
-    #
-    #     if len(no_invalid_rows) > 0:
-    #         self.write_table(
-    #             feature_table, self.feature_table_name, write_mode="overwrite"
-    #         )
-    #         error_msg = ""
-    #         for row in result_table:
-    #             error_msg += f"\t{row[label_column.upper()]} - user count:  {row['COUNT']} ({100*row['NORMALIZED_COUNT']:.2f}%)\n"
-    #         raise Exception(
-    #             f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}. For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
-    #         )
-    #     return True
+    def validate_row_count(
+        self,
+        feature_table: snowflake.snowpark.Table,
+        min_sample_for_training: int,
+        train_table_pairs,
+    ) -> bool:
+        row_count = feature_table.count()
+
+        if row_count < min_sample_for_training:
+            self.write_table(
+                feature_table, self.feature_table_name, write_mode="overwrite"
+            )
+
+            # Extracting table names from train_table_pairs
+            feature_tables = ", ".join(
+                [pair.feature_table_name for pair in train_table_pairs]
+            )
+            label_tables = ", ".join(
+                [pair.label_table_name for pair in train_table_pairs]
+            )
+
+            raise Exception(
+                f"Insufficient data for training. Only {row_count} user records found, "
+                f"while a minimum of {min_sample_for_training} user records is required.\n"
+                f"For further information, you can check the table in the warehouse with the name: {self.feature_table_name}.\n"
+                f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
+                f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
+            )
+
+        return True
 
     def validate_class_proportions(
         self,
@@ -1078,22 +1069,6 @@ class SnowflakeConnector(Connector):
             )
 
         return True
-
-    # def validate_label_distinct_values(
-    #     self, feature_table: snowflake.snowpark.Table, label_column: str
-    # ) -> bool:
-    #     distinct_values_count = feature_table.groupBy(label_column).count()
-    #     num_distinct_values = distinct_values_count.count()
-    #     req_distinct_values = int(constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES)
-    #     if num_distinct_values < req_distinct_values:
-    #         self.write_table(
-    #             feature_table, self.feature_table_name, write_mode="overwrite"
-    #         )
-    #         raise Exception(
-    #             f"Label column {label_column} has {num_distinct_values} distinct values while we expect minimum {req_distinct_values} values for a regression problem.\
-    #                 Please check your label column and modify task in your python model to 'classification' if that's a better fit. For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
-    #         )
-    #     return True
 
     def validate_label_distinct_values(
         self,

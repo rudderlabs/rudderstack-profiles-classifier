@@ -127,7 +127,7 @@ class PyNativeWHT:
                 table_material = material
             inputs.append(
                 {
-                    "table_name": table_material.model.db_object_name_prefix(),
+                    "table_name": table_material.name(),
                     "model_ref": material.model.model_ref(),
                     "model_type": material.model.model_type(),
                     "selector_sql": material.get_selector_sql(),

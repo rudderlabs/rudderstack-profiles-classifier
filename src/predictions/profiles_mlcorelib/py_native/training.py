@@ -195,7 +195,9 @@ class TrainingRecipe(PyNativeRecipe):
             this.write_output(df)
             return
         site_config_path = this.wht_ctx.site_config().get("FilePath")
-        whtService = PyNativeWHT(this, site_config_path, this.base_wht_project.project_path())
+        whtService = PyNativeWHT(
+            this, site_config_path, this.base_wht_project.project_path()
+        )
         # TODO: Get creds from pywht
         creds = whtService.get_credentials(
             this.base_wht_project.project_path(), site_config_path

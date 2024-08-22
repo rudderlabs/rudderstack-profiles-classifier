@@ -75,6 +75,8 @@ class TrainingModel(BaseModelType):
             build_spec["materialization"] = {
                 "requested_enable_status": "only_if_necessary"
             }
+        if build_spec.get("validity_time", None) is None:
+            build_spec["validity_time"] = "month"
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:

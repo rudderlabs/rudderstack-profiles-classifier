@@ -506,7 +506,7 @@ class PythonWHT:
     def get_latest_seq_no(self, inputs: List[dict]) -> int:
         return int(inputs[0]["table_name"].split("_")[-1])
 
-    def get_inputs(self, selector_sqls: str, skipCompile: bool) -> List[dict]:
+    def get_inputs(self, selector_sqls: str, skip_compile: bool) -> List[dict]:
         inputs = []
         for selector_sql in selector_sqls:
             schema_table_name = selector_sql.split(" ")[-1]
@@ -529,7 +529,7 @@ class PythonWHT:
                     "model_name": extract_model_name_from_query(selector_sql),
                 }
             )
-        if skipCompile:
+        if skip_compile:
             return inputs
         args = {
             "site_config_path": self.site_config_path,

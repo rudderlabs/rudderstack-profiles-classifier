@@ -66,7 +66,7 @@ def preprocess_and_predict(
 
     # No need to decide whether to create PyNativeWHT or PythonWHT since all the methods being called
     # here have the same implementation in both classes.
-    whtService = PyNativeWHT(None, "", "")
+    whtService = PyNativeWHT(None, None, None)
     whtService.set_connector(connector)
 
     seq_no = whtService.get_latest_seq_no(inputs)

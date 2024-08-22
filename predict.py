@@ -36,7 +36,7 @@ def predict(
     Returns:
         None: save the prediction results but returns nothing
     """
-    wht = PythonWHT("", "")
+    wht = PythonWHT(None, None)
     _predict(
         creds,
         model_path,

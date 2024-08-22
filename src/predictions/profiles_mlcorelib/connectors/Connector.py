@@ -17,11 +17,11 @@ class Connector(ABC):
         }
         return new_creds
 
-    def get_input_columns(self, trainer_obj, absolute_input_model_info):
+    def get_input_columns(self, trainer_obj, inputs):
         input_columns = set()
 
-        for _, value in absolute_input_model_info.items():
-            query = value["selector_sql"] + " LIMIT 1"
+        for input in inputs:
+            query = input["selector_sql"] + " LIMIT 1"
             input_columns.update(self.run_query(query)[0]._fields)
 
         input_columns.difference_update(
@@ -40,7 +40,7 @@ class Connector(ABC):
         self,
         trainer_obj,
         input_columns: List[str],
-        input_models: Dict[str, str],
+        inputs: List[dict],
         table_name: str,
     ) -> Tuple:
         """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp, booleantype) for a given table."""
@@ -124,7 +124,7 @@ class Connector(ABC):
             ignore_features = []
 
         try:
-            self.check_arraytype_conflicts(updated_input_column_types, input_models)
+            self.check_arraytype_conflicts(updated_input_column_types, inputs)
             ignore_features.extend(updated_input_column_types["arraytype"])
         except Exception as e:
             raise Exception(str(e))
@@ -143,16 +143,16 @@ class Connector(ABC):
         trainer_obj.prep.ignore_features = ignore_features
         return updated_input_column_types
 
-    def check_arraytype_conflicts(self, updated_input_column_types, input_models):
+    def check_arraytype_conflicts(self, updated_input_column_types, inputs):
         arraytype_columns = updated_input_column_types.get("arraytype", [])
 
         for column in arraytype_columns:
             column_lower = column.lower()
 
-            for key, value in input_models.items():
+            for input in inputs:
                 if (
-                    column_lower in key.lower()
-                    and value["model_type"] == "entity_var_item"
+                    column_lower in input["model_ref"].lower()
+                    and input["model_type"] == "entity_var_item"
                 ):
                     raise Exception(
                         f"Array type features are not supported. Please remove '{column_lower}' and any other array type features from inputs."

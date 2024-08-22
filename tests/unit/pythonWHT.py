@@ -18,101 +18,6 @@ class RedshiftConnectorV2(RedshiftConnector):
         pass
 
 
-class TestGetInputModels(unittest.TestCase):
-    def setUp(self) -> None:
-        self.pythonWHT = PythonWHT()
-
-    @patch("src.predictions.profiles_mlcorelib.wht.rudderPB.RudderPB.show_models")
-    def test_get_input_models(self, mock_rudderpb_show_models):
-        original_input_models = [
-            '''SELECT last_seen FROM "schema"."material_user_var_table_54ddc22a_383"''',
-            """SELECT last_seen FROM `schema`.`material_user_var_table_54ddc22a_383`""",
-            '''SELECT last_seen FROM "material_user_var_table_54ddc22a_383"''',
-            '''SELECT last_seen2 FROM "schema"."material_user_var_table_54ddc22a_383"''',
-            """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384""",
-            """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL2_45223ds1_384""",
-            "MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384",
-            "MATERIAL_FEATURE_TABLE_MODEL2_55223ds1_384",
-            "MATERIAL_LAST_SEEN_65223ds1_384",
-            "MATERIAL_LAST_SEEN2_85223ds1_384",
-        ]
-
-        self.pythonWHT.init(
-            connector=RedshiftConnectorV2("data"),
-            site_config_path="site_config",
-            project_folder_path="project_folder",
-        )
-
-        self.pythonWHT.connector.schema = Mock(return_value="schema")
-        stdout = """Some text before 
-                    dummy entity.var{ }
-                    printing models
-                    {
-                        "base_features/inputs/user_var_table1": {
-                                "warehouse_name": "user_main_id_inputs_rsTracks_var_table",
-                                "model_type": "input_var_item",
-                                "output_type": "column",
-                                "run_type": "discrete",
-                                "sql_type": "multi",
-                                "enable_status": "enabled"
-                        },
-                        "base_features/inputs/user_var_table2": {
-                                "warehouse_name": "user_main_id_inputs_rsTracks_var_table",
-                                "model_type": "input_var_item",
-                                "output_type": "column",
-                                "run_type": "discrete",
-                                "sql_type": "multi",
-                                "enable_status": "enabled"
-                        },
-                        "project/user/all/last_seen": {
-                                "model_type": "entity_var_item"
-                        },
-                        "project/user/all/last_seen2": {
-                                "model_type": "entity_var_item"
-                        },
-                        "base_features/models/feature_table_model1": {
-                                "model_type": "feature_table_model"
-                        },
-                        "base_features/models/feature_table_model2": {
-                                "model_type": "feature_table_model"
-                        }
-                    }
-                    Some text after"""
-
-        # Mocking necessary dependencies
-        mock_rudderpb_show_models.return_value = stdout
-
-        # Calling the function under test
-        result = self.pythonWHT.get_input_models(
-            original_input_models,
-            entity_var_table="MATERIAL_USER_VAR_TABLE_54ddc22a_383",
-        )
-
-        expected = {
-            "models/feature_table_model1": {
-                "selector_sql": "SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384",
-                "model_type": "input_var_item",
-            },
-            "models/feature_table_model2": {
-                "selector_sql": "SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL2_55223ds1_384",
-                "model_type": "input_var_item",
-            },
-            "user/all/last_seen": {
-                "selector_sql": 'SELECT last_seen FROM "MATERIAL_USER_VAR_TABLE_54ddc22a_383" ',
-                "model_type": "entity_var_item",
-            },
-            "user/all/last_seen2": {
-                "selector_sql": 'SELECT last_seen2 FROM "MATERIAL_USER_VAR_TABLE_54ddc22a_383" ',
-                "model_type": "entity_var_item",
-            },
-        }
-        self.assertEqual(len(result), len(expected))
-        self.assertEqual(
-            set(result),
-            set(expected),
-        )
-
-
 class MockTableRow:
     FEATURE_SEQ_NO = None
     LABEL_SEQ_NO = None
@@ -126,25 +31,17 @@ class MockConnector:
 
 class TestFetchValidHistoricMaterials(unittest.TestCase):
     def setUp(self) -> None:
-        self.pythonWHT = PythonWHT()
-        self.input_material_or_selector_sql = [
-            "SELECT * FROM Material_user_var_table_54ddc22a_333",
-            "SELECT * FROM Material_user_var_table_54ddc22a_383",
-        ]
+        self.pythonWHT = PythonWHT("site_config", "project_folder")
+        connector = MockConnector()
+        connector.is_valid_table = Mock(return_value=True)
+        self.pythonWHT.set_connector(connector)
+        self.inputs = []
 
     @patch(
         "src.predictions.profiles_mlcorelib.wht.pythonWHT.PythonWHT._validate_historical_materials_hash"
     )
     def test_all_data_present_and_valid(self, mock_validate_historical_materials_hash):
         # Mock dependencies
-        connector = MockConnector()
-        connector.is_valid_table = Mock(return_value=True)
-
-        self.pythonWHT.init(
-            connector=connector,
-            site_config_path="site_config",
-            project_folder_path="project_folder",
-        )
 
         mock_validate_historical_materials_hash.return_value = True
         materials = []
@@ -159,7 +56,7 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
             table_row,
             "user_var_table",
             "54ddc22a",
-            self.input_material_or_selector_sql,
+            self.inputs,
             materials,
             False,
         )
@@ -171,14 +68,6 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         "src.predictions.profiles_mlcorelib.wht.pythonWHT.PythonWHT._validate_historical_materials_hash"
     )
     def test_missing_sequence_number(self, mock_compute_material_name):
-        connector = MockConnector()
-        connector.is_valid_table = Mock(return_value=True)
-
-        self.pythonWHT.init(
-            connector=connector,
-            site_config_path="site_config",
-            project_folder_path="project_folder",
-        )
 
         materials = []
         table_row = MockTableRow()
@@ -192,7 +81,7 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
             table_row,
             "user_var_table",
             "54ddc22a",
-            self.input_material_or_selector_sql,
+            self.inputs,
             materials,
             True,
         )
@@ -207,7 +96,7 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
             table_row,
             "user_var_table",
             "54ddc22a",
-            self.input_material_or_selector_sql,
+            self.inputs,
             materials,
             False,
         )
@@ -223,7 +112,7 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
             table_row,
             "user_var_table",
             "54ddc22a",
-            self.input_material_or_selector_sql,
+            self.inputs,
             materials,
             False,
         )
@@ -236,7 +125,7 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
             table_row,
             "user_var_table",
             "54ddc22a",
-            self.input_material_or_selector_sql,
+            self.inputs,
             materials,
             True,
         )
@@ -255,7 +144,7 @@ class TestGetPastMaterialsWithValidDateRange(unittest.TestCase):
             TrainTablesInfo("feature_table_3", "2024-05-19", "label_table_3", "None"),
             TrainTablesInfo("feature_table_4", "None", "label_table_4", "None"),
         ]
-        self.pythonWHT = PythonWHT()
+        self.pythonWHT = PythonWHT("site_config", "project_folder")
 
     def test_valid_materials(self):
         valid_materials = self.pythonWHT.get_past_materials_with_valid_date_range(
@@ -270,3 +159,105 @@ class TestGetPastMaterialsWithValidDateRange(unittest.TestCase):
             [], 1, 1
         )
         self.assertEqual(len(valid_materials), 0)
+
+
+class TestGetLatestSeqNo(unittest.TestCase):
+    def test_get_latest_seq_no(self):
+        result = PythonWHT("site_config", "project_folder").get_latest_seq_no(
+            [{"table_name": "material_user_var_table_123"}]
+        )
+        self.assertEqual(result, 123)
+
+
+class TestGetInputs(unittest.TestCase):
+    @patch("src.predictions.profiles_mlcorelib.wht.rudderPB.RudderPB.show_models")
+    def test_get_inputs(self, mock_rudderpb_show_models):
+        selector_sqls = [
+            '''SELECT last_seen FROM "schema"."material_user_var_table_54ddc22a_383"''',
+            """SELECT last_seen FROM `schema`.`material_user_var_table_54ddc22a_383`""",
+            '''SELECT last_seen FROM "material_user_var_table_54ddc22a_383"''',
+            '''SELECT last_seen2 FROM "schema"."material_user_var_table_54ddc22a_383"''',
+            """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384""",
+            """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL2_45223ds1_384""",
+        ]
+        mock_rudderpb_show_models.return_value = """Some text before 
+            dummy entity.var{ }
+            printing models
+            {
+                "base_features/inputs/user_var_table1": {
+                        "warehouse_name": "user_main_id_inputs_rsTracks_var_table",
+                        "model_type": "input_var_item",
+                        "output_type": "column",
+                        "run_type": "discrete",
+                        "sql_type": "multi",
+                        "enable_status": "enabled"
+                },
+                "base_features/inputs/user_var_table2": {
+                        "warehouse_name": "user_main_id_inputs_rsTracks_var_table",
+                        "model_type": "input_var_item",
+                        "output_type": "column",
+                        "run_type": "discrete",
+                        "sql_type": "multi",
+                        "enable_status": "enabled"
+                },
+                "project/user/all/last_seen": {
+                        "model_type": "entity_var_item"
+                },
+                "project/user/all/last_seen2": {
+                        "model_type": "entity_var_item"
+                },
+                "base_features/models/feature_table_model1": {
+                        "model_type": "feature_table_model"
+                },
+                "base_features/models/feature_table_model2": {
+                        "model_type": "feature_table_model"
+                }
+            }
+            Some text after"""
+        wht = PythonWHT("site_config_path", "project_folder")
+        result = wht.get_inputs(selector_sqls, False)
+        expected_result = [
+            {
+                "selector_sql": '''SELECT last_seen FROM "schema"."material_user_var_table_54ddc22a_383"''',
+                "table_name": "material_user_var_table_54ddc22a_383",
+                "model_name": "last_seen",
+                "model_ref": "user/all/last_seen",
+                "model_type": "entity_var_item",
+            },
+            {
+                "selector_sql": """SELECT last_seen FROM `schema`.`material_user_var_table_54ddc22a_383`""",
+                "table_name": "material_user_var_table_54ddc22a_383",
+                "model_name": "last_seen",
+                "model_ref": "user/all/last_seen",
+                "model_type": "entity_var_item",
+            },
+            {
+                "selector_sql": '''SELECT last_seen FROM "material_user_var_table_54ddc22a_383"''',
+                "table_name": "material_user_var_table_54ddc22a_383",
+                "model_name": "last_seen",
+                "model_ref": "user/all/last_seen",
+                "model_type": "entity_var_item",
+            },
+            {
+                "selector_sql": '''SELECT last_seen2 FROM "schema"."material_user_var_table_54ddc22a_383"''',
+                "table_name": "material_user_var_table_54ddc22a_383",
+                "model_name": "last_seen2",
+                "model_ref": "user/all/last_seen2",
+                "model_type": "entity_var_item",
+            },
+            {
+                "selector_sql": """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384""",
+                "table_name": "MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384",
+                "model_name": "feature_table_model1",
+                "model_ref": "models/feature_table_model1",
+                "model_type": "feature_table_model",
+            },
+            {
+                "selector_sql": """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL2_45223ds1_384""",
+                "table_name": "MATERIAL_FEATURE_TABLE_MODEL2_45223ds1_384",
+                "model_name": "feature_table_model2",
+                "model_ref": "models/feature_table_model2",
+                "model_type": "feature_table_model",
+            },
+        ]
+        self.assertEqual(result, expected_result)

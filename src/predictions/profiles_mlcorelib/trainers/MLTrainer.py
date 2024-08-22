@@ -311,7 +311,7 @@ class MLTrainer(ABC):
         self,
         get_material_func: callable,
         materials: List[TrainTablesInfo],
-        input_models: str,
+        inputs: List[dict],
         whtService: PythonWHT,
         connector: Connector,
     ):
@@ -324,7 +324,8 @@ class MLTrainer(ABC):
         if met_data_requirement or self.materialisation_strategy == "":
             return materials
 
-        feature_package_path = utils.get_feature_package_path(input_models)
+        model_refs = [input["model_ref"] for input in inputs]
+        feature_package_path = utils.get_feature_package_path(model_refs)
         max_materializations = (
             self.materialisation_max_no_dates
             if self.materialisation_strategy == "auto"

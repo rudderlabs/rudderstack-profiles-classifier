@@ -48,9 +48,9 @@ class TestLLMModelValidation(unittest.TestCase):
         llm_model.validate()
 
         # Testing the case for correct maximum index with sql_inputs and var_inputs both
-        self.build_spec["prompt"] = (
-            "sample prompt {var_inputs[0]} {sql_inputs[0]} {sql_inputs[1]}"
-        )
+        self.build_spec[
+            "prompt"
+        ] = "sample prompt {var_inputs[0]} {sql_inputs[0]} {sql_inputs[1]}"
         llm_model = LLMModel(self.build_spec, self.schema_ver, self.pb_version)
         llm_model.validate()
 
@@ -211,9 +211,9 @@ class TestLLMModelRecipeUtility(unittest.TestCase):
     def test_replace_placeholders_with_var_and_sql_inputs_references_in_task_prompt(
         self,
     ):
-        self.build_spec["prompt"] = (
-            "sample prompt {var_inputs[0]} {var_inputs[1]} {sql_inputs[0]}"
-        )
+        self.build_spec[
+            "prompt"
+        ] = "sample prompt {var_inputs[0]} {var_inputs[1]} {sql_inputs[0]}"
         var_inputs_indices = self.utils.get_index_list(self.build_spec["prompt"])
         eligible_users_indices = self.utils.get_index_list(
             self.build_spec["eligible_users"]
@@ -238,12 +238,12 @@ class TestLLMModelRecipeUtility(unittest.TestCase):
     def test_replace_placeholders_with_var_and_sql_inputs_references_in_task_prompt_and_var_reference_in_eligible_users(
         self,
     ):
-        self.build_spec["prompt"] = (
-            "sample prompt {var_inputs[0]} {var_inputs[1]} {sql_inputs[0]}"
-        )
-        self.build_spec["eligible_users"] = (
-            "sample eligible users {var_inputs[0]}, {var_inputs[1]}"
-        )
+        self.build_spec[
+            "prompt"
+        ] = "sample prompt {var_inputs[0]} {var_inputs[1]} {sql_inputs[0]}"
+        self.build_spec[
+            "eligible_users"
+        ] = "sample eligible users {var_inputs[0]}, {var_inputs[1]}"
         var_inputs_indices = self.utils.get_index_list(self.build_spec["prompt"])
         eligible_users_indices = self.utils.get_index_list(
             self.build_spec["eligible_users"]
@@ -268,9 +268,9 @@ class TestLLMModelRecipeUtility(unittest.TestCase):
     def test_replace_placeholders_with_var_and_sql_inputs_references_in_task_prompt_and_empty_eligible_users(
         self,
     ):
-        self.build_spec["prompt"] = (
-            "sample prompt {var_inputs[0]} {var_inputs[1]} {sql_inputs[0]}"
-        )
+        self.build_spec[
+            "prompt"
+        ] = "sample prompt {var_inputs[0]} {var_inputs[1]} {sql_inputs[0]}"
         self.build_spec["eligible_users"] = ""
         var_inputs_indices = self.utils.get_index_list(self.build_spec["prompt"])
         eligible_users_indices = self.utils.get_index_list(

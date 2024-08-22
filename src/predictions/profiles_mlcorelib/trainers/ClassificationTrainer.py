@@ -227,10 +227,12 @@ class ClassificationTrainer(MLTrainer):
         }
         return training_summary
 
-    def validate_data(self, connector, feature_table):
+    def validate_data(self, connector, feature_table, train_table_pairs):
         return connector.validate_columns_are_present(
             feature_table, self.label_column
-        ) and connector.validate_class_proportions(feature_table, self.label_column)
+        ) and connector.validate_class_proportions(
+            feature_table, self.label_column, train_table_pairs
+        )
 
     def check_min_data_requirement(self, connector: Connector, materials) -> bool:
         label_column = self.label_column

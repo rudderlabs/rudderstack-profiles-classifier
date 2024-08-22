@@ -1000,8 +1000,42 @@ class SnowflakeConnector(Connector):
             )
         return True
 
+    # def validate_class_proportions(
+    #     self, feature_table: snowflake.snowpark.Table, label_column: str
+    # ) -> bool:
+    #     distinct_values_count = feature_table.groupBy(label_column).count()
+    #     total_count = int(feature_table.count())
+    #     result_table = distinct_values_count.withColumn(
+    #         "NORMALIZED_COUNT", F.col("count") / total_count
+    #     ).collect()
+    #
+    #     min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+    #     max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
+    #
+    #     no_invalid_rows = [
+    #         row
+    #         for row in result_table
+    #         if row["NORMALIZED_COUNT"] < min_label_proportion
+    #         or row["NORMALIZED_COUNT"] > max_label_proportion
+    #     ]
+    #
+    #     if len(no_invalid_rows) > 0:
+    #         self.write_table(
+    #             feature_table, self.feature_table_name, write_mode="overwrite"
+    #         )
+    #         error_msg = ""
+    #         for row in result_table:
+    #             error_msg += f"\t{row[label_column.upper()]} - user count:  {row['COUNT']} ({100*row['NORMALIZED_COUNT']:.2f}%)\n"
+    #         raise Exception(
+    #             f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}. For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
+    #         )
+    #     return True
+
     def validate_class_proportions(
-        self, feature_table: snowflake.snowpark.Table, label_column: str
+        self,
+        feature_table: snowflake.snowpark.Table,
+        label_column: str,
+        train_table_pairs,
     ) -> bool:
         distinct_values_count = feature_table.groupBy(label_column).count()
         total_count = int(feature_table.count())
@@ -1019,32 +1053,76 @@ class SnowflakeConnector(Connector):
             or row["NORMALIZED_COUNT"] > max_label_proportion
         ]
 
+        # Extracting table names from train_table_pairs
+        feature_tables = ", ".join(
+            [pair.feature_table_name for pair in train_table_pairs]
+        )
+        label_tables = ", ".join([pair.label_table_name for pair in train_table_pairs])
+
         if len(no_invalid_rows) > 0:
             self.write_table(
                 feature_table, self.feature_table_name, write_mode="overwrite"
             )
             error_msg = ""
             for row in result_table:
-                error_msg += f"\t{row[label_column.upper()]} - user count:  {row['COUNT']} ({100*row['NORMALIZED_COUNT']:.2f}%)\n"
+                error_msg += f"\t{row[label_column.upper()]} - user count:  {row['COUNT']} ({100 * row['NORMALIZED_COUNT']:.2f}%)\n"
+
             raise Exception(
-                f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}. For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
+                f"Label column {label_column} exhibits significant class imbalance.\n"
+                f"The model cannot be trained on such a highly imbalanced dataset.\n"
+                f"You can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users, etc.\n"
+                f"Current class proportions are as follows:\n{error_msg}"
+                f"For further information, you can check the table in the warehouse with the name: {self.feature_table_name}.\n"
+                f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
+                f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
             )
+
         return True
 
+    # def validate_label_distinct_values(
+    #     self, feature_table: snowflake.snowpark.Table, label_column: str
+    # ) -> bool:
+    #     distinct_values_count = feature_table.groupBy(label_column).count()
+    #     num_distinct_values = distinct_values_count.count()
+    #     req_distinct_values = int(constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES)
+    #     if num_distinct_values < req_distinct_values:
+    #         self.write_table(
+    #             feature_table, self.feature_table_name, write_mode="overwrite"
+    #         )
+    #         raise Exception(
+    #             f"Label column {label_column} has {num_distinct_values} distinct values while we expect minimum {req_distinct_values} values for a regression problem.\
+    #                 Please check your label column and modify task in your python model to 'classification' if that's a better fit. For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
+    #         )
+    #     return True
+
     def validate_label_distinct_values(
-        self, feature_table: snowflake.snowpark.Table, label_column: str
+        self,
+        feature_table: snowflake.snowpark.Table,
+        label_column: str,
+        train_table_pairs,
     ) -> bool:
         distinct_values_count = feature_table.groupBy(label_column).count()
         num_distinct_values = distinct_values_count.count()
         req_distinct_values = int(constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES)
+
+        # Extracting table names from train_table_pairs
+        feature_tables = ", ".join(
+            [pair.feature_table_name for pair in train_table_pairs]
+        )
+        label_tables = ", ".join([pair.label_table_name for pair in train_table_pairs])
+
         if num_distinct_values < req_distinct_values:
             self.write_table(
                 feature_table, self.feature_table_name, write_mode="overwrite"
             )
             raise Exception(
-                f"Label column {label_column} has {num_distinct_values} distinct values while we expect minimum {req_distinct_values} values for a regression problem.\
-                    Please check your label column and modify task in your python model to 'classification' if that's a better fit. For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
+                f"Label column {label_column} has {num_distinct_values} distinct values while we expect a minimum of {req_distinct_values} values for a regression problem.\n"
+                f"Please check your label column and consider modifying the task in your Python model to 'classification' if that's a better fit.\n"
+                f"For further information, you can check the table in the warehouse with the name: {self.feature_table_name}.\n"
+                f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
+                f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
             )
+
         return True
 
     def add_days_diff(

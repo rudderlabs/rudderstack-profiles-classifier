@@ -215,7 +215,7 @@ def preprocess_and_train(
     task_type = trainer.get_name()
     logger.get().debug(f"Performing data validation for {task_type}")
 
-    trainer.validate_data(connector, feature_table)
+    trainer.validate_data(connector, feature_table, train_table_pairs)
     logger.get().debug("Data validation is completed")
 
     filtered_feature_table = connector.filter_feature_table(

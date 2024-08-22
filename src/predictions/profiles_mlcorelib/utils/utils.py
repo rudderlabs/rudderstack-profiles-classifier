@@ -383,11 +383,11 @@ def fetch_key_from_dict(dictionary, key, default_value=None):
     return dictionary.get(key, default_value)
 
 
-def get_feature_package_path(input_models: List[str]) -> str:
+def get_feature_package_path(model_refs: List[str]) -> str:
     assert (
-        len(input_models) > 0
+        len(model_refs) > 0
     ), "No input models provided in the config. Path to profiles input models (ex: models/<entity_var_name>) must be specified in the train data config."
-    return ",".join(input_models)
+    return ",".join(model_refs)
 
 
 def subprocess_run(args):
@@ -826,18 +826,6 @@ def replace_seq_no_in_query(query: str, seq_no: int) -> str:
         raise Exception(f"Couldn't find an integer seq_no in the input query: {query}")
     replaced_query = query[: match.start(1)] + "_" + str(seq_no) + query[match.end(1) :]
     return replaced_query
-
-
-def extract_seq_no_from_select_query(material_or_selector_sql: str) -> int:
-    schema_table_name = material_or_selector_sql.split(" ")[-1]
-    table_name_wo_schema = schema_table_name.split(".")[-1]
-    if table_name_wo_schema.startswith("`") and table_name_wo_schema.endswith("`"):
-        table_name = table_name_wo_schema[1:-1]
-    else:
-        table_name = table_name_wo_schema
-    table_name = table_name.strip('"`')
-    seq_no = int(table_name.split("_")[-1])
-    return seq_no
 
 
 def get_model_configs_file_path() -> str:

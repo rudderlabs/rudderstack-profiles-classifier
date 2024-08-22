@@ -14,7 +14,7 @@ setup(
         "License :: OSI Approved :: MIT License",
     ],
     install_requires=[
-        "profiles_rudderstack>=0.16.0",
+        "profiles_rudderstack>=0.17.0",
         "cachetools>=5.3.2",
         "hyperopt>=0.2.7",
         "joblib>=1.3.2",

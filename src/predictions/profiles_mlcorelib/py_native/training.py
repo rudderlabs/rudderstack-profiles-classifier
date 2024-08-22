@@ -194,30 +194,24 @@ class TrainingRecipe(PyNativeRecipe):
             df = pd.DataFrame(data)
             this.write_output(df)
             return
-        whtService = PyNativeWHT(this)
         site_config_path = this.wht_ctx.site_config().get("FilePath")
+        whtService = PyNativeWHT(
+            this, site_config_path, this.base_wht_project.project_path()
+        )
         # TODO: Get creds from pywht
         creds = whtService.get_credentials(
             this.base_wht_project.project_path(), site_config_path
         )
-        input_model_refs = self.build_spec.get("inputs", [])
         output_filename = TrainingRecipe.get_training_file_path(this)
-        project_folder = this.base_wht_project.project_path()
         runtime_info = {"is_rudder_backend": this.base_wht_project.is_rudder_backend()}
         config = self.build_spec.get("ml_config", {})
-        input_material_names = []
-        for input in self.build_spec["inputs"]:
-            material = this.de_ref(input)
-            input_material_names.append(material.name())
         _train(
             creds,
-            input_material_names,
+            whtService.get_inputs(self.build_spec["inputs"]),
             output_filename,
             config,
             site_config_path,
-            project_folder,
             runtime_info,
-            None,
             whtService,
             constants.ML_CORE_PYNATIVE_PATH,
             standardize_ref_name(creds["type"], this.name()),

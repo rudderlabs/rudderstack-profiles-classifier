@@ -116,7 +116,7 @@ class PredictionRecipe(PyNativeRecipe):
     def execute(self, this: WhtMaterial):
         logger.set_logger(self.logger)
         site_config_path = this.wht_ctx.site_config().get("FilePath")
-        whtService = PyNativeWHT(this)
+        whtService = PyNativeWHT(this, "", "")
         # TODO: Get creds from pywht
         creds = whtService.get_credentials(
             this.base_wht_project.project_path(), site_config_path

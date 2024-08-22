@@ -195,13 +195,12 @@ class TrainingRecipe(PyNativeRecipe):
             this.write_output(df)
             return
         site_config_path = this.wht_ctx.site_config().get("FilePath")
-        whtService = PyNativeWHT(this, site_config_path, project_folder)
+        whtService = PyNativeWHT(this, site_config_path, this.base_wht_project.project_path())
         # TODO: Get creds from pywht
         creds = whtService.get_credentials(
             this.base_wht_project.project_path(), site_config_path
         )
         output_filename = TrainingRecipe.get_training_file_path(this)
-        project_folder = this.base_wht_project.project_path()
         runtime_info = {"is_rudder_backend": this.base_wht_project.is_rudder_backend()}
         config = self.build_spec.get("ml_config", {})
         _train(

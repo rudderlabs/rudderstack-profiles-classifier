@@ -1,5 +1,6 @@
 import sys
 import os
+from typing import List
 
 sys.path.append(
     os.path.abspath(os.path.join(os.path.dirname(__file__), "src", "predictions"))
@@ -13,24 +14,22 @@ from profiles_mlcorelib.utils import constants
 
 def train(
     creds: dict,
-    input_selector_sql: str,
+    input_selector_sqls: List[str],
     output_filename: str,
     config: dict,
     site_config_path: str = None,
     project_folder: str = None,
     runtime_info: dict = None,
 ) -> None:
-    input_models = None
+    wht = PythonWHT(site_config_path, project_folder)
     _train(
         creds,
-        input_selector_sql,
+        wht.get_inputs(input_selector_sqls, False),
         output_filename,
         config,
         site_config_path,
-        project_folder,
         runtime_info,
-        input_models,
-        PythonWHT(),
+        wht,
         constants.ML_CORE_PYTHON_PATH,
         "TRAINING_METRICS_v4",
     )

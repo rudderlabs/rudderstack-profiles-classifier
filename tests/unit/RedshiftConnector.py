@@ -548,13 +548,17 @@ class TestValidations(unittest.TestCase):
         "src.predictions.profiles_mlcorelib.utils.constants.CLASSIFIER_MAX_LABEL_PROPORTION",
         new=0.0,
     )
-    def test_expects_error_if_label_ratios_are_bad_classification(self):
+    @patch.object(RedshiftConnectorV2, "write_table")
+    def test_expects_error_if_label_ratios_are_bad_classification(
+        self, mock_write_table
+    ):
         label_column = "COL2"
         with self.assertRaises(Exception) as context:
             self.connector.validate_class_proportions(
                 self.table[["COL1", "COL2", "COL3"]],
                 label_column,
             )
+        mock_write_table.assert_called_once()
         error_msg = "Label: 1 - users :(50.00%)\n\tLabel: 2 - users :(50.00%)"
         self.assertIn(
             error_msg,

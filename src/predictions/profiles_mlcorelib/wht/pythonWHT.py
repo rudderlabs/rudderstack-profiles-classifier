@@ -512,13 +512,19 @@ class PythonWHT:
             schema_table_name = selector_sql.split(" ")[-1]
             table_name = schema_table_name.split(".")[-1]
 
-            def extract_model_name_from_query(query: str):
+            def extract_column_name_from_query(query: str):
                 select_column_pattern = re.compile(
                     r"SELECT [\"']?(\w+)[\"']? FROM", re.IGNORECASE
                 )
                 match_column = select_column_pattern.match(query.strip())
                 if match_column:
                     column_name = match_column.group(1)
+                    return column_name
+                return None
+
+            def extract_model_name_from_query(query: str):
+                column_name = extract_column_name_from_query(query)
+                if column_name:
                     return column_name
                 return self.split_material_name(query)["model_name"].lower()
 
@@ -527,6 +533,7 @@ class PythonWHT:
                     "selector_sql": selector_sql,
                     "table_name": table_name.strip('"`'),
                     "model_name": extract_model_name_from_query(selector_sql),
+                    "column_name": extract_column_name_from_query(selector_sql),
                 }
             )
         if skip_compile:
@@ -557,6 +564,7 @@ class PythonWHT:
                 raise ValueError(f"No match found for ref {model_name} in show models")
             input["model_ref"] = matching_models[0][0]
             input["model_type"] = matching_models[0][1]
+            del input["model_name"]
 
         logger.get().info(f"Found input models: {inputs}")
         return inputs

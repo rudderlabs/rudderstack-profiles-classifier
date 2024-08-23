@@ -29,7 +29,6 @@ class PythonWHT:
         self.project_folder_path = project_folder_path
         self.cached_registry_table_name = ""
 
-
     def _generaterandomstring(self, length):
         letters = string.ascii_letters + string.digits
 
@@ -42,7 +41,6 @@ class PythonWHT:
         connector: Connector,
     ) -> None:
         self.connector = connector
-
 
     def update_config_info(self, merged_config):
         merged_config["data"]["entity_column"] = (

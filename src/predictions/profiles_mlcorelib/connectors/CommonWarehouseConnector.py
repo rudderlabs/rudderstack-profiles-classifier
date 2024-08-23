@@ -784,7 +784,7 @@ class CommonWarehouseConnector(Connector):
             for row in label_proportion.reset_index().values:
                 error_msg += f"\tLabel: {row[0]:.0f} - users :({100*row[1]:.2f}%)\n"
             raise Exception(
-                f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}.You can look for the feature_table saved with this name {self.feature_table_name} for more context. For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
+                f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}.You can look for the table {self.feature_table_name} in your warehouse where the eligible users data is stored, and this imbalance is found. You can try different combinations of eligible users to see how the imbalance changes."
             )
         return True
 
@@ -802,7 +802,7 @@ class CommonWarehouseConnector(Connector):
             )
             raise Exception(
                 f"Label column {label_column} has {num_distinct_values} of distinct values while we expect minimum {req_distinct_values} values for a regression problem.\
-                    Please check your label column and modify task in your python model to 'classification' if that's a better fit.For further information you can check the table in the warehouse with the name : {self.feature_table_name} "
+                    Please check your label column and modify task in your python model to 'classification' if that's a better fit.You can look for the table {self.feature_table_name} in your warehouse where the eligible users data is stored, for the distinct label count. You can try different combinations of eligible users to see how the label counts change."
             )
         return True
 

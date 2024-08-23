@@ -31,8 +31,13 @@ class TrainingModel(BaseModelType):
             "occurred_at_col": {"type": "string"},
             **EntityKeyBuildSpecSchema["properties"],
             **MaterializationBuildSpecSchema["properties"],
-            "training_file_lookup_path": {"type": "string"},
-            "validity_time": {"type": "string", "enum": ["day", "week", "month"]},
+            "training_file_lookup_path": {"type": ["string", "null"]},
+            "validity_time": {
+                "oneOf": [
+                    {"type": "string", "enum": ["day", "week", "month"]},
+                    {"type": "null"},
+                ]
+            },
             "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
             "ml_config": {
                 "type": "object",
@@ -70,6 +75,8 @@ class TrainingModel(BaseModelType):
             build_spec["materialization"] = {
                 "requested_enable_status": "only_if_necessary"
             }
+        if build_spec.get("validity_time", None) is None:
+            build_spec["validity_time"] = "month"
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:

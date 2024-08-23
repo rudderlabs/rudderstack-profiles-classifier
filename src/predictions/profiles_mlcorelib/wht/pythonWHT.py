@@ -29,7 +29,8 @@ class PythonWHT:
         self.project_folder_path = project_folder_path
         self.cached_registry_table_name = ""
 
-    def _generaterandomstring(self, length):
+
+    def _generate_random_string(self, length):
         letters = string.ascii_letters + string.digits
 
         result_str = "".join(random.choice(letters) for i in range(length))
@@ -48,7 +49,8 @@ class PythonWHT:
                 merged_config["data"]["entity_column"]
             )
         )
-        self.connector.feature_table_name = f"{merged_config['data']['output_profiles_ml_model']}_{self._generaterandomstring(5)}_feature_table"
+
+        self.connector.feature_table_name = f"{merged_config['data']['output_profiles_ml_model']}_{self._generate_random_string(5)}_feature_table"
         return merged_config
 
     def _getPB(self):

@@ -814,11 +814,11 @@ class CommonWarehouseConnector(Connector):
                 f"The model cannot be trained on such a highly imbalanced dataset.\n"
                 f"You can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users, etc.\n"
                 f"Current class proportions are as follows:\n{error_msg}"
-                f"You can look for the feature table saved with this name: {self.feature_table_name} for more context."
-                f"For further information, you can check the table in the warehouse with the name: {self.feature_table_name}.\n"
+                f"You can look for the table {self.feature_table_name} in your warehouse where the eligible users data is stored, and this imbalance is found. You can try different combinations of eligible users to see how the imbalance changes."
                 f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
                 f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
             )
+
 
         return True
 
@@ -845,7 +845,7 @@ class CommonWarehouseConnector(Connector):
             raise Exception(
                 f"Label column {label_column} has {num_distinct_values} distinct values while we expect a minimum of {req_distinct_values} values for a regression problem."
                 f" Please check your label column and consider modifying the task in your Python model to 'classification' if that's a better fit."
-                f" For further information, you can check the table in the warehouse with the name: {self.feature_table_name}. "
+                f"You can look for the table {self.feature_table_name} in your warehouse where the eligible users data is stored, for the distinct label count. You can try different combinations of eligible users to see how the label counts change."
                 f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
                 f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
             )

@@ -318,8 +318,9 @@ class MLTrainer(ABC):
         met_data_requirement = self.check_min_data_requirement(connector, materials)
 
         logger.get().debug(f"Min data requirement satisfied: {met_data_requirement}")
-        logger.get().debug(
-            f"New material generation strategy : {self.materialisation_strategy}"
+        logger.get().info(
+            f"""Generating more materials. New material generation strategy : {self.materialisation_strategy}. 
+            Please review this while defining model configs."""
         )
         if met_data_requirement or self.materialisation_strategy == "":
             return materials

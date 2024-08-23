@@ -1013,11 +1013,15 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
                 "table_name": "material_table_1",
                 "model_ref": "model1.yaml",
                 "selector_sql": """select * from material_user_var_736465_0""",
+                "model_hash": "736465",
+                "model_name": "user_var",
             },
             {
                 "table_name": "material_table_1",
                 "model_ref": "model2.yaml",
                 "selector_sql": """select * from material_user_var_736465_0""",
+                "model_hash": "736465",
+                "model_name": "user_var",
             },
         ]
         self.whtService = PythonWHT("siteconfig.yaml", "project_folder")

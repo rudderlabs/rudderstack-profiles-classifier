@@ -131,6 +131,7 @@ class PyNativeWHT:
                 table_material = self.whtMaterial.de_ref(table_material_ref)
             else:
                 table_material = material
+            material_name_dict = self.pythonWHT.split_material_name(material.name())
             inputs.append(
                 {
                     "table_name": table_material.name(),
@@ -138,6 +139,8 @@ class PyNativeWHT:
                     "model_type": material.model.model_type(),
                     "selector_sql": material.get_selector_sql(),
                     "column_name": column_name,
+                    "model_name": material_name_dict["model_name"],
+                    "model_hash": material_name_dict["model_hash"],
                 }
             )
         return inputs

@@ -66,7 +66,7 @@ class MockMaterial:
         self.encapsulating_db_object_name = encapsulating_db_object_name
 
     def name(self):
-        return f"Material_{self.db_object_name}_hash_seq_no"
+        return f"Material_{self.db_object_name}_hash_100"
 
     def get_selector_sql(self):
         if self.output_type == "column":
@@ -263,28 +263,36 @@ class TestGetInputs(unittest.TestCase):
                     "model_ref": "entity/user/is_churned",
                     "model_type": "entity_var_item",
                     "selector_sql": "SELECT is_churned FROM user_var_table",
-                    "table_name": "Material_user_var_table_hash_seq_no",
+                    "table_name": "Material_user_var_table_hash_100",
+                    "model_name": "is_churned",
+                    "model_hash": "hash",
                 },
                 {
                     "column_name": None,
                     "model_ref": "entity/user/var_table",
                     "model_type": "entity_var_table",
                     "selector_sql": "SELECT * FROM user_var_table",
-                    "table_name": "Material_user_var_table_hash_seq_no",
+                    "table_name": "Material_user_var_table_hash_100",
+                    "model_name": "user_var_table",
+                    "model_hash": "hash",
                 },
                 {
                     "column_name": None,
                     "model_ref": "models/shopify_user_features",
                     "model_type": "feature_table",
                     "selector_sql": "SELECT * FROM shopify_user_features",
-                    "table_name": "Material_shopify_user_features_hash_seq_no",
+                    "table_name": "Material_shopify_user_features_hash_100",
+                    "model_name": "shopify_user_features",
+                    "model_hash": "hash",
                 },
                 {
                     "column_name": None,
                     "model_ref": "models/shopify_sql_model/var_table",
                     "model_type": "input_var_table",
                     "selector_sql": "SELECT * FROM shopify_sql_model_var_table",
-                    "table_name": "Material_shopify_sql_model_var_table_hash_seq_no",
+                    "table_name": "Material_shopify_sql_model_var_table_hash_100",
+                    "model_name": "shopify_sql_model_var_table",
+                    "model_hash": "hash",
                 },
             ],
         )

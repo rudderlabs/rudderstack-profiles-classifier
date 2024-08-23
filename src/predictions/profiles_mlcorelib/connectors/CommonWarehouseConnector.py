@@ -819,7 +819,6 @@ class CommonWarehouseConnector(Connector):
                 f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
             )
 
-
         return True
 
     def validate_label_distinct_values(

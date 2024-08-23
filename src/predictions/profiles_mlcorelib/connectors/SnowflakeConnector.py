@@ -1096,7 +1096,6 @@ class SnowflakeConnector(Connector):
                 f"You can look for the table {self.feature_table_name} in your warehouse where the eligible users data is stored, for the distinct label count. You can try different combinations of eligible users to see how the label counts change."
                 f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
                 f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
-
             )
 
         return True

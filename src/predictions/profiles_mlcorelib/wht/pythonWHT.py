@@ -29,7 +29,6 @@ class PythonWHT:
         self.project_folder_path = project_folder_path
         self.cached_registry_table_name = ""
 
-
     def _generate_random_string(self, length):
         letters = string.ascii_letters + string.digits
 

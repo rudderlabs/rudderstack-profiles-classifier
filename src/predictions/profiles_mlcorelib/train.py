@@ -41,13 +41,11 @@ model_file_name = constants.MODEL_FILE_NAME
 
 def _train(
     creds: dict,
-    input_material_or_selector_sql: List[str],
+    inputs: List[dict],
     output_filename: str,
     config: dict,
     site_config_path: str,
-    project_folder: str,
     runtime_info: dict,
-    input_models: List[str],
     whtService: PythonWHT,
     ml_core_path: str,
     metrics_table: str,
@@ -57,7 +55,7 @@ def _train(
 
     Args:
         creds (dict): credentials to access the data warehouse - in same format as site_config.yaml from profiles
-        input_material_or_selector_sql (List[str]): list of select queries on inputs in case of python model or material names in case of pynative model
+        inputs (List[dict]): list of input models
         output_filename (str): path to the file where the model details including model id etc are written. Used in prediction step.
         config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
 
@@ -100,7 +98,7 @@ def _train(
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
 
     connector = ConnectorFactory.create(creds, folder_path)
-    whtService.init(connector, site_config_path, project_folder)
+    whtService.set_connector(connector)
 
     merged_config = utils.combine_config(default_config, config)
     merged_config = whtService.update_config_info(merged_config)
@@ -248,9 +246,7 @@ def _train(
         connector.delete_local_data_folder()
         connector.make_local_dir()
 
-    latest_seq_no = utils.extract_seq_no_from_select_query(
-        input_material_or_selector_sql[0]
-    )
+    latest_seq_no = whtService.get_latest_seq_no(inputs)
     latest_entity_var_table = whtService.compute_material_name(
         entity_var_model_name, model_hash, latest_seq_no
     )
@@ -259,19 +255,15 @@ def _train(
         creation_ts, trainer.prediction_horizon_days
     )
 
-    absolute_input_model_info = whtService.get_input_models(
-        input_material_or_selector_sql, latest_entity_var_table
-    )
-
     logger.get().info(
         f"Getting input column types from table: {latest_entity_var_table}"
     )
 
-    input_columns = connector.get_input_columns(trainer, absolute_input_model_info)
+    input_columns = connector.get_input_columns(trainer, inputs)
     input_column_types = connector.get_input_column_types(
         trainer,
         input_columns,
-        absolute_input_model_info,
+        inputs,
         latest_entity_var_table,
     )
     logger.get().debug(f"Input column types detected: {input_column_types}")
@@ -289,8 +281,7 @@ def _train(
         entity_var_model_name=entity_var_model_name,
         model_hash=model_hash,
         prediction_horizon_days=trainer.prediction_horizon_days,
-        input_models=list(absolute_input_model_info.keys()),
-        input_material_or_selector_sql=input_material_or_selector_sql,
+        inputs=inputs,
         feature_data_min_date_diff=feature_data_min_date_diff,
     )
     # material_names, training_dates
@@ -300,7 +291,7 @@ def _train(
         train_table_pairs = trainer.check_and_generate_more_materials(
             get_material_names_partial,
             train_table_pairs,
-            list(absolute_input_model_info.keys()),
+            inputs,
             whtService,
             connector,
         )

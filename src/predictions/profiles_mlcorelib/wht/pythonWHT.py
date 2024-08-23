@@ -12,8 +12,6 @@ from ..connectors.Connector import Connector
 from .rudderPB import RudderPB
 from .mockPB import MockPB
 
-import json
-
 
 def split_key(item):
     parts = item.split("_")
@@ -23,22 +21,23 @@ def split_key(item):
 
 
 class PythonWHT:
-    def init(
-        self,
-        connector: Connector = None,
-        site_config_path: str = None,
-        project_folder_path: str = None,
-    ) -> None:
-        self.connector = connector
+    def __init__(self, site_config_path: str, project_folder_path: str) -> None:
+        self.connector = None
         self.site_config_path = site_config_path
         self.project_folder_path = project_folder_path
         self.cached_registry_table_name = ""
 
+    def set_connector(
+        self,
+        connector: Connector,
+    ) -> None:
+        self.connector = connector
+
     def update_config_info(self, merged_config):
-        merged_config["data"][
-            "entity_column"
-        ] = self.connector.get_entity_column_case_corrected(
-            merged_config["data"]["entity_column"]
+        merged_config["data"]["entity_column"] = (
+            self.connector.get_entity_column_case_corrected(
+                merged_config["data"]["entity_column"]
+            )
         )
         return merged_config
 
@@ -76,82 +75,6 @@ class PythonWHT:
                 f"Error creating selector sql from given input models. Unknown model type: {model_type} for the input {model_ref}. Please ensure all the inputs are either feature table models, or entity vars."
             )
 
-    def get_input_models(
-        self,
-        input_material_or_selector_sql: List[str],
-        entity_var_table: str,
-    ) -> Dict[str, Dict[str, str]]:
-        """Returns Dict of input model_refs as keys and another dictionary with key-value pair as it's selector_sql and model_type as values -
-        full paths in the profiles project for models that are required to generate the current model.
-        """
-
-        def extract_ref_from_query(query: str):
-            select_column_pattern = re.compile(
-                r"SELECT [\"']?(\w+)[\"']? FROM", re.IGNORECASE
-            )
-            match_column = select_column_pattern.match(query.strip())
-            if match_column:
-                column_name = match_column.group(1)
-                return column_name
-            return self.split_material_name(query)["model_name"].lower()
-
-        model_names = [
-            extract_ref_from_query(input_material_or_selector_sql_)
-            for input_material_or_selector_sql_ in input_material_or_selector_sql
-        ]
-
-        args = {
-            "site_config_path": self.site_config_path,
-            "project_folder": self.project_folder_path,
-        }
-
-        # Fetch models information from the project
-        pb_show_models_response_output = self._getPB().show_models(args)
-        models_info = self._getPB().extract_json_from_stdout(
-            pb_show_models_response_output
-        )
-
-        # Find matching models in the project
-        input_model_info = dict()
-        for input_material_or_selector_sql_instance, input_model_name in zip(
-            input_material_or_selector_sql, model_names
-        ):
-            matching_models = [
-                # Ignoring first element since it is the name of the project
-                (key.split("/", 1)[-1], models_info[key]["model_type"])
-                for key in models_info
-                if key.endswith(input_model_name)
-            ]
-
-            model_ref, model_type = matching_models[0][0], matching_models[0][1]
-            selector_sql = self._get_selector_sql(
-                entity_var_table,
-                input_material_or_selector_sql_instance,
-                model_ref,
-                model_type,
-            )
-
-            if len(matching_models) == 1:
-                input_model_info.update(
-                    {
-                        model_ref: {
-                            "selector_sql": selector_sql,
-                            "model_type": model_type,
-                        }
-                    }
-                )
-            elif len(matching_models) > 1:
-                raise ValueError(
-                    f"Multiple models with name {input_model_name} are found. Please ensure the models added in inputs are named uniquely and retry"
-                )
-            elif len(matching_models) == 0:
-                raise ValueError(
-                    f"No match found for ref {input_model_name} in show models"
-                )
-
-        logger.get().info(f"Found input models: {input_model_info}")
-        return input_model_info
-
     def get_registry_table_name(self):
         if self.cached_registry_table_name == "":
             material_registry_tables = self.connector.get_tables_by_prefix(
@@ -182,7 +105,7 @@ class PythonWHT:
 
     def _validate_historical_materials_hash(
         self,
-        material_table_query: str,
+        input: dict,
         feature_material_seq_no: Optional[int],
         label_material_seq_no: Optional[int],
     ) -> bool:
@@ -203,7 +126,7 @@ class PythonWHT:
             # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
             if feature_material_seq_no is not None:
                 feature_table_query = utils.replace_seq_no_in_query(
-                    material_table_query, int(feature_material_seq_no)
+                    input["table_name"], int(feature_material_seq_no)
                 )
                 assert self.connector.check_table_entry_in_material_registry(
                     self.get_registry_table_name(),
@@ -212,7 +135,7 @@ class PythonWHT:
 
             if label_material_seq_no is not None:
                 label_table_query = utils.replace_seq_no_in_query(
-                    material_table_query, int(label_material_seq_no)
+                    input["table_name"], int(label_material_seq_no)
                 )
                 assert self.connector.check_table_entry_in_material_registry(
                     self.get_registry_table_name(),
@@ -231,7 +154,7 @@ class PythonWHT:
         table_row,
         entity_var_model_name,
         model_hash,
-        input_material_or_selector_sql,
+        inputs,
         materials,
         return_partial_pairs: bool = False,
     ):
@@ -276,11 +199,10 @@ class PythonWHT:
         ):
             return
 
-        # Iterate over input_material_or_selector_sql and validate material names
         validation_flag = True
-        for input_material_query in input_material_or_selector_sql:
+        for input in inputs:
             if not self._validate_historical_materials_hash(
-                input_material_query,
+                input,
                 table_row.FEATURE_SEQ_NO,
                 table_row.LABEL_SEQ_NO,
             ):
@@ -315,7 +237,7 @@ class PythonWHT:
         entity_var_model_name: str,
         model_hash: str,
         prediction_horizon_days: int,
-        input_material_or_selector_sql: List[str],
+        inputs: List[dict],
         return_partial_pairs: bool = False,
         feature_data_min_date_diff: int = 3,
     ) -> List[TrainTablesInfo]:
@@ -341,7 +263,7 @@ class PythonWHT:
                 row,
                 entity_var_model_name,
                 model_hash,
-                input_material_or_selector_sql,
+                inputs,
                 materials,
                 return_partial_pairs,
             )
@@ -353,7 +275,7 @@ class PythonWHT:
         materials: List[TrainTablesInfo],
         start_date: str,
         prediction_horizon_days: int,
-        input_models: List[str],
+        inputs: List[dict],
     ) -> None:
         """
         Generates training dataset from start_date and end_date, and fetches the resultant table names from the material_table.
@@ -361,7 +283,8 @@ class PythonWHT:
         Returns:
             Tuple[str, str]: A tuple containing feature table date and label table date strings
         """
-        feature_package_path = utils.get_feature_package_path(input_models)
+        model_refs = [input["model_ref"] for input in inputs]
+        feature_package_path = utils.get_feature_package_path(model_refs)
         feature_date, label_date = self._get_valid_feature_label_dates(
             materials,
             start_date,
@@ -511,8 +434,7 @@ class PythonWHT:
         entity_var_model_name: str,
         model_hash: str,
         prediction_horizon_days: int,
-        input_models: List[str],
-        input_material_or_selector_sql: List[str],
+        inputs: List[dict],
         return_partial_pairs: bool = False,
         feature_data_min_date_diff: int = 3,
     ) -> List[TrainTablesInfo]:
@@ -543,7 +465,7 @@ class PythonWHT:
             entity_var_model_name,
             model_hash,
             prediction_horizon_days,
-            input_material_or_selector_sql,
+            inputs,
             return_partial_pairs,
         )
 
@@ -558,7 +480,7 @@ class PythonWHT:
                 materials,
                 start_date,
                 prediction_horizon_days,
-                input_models,
+                inputs,
             )
             (materials) = self._get_material_names(
                 start_date,
@@ -566,7 +488,7 @@ class PythonWHT:
                 entity_var_model_name,
                 model_hash,
                 prediction_horizon_days,
-                input_material_or_selector_sql,
+                inputs,
             )
 
         complete_sequences_materials = get_complete_sequences(materials)
@@ -580,6 +502,64 @@ class PythonWHT:
             prediction_horizon_days,
             feature_data_min_date_diff,
         )
+
+    def get_latest_seq_no(self, inputs: List[dict]) -> int:
+        return int(inputs[0]["table_name"].split("_")[-1])
+
+    def get_inputs(self, selector_sqls: str, skip_compile: bool) -> List[dict]:
+        inputs = []
+        for selector_sql in selector_sqls:
+            schema_table_name = selector_sql.split(" ")[-1]
+            table_name = schema_table_name.split(".")[-1]
+
+            def extract_model_name_from_query(query: str):
+                select_column_pattern = re.compile(
+                    r"SELECT [\"']?(\w+)[\"']? FROM", re.IGNORECASE
+                )
+                match_column = select_column_pattern.match(query.strip())
+                if match_column:
+                    column_name = match_column.group(1)
+                    return column_name
+                return self.split_material_name(query)["model_name"].lower()
+
+            inputs.append(
+                {
+                    "selector_sql": selector_sql,
+                    "table_name": table_name.strip('"`'),
+                    "model_name": extract_model_name_from_query(selector_sql),
+                }
+            )
+        if skip_compile:
+            return inputs
+        args = {
+            "site_config_path": self.site_config_path,
+            "project_folder": self.project_folder_path,
+        }
+
+        # Fetch models information from the project
+        pb_show_models_response_output = self._getPB().show_models(args)
+        models_info = self._getPB().extract_json_from_stdout(
+            pb_show_models_response_output
+        )
+        for input in inputs:
+            model_name = input["model_name"]
+            matching_models = [
+                # Ignoring first element since it is the name of the project
+                (key.split("/", 1)[-1], models_info[key]["model_type"])
+                for key in models_info
+                if key.endswith(model_name)
+            ]
+            if len(matching_models) > 1:
+                raise ValueError(
+                    f"Multiple models with name {model_name} are found. Please ensure the models added in inputs are named uniquely and retry"
+                )
+            if len(matching_models) == 0:
+                raise ValueError(f"No match found for ref {model_name} in show models")
+            input["model_ref"] = matching_models[0][0]
+            input["model_type"] = matching_models[0][1]
+
+        logger.get().info(f"Found input models: {inputs}")
+        return inputs
 
     def compute_material_name(
         self, model_name: str, model_hash: str, seq_no: int

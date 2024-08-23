@@ -1,19 +1,11 @@
 from datetime import datetime
-import joblib
 import time
-import numpy as np
 import pandas as pd
 
-from copy import deepcopy
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-from typing import Any, Tuple, List, Union, Dict
-from hyperopt import STATUS_OK, Trials, fmin, hp, tpe
-
-from sklearn.pipeline import Pipeline
-from sklearn.impute import SimpleImputer
-from sklearn.compose import ColumnTransformer
-from sklearn.preprocessing import OneHotEncoder
+from typing import Any, List
+from hyperopt import hp
 
 
 from ..utils.constants import TrainTablesInfo, MATERIAL_DATE_FORMAT
@@ -22,7 +14,6 @@ from ..wht.pythonWHT import PythonWHT
 from ..utils import utils
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
-from ..utils import constants
 
 
 @dataclass
@@ -320,7 +311,7 @@ class MLTrainer(ABC):
         self,
         get_material_func: callable,
         materials: List[TrainTablesInfo],
-        input_models: str,
+        inputs: List[dict],
         whtService: PythonWHT,
         connector: Connector,
     ):
@@ -333,7 +324,8 @@ class MLTrainer(ABC):
         if met_data_requirement or self.materialisation_strategy == "":
             return materials
 
-        feature_package_path = utils.get_feature_package_path(input_models)
+        model_refs = [input["model_ref"] for input in inputs]
+        feature_package_path = utils.get_feature_package_path(model_refs)
         max_materializations = (
             self.materialisation_max_no_dates
             if self.materialisation_strategy == "auto"

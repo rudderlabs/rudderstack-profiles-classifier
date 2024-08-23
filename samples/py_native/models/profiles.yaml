@@ -1,24 +1,34 @@
 models:
-  - name: traininG_model # Mix of small and capital letters to test ref standardization
-    model_type: training_model
+  - name: propensity_model
+    model_type: propensity
     model_spec:
-      occurred_at_col: insert_ts
       entity_key: user
-      validity_time: day
+      training:
+        predict_var: packages/feature_table/entity/user/is_churned_7_days
+        predict_window_days: 7
+      prediction:
+        output_columns:
+          percentile:
+            name: percentile_classification_churn_7_days
+            description: description1
+          score:
+            name: classification_churn_7_days
+            description: description2
+            is_feature: False
+      training_params:
+        eligible_users: '*'
+        max_row_count: 500000
+        label_value: 1
+      type: classification
+      train_validity: day
+      prediction_eligible_users: '*'
       inputs:
         - packages/feature_table/entity/user/is_churned_7_days
         - packages/feature_table/entity/user/days_since_last_seen
         - packages/feature_table/entity/user/has_seen_recently
         - packages/feature_table/entity/user/last_seen_category
         - packages/feature_table/entity/user/n_orders_completed
-      ml_config:
-        data:
-          label_column: is_churned_7_days
-          label_value: 1
-          prediction_horizon_days: 7
-          eligible_users: '*'
-          output_profiles_ml_model: ltv_classification_integration_test
-  - name: training_regression_model
+  - name: training_Regression_model
     model_type: training_model
     model_spec:
       occurred_at_col: insert_ts
@@ -33,34 +43,10 @@ models:
       ml_config:
         data:
           task: regression
-          label_column: days_since_last_seen
+          label_column: packages/feature_table/entity/user/days_since_last_seen
           prediction_horizon_days: 7
           eligible_users: '*'
           output_profiles_ml_model: ltv_regression_integration_test
-  - name: prediction_model
-    model_type: prediction_model
-    model_spec:
-      occurred_at_col: insert_ts
-      entity_key: user
-      training_model: models/training_model
-      inputs:
-        - packages/feature_table/entity/user/is_churned_7_days
-        - packages/feature_table/entity/user/days_since_last_seen
-        - packages/feature_table/entity/user/has_seen_recently
-        - packages/feature_table/entity/user/last_seen_category
-        - packages/feature_table/entity/user/n_orders_completed
-      ml_config:
-        data:
-          label_column: is_churned_7_days
-          prediction_horizon_days: 7
-          output_profiles_ml_model: ltv_classification_integration_test
-        outputs:
-          column_names:
-            percentile: percentile_classification_churn_7_days
-            score: classification_churn_7_days
-      features:
-        - name: percentile_classification_churn_7_days
-          description: description
   - name: prediction_regression_model
     model_type: prediction_model
     model_spec:
@@ -77,7 +63,7 @@ models:
       ml_config:
         data:
           task: regression
-          label_column: days_since_last_seen
+          label_column: packages/feature_table/entity/user/days_since_last_seen
           prediction_horizon_days: 7
           eligible_users: '*'
           output_profiles_ml_model: ltv_regression_integration_test
@@ -88,3 +74,4 @@ models:
       features:
         - name: percentile_regression_days_since_last_seen
           description: description
+

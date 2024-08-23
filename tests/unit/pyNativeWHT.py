@@ -1,6 +1,6 @@
 import unittest
-from unittest.mock import MagicMock, Mock
-from datetime import datetime, timedelta
+from unittest.mock import Mock
+from datetime import datetime
 
 from src.predictions.profiles_mlcorelib.wht.pyNativeWHT import PyNativeWHT
 
@@ -8,8 +8,7 @@ from src.predictions.profiles_mlcorelib.wht.pyNativeWHT import PyNativeWHT
 class TestPyNativeWHT(unittest.TestCase):
     def setUp(self):
         self.whtMaterial = Mock()
-        self.pyNativeWHT = PyNativeWHT(self.whtMaterial)
-        self.pyNativeWHT.init(None, None, None)
+        self.pyNativeWHT = PyNativeWHT(self.whtMaterial, None, None)
 
     def test_run(self):
         self.pyNativeWHT.pythonWHT.run = Mock()
@@ -76,8 +75,12 @@ class TestPyNativeWHT(unittest.TestCase):
             "user_var_table",
             "f2345h",
             "7",
-            ["entity/user/is_churned"],
-            ["material_{model_name}_{hash}_{seq_no}"],
+            [
+                {
+                    "model_ref": "entity/user/is_churned",
+                    "table_name": "material_{model_name}_{hash}_{seq_no}",
+                }
+            ],
             3,
         )
         self.pyNativeWHT.pythonWHT.get_material_names.assert_called_once_with(
@@ -86,8 +89,12 @@ class TestPyNativeWHT(unittest.TestCase):
             "user_var_table",
             "f2345h",
             "7",
-            ["entity/user/is_churned"],
-            ["material_{model_name}_{hash}_{seq_no}"],
+            [
+                {
+                    "model_ref": "entity/user/is_churned",
+                    "table_name": "material_{model_name}_{hash}_{seq_no}",
+                }
+            ],
             False,
             3,
         )
@@ -107,3 +114,9 @@ class TestPyNativeWHT(unittest.TestCase):
         self.pyNativeWHT.pythonWHT.get_model_creation_ts.assert_called_once_with(
             "f2345h", "user"
         )
+
+    def test_get_latest_seq_no(self):
+        result = self.pyNativeWHT.get_latest_seq_no(
+            [{"table_name": "MATERIAL_model_hash_123"}]
+        )
+        self.assertEqual(result, 123)

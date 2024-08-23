@@ -28,7 +28,6 @@ class PredictionModel(BaseModelType):
             "occurred_at_col": {"type": "string"},
             **EntityKeyBuildSpecSchema["properties"],
             **FeatureDetailsBuildSpecSchema["properties"],
-            "validity_time": {"type": "string"},
             "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
             "training_model": {"type": "string"},
             "ml_config": {
@@ -104,6 +103,7 @@ class PredictionRecipe(PyNativeRecipe):
         this.de_ref(self.build_spec["training_model"])
         for input in self.build_spec["inputs"]:
             this.de_ref(input)
+        this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
 
     def _get_train_output_filepath(self, this: WhtMaterial):
         # If training is skipped, this function will return incorrect path
@@ -115,25 +115,21 @@ class PredictionRecipe(PyNativeRecipe):
     def execute(self, this: WhtMaterial):
         logger.set_logger(self.logger)
         site_config_path = this.wht_ctx.site_config().get("FilePath")
-        whtService = PyNativeWHT(this)
+        whtService = PyNativeWHT(this, None, None)
         # TODO: Get creds from pywht
         creds = whtService.get_credentials(
             this.base_wht_project.project_path(), site_config_path
         )
         runtime_info = {"site_config_path": site_config_path}
         config = self.build_spec.get("ml_config", {})
-        input_material_names = []
         train_output = self._get_train_output_filepath(this)
-        for input in self.build_spec["inputs"]:
-            material = this.de_ref(input)
-            input_material_names.append(material.name())
         _predict(
             creds,
             train_output,
-            input_material_names,
+            whtService.get_inputs(self.build_spec["inputs"]),
             standardize_ref_name(creds["type"], this.name()),
             config,
             runtime_info,
             constants.ML_CORE_PYNATIVE_PATH,
-            PyNativeWHT(this),
+            whtService,
         )

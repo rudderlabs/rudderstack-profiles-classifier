@@ -31,8 +31,13 @@ class TrainingModel(BaseModelType):
             "occurred_at_col": {"type": "string"},
             **EntityKeyBuildSpecSchema["properties"],
             **MaterializationBuildSpecSchema["properties"],
-            "training_file_lookup_path": {"type": "string"},
-            "validity_time": {"type": "string", "enum": ["day", "week", "month"]},
+            "training_file_lookup_path": {"type": ["string", "null"]},
+            "validity_time": {
+                "oneOf": [
+                    {"type": "string", "enum": ["day", "week", "month"]},
+                    {"type": "null"},
+                ]
+            },
             "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
             "ml_config": {
                 "type": "object",
@@ -70,6 +75,8 @@ class TrainingModel(BaseModelType):
             build_spec["materialization"] = {
                 "requested_enable_status": "only_if_necessary"
             }
+        if build_spec.get("validity_time", None) is None:
+            build_spec["validity_time"] = "month"
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:
@@ -179,6 +186,7 @@ class TrainingRecipe(PyNativeRecipe):
     def register_dependencies(self, this: WhtMaterial):
         for input in self.build_spec["inputs"]:
             this.de_ref(input)
+        this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
 
     def get_training_file_path(this: WhtMaterial):
         folder = this.get_output_folder()
@@ -193,30 +201,24 @@ class TrainingRecipe(PyNativeRecipe):
             df = pd.DataFrame(data)
             this.write_output(df)
             return
-        whtService = PyNativeWHT(this)
         site_config_path = this.wht_ctx.site_config().get("FilePath")
+        whtService = PyNativeWHT(
+            this, site_config_path, this.base_wht_project.project_path()
+        )
         # TODO: Get creds from pywht
         creds = whtService.get_credentials(
             this.base_wht_project.project_path(), site_config_path
         )
-        input_model_refs = self.build_spec.get("inputs", [])
         output_filename = TrainingRecipe.get_training_file_path(this)
-        project_folder = this.base_wht_project.project_path()
         runtime_info = {"is_rudder_backend": this.base_wht_project.is_rudder_backend()}
         config = self.build_spec.get("ml_config", {})
-        input_material_names = []
-        for input in self.build_spec["inputs"]:
-            material = this.de_ref(input)
-            input_material_names.append(material.name())
         _train(
             creds,
-            input_material_names,
+            whtService.get_inputs(self.build_spec["inputs"]),
             output_filename,
             config,
             site_config_path,
-            project_folder,
             runtime_info,
-            None,
             whtService,
             constants.ML_CORE_PYNATIVE_PATH,
             standardize_ref_name(creds["type"], this.name()),

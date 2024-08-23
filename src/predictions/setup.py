@@ -14,7 +14,7 @@ setup(
         "License :: OSI Approved :: MIT License",
     ],
     install_requires=[
-        "profiles_rudderstack>=0.16.0",
+        "profiles_rudderstack>=0.17.0",
         "cachetools>=5.3.2",
         "hyperopt>=0.2.7",
         "joblib>=1.3.2",
@@ -37,6 +37,8 @@ setup(
         "sqlalchemy-bigquery>=1.9.0",
         "db-dtypes>=1.2.0",
         "pycaret==3.3.1",
+        "boto3>=1.34.153",
+        "google-auth-oauthlib>=1.0.0",
     ],
     include_package_data=True,
 )

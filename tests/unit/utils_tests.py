@@ -8,7 +8,6 @@ from src.predictions.profiles_mlcorelib.utils.utils import (
     generate_new_training_dates,
     replace_seq_no_in_query,
     get_abs_date_diff,
-    extract_seq_no_from_select_query,
 )
 
 
@@ -65,6 +64,9 @@ class TestReplaceSeqNoInQuery(unittest.TestCase):
 
 
 class TestSplitMaterialTable(unittest.TestCase):
+    def setUp(self) -> None:
+        self.whtService = PythonWHT("site_config", "project_folder")
+
     def test_valid_table_name(self):
         test_cases = [
             "Material_user_var_table_54ddc22a_383",
@@ -83,23 +85,23 @@ class TestSplitMaterialTable(unittest.TestCase):
         }
         for case in test_cases:
             with self.subTest(case=case):
-                result = PythonWHT().split_material_name(case)
+                result = self.whtService.split_material_name(case)
                 self.assertEqual(result, expected_result)
 
     def test_missing_seq_no(self):
         table_name = "Material_user_var_table_54ddc22a"
         with self.assertRaises(Exception):
-            PythonWHT().split_material_name(table_name)
+            self.whtService.split_material_name(table_name)
 
     def test_invalid_seq_no(self):
         table_name = "Material_user_var_table_54ddc22a_foo"
         with self.assertRaises(Exception):
-            PythonWHT().split_material_name(table_name)
+            self.whtService.split_material_name(table_name)
 
     def test_invalid_table_name(self):
         table_name = "user_var_table_54ddc22a_foo"
         with self.assertRaises(Exception):
-            PythonWHT().split_material_name(table_name)
+            self.whtService.split_material_name(table_name)
 
 
 class TestDateDiff(unittest.TestCase):
@@ -269,20 +271,3 @@ class TestDatetimeToDateString(unittest.TestCase):
         datetime_str = "2024/02/26"
         result = datetime_to_date_string(datetime_str)
         self.assertEqual(result, "")
-
-
-class TestExractSeqNumberFromQuery(unittest.TestCase):
-    def test_queries(self):
-        test_cases = [
-            """SELECT * FROM material_user_var_table_123""",
-            "SELECT * FROM schema_name.material_user_var_table_123",
-            "SELECT * FROM `schema_name`.`material_user_var_table_123`",
-            'SELECT * FROM "schema_name"."material_user_var_table_123"',
-            'SELECT * FROM "schema_name.material_user_var_table_123"',
-            "SELECT * FROM `schema_name.material_user_var_table_123`",
-            '''SELECT last_campaign_name FROM "rudder_dev_profiles_ml_test"."material_user_var_table_883b6869_123"''',
-        ]
-        for case in test_cases:
-            with self.subTest(case=case):
-                result = extract_seq_no_from_select_query(case)
-                self.assertEqual(result, 123)

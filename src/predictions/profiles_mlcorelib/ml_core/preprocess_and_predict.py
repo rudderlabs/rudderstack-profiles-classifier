@@ -1,7 +1,5 @@
 import os
-import sys
 import json
-import joblib
 import logging
 import warnings
 import cachetools
@@ -9,7 +7,6 @@ import numpy as np
 import pandas as pd
 from typing import Any
 
-import snowflake.snowpark.types as T
 from snowflake.snowpark.types import *
 import snowflake.snowpark.functions as F
 
@@ -35,7 +32,7 @@ def preprocess_and_predict(
     creds,
     s3_config,
     model_path,
-    input_material_or_selector_sql,
+    inputs,
     output_tablename,
     connector,
     trainer: MLTrainer,
@@ -67,19 +64,12 @@ def preprocess_and_predict(
         for word in arraytype_columns
     }
 
-    seq_no = None
+    # No need to decide whether to create PyNativeWHT or PythonWHT since all the methods being called
+    # here have the same implementation in both classes.
+    whtService = PyNativeWHT(None, None, None)
+    whtService.set_connector(connector)
 
-    try:
-        seq_no = int(
-            utils.extract_seq_no_from_select_query(input_material_or_selector_sql[0])
-        )
-    except Exception as e:
-        raise Exception(
-            f"Error while parsing seq_no from inputs: {input_material_or_selector_sql[0]}. Error: {e}"
-        )
-
-    whtService = PyNativeWHT(None)
-    whtService.init(connector, "", "")
+    seq_no = whtService.get_latest_seq_no(inputs)
 
     entity_var_table_name = whtService.compute_material_name(
         input_model_name, model_hash, seq_no
@@ -323,7 +313,7 @@ if __name__ == "__main__":
     parser.add_argument("--wh_creds", type=json.loads)
     parser.add_argument("--s3_config", type=json.loads)
     parser.add_argument("--json_output_filename", type=str)
-    parser.add_argument("--input_material_or_selector_sql", type=json.loads)
+    parser.add_argument("--inputs", type=json.loads)
     parser.add_argument("--output_tablename", type=str)
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--output_path", type=str)
@@ -363,7 +353,7 @@ if __name__ == "__main__":
         wh_creds,
         args.s3_config,
         model_path,
-        args.input_material_or_selector_sql,
+        args.inputs,
         args.output_tablename,
         connector=connector,
         trainer=trainer,

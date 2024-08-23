@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 
 from ..utils import utils
 
@@ -11,17 +11,17 @@ from profiles_rudderstack.material import WhtMaterial
 
 
 class PyNativeWHT:
-    def __init__(self, whtMaterial: WhtMaterial) -> None:
-        self.pythonWHT = PythonWHT()
+    def __init__(
+        self, whtMaterial: WhtMaterial, site_config_path: str, project_folder_path: str
+    ) -> None:
+        self.pythonWHT = PythonWHT(site_config_path, project_folder_path)
         self.whtMaterial = whtMaterial
 
-    def init(
+    def set_connector(
         self,
-        connector: Connector = None,
-        site_config_path: str = None,
-        project_folder_path: str = None,
+        connector: Connector,
     ) -> None:
-        self.pythonWHT.init(connector, site_config_path, project_folder_path)
+        self.pythonWHT.set_connector(connector)
 
     def get_date_range(
         self, creation_ts: datetime, prediction_horizon_days: int
@@ -61,17 +61,24 @@ class PyNativeWHT:
         )
         return material_split["model_hash"], material_split["model_name"], creation_ts
 
+    def get_column_name(self, model_ref):
+        column_name = self.whtMaterial.de_ref(model_ref).model.db_object_name_prefix()
+        return column_name
+
     def update_config_info(self, merged_config):
         entity = self.whtMaterial.model.entity()
         merged_config["data"]["entity_key"] = entity["Name"]
-        merged_config["data"][
-            "entity_column"
-        ] = self.pythonWHT.connector.get_entity_column_case_corrected(
-            entity["IdColumnName"]
+        merged_config["data"]["entity_column"] = (
+            self.pythonWHT.connector.get_entity_column_case_corrected(
+                entity["IdColumnName"]
+            )
         )
         merged_config["data"][
             "output_profiles_ml_model"
         ] = self.whtMaterial.model.name()
+        merged_config["data"]["label_column"] = self.get_column_name(
+            merged_config["data"]["label_column"]
+        )
         return merged_config
 
     def get_material_names(
@@ -81,8 +88,7 @@ class PyNativeWHT:
         entity_var_model_name: str,
         model_hash: str,
         prediction_horizon_days: int,
-        input_models: List[str],
-        input_material_or_selector_sql: List[str],
+        inputs: List[dict],
         feature_data_min_date_diff: int,
     ) -> List[TrainTablesInfo]:
         return self.pythonWHT.get_material_names(
@@ -91,8 +97,7 @@ class PyNativeWHT:
             entity_var_model_name,
             model_hash,
             prediction_horizon_days,
-            input_models,
-            input_material_or_selector_sql,
+            inputs,
             False,
             feature_data_min_date_diff,
         )
@@ -108,10 +113,27 @@ class PyNativeWHT:
     def get_registry_table_name(self) -> str:
         return self.pythonWHT.get_registry_table_name()
 
-    def get_input_models(
-        self, input_material: List[str], entity_var_table: str
-    ) -> Dict[str, Dict[str, str]]:
-        return self.pythonWHT.get_input_models(input_material, entity_var_table)
+    def get_latest_seq_no(self, inputs: List[dict]) -> int:
+        return self.pythonWHT.get_latest_seq_no(inputs)
+
+    def get_inputs(self, input_model_refs: List[str]) -> List[dict]:
+        inputs = []
+        for input in input_model_refs:
+            material = self.whtMaterial.de_ref(input)
+            if material.model.materialization()["output_type"] == "column":
+                table_material_ref = material.model.encapsulating_model().model_ref()
+                table_material = self.whtMaterial.de_ref(table_material_ref)
+            else:
+                table_material = material
+            inputs.append(
+                {
+                    "table_name": table_material.name(),
+                    "model_ref": material.model.model_ref(),
+                    "model_type": material.model.model_type(),
+                    "selector_sql": material.get_selector_sql(),
+                }
+            )
+        return inputs
 
     def get_credentials(self, project_path: str, site_config_path: str) -> str:
         connection_name = utils.load_yaml(

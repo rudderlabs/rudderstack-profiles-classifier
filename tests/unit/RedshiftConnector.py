@@ -2,7 +2,6 @@
 import unittest
 import pandas as pd
 import numpy as np
-import numpy as np
 from datetime import datetime
 from collections import namedtuple
 from unittest.mock import Mock, patch, call
@@ -133,12 +132,18 @@ class TestGetMaterialNames(unittest.TestCase):
         self.features_profiles_model = "model_name"
         self.model_hash = "model_hash"
         self.prediction_horizon_days = 7
-        self.input_models = ["model1.yaml", "model2.yaml"]
-        self.input_material_or_selector_sql = [
-            """select * from material_user_var_736465_0"""
+        self.inputs = [
+            {
+                "model_ref": "model1.yaml",
+                "selector_sql": """select * from material_user_var_736465_0""",
+            },
+            {
+                "model_ref": "model2.yaml",
+                "selector_sql": """select * from material_user_var_736465_0""",
+            },
         ]
-        self.whtService = PythonWHT()
-        self.whtService.init(self.connector, "siteconfig.yaml", "project_folder")
+        self.whtService = PythonWHT("siteconfig.yaml", "project_folder")
+        self.whtService.set_connector(self.connector)
 
     def test_fetch_filtered_table(self):
         # Set up the expected input and output
@@ -321,7 +326,7 @@ class TestGetMaterialNames(unittest.TestCase):
             input_materials,
             self.start_date,
             self.prediction_horizon_days,
-            self.input_models,
+            self.inputs,
         )
         utils.subprocess_run.assert_called_once_with(
             [
@@ -368,8 +373,7 @@ class TestGetMaterialNames(unittest.TestCase):
             self.features_profiles_model,
             self.model_hash,
             self.prediction_horizon_days,
-            self.input_models,
-            self.input_material_or_selector_sql,
+            self.inputs,
         )
         # Assert the result
         self.assertEqual(materials, expected_materials)
@@ -404,8 +408,7 @@ class TestGetMaterialNames(unittest.TestCase):
             self.features_profiles_model,
             self.model_hash,
             self.prediction_horizon_days,
-            self.input_models,
-            self.input_material_or_selector_sql,
+            self.inputs,
         )
 
         # Assert the result
@@ -439,8 +442,7 @@ class TestGetMaterialNames(unittest.TestCase):
                 self.features_profiles_model,
                 self.model_hash,
                 self.prediction_horizon_days,
-                self.input_models,
-                self.input_material_or_selector_sql,
+                self.inputs,
             )
         # Check the exception message
         self.assertIn(
@@ -453,7 +455,7 @@ class TestGetMaterialNames(unittest.TestCase):
             [],
             self.start_date,
             self.prediction_horizon_days,
-            self.input_models,
+            self.inputs,
         )
 
 
@@ -814,8 +816,8 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
                 label_table_date="2024-02-27 00:00:00",
             ),
         ]
-        self.whtService = PythonWHT()
-        self.whtService.init(self.connector, "siteconfig.yaml", "project_folder")
+        self.whtService = PythonWHT("siteconfig.yaml", "project_folder")
+        self.whtService.set_connector(self.connector)
         trainer_input = build_trainer_config()
         self.trainer = TrainerFactory.create(trainer_input)
         self.trainer.materialisation_strategy = "auto"
@@ -825,7 +827,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         self.feature_data_min_date_diff = 0
         self.trainer.feature_data_min_date_diff = self.feature_data_min_date_diff
         self.trainer.materialisation_dates = []
-        self.input_models = "model_name"
+        self.inputs = [{"model_ref": "model_name"}]
 
     @patch("src.predictions.profiles_mlcorelib.utils.utils.date_add")
     @patch("src.predictions.profiles_mlcorelib.utils.utils.dates_proximity_check")
@@ -871,7 +873,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         result = self.trainer.check_and_generate_more_materials(
             mock_get_material_func,
             materials=self.materials.copy(),
-            input_models=self.input_models,
+            inputs=self.inputs,
             whtService=self.whtService,
             connector=self.connector,
         )
@@ -880,7 +882,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         self.assertEqual(len(result), 2)  # Two materials generated
 
         # Verify calls to mock functions
-        mock_get_feature_package_path.assert_called_once_with(self.input_models)
+        mock_get_feature_package_path.assert_called_once_with(["model_name"])
         mock_rudderpb_run.assert_called()  # Called twice
 
         mock_dates_proximity_check.assert_called_once_with(
@@ -902,7 +904,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         result = self.trainer.check_and_generate_more_materials(
             mock_get_material_func,
             materials=self.materials.copy(),
-            input_models=self.input_models,
+            inputs=self.inputs,
             whtService=self.whtService,
             connector=self.connector,
         )
@@ -962,7 +964,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         result = self.trainer.check_and_generate_more_materials(
             mock_get_material_func,
             materials=self.materials.copy(),
-            input_models=self.input_models,
+            inputs=self.inputs,
             whtService=self.whtService,
             connector=self.connector,
         )
@@ -975,7 +977,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         self.assertEqual(len(result), 3)  # Three materials generated
 
         # Verify calls to mock functions
-        mock_get_feature_package_path.assert_called_once_with(self.input_models)
+        mock_get_feature_package_path.assert_called_once_with(["model_name"])
         mock_datetime_to_date_string.assert_not_called()  # Not called
         mock_generate_new_training_dates.assert_not_called()  # Not called
         mock_rudderpb_run.assert_called()
@@ -987,7 +989,7 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         result = self.trainer.check_and_generate_more_materials(
             mock_get_material_func,
             materials=self.materials.copy(),
-            input_models=self.input_models,
+            inputs=self.inputs,
             whtService=self.whtService,
             connector=self.connector,
         )
@@ -1006,19 +1008,27 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
         self.prediction_horizon_days = 7
         self.site_config_path = "siteconfig.yaml"
         self.project_folder = "project_folder"
-        self.input_models = ["model1.yaml", "model2.yaml"]
-        self.input_material_or_selector_sql = [
-            """select * from material_user_var_736465_0"""
+        self.inputs = [
+            {
+                "table_name": "material_table_1",
+                "model_ref": "model1.yaml",
+                "selector_sql": """select * from material_user_var_736465_0""",
+            },
+            {
+                "table_name": "material_table_1",
+                "model_ref": "model2.yaml",
+                "selector_sql": """select * from material_user_var_736465_0""",
+            },
         ]
-        self.whtService = PythonWHT()
-        self.whtService.init(self.connector, "", "")
+        self.whtService = PythonWHT("siteconfig.yaml", "project_folder")
+        self.whtService.set_connector(self.connector)
         self.connector.get_tables_by_prefix = Mock(return_value=["material_table_1"])
 
     # The method is called with valid arguments and all tables exist in the warehouse registry.
     def test_valid_arguments_all_tables_exist(self):
         self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
         result = self.whtService._validate_historical_materials_hash(
-            "SELECT * FROM material_table_3", 1, 2
+            self.inputs[0], 1, 2
         )
         self.assertTrue(result)
 
@@ -1027,7 +1037,7 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
             side_effect=[True, False]
         )
         result = self.whtService._validate_historical_materials_hash(
-            "SELECT * FROM material_table_3", 1, 2
+            self.inputs[0], 1, 2
         )
         self.assertFalse(result)
 
@@ -1519,13 +1529,12 @@ class Testget_input_column_types(unittest.TestCase):
             schema_fields(name="COL8", field_type="boolean"),
         ]
 
-        input_models = {
-            "inputs/user_var_table1": "input_var_item",
-            "inputs/user_var_table2": "input_var_item",
-            "user/all/last_seen": "entity_var_item",
-            "user/all/last_seen2": "entity_var_item",
-        }
-
+        inputs = [
+            {"model_ref": "inputs/user_var_table1", "model_type": "input_var_item"},
+            {"model_ref": "inputs/user_var_table2", "model_type": "input_var_item"},
+            {"model_ref": "user/all/last_seen", "model_type": "entity_var_item"},
+            {"model_ref": "user/all/last_seen2", "model_type": "entity_var_item"},
+        ]
         input_ignore_features = (
             []
             if self.trainer.prep.ignore_features is None
@@ -1540,7 +1549,7 @@ class Testget_input_column_types(unittest.TestCase):
         output = self.connector.get_input_column_types(
             self.trainer,
             input_columns,
-            input_models,
+            inputs,
             "dummy",
         )
 

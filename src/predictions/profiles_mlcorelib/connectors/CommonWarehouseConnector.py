@@ -767,22 +767,65 @@ class CommonWarehouseConnector(Connector):
                 feature_table, self.feature_table_name, write_mode="overwrite"
             )
 
-            # Extracting table names from train_table_pairs
-            feature_tables = ", ".join(
-                [pair.feature_table_name for pair in train_table_pairs]
+            # Constructing the log message as per the new instructions
+            log_message = (
+                "Following are the table pairs used for creating the training data:\n"
+                " Feature table name, label table name:\n"
             )
-            label_tables = ", ".join(
-                [pair.label_table_name for pair in train_table_pairs]
+            log_message += "\n".join(
+                f" {pair.feature_table_name}, {pair.label_table_name}"
+                for pair in train_table_pairs
+            )
+            log_message += (
+                f"\nThe table {self.feature_table_name} is built by joining the pairs using the entity-id, "
+                "concatenating them, and applying eligible users flag. You can try different eligible users conditions to rerun the model to solve the data validation errors."
             )
 
             raise Exception(
                 f"Insufficient data for training. Only {len(feature_table)} user records found, "
                 f"while a minimum of {min_sample_for_training} user records is required.\n"
                 f"For further information, you can check the table in the warehouse with the name: {self.feature_table_name}.\n"
-                f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
-                f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
+                f"{log_message}"
             )
+
         return True
+
+    # def validate_class_proportions(
+    #     self, feature_table: pd.DataFrame, label_column: str, train_table_pairs
+    # ) -> bool:
+    #     min_label_proportion = constants.CLASSIFIER_MIN_LABEL_PROPORTION
+    #     max_label_proportion = constants.CLASSIFIER_MAX_LABEL_PROPORTION
+    #     label_proportion = feature_table[label_column].value_counts(normalize=True)
+    #     found_invalid_rows = (
+    #         (label_proportion < min_label_proportion)
+    #         | (label_proportion > max_label_proportion)
+    #     ).any()
+    #
+    #     # Extracting table names from train_table_pairs
+    #     feature_tables = ", ".join(
+    #         [pair.feature_table_name for pair in train_table_pairs]
+    #     )
+    #     label_tables = ", ".join([pair.label_table_name for pair in train_table_pairs])
+    #
+    #     if found_invalid_rows:
+    #         self.write_table(
+    #             feature_table, self.feature_table_name, write_mode="overwrite"
+    #         )
+    #         error_msg = ""
+    #         for row in label_proportion.reset_index().values:
+    #             error_msg += f"\tLabel: {row[0]:.0f} - users :({100 * row[1]:.2f}%)\n"
+    #
+    #         raise Exception(
+    #             f"Label column {label_column} exhibits significant class imbalance.\n"
+    #             f"The model cannot be trained on such a highly imbalanced dataset.\n"
+    #             f"You can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users, etc.\n"
+    #             f"Current class proportions are as follows:\n{error_msg}"
+    #             f"You can look for the table {self.feature_table_name} in your warehouse where the eligible users data is stored, and this imbalance is found. You can try different combinations of eligible users to see how the imbalance changes."
+    #             f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
+    #             f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
+    #         )
+    #
+    #     return True
 
     def validate_class_proportions(
         self, feature_table: pd.DataFrame, label_column: str, train_table_pairs
@@ -795,12 +838,6 @@ class CommonWarehouseConnector(Connector):
             | (label_proportion > max_label_proportion)
         ).any()
 
-        # Extracting table names from train_table_pairs
-        feature_tables = ", ".join(
-            [pair.feature_table_name for pair in train_table_pairs]
-        )
-        label_tables = ", ".join([pair.label_table_name for pair in train_table_pairs])
-
         if found_invalid_rows:
             self.write_table(
                 feature_table, self.feature_table_name, write_mode="overwrite"
@@ -809,17 +846,60 @@ class CommonWarehouseConnector(Connector):
             for row in label_proportion.reset_index().values:
                 error_msg += f"\tLabel: {row[0]:.0f} - users :({100 * row[1]:.2f}%)\n"
 
+            # Construct the log message using the provided template
+            log_message = (
+                "Following are the table pairs used for creating the training data:\n"
+            )
+            log_message += " Feature table name, label table name:\n"
+            log_message += "\n".join(
+                f" {pair.feature_table_name}, {pair.label_table_name}"
+                for pair in train_table_pairs
+            )
+            log_message += (
+                f"\nThe table {self.feature_table_name} is built by joining the pairs using the entity-id, "
+                "concatenating them, and applying eligible users flag. You can try different eligible users conditions to rerun the model to solve the data validation errors."
+            )
+
             raise Exception(
                 f"Label column {label_column} exhibits significant class imbalance.\n"
                 f"The model cannot be trained on such a highly imbalanced dataset.\n"
                 f"You can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users, etc.\n"
                 f"Current class proportions are as follows:\n{error_msg}"
                 f"You can look for the table {self.feature_table_name} in your warehouse where the eligible users data is stored, and this imbalance is found. You can try different combinations of eligible users to see how the imbalance changes."
-                f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
-                f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
+                f"{log_message}"
             )
 
         return True
+
+    # def validate_label_distinct_values(
+    #     self,
+    #     feature_table: pd.DataFrame,
+    #     label_column: str,
+    #     train_table_pairs,
+    # ) -> bool:
+    #     distinct_values_count_list = feature_table[label_column].value_counts()
+    #     num_distinct_values = len(distinct_values_count_list)
+    #     req_distinct_values = constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
+    #
+    #     # Extracting table names from train_table_pairs
+    #     feature_tables = ", ".join(
+    #         [pair.feature_table_name for pair in train_table_pairs]
+    #     )
+    #     label_tables = ", ".join([pair.label_table_name for pair in train_table_pairs])
+    #
+    #     if num_distinct_values < req_distinct_values:
+    #         self.write_table(
+    #             feature_table, self.feature_table_name, write_mode="overwrite"
+    #         )
+    #         raise Exception(
+    #             f"Label column {label_column} has {num_distinct_values} distinct values while we expect a minimum of {req_distinct_values} values for a regression problem."
+    #             f" Please check your label column and consider modifying the task in your Python model to 'classification' if that's a better fit."
+    #             f"You can look for the table {self.feature_table_name} in your warehouse where the eligible users data is stored, for the distinct label count. You can try different combinations of eligible users to see how the label counts change."
+    #             f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
+    #             f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
+    #         )
+    #
+    #     return True
 
     def validate_label_distinct_values(
         self,
@@ -831,22 +911,30 @@ class CommonWarehouseConnector(Connector):
         num_distinct_values = len(distinct_values_count_list)
         req_distinct_values = constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
 
-        # Extracting table names from train_table_pairs
-        feature_tables = ", ".join(
-            [pair.feature_table_name for pair in train_table_pairs]
-        )
-        label_tables = ", ".join([pair.label_table_name for pair in train_table_pairs])
-
         if num_distinct_values < req_distinct_values:
             self.write_table(
                 feature_table, self.feature_table_name, write_mode="overwrite"
             )
+
+            # Construct the log message using the provided template
+            log_message = (
+                "Following are the table pairs used for creating the training data:\n"
+            )
+            log_message += " Feature table name, label table name:\n"
+            log_message += "\n".join(
+                f" {pair.feature_table_name}, {pair.label_table_name}"
+                for pair in train_table_pairs
+            )
+            log_message += (
+                f"\nThe table {self.feature_table_name} is built by joining the pairs using the entity-id, "
+                "concatenating them, and applying eligible users flag. You can try different eligible users conditions to rerun the model to solve the data validation errors."
+            )
+
             raise Exception(
                 f"Label column {label_column} has {num_distinct_values} distinct values while we expect a minimum of {req_distinct_values} values for a regression problem."
                 f" Please check your label column and consider modifying the task in your Python model to 'classification' if that's a better fit."
                 f"You can look for the table {self.feature_table_name} in your warehouse where the eligible users data is stored, for the distinct label count. You can try different combinations of eligible users to see how the label counts change."
-                f"Additionally, feature tables {feature_tables} are being used to create the feature table, while label tables {label_tables} "
-                f"are being used as label data. Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
+                f"{log_message}"
             )
 
         return True

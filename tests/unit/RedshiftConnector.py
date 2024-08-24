@@ -570,6 +570,7 @@ class TestValidations(unittest.TestCase):
             )
         mock_write_table.assert_called_once()
         error_msg = "Label: 1 - users :(50.00%)\n\tLabel: 2 - users :(50.00%)"
+        # error_msg = "Label column COL2 exhibits significant class imbalance"
         self.assertIn(
             error_msg,
             str(context.exception),
@@ -649,9 +650,11 @@ class TestValidations(unittest.TestCase):
             "Insufficient data for training. Only 2 user records found, "
             "while a minimum of 5 user records is required.\n"
             "For further information, you can check the table in the warehouse with the name: None.\n"
-            "Additionally, feature tables feature_table_1, feature_table_2 are being used to create the feature table, "
-            "while label tables label_table_1, label_table_2 are being used as label data. "
-            "Join them using the provided eligible users condition to recreate the training_data_table and figure out the distribution."
+            "Following are the table pairs used for creating the training data:\n"
+            " Feature table name, label table name:\n"
+            " feature_table_1, label_table_1\n"
+            " feature_table_2, label_table_2\n"
+            "The table None is built by joining the pairs using the entity-id, concatenating them, and applying eligible users flag. You can try different eligible users conditions to rerun the model to solve the data validation errors."
         )
 
         self.assertIn(expected_error_msg, str(context.exception))

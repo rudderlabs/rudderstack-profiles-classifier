@@ -173,8 +173,11 @@ class TestValidations(unittest.TestCase):
             f"Insufficient data for training. Only {self.table.count()} user records found, "
             f"while a minimum of {self.min_sample_for_training} user records is required.\n"
             f"For further information, you can check the table in the warehouse with the name: {self.connector.feature_table_name}.\n"
-            f"Additionally, feature tables feature_table_1, feature_table_2 are being used to create the feature table, "
-            f"while label tables label_table_1, label_table_2 are being used as label data."
+            f"Following are the table pairs used for creating the training data:\n"
+            f" Feature table name, label table name:\n"
+            f" feature_table_1, label_table_1\n"
+            f" feature_table_2, label_table_2\n"
+            f"The table {self.connector.feature_table_name} is built by joining the pairs using the entity-id, concatenating them, and applying eligible users flag. You can try different eligible users conditions to rerun the model to solve the data validation errors."
         )
         self.assertIn(expected_error_msg, str(context.exception))
 

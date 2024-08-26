@@ -420,27 +420,6 @@ class AttributionModelRecipe(PyNativeRecipe):
         from_query = f"""
                         FROM index_cte a"""
         for conversion_name, value_flag in zip(conversion_name_list, value_flag_list):
-            # select_query = (
-            #     select_query
-            #     + f"""
-            #                         , coalesce({conversion_name}_first_touch_count, 0) as {conversion_name}_first_touch_count,
-            #                         coalesce({conversion_name}_last_touch_count, 0) as {conversion_name}_last_touch_count
-            #                         """
-            #     + (
-            #         f""", coalesce({conversion_name}_first_touch_conversion_value, 0) AS {conversion_name}_first_touch_conversion_value,
-            #                         coalesce({conversion_name}_last_touch_conversion_value, 0) AS {conversion_name}_last_touch_conversion_value"""
-            #         if value_flag
-            #         else ""
-            #     )
-            #     + f""", coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_count, 0), 0),0) AS {conversion_name}_first_touch_cost_per_conv,
-            #                         coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_count, 0), 0),0) AS {conversion_name}_last_touch_cost_per_conv """
-            #     + (
-            #         f""", coalesce(coalesce({conversion_name}_first_touch_conversion_value, 0) / nullif(coalesce(cost, 0),0), 0) AS {conversion_name}_first_touch_roas,
-            #         coalesce(coalesce({conversion_name}_last_touch_conversion_value, 0) / nullif(coalesce(cost, 0),0), 0) AS {conversion_name}_last_touch_roas """
-            #         if value_flag
-            #         else ""
-            #     )
-            # )
             select_query = (
                 select_query
                 + f"""

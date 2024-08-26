@@ -113,6 +113,15 @@ class TestValidations(unittest.TestCase):
         )
         self.session = Session.builder.config("local_testing", True).create()
         self.table = self.session.create_dataframe(df)
+        self.min_sample_for_training = 3
+        self.train_table_pairs = [
+            Mock(
+                feature_table_name="feature_table_1", label_table_name="label_table_1"
+            ),
+            Mock(
+                feature_table_name="feature_table_2", label_table_name="label_table_2"
+            ),
+        ]
 
     # Checks for assertion error if label column is not present in the feature table.
     def test_label_column_not_present(self):
@@ -140,6 +149,7 @@ class TestValidations(unittest.TestCase):
             self.connector.validate_class_proportions(
                 self.table.select("COL1", "COL2", "COL3"),
                 label_column,
+                self.train_table_pairs,
             )
         error_msg = "1 - user count:  1 (50.00%)\n\t2 - user count:  1 (50.00%)"
         self.assertIn(
@@ -148,10 +158,35 @@ class TestValidations(unittest.TestCase):
             [],
         )
 
+    @patch.object(MockSnowflakeConnector, "write_table")
+    def test_validate_row_count_insufficient_data(self, mock_write_table):
+        with self.assertRaises(Exception) as context:
+            self.connector.validate_row_count(
+                self.table, self.min_sample_for_training, self.train_table_pairs
+            )
+
+        mock_write_table.assert_called_once_with(
+            self.table, self.connector.feature_table_name, write_mode="overwrite"
+        )
+
+        expected_error_msg = (
+            f"Insufficient data for training. Only {self.table.count()} user records found, "
+            f"while a minimum of {self.min_sample_for_training} user records is required.\n"
+            f"For further information, you can check the table in the warehouse with the name: {self.connector.feature_table_name}.\n"
+            f"Following are the table pairs used for creating the training data:\n"
+            f" Feature table name, label table name:\n"
+            f" feature_table_1, label_table_1\n"
+            f" feature_table_2, label_table_2\n"
+            f"The table {self.connector.feature_table_name} is built by joining the pairs using the entity-id, concatenating them, and applying eligible users flag. You can try different eligible users conditions to rerun the model to solve the data validation errors."
+        )
+        self.assertIn(expected_error_msg, str(context.exception))
+
     def test_expects_error_if_label_count_is_low_regression(self):
         label_column = "COL1"
         with self.assertRaises(Exception) as context:
-            self.connector.validate_label_distinct_values(self.table, label_column)
+            self.connector.validate_label_distinct_values(
+                self.table, label_column, self.train_table_pairs
+            )
             distinct_values_count = self.table.groupBy(label_column).count()
             num_distinct_values = distinct_values_count.count()
             self.assertIn(
@@ -179,7 +214,11 @@ class TestValidations(unittest.TestCase):
         )
         table = self.session.create_dataframe(df)
         self.assertTrue(self.connector.validate_columns_are_present(table, "COL1"))
-        self.assertTrue(self.connector.validate_class_proportions(table, "COL1"))
+        self.assertTrue(
+            self.connector.validate_class_proportions(
+                table, "COL1", self.train_table_pairs
+            )
+        )
 
     @patch(
         "src.predictions.profiles_mlcorelib.utils.constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES",
@@ -196,4 +235,8 @@ class TestValidations(unittest.TestCase):
         )
         table = self.session.create_dataframe(df)
         self.assertTrue(self.connector.validate_columns_are_present(table, "COL1"))
-        self.assertTrue(self.connector.validate_label_distinct_values(table, "COL1"))
+        self.assertTrue(
+            self.connector.validate_label_distinct_values(
+                table, "COL1", self.train_table_pairs
+            )
+        )

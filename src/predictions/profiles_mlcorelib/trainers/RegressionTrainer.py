@@ -167,10 +167,20 @@ class RegressionTrainer(MLTrainer):
         }
         return training_summary
 
-    def validate_data(self, connector, feature_table):
-        return connector.validate_columns_are_present(
-            feature_table, self.label_column
-        ) and connector.validate_label_distinct_values(feature_table, self.label_column)
+    def validate_data(
+        self, connector, feature_table, train_table_pairs, min_sample_for_training
+    ):
+        return (
+            connector.validate_columns_are_present(feature_table, self.label_column)
+            and connector.validate_label_distinct_values(
+                feature_table, self.label_column, train_table_pairs
+            )
+            and connector.validate_row_count(
+                feature_table,
+                min_sample_for_training,
+                train_table_pairs,
+            )
+        )
 
     def check_min_data_requirement(self, connector: Connector, materials) -> bool:
         return connector.check_for_regression_data_requirement(

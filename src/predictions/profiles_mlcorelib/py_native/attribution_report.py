@@ -380,6 +380,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         daily_campaign_details_key_behaviours,
         campaign_vars,
         conversion_vars,
+        end_time,
     ):
         # Defining User_conversion_days_cte
         user_conversion_days_cte = "user_conversion_days_cte AS ("
@@ -415,7 +416,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         # Starting the SELECT query
         select_query = f"""
             , {user_conversion_days_cte}, {conversion_days_cte} 
-            SELECT a.date, a.{campaign_id_column_name}"""
+            SELECT a.date as Campaign_Date, DATE('{end_time}') as Report_Date,a.{campaign_id_column_name}"""
         from_query = f"""
                         FROM index_cte a"""
         for conversion_name, value_flag in zip(conversion_name_list, value_flag_list):
@@ -740,7 +741,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             self.campaign_start_date,
             self.campaign_end_date,
         )
-
+        start_time, end_time = this.wht_ctx.time_info()
         selector_sql = self._get_final_selector_sql(
             self.campaign_id_column_name,
             conversion_name_list,
@@ -748,6 +749,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             daily_campaign_details_key_behaviours,
             campaign_vars,
             conversion_vars,
+            end_time,
         )
 
         input_material_template = f"this.DeRef(makePath({conversion_vars[0]['timestamp']}.Model.GetVarTableRef()))"

@@ -767,7 +767,6 @@ class CommonWarehouseConnector(Connector):
                 feature_table, self.feature_table_name, write_mode="overwrite"
             )
 
-            # Constructing the log message as per the new instructions
             log_message = (
                 "Following are the table pairs used for creating the training data:\n"
                 " Feature table name, label table name:\n"
@@ -809,7 +808,6 @@ class CommonWarehouseConnector(Connector):
             for row in label_proportion.reset_index().values:
                 error_msg += f"\tLabel: {row[0]:.0f} - users :({100 * row[1]:.2f}%)\n"
 
-            # Construct the log message using the provided template
             log_message = (
                 "Following are the table pairs used for creating the training data:\n"
             )
@@ -849,7 +847,6 @@ class CommonWarehouseConnector(Connector):
                 feature_table, self.feature_table_name, write_mode="overwrite"
             )
 
-            # Construct the log message using the provided template
             log_message = (
                 "Following are the table pairs used for creating the training data:\n"
             )

@@ -1004,7 +1004,6 @@ class SnowflakeConnector(Connector):
                 feature_table, self.feature_table_name, write_mode="overwrite"
             )
 
-            # Construct the log message using the provided template
             log_message = (
                 "Following are the table pairs used for creating the training data:\n"
             )
@@ -1057,7 +1056,6 @@ class SnowflakeConnector(Connector):
             for row in result_table:
                 error_msg += f"\t{row[label_column.upper()]} - user count:  {row['COUNT']} ({100 * row['NORMALIZED_COUNT']:.2f}%)\n"
 
-            # Construct the log message using the provided template
             log_message = (
                 "Following are the table pairs used for creating the training data:\n"
             )
@@ -1097,7 +1095,6 @@ class SnowflakeConnector(Connector):
                 feature_table, self.feature_table_name, write_mode="overwrite"
             )
 
-            # Construct the log message using the provided template
             log_message = (
                 "Following are the table pairs used for creating the training data:\n"
             )

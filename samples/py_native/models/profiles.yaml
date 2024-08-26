@@ -6,6 +6,11 @@ models:
       training:
         predict_var: packages/feature_table/entity/user/is_churned_7_days
         predict_window_days: 7
+        eligible_users: '*'
+        max_row_count: 500000
+        label_value: 1
+        type: classification
+        validity: day
       prediction:
         output_columns:
           percentile:
@@ -15,13 +20,7 @@ models:
             name: classification_churn_7_days
             description: description2
             is_feature: False
-      training_params:
         eligible_users: '*'
-        max_row_count: 500000
-        label_value: 1
-      type: classification
-      train_validity: day
-      prediction_eligible_users: '*'
       inputs:
         - packages/feature_table/entity/user/is_churned_7_days
         - packages/feature_table/entity/user/days_since_last_seen

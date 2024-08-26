@@ -123,17 +123,27 @@ class PyNativeWHT:
         inputs = []
         for input in input_model_refs:
             material = self.whtMaterial.de_ref(input)
+            if material.model.model_type() == "sql_template":
+                material = self.whtMaterial.de_ref(input + "/var_table")
+                id_column_name = self.whtMaterial.model.entity()["IdColumnName"]
+                self.whtMaterial.de_ref(input + f"/var_table/{id_column_name}")
+            column_name = None
             if material.model.materialization()["output_type"] == "column":
+                column_name = material.model.db_object_name_prefix()
                 table_material_ref = material.model.encapsulating_model().model_ref()
                 table_material = self.whtMaterial.de_ref(table_material_ref)
             else:
                 table_material = material
+            material_name_dict = self.pythonWHT.split_material_name(material.name())
             inputs.append(
                 {
                     "table_name": table_material.name(),
                     "model_ref": material.model.model_ref(),
                     "model_type": material.model.model_type(),
                     "selector_sql": material.get_selector_sql(),
+                    "column_name": column_name,
+                    "model_name": material_name_dict["model_name"],
+                    "model_hash": material_name_dict["model_hash"],
                 }
             )
         return inputs

@@ -68,24 +68,6 @@ class PythonWHT:
             end_date = end_date.date()
         return str(start_date), str(end_date)
 
-    def _get_selector_sql(
-        self, entity_var_table, material_or_selector_sql, model_ref, model_type
-    ):
-        # in case if it is selector sql coming from pythonWHT
-        if "select" in material_or_selector_sql.lower():
-            return material_or_selector_sql
-
-        # in case if it is material name coming from pyNativeWHT
-        if model_type == "feature_table_model":
-            return f"SELECT * FROM {self.connector.schema}.{material_or_selector_sql}"
-        elif model_type == "entity_var_item":
-            var_name = model_ref.split("/")[-1]
-            return f"SELECT {var_name} FROM {self.connector.get_entity_var_table_ref(entity_var_table)}"
-        else:
-            raise Exception(
-                f"Error creating selector sql from given input models. Unknown model type: {model_type} for the input {model_ref}. Please ensure all the inputs are either feature table models, or entity vars."
-            )
-
     def get_registry_table_name(self):
         if self.cached_registry_table_name == "":
             material_registry_tables = self.connector.get_tables_by_prefix(
@@ -131,27 +113,30 @@ class PythonWHT:
         Returns:
             bool: True if the material table exists with given seq no else False
         """
+        # This check is for entity var item input in python model.
+        # Without the hash, there is nothing to verify in the registry table.
+        # So we assume that the var table contains this var item.
+        if input["model_hash"] is None:
+            return True
         try:
             # Replace the last seq_no with the current seq_no
             # and prepare sql statement to check for the table existence
             # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
+            model_name = input["model_name"]
+            model_hash = input["model_hash"]
             if feature_material_seq_no is not None:
-                feature_table_query = utils.replace_seq_no_in_query(
-                    input["table_name"], int(feature_material_seq_no)
-                )
+                seq = int(feature_material_seq_no)
                 assert self.connector.check_table_entry_in_material_registry(
                     self.get_registry_table_name(),
-                    self.split_material_name(feature_table_query),
-                ), f"Material table {feature_table_query} does not exist"
+                    {"model_name": model_name, "model_hash": model_hash, "seq_no": seq},
+                ), f"Material registry entry for model name - {model_name}, model hash - {model_hash}, seq - {seq} does not exist"
 
             if label_material_seq_no is not None:
-                label_table_query = utils.replace_seq_no_in_query(
-                    input["table_name"], int(label_material_seq_no)
-                )
+                seq = int(label_material_seq_no)
                 assert self.connector.check_table_entry_in_material_registry(
                     self.get_registry_table_name(),
-                    self.split_material_name(label_table_query),
-                ), f"Material table {label_table_query} does not exist"
+                    {"model_name": model_name, "model_hash": model_hash, "seq_no": seq},
+                ), f"Material registry entry for model name - {model_name}, model hash - {model_hash}, seq - {seq} does not exist"
 
             return True
         except AssertionError as e:
@@ -319,8 +304,9 @@ class PythonWHT:
             "site_config_path": self.site_config_path,
             "project_folder": self.project_folder_path,
         }
+        logger.get().info(f"Running profiles project for date {date}")
         self._getPB().run(args)
-        logger.get().info(f"Materialised data successfully, for date {date}")
+        logger.get().info(f"Ran profiles project for date {date} successfully.")
 
     def _get_valid_feature_label_dates(
         self,
@@ -521,23 +507,32 @@ class PythonWHT:
         inputs = []
         for selector_sql in selector_sqls:
             schema_table_name = selector_sql.split(" ")[-1]
-            table_name = schema_table_name.split(".")[-1]
+            table_name = schema_table_name.split(".")[-1].strip('"`')
+
+            select_column_pattern = re.compile(
+                r"SELECT [\"']?(\w+)[\"']? FROM", re.IGNORECASE
+            )
+            match_column = select_column_pattern.match(selector_sql.strip())
+            column_name = None
+            if match_column:
+                column_name = match_column.group(1)
 
             def extract_model_name_from_query(query: str):
-                select_column_pattern = re.compile(
-                    r"SELECT [\"']?(\w+)[\"']? FROM", re.IGNORECASE
-                )
-                match_column = select_column_pattern.match(query.strip())
-                if match_column:
-                    column_name = match_column.group(1)
+                if column_name is not None:
                     return column_name
                 return self.split_material_name(query)["model_name"].lower()
+
+            model_hash = None
+            if column_name is None:
+                model_hash = self.split_material_name(selector_sql)["model_hash"]
 
             inputs.append(
                 {
                     "selector_sql": selector_sql,
                     "table_name": table_name.strip('"`'),
                     "model_name": extract_model_name_from_query(selector_sql),
+                    "column_name": column_name,
+                    "model_hash": model_hash,
                 }
             )
         if skip_compile:

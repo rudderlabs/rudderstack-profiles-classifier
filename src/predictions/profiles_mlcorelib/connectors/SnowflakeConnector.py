@@ -991,7 +991,6 @@ class SnowflakeConnector(Connector):
             )
         return True
 
-
     def validate_row_count(
         self,
         feature_table: snowflake.snowpark.Table,
@@ -1082,8 +1081,6 @@ class SnowflakeConnector(Connector):
             )
 
         return True
-
-
 
     def validate_label_distinct_values(
         self,

@@ -834,7 +834,6 @@ class CommonWarehouseConnector(Connector):
 
         return True
 
-
     def validate_label_distinct_values(
         self,
         feature_table: pd.DataFrame,

@@ -6,6 +6,7 @@ from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict
 class Connector(ABC):
     def __init__(self, creds: dict) -> None:
         self.session = self.build_session(creds)
+        self.feature_table_name = None
 
     def remap_credentials(self, credentials: dict) -> dict:
         """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses"""

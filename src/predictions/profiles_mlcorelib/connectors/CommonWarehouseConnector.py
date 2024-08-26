@@ -656,8 +656,11 @@ class CommonWarehouseConnector(Connector):
         min_sample_for_training: int,
     ) -> pd.DataFrame:
         if len(feature_table) < min_sample_for_training:
+            self.write_table(
+                feature_table, self.feature_table_name, write_mode="overwrite"
+            )
             raise Exception(
-                f"Insufficient data for training. Only {len(feature_table)} user records found. Required minimum {min_sample_for_training} user records."
+                f"Insufficient data for training. Only {len(feature_table)} user records found. Required minimum {min_sample_for_training} user records.For further information you can check the table in the warehouse with the name : {self.feature_table_name}"
             )
         elif len(feature_table) <= max_row_count:
             return feature_table
@@ -774,11 +777,14 @@ class CommonWarehouseConnector(Connector):
             | (label_proportion > max_label_proportion)
         ).any()
         if found_invalid_rows:
+            self.write_table(
+                feature_table, self.feature_table_name, write_mode="overwrite"
+            )
             error_msg = ""
             for row in label_proportion.reset_index().values:
                 error_msg += f"\tLabel: {row[0]:.0f} - users :({100*row[1]:.2f}%)\n"
             raise Exception(
-                f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}."
+                f"Label column {label_column} exhibits significant class imbalance. \nThe model cannot be trained on such a highly imbalanced dataset. \nYou can select a subset of users where the class imbalance is not as severe, such as by excluding inactive users etc. \nCurrent class proportions are as follows: \n {error_msg}.You can look for the table {self.feature_table_name} in your warehouse where the eligible users data is stored, and this imbalance is found. You can try different combinations of eligible users to see how the imbalance changes."
             )
         return True
 
@@ -791,9 +797,12 @@ class CommonWarehouseConnector(Connector):
         num_distinct_values = len(distinct_values_count_list)
         req_distinct_values = constants.REGRESSOR_MIN_LABEL_DISTINCT_VALUES
         if num_distinct_values < req_distinct_values:
+            self.write_table(
+                feature_table, self.feature_table_name, write_mode="overwrite"
+            )
             raise Exception(
                 f"Label column {label_column} has {num_distinct_values} of distinct values while we expect minimum {req_distinct_values} values for a regression problem.\
-                    Please check your label column and modify task in your python model to 'classification' if that's a better fit. "
+                    Please check your label column and modify task in your python model to 'classification' if that's a better fit.You can look for the table {self.feature_table_name} in your warehouse where the eligible users data is stored, for the distinct label count. You can try different combinations of eligible users to see how the label counts change."
             )
         return True
 

@@ -31,13 +31,6 @@ class PropensityModel(BaseModelType):
                 "properties": {
                     "predict_var": {"type": "string"},
                     "predict_window_days": {"type": "integer"},
-                },
-                "required": ["predict_var", "predict_window_days"],
-            },
-            "training_params": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {
                     "max_row_count": {"type": "integer"},
                     "eligible_users": {"type": "string"},
                     "label_value": {"type": "number"},
@@ -56,15 +49,18 @@ class PropensityModel(BaseModelType):
                         "type": "array",
                         "items": {"type": "string"},
                     },
+                    "type": {
+                        "type": "string",
+                        "enum": ["classification", "regression"],
+                    },
+                    "validity": {
+                        "type": "string",
+                        "enum": ["day", "week", "month"],
+                    },
+                    "file_lookup_path": {"type": "string"},
                 },
+                "required": ["predict_var", "predict_window_days"],
             },
-            "type": {"type": "string", "enum": ["classification", "regression"]},
-            "train_validity": {
-                "type": "string",
-                "enum": ["day", "week", "month"],
-            },
-            "train_file_lookup_path": {"type": "string"},
-            "prediction_eligible_users": {"type": "string"},
             "prediction": {
                 "type": "object",
                 "additionalProperties": False,
@@ -78,6 +74,7 @@ class PropensityModel(BaseModelType):
                         },
                         "required": ["percentile", "score"],
                     },
+                    "eligible_users": {"type": "string"},
                 },
                 "required": ["output_columns"],
             },
@@ -116,9 +113,9 @@ class PropensityModel(BaseModelType):
         data["prediction_horizon_days"] = self.build_spec["training"][
             "predict_window_days"
         ]
-        data["task"] = self.build_spec.get("type", None)
-        training_params = self.build_spec.get("training_params", {})
+        training_params = self.build_spec.get("training", {})
         data_keys = [
+            "type",
             "label_value",
             "eligible_users",
             "max_row_count",
@@ -144,10 +141,10 @@ class PropensityModel(BaseModelType):
             "entity_key": self.build_spec["entity_key"],
             "materialization": self.build_spec.get("materialization", {}),
             "inputs": self.build_spec["inputs"],
-            "training_file_lookup_path": self.build_spec.get(
-                "train_file_lookup_path", None
+            "training_file_lookup_path": self.build_spec["training"].get(
+                "file_lookup_path", None
             ),
-            "validity_time": self.build_spec.get("train_validity", None),
+            "validity_time": self.build_spec["training"].get("validity", None),
             "ml_config": {"data": data, "preprocessing": preprocessing},
         }
 
@@ -164,10 +161,8 @@ class PropensityModel(BaseModelType):
                         "description": output_columns[column].get("description", None),
                     }
                 )
-        if self.build_spec.get("prediction_eligible_users", None) is not None:
-            data["eligible_users"] = self.build_spec.get(
-                "prediction_eligible_users", None
-            )
+        if self.build_spec["prediction"].get("eligible_users", None) is not None:
+            data["eligible_users"] = self.build_spec["prediction"]["eligible_users"]
         return {
             "entity_key": self.build_spec["entity_key"],
             "training_model": training_model_ref,

@@ -318,9 +318,6 @@ class MLTrainer(ABC):
         met_data_requirement = self.check_min_data_requirement(connector, materials)
 
         logger.get().debug(f"Min data requirement satisfied: {met_data_requirement}")
-        logger.get().debug(
-            f"New material generation strategy : {self.materialisation_strategy}"
-        )
         if met_data_requirement or self.materialisation_strategy == "":
             return materials
 
@@ -332,6 +329,10 @@ class MLTrainer(ABC):
             else len(self.materialisation_dates)
         )
 
+        logger.get().info(
+            f"""Generating snapshots of past data by doing a profiles run on input models, at different points of time in the past. 
+                                Expected to run max of {2 * max_materializations} runs."""
+        )
         for i in range(max_materializations):
             feature_date = None
             label_date = None
@@ -373,6 +374,9 @@ class MLTrainer(ABC):
                 if feature_date is None or label_date is None:
                     continue
 
+            logger.get().info(
+                f"Looking for past data on dates {feature_date} and {label_date}. Will do a profiles run if they are not present."
+            )
             try:
                 # Check wether the materialisation is already present
                 existing_materials = get_material_func(

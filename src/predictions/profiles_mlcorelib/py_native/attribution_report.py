@@ -37,9 +37,8 @@ class AttributionModel(BaseModelType):
                             "type": "object",
                             "properties": {
                                 "from": {"type": "string"},
-                                "timestamp": {"type": "string"},
                             },
-                            "required": ["from", "timestamp"],
+                            "required": ["from"],
                             "additionalProperties": False,
                         },
                     },
@@ -532,7 +531,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         )
 
     def _create_user_journey_cte(
-        self, user_journeys, entity_id_column_name, campaign_id_column_name
+        self, material: WhtMaterial, user_journeys, entity_id_column_name, campaign_id_column_name
     ):
         # creating user journeys
         journey_query, union_op, set_jouney_ref = "", "", ""
@@ -542,7 +541,8 @@ class AttributionModelRecipe(PyNativeRecipe):
                 set_jouney_ref
                 + f"{prefix}{counter} = this.DeRef('{journey_info['from']}/var_table') "
             )
-            select_info = f"SELECT {entity_id_column_name}, {campaign_id_column_name}, {journey_info['timestamp']} AS timestamp"
+            journey_info_timestamp = material.de_ref(journey_info["from"]).model.time_filtering_column()
+            select_info = f"SELECT {entity_id_column_name}, {campaign_id_column_name}, {journey_info_timestamp} AS timestamp"
             from_info = f"FROM {{{{{prefix}{counter}}}}}"
             where_info = f"WHERE {campaign_id_column_name} is not NULL"
 
@@ -608,7 +608,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             this.de_ref(dependency)
 
         journey_query, set_jouney_ref = self._create_user_journey_cte(
-            user_journeys, self.entity_id_column_name, self.campaign_id_column_name
+            this, user_journeys, self.entity_id_column_name, self.campaign_id_column_name
         )
         (
             daily_campaign_details_query,

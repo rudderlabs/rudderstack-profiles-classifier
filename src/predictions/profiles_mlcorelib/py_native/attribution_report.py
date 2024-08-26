@@ -357,16 +357,19 @@ class AttributionModelRecipe(PyNativeRecipe):
         Generates the SQL segment for cost-per-conversion and ROAS calculations.
         Only called when self.has_cost is True.
         """
-        cost_fields = f"""
-        , coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_count, 0), 0),0) AS {conversion_name}_first_touch_cost_per_conv
-        , coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_count, 0), 0),0) AS {conversion_name}_last_touch_cost_per_conv
-        """
-
-        if value_flag:
-            cost_fields += f"""
-            , coalesce(coalesce({conversion_name}_first_touch_conversion_value, 0) / nullif(coalesce(cost, 0),0), 0) AS {conversion_name}_first_touch_roas
-            , coalesce(coalesce({conversion_name}_last_touch_conversion_value, 0) / nullif(coalesce(cost, 0),0), 0) AS {conversion_name}_last_touch_roas
+        if not self.has_cost:
+            cost_fields = ""
+        else:
+            cost_fields = f"""
+            , coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_count, 0), 0),0) AS {conversion_name}_first_touch_cost_per_conv
+            , coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_count, 0), 0),0) AS {conversion_name}_last_touch_cost_per_conv
             """
+
+            if value_flag:
+                cost_fields += f"""
+                , coalesce(coalesce({conversion_name}_first_touch_conversion_value, 0) / nullif(coalesce(cost, 0),0), 0) AS {conversion_name}_first_touch_roas
+                , coalesce(coalesce({conversion_name}_last_touch_conversion_value, 0) / nullif(coalesce(cost, 0),0), 0) AS {conversion_name}_last_touch_roas
+                """
 
         return cost_fields
 

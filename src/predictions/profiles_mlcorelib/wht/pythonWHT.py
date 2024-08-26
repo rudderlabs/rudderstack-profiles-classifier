@@ -318,8 +318,9 @@ class PythonWHT:
             "site_config_path": self.site_config_path,
             "project_folder": self.project_folder_path,
         }
+        logger.get().info(f"Running profiles project for date {date}")
         self._getPB().run(args)
-        logger.get().info(f"Materialised data successfully, for date {date}")
+        logger.get().info(f"Ran profiles project for date {date} successfully.")
 
     def _get_valid_feature_label_dates(
         self,

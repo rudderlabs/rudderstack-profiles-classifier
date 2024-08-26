@@ -349,6 +349,29 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 """
         return index_cte_query
 
+    def _query_cost_calculated_fields(
+        self, conversion_name: str, value_flag: bool
+    ) -> str:
+        """
+        Generates the SQL segment for cost-per-conversion and ROAS calculations.
+        Only called when self.has_cost is True.
+        """
+        if self.has_cost:
+            cost_fields = f"""
+            , coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_count, 0), 0),0) AS {conversion_name}_first_touch_cost_per_conv
+            , coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_count, 0), 0),0) AS {conversion_name}_last_touch_cost_per_conv
+            """
+
+            if value_flag:
+                cost_fields += f"""
+                , coalesce(coalesce({conversion_name}_first_touch_conversion_value, 0) / nullif(coalesce(cost, 0),0), 0) AS {conversion_name}_first_touch_roas
+                , coalesce(coalesce({conversion_name}_last_touch_conversion_value, 0) / nullif(coalesce(cost, 0),0), 0) AS {conversion_name}_last_touch_roas
+                """
+
+            return cost_fields
+
+        return ""
+
     def _get_final_selector_sql(
         self,
         campaign_id_column_name,
@@ -408,14 +431,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                     if value_flag
                     else ""
                 )
-                + f""", coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_first_touch_count, 0), 0),0) AS {conversion_name}_first_touch_cost_per_conv,
-                                    coalesce(coalesce(cost, 0) / nullif(coalesce({conversion_name}_last_touch_count, 0), 0),0) AS {conversion_name}_last_touch_cost_per_conv """
-                + (
-                    f""", coalesce(coalesce({conversion_name}_first_touch_conversion_value, 0) / nullif(coalesce(cost, 0),0), 0) AS {conversion_name}_first_touch_roas,
-                    coalesce(coalesce({conversion_name}_last_touch_conversion_value, 0) / nullif(coalesce(cost, 0),0), 0) AS {conversion_name}_last_touch_roas """
-                    if value_flag
-                    else ""
-                )
+                + self._query_cost_calculated_fields(conversion_name, value_flag)
             )
 
             from_query = (
@@ -596,6 +612,17 @@ class AttributionModelRecipe(PyNativeRecipe):
         user_journeys = self.config[CONVERSION][TOUCHPOINTS]
         conversion_vars = self.config[CONVERSION][CONVERSION_VARS]
         campaign_details = self.config[CAMPAIGN][CAMPAIGN_DETAILS]
+        self.has_cost = False
+        for campaign in campaign_details:
+            if "cost" in campaign.keys():
+                self.has_cost = True
+                break
+
+        if not self.has_cost:
+            self.logger.warn(
+                f"Campaign cost details are missing in {this.model.name()} model. "
+                f"So RoAS, CAC will not be calculated."
+            )
         campaign_vars = self.config[CAMPAIGN][CAMPAIGN_VARS]
 
         self.conversion_entity = self.config[ENTITY_KEY]

@@ -48,6 +48,7 @@ class PythonWHT:
                 merged_config["data"]["entity_column"]
             )
         )
+
         self.connector.feature_table_name = f"{merged_config['data']['output_profiles_ml_model']}_{self._generate_random_string(5)}_feature_table"
         return merged_config
 

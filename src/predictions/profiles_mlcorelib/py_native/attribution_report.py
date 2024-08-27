@@ -416,7 +416,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         # Starting the SELECT query
         select_query = f"""
             , {user_conversion_days_cte}, {conversion_days_cte} 
-            SELECT a.date as Campaign_Date, DATE('{end_time}') as Report_Date,a.{campaign_id_column_name}"""
+            SELECT a.date as campaign_date, DATE('{end_time}') as report_date,a.{campaign_id_column_name}"""
         from_query = f"""
                         FROM index_cte a"""
         for conversion_name, value_flag in zip(conversion_name_list, value_flag_list):

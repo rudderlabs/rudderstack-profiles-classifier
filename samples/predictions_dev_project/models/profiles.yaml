@@ -20,7 +20,7 @@ models:
         - entity_var:
             name: max_timestamp_bw_tracks_pages
             select: max(timestamp)
-            from: models/rsTracksUnionPages
+            from: models/rsTracksUnionPagesDummy
         #days since last seen
         - entity_var:
             name: days_since_last_seen
@@ -57,7 +57,7 @@ models:
               - days_since_last_seen
         - entity_var:
             name: total_sessions_till_date
-            from: models/rsTracksUnionPages
+            from: models/rsTracksUnionPagesDummy
             select: count(distinct context_session_id)
             where: context_session_id is not null
             description: Total individual sessions created till date.

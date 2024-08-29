@@ -43,7 +43,7 @@ class CommonWarehouseConnector(Connector):
 
     def write_joined_input_table(self, query, table_name):
         create_temp_table_query = f"""
-                                    CREATE TABLE {table_name} AS
+                                    CREATE OR REPLACE TABLE {table_name} AS
                                     {query} ;
                                 """
         self.run_query(create_temp_table_query, response=False)

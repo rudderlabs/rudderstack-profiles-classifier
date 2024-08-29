@@ -132,6 +132,14 @@ def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
     return merged_config
 
 
+def create_input_columns_list(input_column_types):
+    unique_values = set()
+    for _, value_list in input_column_types.items():
+        unique_values.update(value_list)
+
+    return list(unique_values)
+
+
 def get_feature_table_column_types(
     feature_table,
     input_column_types: dict,

@@ -261,7 +261,7 @@ def _train(
 
     input_columns = connector.get_input_columns(trainer, inputs)
 
-    joined_input_table_name = f"{connector.feature_table_name}_temp_joined"
+    joined_input_table_name = f"{connector.feature_table_name}_for_training"
     connector.join_input_tables(
         inputs, input_columns, trainer.entity_column, joined_input_table_name
     )

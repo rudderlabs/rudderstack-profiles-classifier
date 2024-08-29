@@ -1,45 +1,5 @@
-#models:
-#  - name: rsTracksUnionPages
-#    model_type: sql_template
-#    model_spec:
-#      validity_time: 24h # 1 day
-#      materialization:
-#        output_type: ephemeral
-#        run_type: discrete
-#      single_sql: |
-#        {% with Tracks = this.DeRef("inputs/rsTracks") Pages = this.DeRef("inputs/rsPages") %}
-#            select user_id, anonymous_id, context_session_id, timestamp from (
-#            select ANONYMOUS_ID,USER_ID,cast(timestamp as date) as dt,CONTEXT_SESSION_ID,min(timestamp) as timestamp from {{Tracks}} group by user_id, anonymous_id, context_session_id, cast(timestamp as date)
-#            union all
-#            select ANONYMOUS_ID,USER_ID,cast(timestamp as date) as dt,CONTEXT_SESSION_ID,max(timestamp) as timestamp from {{Tracks}} group by user_id, anonymous_id, context_session_id, cast(timestamp as date)) a
-#            union all
-#            select user_id, anonymous_id, context_session_id, timestamp from
-#            (select ANONYMOUS_ID,USER_ID,cast(timestamp as date) as dt,CONTEXT_SESSION_ID,min(timestamp) as timestamp from {{Pages}} group by user_id, anonymous_id, context_session_id, cast(timestamp as date)
-#            union all
-#            select ANONYMOUS_ID,USER_ID,cast(timestamp as date) as dt,CONTEXT_SESSION_ID,max(timestamp) as timestamp from {{Pages}} group by user_id, anonymous_id, context_session_id, cast(timestamp as date))
-#        {% endwith %}
-#      ids:
-#        - select: "user_id"
-#          type: user_id
-#          entity: user
-#          to_default_stitcher: true
-#        - select: "anonymous_id"
-#          type: anonymous_id
-#          entity: user
-#          to_default_stitcher: true
-#      contract:
-#        is_optional: false
-#        is_event_stream: false
-#        with_entity_ids:
-#          - user
-#        with_columns:
-#          - name: user_id
-#          - name: anonymous_id
-
-
-
 models:
-  - name: rsTracksUnionPagesDummy
+  - name: rsTracksUnionPages
     model_type: sql_template
     model_spec:
       validity_time: 24h # 1 day
@@ -48,25 +8,51 @@ models:
         run_type: discrete
       single_sql: |
         {% with Tracks = this.DeRef("inputs/rsTracks") Pages = this.DeRef("inputs/rsPages") %}
+            select user_id, anonymous_id, context_session_id, timestamp from (
+            select ANONYMOUS_ID,USER_ID,cast(timestamp as date) as dt,CONTEXT_SESSION_ID,min(timestamp) as timestamp from {{Tracks}} group by user_id, anonymous_id, context_session_id, cast(timestamp as date)
+            union all
+            select ANONYMOUS_ID,USER_ID,cast(timestamp as date) as dt,CONTEXT_SESSION_ID,max(timestamp) as timestamp from {{Tracks}} group by user_id, anonymous_id, context_session_id, cast(timestamp as date)) a
+            union all
+            select user_id, anonymous_id, context_session_id, timestamp from
+            (select ANONYMOUS_ID,USER_ID,cast(timestamp as date) as dt,CONTEXT_SESSION_ID,min(timestamp) as timestamp from {{Pages}} group by user_id, anonymous_id, context_session_id, cast(timestamp as date)
+            union all
+            select ANONYMOUS_ID,USER_ID,cast(timestamp as date) as dt,CONTEXT_SESSION_ID,max(timestamp) as timestamp from {{Pages}} group by user_id, anonymous_id, context_session_id, cast(timestamp as date))
+        {% endwith %}
+      ids:
+        - select: "user_id"
+          type: user_id
+          entity: user
+          to_default_stitcher: true
+        - select: "anonymous_id"
+          type: anonymous_id
+          entity: user
+          to_default_stitcher: true
+      contract:
+        is_optional: false
+        is_event_stream: false
+        with_entity_ids:
+          - user
+        with_columns:
+          - name: user_id
+          - name: anonymous_id
+  - name: rsRandomSQLModel
+    model_type: sql_template
+    model_spec:
+      validity_time: 24h # 1 day
+      materialization:
+        output_type: ephemeral
+        run_type: discrete
+      single_sql: |
+        {% with Tracks = this.DeRef("inputs/rsTracks")%}
             select user_id, timestamp, dummy_int_1, dummy_int_2, dummy_bool_1, dummy_bool_2 from (
               select 
-                user_id, 
+                distinct user_id, 
                 min(timestamp) as timestamp, 
                 1 as dummy_int_1, 
                 0 as dummy_int_2, 
                 true as dummy_bool_1, 
                 false as dummy_bool_2 
               from {{Tracks}} 
-              group by user_id
-            union all
-              select 
-                user_id, 
-                max(timestamp) as timestamp, 
-                0 as dummy_int_1, 
-                1 as dummy_int_2, 
-                false as dummy_bool_1, 
-                true as dummy_bool_2 
-              from {{Pages}} 
               group by user_id
             )
         {% endwith %}

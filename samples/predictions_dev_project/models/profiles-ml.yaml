@@ -15,6 +15,7 @@ models:
           - models/predictions_dev_features # inputs to materialise the required data for model
           - entity/user/random_boolean_feature
           - entity/user/n_orders_completed
+          - models/rsRandomSQLModel
         config:
           data: &model_amt_spent_data_configs
             label_column: gross_amt_spent_in_past_90_days # Name of column for which we want to find predictions

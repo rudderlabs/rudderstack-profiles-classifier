@@ -83,7 +83,6 @@ class Connector(ABC):
             table_name = input["table_name"]
             if table_name not in tables:
                 tables[table_name] = {
-                    "model_type": input["model_type"],
                     "column_name": [],
                 }
             if input["column_name"]:

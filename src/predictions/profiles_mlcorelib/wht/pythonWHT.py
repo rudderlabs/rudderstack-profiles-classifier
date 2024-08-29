@@ -528,7 +528,7 @@ class PythonWHT:
         complete_sequences_materials = get_complete_sequences(materials)
         if len(complete_sequences_materials) == 0:
             raise Exception(
-                f"Tried to materialise past data but no materialized data found for {entity_var_model_name} between dates {start_date} and {end_date}"
+                f"Tried to materialise past data but no materialized data found for {entity_var_model_name} with hash {model_hash} between dates {start_date} and {end_date}"
             )
 
         return self.get_past_materials_with_valid_date_range(

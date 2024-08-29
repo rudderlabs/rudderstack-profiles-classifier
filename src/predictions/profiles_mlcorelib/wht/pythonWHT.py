@@ -286,7 +286,7 @@ class PythonWHT:
         )
 
         # TODO: Remove this log
-        logger.get().info(f"Found feature_label_df: {feature_label_df.show(5)}")
+        logger.get().info(f"Found feature_label_df: {feature_label_df}")
 
         materials = list()
         for row in feature_label_df:

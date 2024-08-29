@@ -222,7 +222,7 @@ class PythonWHT:
                 break
 
         # TODO: Remove this log
-        logger.get().debug(f"Validation flag: {validation_flag}")
+        logger.get().info(f"Validation flag: {validation_flag}")
 
         if validation_flag:
             feature_table_date = (
@@ -286,7 +286,7 @@ class PythonWHT:
         )
 
         # TODO: Remove this log
-        logger.get().debug(f"Found feature_label_df: {feature_label_df.show(5)}")
+        logger.get().info(f"Found feature_label_df: {feature_label_df.show(5)}")
 
         materials = list()
         for row in feature_label_df:
@@ -508,7 +508,7 @@ class PythonWHT:
         )
 
         # TODO: Remove this log
-        logger.get().debug(f"Found materials: {materials}")
+        logger.get().info(f"Found materials: {materials}")
 
         # If we want to include partial pairs, we dont need to look for full valid sequences
         if return_partial_pairs:

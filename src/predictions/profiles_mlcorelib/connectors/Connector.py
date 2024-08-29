@@ -20,11 +20,18 @@ class Connector(ABC):
         return new_creds
 
     def validate_common_columns(
-        self, columns_per_input: List[Set[str]], entity_column: str
+        self,
+        trainer_obj,
+        columns_per_input: List[Set[str]],
     ) -> None:
         all_columns = set.union(*columns_per_input)
-        if entity_column in all_columns:
-            all_columns.remove(entity_column)
+        all_columns.difference_update(
+            {
+                trainer_obj.entity_column,
+                trainer_obj.entity_column.upper(),
+                trainer_obj.entity_column.lower(),
+            }
+        )
 
         for column in all_columns:
             if (
@@ -48,7 +55,7 @@ class Connector(ABC):
             ind_input_columns = set(self.run_query(query)[0]._fields)
             columns_per_input.append(ind_input_columns)
 
-        self.validate_common_columns(columns_per_input, trainer_obj.entity_column)
+        self.validate_common_columns(trainer_obj, columns_per_input)
 
         input_columns = set.union(*columns_per_input)
         input_columns.difference_update(

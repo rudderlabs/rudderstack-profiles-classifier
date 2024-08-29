@@ -306,6 +306,10 @@ def _train(
     except Exception as e:
         logger.get().error(f"Error while generating new materials, {str(e)}")
 
+    logger.get().info(
+        f"Training data fetched successfully. Train Table Pairs: {train_table_pairs}"
+    )
+
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
     )

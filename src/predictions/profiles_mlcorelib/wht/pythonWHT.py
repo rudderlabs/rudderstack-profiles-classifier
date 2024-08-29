@@ -97,14 +97,17 @@ class PythonWHT:
         )
 
     def create_joined_input_training_table(
-        self, inputs, input_columns, entity_column, table_name, seq_no
+        self, inputs, input_columns, entity_column, seq_no
     ):
         for input in inputs:
             input["table_name"] = utils.replace_seq_no_in_query(
                 input["table_name"], int(seq_no)
             )
         self.connector.join_input_tables(
-            inputs, input_columns, entity_column, table_name
+            inputs,
+            input_columns,
+            entity_column,
+            f"{self.connector.feature_table_name}_{seq_no}",
         )
 
     def _validate_historical_materials_hash(
@@ -239,7 +242,6 @@ class PythonWHT:
                     inputs,
                     input_columns,
                     entity_column,
-                    f"{self.connector.feature_table_name}{suffix}",
                     seq_no,
                 )
 

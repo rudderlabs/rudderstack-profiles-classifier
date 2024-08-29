@@ -260,11 +260,17 @@ def _train(
     )
 
     input_columns = connector.get_input_columns(trainer, inputs)
+
+    joined_input_table_name = f"{connector.feature_table_name}_temp_joined"
+    connector.join_input_tables(
+        inputs, input_columns, trainer.entity_column, joined_input_table_name
+    )
+
     input_column_types = connector.get_input_column_types(
         trainer,
         input_columns,
         inputs,
-        latest_entity_var_table,
+        joined_input_table_name,
     )
     logger.get().debug(f"Input column types detected: {input_column_types}")
 
@@ -282,6 +288,8 @@ def _train(
         model_hash=model_hash,
         prediction_horizon_days=trainer.prediction_horizon_days,
         inputs=inputs,
+        input_columns=input_columns,
+        entity_column=trainer.entity_column,
         feature_data_min_date_diff=feature_data_min_date_diff,
     )
     # material_names, training_dates

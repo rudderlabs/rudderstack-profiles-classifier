@@ -142,6 +142,8 @@ class TestGetMaterialNames(unittest.TestCase):
                 "selector_sql": """select * from material_user_var_736465_0""",
             },
         ]
+        self.input_columns = ["COL1", "COL2", "COL3"]
+        self.entity_column = "user_main_id"
         self.whtService = PythonWHT("siteconfig.yaml", "project_folder")
         self.whtService.set_connector(self.connector)
 
@@ -374,6 +376,8 @@ class TestGetMaterialNames(unittest.TestCase):
             self.model_hash,
             self.prediction_horizon_days,
             self.inputs,
+            self.input_columns,
+            self.entity_column,
         )
         # Assert the result
         self.assertEqual(materials, expected_materials)
@@ -409,6 +413,8 @@ class TestGetMaterialNames(unittest.TestCase):
             self.model_hash,
             self.prediction_horizon_days,
             self.inputs,
+            self.input_columns,
+            self.entity_column,
         )
 
         # Assert the result
@@ -443,6 +449,8 @@ class TestGetMaterialNames(unittest.TestCase):
                 self.model_hash,
                 self.prediction_horizon_days,
                 self.inputs,
+                self.input_columns,
+                self.entity_column,
             )
         # Check the exception message
         self.assertIn(
@@ -1583,10 +1591,26 @@ class Testget_input_column_types(unittest.TestCase):
         ]
 
         inputs = [
-            {"model_ref": "inputs/user_var_table1", "model_type": "input_var_item"},
-            {"model_ref": "inputs/user_var_table2", "model_type": "input_var_item"},
-            {"model_ref": "user/all/last_seen", "model_type": "entity_var_item"},
-            {"model_ref": "user/all/last_seen2", "model_type": "entity_var_item"},
+            {
+                "model_ref": "inputs/user_var_table1",
+                "model_type": "input_var_item",
+                "column_name": None,
+            },
+            {
+                "model_ref": "inputs/user_var_table2",
+                "model_type": "input_var_item",
+                "column_name": None,
+            },
+            {
+                "model_ref": "user/all/last_seen",
+                "model_type": "entity_var_item",
+                "column_name": "last_seen",
+            },
+            {
+                "model_ref": "user/all/last_seen2",
+                "model_type": "entity_var_item",
+                "column_name": "last_seen2",
+            },
         ]
         input_ignore_features = (
             []

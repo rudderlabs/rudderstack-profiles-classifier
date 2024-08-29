@@ -1,6 +1,8 @@
 import pandas as pd
 from abc import ABC, abstractmethod
-from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict
+from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict, Set
+
+from ..utils.logger import logger
 
 
 class Connector(ABC):
@@ -17,13 +19,38 @@ class Connector(ABC):
         }
         return new_creds
 
+    def validate_common_columns(
+        self, columns_per_input: List[Set[str]], entity_column: str
+    ) -> None:
+        all_columns = set.union(*columns_per_input)
+        if entity_column in all_columns:
+            all_columns.remove(entity_column)
+
+        for column in all_columns:
+            if (
+                sum(
+                    column in ind_input_column for ind_input_column in columns_per_input
+                )
+                > 1
+            ):
+                logger.get().error(
+                    f"Common column {column} is present in 2 or more inputs. Please correct the inputs in config."
+                )
+                raise Exception(
+                    f"Common columns are present in 2 or more inputs. Please correct the inputs in config."
+                )
+
     def get_input_columns(self, trainer_obj, inputs):
-        input_columns = set()
+        columns_per_input = list()
 
         for input in inputs:
             query = input["selector_sql"] + " LIMIT 1"
-            input_columns.update(self.run_query(query)[0]._fields)
+            ind_input_columns = set(self.run_query(query)[0]._fields)
+            columns_per_input.append(ind_input_columns)
 
+        self.validate_common_columns(columns_per_input, trainer_obj.entity_column)
+
+        input_columns = set.union(*columns_per_input)
         input_columns.difference_update(
             {
                 trainer_obj.index_timestamp,
@@ -35,6 +62,49 @@ class Connector(ABC):
             }
         )
         return list(input_columns)
+
+    def join_input_tables(
+        self,
+        inputs: List[Dict],
+        input_columns: List[str],
+        entity_column: str,
+        temp_joined_input_table_name: str,
+    ) -> None:
+        tables = {}
+        select_col_str = ", ".join(input_columns)
+        for input in inputs:
+            table_name = input["table_name"]
+            if table_name not in tables:
+                tables[table_name] = {
+                    "model_type": input["model_type"],
+                    "column_name": [],
+                }
+            if input["column_name"]:
+                tables[table_name]["column_name"].append(input["column_name"])
+
+        query_parts = []
+        for i, (table_name, info) in enumerate(tables.items(), start=1):
+            if len(info["column_name"]) > 0:
+                columns = ", ".join([entity_column] + info["column_name"])
+                subquery = f"(SELECT {columns} FROM {table_name})"
+            else:
+                subquery = f"(SELECT * FROM {table_name})"
+
+            if i == 1:
+                query_parts.append(f"{subquery} t{i}")
+            else:
+                query_parts.append(
+                    f"INNER JOIN {subquery} t{i} ON t1.{entity_column} = t{i}.{entity_column}"
+                )
+
+        query = (
+            f"""SELECT t1.{entity_column} AS {entity_column}, {select_col_str}
+            FROM
+                """
+            + "\n    ".join(query_parts)
+            + ";"
+        )
+        self.write_joined_input_table(query, temp_joined_input_table_name)
 
     def get_input_column_types(
         self,
@@ -151,8 +221,8 @@ class Connector(ABC):
 
             for input in inputs:
                 if (
-                    column_lower in input["model_ref"].lower()
-                    and input["model_type"] == "entity_var_item"
+                    input["column_name"] is not None
+                    and column_lower == input["column_name"].lower()
                 ):
                     raise Exception(
                         f"Array type features are not supported. Please remove '{column_lower}' and any other array type features from inputs."
@@ -226,6 +296,10 @@ class Connector(ABC):
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:
+        pass
+
+    @abstractmethod
+    def write_joined_input_table(self, query: str, table_name: str) -> None:
         pass
 
     @abstractmethod

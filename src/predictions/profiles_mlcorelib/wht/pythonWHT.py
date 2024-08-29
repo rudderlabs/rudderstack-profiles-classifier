@@ -96,6 +96,17 @@ class PythonWHT:
             entity_key,
         )
 
+    def create_joined_input_training_table(
+        self, inputs, input_columns, entity_column, table_name, seq_no
+    ):
+        for input in inputs:
+            input["table_name"] = utils.replace_seq_no_in_query(
+                input["table_name"], int(seq_no)
+            )
+        self.connector.join_input_tables(
+            inputs, input_columns, entity_column, table_name
+        )
+
     def _validate_historical_materials_hash(
         self,
         input: dict,
@@ -151,6 +162,8 @@ class PythonWHT:
         entity_var_model_name,
         model_hash,
         inputs,
+        input_columns,
+        entity_column,
         materials,
         return_partial_pairs: bool = False,
     ):
@@ -218,10 +231,22 @@ class PythonWHT:
                 else table_row.LABEL_END_TS.strftime(MATERIAL_DATE_FORMAT)
             )
 
+            for seq_no, suffix in zip(
+                (table_row.FEATURE_SEQ_NO, table_row.LABEL_SEQ_NO),
+                ("_feature", "_label"),
+            ):
+                self.create_joined_input_training_table(
+                    inputs,
+                    input_columns,
+                    entity_column,
+                    f"{self.connector.feature_table_name}{suffix}",
+                    seq_no,
+                )
+
             train_table_info = TrainTablesInfo(
-                feature_table_name=feature_material_name,
+                feature_table_name=f"{self.connector.feature_table_name}_{table_row.FEATURE_SEQ_NO}",
                 feature_table_date=feature_table_date,
-                label_table_name=label_material_name,
+                label_table_name=f"{self.connector.feature_table_name}_{table_row.LABEL_SEQ_NO}",
                 label_table_date=label_table_date,
             )
             materials.append(train_table_info)
@@ -234,6 +259,8 @@ class PythonWHT:
         model_hash: str,
         prediction_horizon_days: int,
         inputs: List[dict],
+        input_columns: List[str],
+        entity_column: str,
         return_partial_pairs: bool = False,
         feature_data_min_date_diff: int = 3,
     ) -> List[TrainTablesInfo]:
@@ -260,6 +287,8 @@ class PythonWHT:
                 entity_var_model_name,
                 model_hash,
                 inputs,
+                input_columns,
+                entity_column,
                 materials,
                 return_partial_pairs,
             )
@@ -432,6 +461,8 @@ class PythonWHT:
         model_hash: str,
         prediction_horizon_days: int,
         inputs: List[dict],
+        input_columns: List[str],
+        entity_column: str,
         return_partial_pairs: bool = False,
         feature_data_min_date_diff: int = 3,
     ) -> List[TrainTablesInfo]:
@@ -463,6 +494,8 @@ class PythonWHT:
             model_hash,
             prediction_horizon_days,
             inputs,
+            input_columns,
+            entity_column,
             return_partial_pairs,
         )
 
@@ -486,6 +519,8 @@ class PythonWHT:
                 model_hash,
                 prediction_horizon_days,
                 inputs,
+                input_columns,
+                entity_column,
             )
 
         complete_sequences_materials = get_complete_sequences(materials)

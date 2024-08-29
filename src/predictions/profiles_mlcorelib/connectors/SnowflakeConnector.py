@@ -96,6 +96,13 @@ class SnowflakeConnector(Connector):
 
         return self.session.call(*args)
 
+    def write_joined_input_table(self, query, table_name):
+        create_temp_table_query = f"""
+                                    CREATE TEMPORARY TABLE {table_name} AS
+                                    {query} ;
+                                """
+        self.run_query(create_temp_table_query)
+
     def get_entity_var_table_ref(self, table_name: str) -> str:
         return f'"{table_name.upper()}"'
 

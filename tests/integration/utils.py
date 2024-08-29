@@ -46,11 +46,15 @@ folder_path_output_file = os.path.dirname(output_filename)
 
 package_name = "feature_table"
 feature_table_name = "shopify_user_features"
+sql_mode_name = "rsRandomSQLModel"
 eligible_users = "*"
 package_name = "feature_table"
 classifier_label_column = "is_churned_7_days"
 regressor_label_column = "days_since_last_seen"
-inputs = [f"packages/{package_name}/models/{feature_table_name}"]
+inputs = [
+    f"packages/{package_name}/models/{feature_table_name}",
+    f"packages/{package_name}/models/{sql_mode_name}",
+]
 s3_config = {}
 pred_horizon_days = 7
 output_model_name_classification = "prediction_model"

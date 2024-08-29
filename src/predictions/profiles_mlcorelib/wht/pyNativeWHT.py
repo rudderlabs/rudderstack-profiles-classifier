@@ -92,6 +92,8 @@ class PyNativeWHT:
         model_hash: str,
         prediction_horizon_days: int,
         inputs: List[dict],
+        input_columns: List[str],
+        entity_column: str,
         feature_data_min_date_diff: int,
     ) -> List[TrainTablesInfo]:
         return self.pythonWHT.get_material_names(
@@ -101,6 +103,8 @@ class PyNativeWHT:
             model_hash,
             prediction_horizon_days,
             inputs,
+            input_columns,
+            entity_column,
             False,
             feature_data_min_date_diff,
         )

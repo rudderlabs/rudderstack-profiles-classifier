@@ -204,6 +204,8 @@ class TestPyNativeWHT(unittest.TestCase):
                     "table_name": "material_{model_name}_{hash}_{seq_no}",
                 }
             ],
+            ["is_churned"],
+            "user_main_id",
             3,
         )
         self.pyNativeWHT.pythonWHT.get_material_names.assert_called_once_with(
@@ -218,6 +220,8 @@ class TestPyNativeWHT(unittest.TestCase):
                     "table_name": "material_{model_name}_{hash}_{seq_no}",
                 }
             ],
+            ["is_churned"],
+            "user_main_id",
             False,
             3,
         )

@@ -217,32 +217,21 @@ def get_latest_entity_var(
     creds: dict, siteconfig_path: str, project_path: str, train_input_model_name: str
 ):
     connector = ConnectorFactory.create(creds, current_dir)
-    print("train_input_model_name")
-    print(train_input_model_name)
 
     latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
         entity_key,
         siteconfig_path,
         project_path,
     )
-    print("latest_model_hash")
-    print(latest_model_hash)
-
-    print("entity_var_model_name")
-    print(entity_var_model_name)
 
     latest_seq_no = connector.get_latest_seq_no_from_registry(
         material_registry_table_name,
         latest_model_hash,
         entity_var_model_name,
     )
-    print("latest_seq_no")
-    print(latest_seq_no)
     input_model_hash = connector.get_model_hash_from_registry(
         material_registry_table_name, train_input_model_name, latest_seq_no
     )
-    print("input_model_hash")
-    print(input_model_hash)
     connector.post_job_cleanup()
     return input_model_hash, latest_seq_no
 

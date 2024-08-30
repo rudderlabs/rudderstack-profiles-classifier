@@ -184,8 +184,6 @@ class TrainingRecipe(PyNativeRecipe):
         return current_time - time_delta[validity_time]
 
     def register_dependencies(self, this: WhtMaterial):
-        for input in self.build_spec["inputs"]:
-            this.de_ref(input)
         this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
         whtService = PyNativeWHT(
             this,

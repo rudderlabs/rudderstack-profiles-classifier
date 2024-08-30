@@ -184,9 +184,14 @@ class TrainingRecipe(PyNativeRecipe):
         return current_time - time_delta[validity_time]
 
     def register_dependencies(self, this: WhtMaterial):
-        for input in self.build_spec["inputs"]:
-            this.de_ref(input)
         this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
+        whtService = PyNativeWHT(
+            this,
+            this.wht_ctx.site_config().get("FilePath"),
+            this.base_wht_project.project_path(),
+        )
+        # This method call is only for registering dependencies
+        whtService.get_inputs(self.build_spec["inputs"])
 
     def get_training_file_path(this: WhtMaterial):
         folder = this.get_output_folder()

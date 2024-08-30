@@ -101,9 +101,14 @@ class PredictionRecipe(PyNativeRecipe):
 
     def register_dependencies(self, this: WhtMaterial):
         this.de_ref(self.build_spec["training_model"])
-        for input in self.build_spec["inputs"]:
-            this.de_ref(input)
         this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
+        whtService = PyNativeWHT(
+            this,
+            this.wht_ctx.site_config().get("FilePath"),
+            this.base_wht_project.project_path(),
+        )
+        # This method call is only for registering dependencies
+        whtService.get_inputs(self.build_spec["inputs"])
 
     def _get_train_output_filepath(self, this: WhtMaterial):
         # If training is skipped, this function will return incorrect path

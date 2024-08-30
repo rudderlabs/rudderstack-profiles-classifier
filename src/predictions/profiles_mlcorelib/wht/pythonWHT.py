@@ -244,17 +244,26 @@ class PythonWHT:
                 (table_row.FEATURE_SEQ_NO, table_row.LABEL_SEQ_NO),
                 ("_feature", "_label"),
             ):
-                self.create_joined_input_training_table(
-                    inputs,
-                    input_columns,
-                    entity_column,
-                    int(seq_no),
-                )
+                if seq_no is not None:
+                    self.create_joined_input_training_table(
+                        inputs,
+                        input_columns,
+                        entity_column,
+                        int(seq_no),
+                    )
 
             train_table_info = TrainTablesInfo(
-                feature_table_name=f"{self.connector.feature_table_name}_{int(table_row.FEATURE_SEQ_NO)}",
+                feature_table_name=(
+                    f"{self.connector.feature_table_name}_{int(table_row.FEATURE_SEQ_NO)}"
+                    if table_row.FEATURE_SEQ_NO is not None
+                    else None
+                ),
                 feature_table_date=feature_table_date,
-                label_table_name=f"{self.connector.feature_table_name}_{int(table_row.LABEL_SEQ_NO)}",
+                label_table_name=(
+                    f"{self.connector.feature_table_name}_{int(table_row.LABEL_SEQ_NO)}"
+                    if table_row.LABEL_SEQ_NO is not None
+                    else None
+                ),
                 label_table_date=label_table_date,
             )
             materials.append(train_table_info)

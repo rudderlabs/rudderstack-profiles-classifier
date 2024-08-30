@@ -42,13 +42,17 @@ class CommonWarehouseConnector(Connector):
         return train_function(*args, **kwargs)
 
     def write_joined_input_table(self, query, table_name):
+        table_path = f"{self.schema}.{table_name}"
+        drop_table_query = f"DROP TABLE IF EXISTS {table_path};"
         create_temp_table_query = f"""
-                                    CREATE TABLE {self.schema}.{table_name} AS
+                                    CREATE TABLE {table_path} AS
                                     {query} ;
                                 """
+
         # TODO: remove this log
         logger.get().info(f"create_temp_table_query: {create_temp_table_query}")
-        self.run_query(create_temp_table_query, response=False)
+        for query in [drop_table_query, create_temp_table_query]:
+            self.run_query(query, response=False)
 
     def transform_arraytype_features(
         self,

@@ -248,13 +248,13 @@ class PythonWHT:
                     inputs,
                     input_columns,
                     entity_column,
-                    seq_no,
+                    int(seq_no),
                 )
 
             train_table_info = TrainTablesInfo(
-                feature_table_name=f"{self.connector.feature_table_name}_{table_row.FEATURE_SEQ_NO}",
+                feature_table_name=f"{self.connector.feature_table_name}_{int(table_row.FEATURE_SEQ_NO)}",
                 feature_table_date=feature_table_date,
-                label_table_name=f"{self.connector.feature_table_name}_{table_row.LABEL_SEQ_NO}",
+                label_table_name=f"{self.connector.feature_table_name}_{int(table_row.LABEL_SEQ_NO)}",
                 label_table_date=label_table_date,
             )
             materials.append(train_table_info)

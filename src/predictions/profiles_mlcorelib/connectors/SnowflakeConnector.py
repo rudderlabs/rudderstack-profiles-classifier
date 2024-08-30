@@ -98,7 +98,7 @@ class SnowflakeConnector(Connector):
 
     def write_joined_input_table(self, query, table_name):
         create_temp_table_query = f"""
-                                    CREATE TABLE {table_name} AS
+                                    CREATE TABLE {self.schema}.{table_name} AS
                                     {query} ;
                                 """
         # TODO: remove this log

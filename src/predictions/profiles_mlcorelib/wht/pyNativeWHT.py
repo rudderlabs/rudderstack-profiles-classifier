@@ -95,6 +95,7 @@ class PyNativeWHT:
         input_columns: List[str],
         entity_column: str,
         feature_data_min_date_diff: int,
+        return_partial_pairs: bool = False,
     ) -> List[TrainTablesInfo]:
         return self.pythonWHT.get_material_names(
             start_date,

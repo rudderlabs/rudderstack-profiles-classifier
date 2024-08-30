@@ -222,7 +222,10 @@ class PythonWHT:
                 break
 
         # TODO: Remove this log
-        logger.get().info(f"Validation flag: {validation_flag}")
+        if validation_flag:
+            logger.get().info(
+                f"Validation flag is True from : {table_row.FEATURE_SEQ_NO, table_row.LABEL_SEQ_NO}"
+            )
 
         if validation_flag:
             feature_table_date = (
@@ -284,9 +287,6 @@ class PythonWHT:
             end_time,
             prediction_horizon_days,
         )
-
-        # TODO: Remove this log
-        logger.get().info(f"Found feature_label_df: {feature_label_df}")
 
         materials = list()
         for row in feature_label_df:

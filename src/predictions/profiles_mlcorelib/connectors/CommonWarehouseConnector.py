@@ -43,9 +43,11 @@ class CommonWarehouseConnector(Connector):
 
     def write_joined_input_table(self, query, table_name):
         create_temp_table_query = f"""
-                                    CREATE OR REPLACE TABLE {table_name} AS
+                                    CREATE TABLE {table_name} AS
                                     {query} ;
                                 """
+        # TODO: remove this log
+        logger.get().info(f"create_temp_table_query: {create_temp_table_query}")
         self.run_query(create_temp_table_query, response=False)
 
     def transform_arraytype_features(

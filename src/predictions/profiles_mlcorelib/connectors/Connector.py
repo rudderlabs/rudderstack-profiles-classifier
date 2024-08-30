@@ -7,8 +7,9 @@ from ..utils.logger import logger
 
 class Connector(ABC):
     def __init__(self, creds: dict) -> None:
-        self.session = self.build_session(creds)
+        self.schema = None
         self.feature_table_name = None
+        self.session = self.build_session(creds)
 
     def remap_credentials(self, credentials: dict) -> dict:
         """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses"""
@@ -92,9 +93,9 @@ class Connector(ABC):
         for i, (table_name, info) in enumerate(tables.items(), start=1):
             if len(info["column_name"]) > 0:
                 columns = ", ".join([entity_column] + info["column_name"])
-                subquery = f"(SELECT {columns} FROM {table_name})"
+                subquery = f"(SELECT {columns} FROM {self.schema}.{table_name})"
             else:
-                subquery = f"(SELECT * FROM {table_name})"
+                subquery = f"(SELECT * FROM {self.schema}.{table_name})"
 
             if i == 1:
                 query_parts.append(f"{subquery} t{i}")
@@ -103,12 +104,10 @@ class Connector(ABC):
                     f"INNER JOIN {subquery} t{i} ON t1.{entity_column} = t{i}.{entity_column}"
                 )
 
-        query = (
-            f"""SELECT t1.{entity_column} AS {entity_column}, {select_col_str}
+        query = f"""SELECT t1.{entity_column} AS {entity_column}, {select_col_str}
             FROM
-                """
-            + "\n    ".join(query_parts)
-            + ";"
+                """ + "\n    ".join(
+            query_parts
         )
         self.write_joined_input_table(query, temp_joined_input_table_name)
 

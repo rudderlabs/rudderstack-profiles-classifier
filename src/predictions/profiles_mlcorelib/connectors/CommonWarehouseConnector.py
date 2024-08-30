@@ -49,8 +49,6 @@ class CommonWarehouseConnector(Connector):
                                     {query} ;
                                 """
 
-        # TODO: remove this log
-        logger.get().info(f"create_temp_table_query: {create_temp_table_query}")
         for query in [drop_table_query, create_temp_table_query]:
             self.run_query(query, response=False)
 

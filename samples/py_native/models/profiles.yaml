@@ -1,32 +1,29 @@
 models:
-  # - name: propensity_model
-  #   model_type: propensity
-  #   model_spec:
-  #     entity_key: user
-  #     training:
-  #       predict_var: packages/feature_table/entity/user/is_churned_7_days
-  #       predict_window_days: 7
-  #       eligible_users: '*'
-  #       max_row_count: 500000
-  #       label_value: 1
-  #       type: classification
-  #       validity: day
-  #     prediction:
-  #       output_columns:
-  #         percentile:
-  #           name: percentile_classification_churn_7_days
-  #           description: description1
-  #         score:
-  #           name: classification_churn_7_days
-  #           description: description2
-  #           is_feature: False
-  #       eligible_users: '*'
-  #     inputs:
-  #       - packages/feature_table/entity/user/is_churned_7_days
-  #       - packages/feature_table/entity/user/days_since_last_seen
-  #       - packages/feature_table/entity/user/has_seen_recently
-  #       - packages/feature_table/entity/user/last_seen_category
-  #       - packages/feature_table/entity/user/n_orders_completed
+  - name: propensity_model
+    model_type: propensity
+    model_spec:
+      entity_key: user
+      training:
+        predict_var: packages/feature_table/entity/user/is_churned_7_days
+        predict_window_days: 7
+        eligible_users: '*'
+        max_row_count: 500000
+        label_value: 1
+        type: classification
+        validity: day
+      prediction:
+        output_columns:
+          percentile:
+            name: percentile_classification_churn_7_days
+            description: description1
+          score:
+            name: classification_churn_7_days
+            description: description2
+            is_feature: False
+        eligible_users: '*'
+      inputs:
+        - packages/feature_table/models/shopify_user_features
+        - packages/feature_table/models/rsRandomSQLModel
 
   - name: training_Regression_model
     model_type: training_model

@@ -261,10 +261,6 @@ def _train(
 
     input_columns = connector.get_input_columns(trainer, inputs)
 
-    # TODO: remove this log
-    logger.get().info(f"Inputs: {inputs}")
-    logger.get().info(f"Input columns detected: {input_columns}")
-
     joined_input_table_name = f"{connector.feature_table_name}_for_training"
     connector.join_input_tables(
         inputs, input_columns, trainer.entity_column, joined_input_table_name

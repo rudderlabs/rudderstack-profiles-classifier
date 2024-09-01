@@ -113,7 +113,9 @@ class Connector(ABC):
 
     def drop_joined_tables(self, table_list: List[str]) -> None:
         for table in table_list:
-            self.run_query(f"drop table if exists {self.schema}.{table};")
+            self.run_query(
+                f"drop table if exists {self.schema}.{table};", response=False
+            )
 
     def get_input_column_types(
         self,

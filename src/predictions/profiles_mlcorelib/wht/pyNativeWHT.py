@@ -66,7 +66,14 @@ class PyNativeWHT:
         return column_name
 
     def get_end_ts(self, input_model_name, model_hash, seq_no):
-        _, end_ts = self.whtMaterial.wht_ctx.time_info()
+        # TODO: why is whtService is through pynative and not through pythonWHT in case of python model
+        # _, end_ts = self.whtMaterial.wht_ctx.time_info()
+        end_ts = self.pythonWHT.connector.get_end_ts(
+            self.get_registry_table_name(),
+            input_model_name,
+            model_hash,
+            seq_no,
+        )
         return end_ts
 
     def update_config_info(self, merged_config):

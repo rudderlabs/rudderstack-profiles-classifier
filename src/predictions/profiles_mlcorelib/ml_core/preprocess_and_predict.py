@@ -74,7 +74,8 @@ def preprocess_and_predict(
 
     seq_no = whtService.get_latest_seq_no(inputs)
 
-    end_ts = whtService.get_end_ts(
+    end_ts = connector.get_end_ts(
+        whtService.get_registry_table_name(),
         input_model_name,
         model_hash,
         seq_no,

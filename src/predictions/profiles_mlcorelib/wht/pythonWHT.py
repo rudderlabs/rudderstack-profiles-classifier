@@ -42,6 +42,15 @@ class PythonWHT:
     ) -> None:
         self.connector = connector
 
+    def get_end_ts(self, input_model_name, model_hash, seq_no):
+        end_ts = self.connector.get_end_ts(
+            self.get_registry_table_name(),
+            input_model_name,
+            model_hash,
+            seq_no,
+        )
+        return end_ts
+
     def update_config_info(self, merged_config):
         merged_config["data"]["entity_column"] = (
             self.connector.get_entity_column_case_corrected(

@@ -111,6 +111,10 @@ class Connector(ABC):
         )
         self.write_joined_input_table(query, temp_joined_input_table_name)
 
+    def drop_joined_tables(self, table_list: List[str]) -> None:
+        for table in table_list:
+            self.run_query(f"drop table if exists {self.schema}.{table};")
+
     def get_input_column_types(
         self,
         trainer_obj,

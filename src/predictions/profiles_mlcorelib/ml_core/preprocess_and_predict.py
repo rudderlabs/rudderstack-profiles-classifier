@@ -74,8 +74,7 @@ def preprocess_and_predict(
 
     seq_no = whtService.get_latest_seq_no(inputs)
 
-    end_ts = connector.get_end_ts(
-        whtService.get_registry_table_name(),
+    end_ts = whtService.get_end_ts(
         input_model_name,
         model_hash,
         seq_no,
@@ -303,7 +302,7 @@ def preprocess_and_predict(
         logger.get().error(f"Error while fetching previous prediction table: {e}")
 
     logger.get().debug("Closing the session")
-
+    connector.drop_joined_tables(table_list=[joined_input_table_name])
     connector.post_job_cleanup()
     logger.get().debug("Finished Predict job")
 

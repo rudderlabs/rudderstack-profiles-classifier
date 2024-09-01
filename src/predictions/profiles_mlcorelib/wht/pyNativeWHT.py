@@ -65,6 +65,10 @@ class PyNativeWHT:
         column_name = self.whtMaterial.de_ref(model_ref).model.db_object_name_prefix()
         return column_name
 
+    def get_end_ts(self, input_model_name, model_hash, seq_no):
+        _, end_ts = self.whtMaterial.wht_ctx.time_info()
+        return end_ts
+
     def update_config_info(self, merged_config):
         entity = self.whtMaterial.model.entity()
         merged_config["data"]["entity_key"] = entity["Name"]

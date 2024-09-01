@@ -333,13 +333,20 @@ def _train(
 
     training_dates_ = []
     material_names_ = []
+    tables_set_to_drop = set()
     for train_table_pair_ in train_table_pairs:
-        material_names_.append(
-            [train_table_pair_.feature_table_name, train_table_pair_.label_table_name]
-        )
-        training_dates_.append(
-            [train_table_pair_.feature_table_date, train_table_pair_.label_table_date]
-        )
+        material_name_pair = [
+            train_table_pair_.feature_table_name,
+            train_table_pair_.label_table_name,
+        ]
+        material_names_.append(material_name_pair)
+        tables_set_to_drop.update(material_name_pair)
+
+        material_date_pair = [
+            train_table_pair_.feature_table_date,
+            train_table_pair_.label_table_date,
+        ]
+        training_dates_.append(material_date_pair)
 
     results = {
         "config": {
@@ -378,5 +385,8 @@ def _train(
             logger.get().error(f"Could not fetch {figure_name} {e}")
 
     logger.get().debug("Cleaning up the training session")
+    connector.drop_joined_tables(
+        table_list=[joined_input_table_name] + list(tables_set_to_drop)
+    )
     connector.post_job_cleanup()
     logger.get().debug("Training completed")

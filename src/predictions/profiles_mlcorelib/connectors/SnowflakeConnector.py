@@ -101,6 +101,12 @@ class SnowflakeConnector(Connector):
                                     CREATE OR REPLACE TABLE {self.schema}.{table_name} AS
                                     {query} ;
                                 """
+
+        # TODO: remove this log
+        logger.get().info(
+            f"create_temp_table_query:======= \n {create_temp_table_query}"
+        )
+
         self.run_query(create_temp_table_query)
 
     def get_entity_var_table_ref(self, table_name: str) -> str:

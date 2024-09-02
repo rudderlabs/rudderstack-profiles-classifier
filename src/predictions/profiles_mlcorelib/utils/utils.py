@@ -820,7 +820,7 @@ def plot_user_feature_importance(
     return figure, user_feat_imp_dict
 
 
-def generate_random_string(self, length):
+def generate_random_string(length):
     letters = string.ascii_letters + string.digits
     result_str = "".join(random.choice(letters) for i in range(length))
     return result_str

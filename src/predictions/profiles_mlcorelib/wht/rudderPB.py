@@ -84,7 +84,7 @@ class RudderPB:
     def extract_json_from_stdout(self, stdout):
         start_index = stdout.find("printing models")
         if start_index == -1:
-            return None
+            start_index = 0
 
         # Find the index of the first '{' after the line
         start_index = stdout.find("{", start_index)

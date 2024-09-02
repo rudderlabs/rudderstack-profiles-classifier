@@ -48,10 +48,7 @@ class CommonWarehouseConnector(Connector):
                                     CREATE TABLE {table_path} AS
                                     {query} ;
                                 """
-        # TODO: Remove this log
-        logger.get().info(
-            f"Query to create temp table:======== \n {create_temp_table_query}"
-        )
+
         for query in [drop_table_query, create_temp_table_query]:
             self.run_query(query, response=False)
 

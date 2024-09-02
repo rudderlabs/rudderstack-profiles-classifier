@@ -1,5 +1,7 @@
 import math
 import re
+import random
+import string
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -816,6 +818,12 @@ def plot_user_feature_importance(
     user_feat_imp_dict = dict(zip(col_names_, shap_score.values[0]))
     figure = shap.plots.waterfall(shap_score[0], max_display=10, show=False)
     return figure, user_feat_imp_dict
+
+
+def generate_random_string(self, length):
+    letters = string.ascii_letters + string.digits
+    result_str = "".join(random.choice(letters) for i in range(length))
+    return result_str
 
 
 def replace_seq_no_in_query(query: str, seq_no: int) -> str:

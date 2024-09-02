@@ -102,10 +102,6 @@ class SnowflakeConnector(Connector):
                                     {query} ;
                                 """
 
-        # TODO: Remove this log
-        logger.get().info(
-            f"Query to create temp table:======== \n {create_temp_table_query}"
-        )
         self.run_query(create_temp_table_query, response=False)
 
     def get_entity_var_table_ref(self, table_name: str) -> str:

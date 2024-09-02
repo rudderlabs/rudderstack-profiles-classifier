@@ -150,10 +150,7 @@ def test_classification():
         with open(output_filename, "r") as f:
             results = json.load(f)
 
-        material_table_name = results["config"]["material_names"][0][-1]
-        predict_inputs = [
-            f"SELECT * {creds['schema']}.{material_table_name}",
-        ]
+        predict_inputs = train_inputs
 
         predict(
             creds,

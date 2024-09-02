@@ -41,7 +41,7 @@ def predict(
         creds,
         model_path,
         # Skipping compile when computing inputs since the information derived from it is not used in the predict step
-        wht.get_inputs(input_selector_sqls, False),
+        wht.get_inputs(input_selector_sqls, True),
         output_tablename,
         config,
         runtime_info,

@@ -81,7 +81,9 @@ def preprocess_and_predict(
         seq_no,
     )
 
-    joined_input_table_name = f"{connector.feature_table_name}_for_prediction"
+    joined_input_table_name = (
+        f"prediction_joined_table_{utils.generate_random_string(5)}"
+    )
     connector.join_input_tables(
         inputs, input_columns, trainer.entity_column, joined_input_table_name
     )

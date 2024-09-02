@@ -50,8 +50,8 @@ def preprocess_and_predict(
     train_model_id = results["model_info"]["model_id"]
     stage_name = results["model_info"]["file_location"]["stage"]
     pkl_model_file_name = results["model_info"]["file_location"]["file_name"]
-    model_hash = results["config"]["material_hash"]
-    input_model_name = results["config"]["input_model_name"]
+    entity_var_model_hash = results["config"]["entity_var_model_hash"]
+    entity_var_model_name = results["config"]["entity_var_model_name"]
 
     input_column_types = results["column_names"]["input_column_types"]
     numeric_columns = results["column_names"]["input_column_types"]["numeric"]
@@ -74,12 +74,7 @@ def preprocess_and_predict(
 
     seq_no = whtService.get_latest_seq_no(inputs)
 
-    end_ts = connector.get_end_ts(
-        whtService.get_registry_table_name(),
-        input_model_name,
-        model_hash,
-        seq_no,
-    )
+    end_ts = whtService.get_end_ts(entity_var_model_name, entity_var_model_hash, seq_no)
 
     joined_input_table_name = (
         f"prediction_joined_table_{utils.generate_random_string(5)}"

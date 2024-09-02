@@ -84,6 +84,12 @@ class PyNativeWHT:
         )
         return merged_config
 
+    def get_end_ts(self, model_name, model_hash, seq_no):
+        # TODO: Implement this function once we completely move to pynative model
+        # _, end_ts = self.whtMaterial.wht_ctx.time_info()
+        # return end_ts
+        return self.pythonWHT.get_end_ts(model_name, model_hash, seq_no)
+
     def get_material_names(
         self,
         start_date: str,

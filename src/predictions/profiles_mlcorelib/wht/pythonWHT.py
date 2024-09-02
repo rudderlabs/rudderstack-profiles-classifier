@@ -43,6 +43,14 @@ class PythonWHT:
         self.connector.feature_table_name = f"{merged_config['data']['output_profiles_ml_model']}_{utils.generate_random_string(5)}_feature_table"
         return merged_config
 
+    def get_end_ts(self, model_name, model_hash, seq_no):
+        return self.connector.get_end_ts(
+            self.get_registry_table_name(),
+            model_name,
+            model_hash,
+            seq_no,
+        )
+
     def _getPB(self):
         mock = False
         if mock:

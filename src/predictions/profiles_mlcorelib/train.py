@@ -352,9 +352,9 @@ def _train(
         "config": {
             "training_dates": training_dates_,
             "material_names": material_names_,
-            "material_hash": model_hash,
+            "entity_var_model_hash": model_hash,
             **asdict(trainer),
-            "input_model_name": entity_var_model_name,
+            "entity_var_model_name": entity_var_model_name,
         },
         "model_info": {
             "model_name": train_results["model_class_name"],

@@ -147,11 +147,7 @@ def test_classification():
         validate_training_summary()
         validate_reports()
 
-        with open(output_filename, "r") as f:
-            results = json.load(f)
-
         predict_inputs = train_inputs
-
         predict(
             creds,
             s3_config,

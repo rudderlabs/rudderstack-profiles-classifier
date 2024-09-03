@@ -5,6 +5,6 @@ model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/profiles-features-integration-test/tree/feature/prml-839-modify-integration-tests-to-support-sql-models
+    url: https://github.com/rudderlabs/profiles-features-integration-test/tag/schema_{{best_schema_version}}
 python_requirements:
   - profiles_mlcorelib

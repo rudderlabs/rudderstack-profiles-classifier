@@ -171,7 +171,7 @@ class TestGetLatestSeqNo(unittest.TestCase):
 
 class TestGetInputs(unittest.TestCase):
     @patch("src.predictions.profiles_mlcorelib.wht.rudderPB.RudderPB.show_models")
-    def test_get_inputs(self, mock_rudderpb_show_models):
+    def test_get_inputs_from_stdout(self, mock_rudderpb_show_models):
         selector_sqls = [
             '''SELECT last_seen FROM "schema"."material_user_var_table_54ddc22a_383"''',
             """SELECT last_seen FROM `schema`.`material_user_var_table_54ddc22a_383`""",
@@ -270,6 +270,34 @@ class TestGetInputs(unittest.TestCase):
                 "model_ref": "models/feature_table_model2",
                 "model_type": "feature_table_model",
                 "model_hash": "45223ds1",
+            },
+        ]
+        self.assertEqual(result, expected_result)
+
+    @patch("src.predictions.profiles_mlcorelib.wht.rudderPB.RudderPB.show_models")
+    def test_get_inputs_from_stderr(self, mock_rudderpb_show_models):
+        selector_sqls = [
+            '''SELECT last_seen FROM "schema"."material_user_var_table_54ddc22a_383"''',
+        ]
+        mock_rudderpb_show_models.return_value = """Some text before 
+            dummy entity.var
+            {
+                "project/user/all/last_seen": {
+                        "model_type": "entity_var_item"
+                }
+            }
+            Some text after"""
+        wht = PythonWHT("site_config_path", "project_folder")
+        result = wht.get_inputs(selector_sqls, False)
+        expected_result = [
+            {
+                "selector_sql": '''SELECT last_seen FROM "schema"."material_user_var_table_54ddc22a_383"''',
+                "table_name": "material_user_var_table_54ddc22a_383",
+                "model_name": "last_seen",
+                "column_name": "last_seen",
+                "model_ref": "user/all/last_seen",
+                "model_type": "entity_var_item",
+                "model_hash": None,
             },
         ]
         self.assertEqual(result, expected_result)

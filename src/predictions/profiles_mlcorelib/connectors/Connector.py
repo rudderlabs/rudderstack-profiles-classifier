@@ -281,6 +281,10 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def validate_sql_table(self, table_name: str, entity_column: str) -> None:
+        pass
+
+    @abstractmethod
     def run_query(self, query: str, response: bool) -> Optional[Sequence]:
         pass
 

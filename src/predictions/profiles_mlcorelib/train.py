@@ -102,6 +102,7 @@ def _train(
 
     merged_config = utils.combine_config(default_config, config)
     merged_config = whtService.update_config_info(merged_config)
+    whtService.validate_sql_table(inputs, merged_config["data"]["entity_column"])
 
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None

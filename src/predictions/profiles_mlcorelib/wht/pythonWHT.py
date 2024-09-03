@@ -612,6 +612,13 @@ class PythonWHT:
         logger.get().info(f"Found input models: {inputs}")
         return inputs
 
+    def validate_sql_table(self, inputs, entity_column) -> None:
+        for input in inputs:
+            if input["model_type"] == "sql_template":
+                raise Exception(
+                    "SQL models are not supported in python model as input. Please either use pyNative model or remove SQL models from the input."
+                )
+
     def compute_material_name(
         self, model_name: str, model_hash: str, seq_no: int
     ) -> str:

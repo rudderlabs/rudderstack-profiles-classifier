@@ -333,14 +333,14 @@ def _train(
 
     training_dates_ = []
     material_names_ = []
-    tables_set_to_drop = set()
+    past_joined_input_tables_set = set()
     for train_table_pair_ in train_table_pairs:
         material_name_pair = [
             train_table_pair_.feature_table_name,
             train_table_pair_.label_table_name,
         ]
         material_names_.append(material_name_pair)
-        tables_set_to_drop.update(material_name_pair)
+        past_joined_input_tables_set.update(material_name_pair)
 
         material_date_pair = [
             train_table_pair_.feature_table_date,
@@ -386,7 +386,7 @@ def _train(
 
     logger.get().debug("Cleaning up the training session")
     connector.drop_joined_tables(
-        table_list=[joined_input_table_name] + list(tables_set_to_drop)
+        table_list=[joined_input_table_name] + list(past_joined_input_tables_set)
     )
     connector.post_job_cleanup()
     logger.get().debug("Training completed")

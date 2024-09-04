@@ -19,7 +19,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 
 import snowflake.snowpark
 from snowflake.snowpark.session import Session
@@ -134,9 +134,9 @@ def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
     return merged_config
 
 
-def create_input_columns_list(input_column_types):
+def extract_unique_values(input_dict: Dict[str, List[str]]) -> List[str]:
     unique_values = set()
-    for _, value_list in input_column_types.items():
+    for _, value_list in input_dict.items():
         unique_values.update(value_list)
 
     return list(unique_values)

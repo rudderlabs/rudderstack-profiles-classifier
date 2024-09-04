@@ -20,19 +20,11 @@ class Connector(ABC):
         }
         return new_creds
 
-    def validate_common_columns(
+    def _validate_common_columns(
         self,
-        trainer_obj,
         columns_per_input: List[Set[str]],
     ) -> None:
         all_columns = set.union(*columns_per_input)
-        all_columns.difference_update(
-            {
-                trainer_obj.entity_column,
-                trainer_obj.entity_column.upper(),
-                trainer_obj.entity_column.lower(),
-            }
-        )
 
         for column in all_columns:
             if (
@@ -51,24 +43,23 @@ class Connector(ABC):
     def get_input_columns(self, trainer_obj, inputs):
         columns_per_input = list()
 
-        for input in inputs:
-            query = input["selector_sql"] + " LIMIT 1"
+        for input_ in inputs:
+            query = input_["selector_sql"] + " LIMIT 1"
             ind_input_columns = set(self.run_query(query)[0]._fields)
+            ind_input_columns.difference_update(
+                {
+                    trainer_obj.index_timestamp,
+                    trainer_obj.index_timestamp.upper(),
+                    trainer_obj.index_timestamp.lower(),
+                    trainer_obj.entity_column,
+                    trainer_obj.entity_column.upper(),
+                    trainer_obj.entity_column.lower(),
+                }
+            )
             columns_per_input.append(ind_input_columns)
 
-        self.validate_common_columns(trainer_obj, columns_per_input)
-
+        self._validate_common_columns(columns_per_input)
         input_columns = set.union(*columns_per_input)
-        input_columns.difference_update(
-            {
-                trainer_obj.index_timestamp,
-                trainer_obj.index_timestamp.upper(),
-                trainer_obj.index_timestamp.lower(),
-                trainer_obj.entity_column,
-                trainer_obj.entity_column.upper(),
-                trainer_obj.entity_column.lower(),
-            }
-        )
         return list(input_columns)
 
     def join_input_tables(
@@ -80,14 +71,14 @@ class Connector(ABC):
     ) -> None:
         tables = {}
         select_col_str = ", ".join(input_columns)
-        for input in inputs:
-            table_name = input["table_name"]
+        for input_ in inputs:
+            table_name = input_["table_name"]
             if table_name not in tables:
                 tables[table_name] = {
                     "column_name": [],
                 }
-            if input["column_name"]:
-                tables[table_name]["column_name"].append(input["column_name"])
+            if input_["column_name"]:
+                tables[table_name]["column_name"].append(input_["column_name"])
 
         query_parts = []
         for i, (table_name, info) in enumerate(tables.items(), start=1):

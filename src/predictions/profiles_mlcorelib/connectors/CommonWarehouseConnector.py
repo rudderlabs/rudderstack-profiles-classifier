@@ -191,18 +191,6 @@ class CommonWarehouseConnector(Connector):
     def get_merged_table(self, base_table, incoming_table):
         return pd.concat([base_table, incoming_table], axis=0, ignore_index=True)
 
-    def validate_sql_table(self, table_name: str, entity_column: str) -> None:
-        table_df = self.get_table(table_name)
-        total_rows = len(table_df[entity_column])
-        distinct_rows = table_df[entity_column].nunique()
-        if total_rows != distinct_rows:
-            logger.get().error(
-                f"SQL model table {table_name} has duplicate values in entity column {entity_column}. Please make sure that the column {entity_column} in all SQL model has unique values only."
-            )
-            raise Exception(
-                f"SQL model table {table_name} has duplicate values in entity column {entity_column}. Please make sure that the column {entity_column} in all SQL model has unique values only."
-            )
-
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:

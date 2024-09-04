@@ -1,5 +1,6 @@
 import pandas as pd
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict, Set
 
 from ..utils.logger import logger
@@ -37,19 +38,11 @@ class Connector(ABC):
                 f"SQL model table {table_name} has duplicate values in entity column {entity_column}. Please make sure that the column {entity_column} in all SQL model has unique values only."
             )
 
-    def validate_common_columns(
+    def _validate_common_columns(
         self,
-        trainer_obj,
         columns_per_input: List[Set[str]],
     ) -> None:
         all_columns = set.union(*columns_per_input)
-        all_columns.difference_update(
-            {
-                trainer_obj.entity_column,
-                trainer_obj.entity_column.upper(),
-                trainer_obj.entity_column.lower(),
-            }
-        )
 
         for column in all_columns:
             if (
@@ -68,44 +61,40 @@ class Connector(ABC):
     def get_input_columns(self, trainer_obj, inputs):
         columns_per_input = list()
 
-        for input in inputs:
-            query = input["selector_sql"] + " LIMIT 1"
+        for input_ in inputs:
+            query = input_["selector_sql"] + " LIMIT 1"
             ind_input_columns = set(self.run_query(query)[0]._fields)
+            ind_input_columns.difference_update(
+                {
+                    trainer_obj.index_timestamp,
+                    trainer_obj.index_timestamp.upper(),
+                    trainer_obj.index_timestamp.lower(),
+                    trainer_obj.entity_column,
+                    trainer_obj.entity_column.upper(),
+                    trainer_obj.entity_column.lower(),
+                }
+            )
             columns_per_input.append(ind_input_columns)
 
-        self.validate_common_columns(trainer_obj, columns_per_input)
-
+        self._validate_common_columns(columns_per_input)
         input_columns = set.union(*columns_per_input)
-        input_columns.difference_update(
-            {
-                trainer_obj.index_timestamp,
-                trainer_obj.index_timestamp.upper(),
-                trainer_obj.index_timestamp.lower(),
-                trainer_obj.entity_column,
-                trainer_obj.entity_column.upper(),
-                trainer_obj.entity_column.lower(),
-            }
-        )
         return list(input_columns)
 
-    def join_input_tables(
-        self,
-        inputs: List[Dict],
-        input_columns: List[str],
-        entity_column: str,
-        temp_joined_input_table_name: str,
-    ) -> None:
-        tables = {}
-        select_col_str = ", ".join(input_columns)
-        for input in inputs:
-            table_name = input["table_name"]
+    def _get_table_info(self, inputs):
+        tables = OrderedDict()
+        for input_ in inputs:
+            table_name = input_["table_name"]
             if table_name not in tables:
                 tables[table_name] = {
                     "column_name": [],
                 }
-            if input["column_name"]:
-                tables[table_name]["column_name"].append(input["column_name"])
+            if input_["column_name"]:
+                tables[table_name]["column_name"].append(input_["column_name"])
 
+        return tables
+
+    def _construct_join_query(self, entity_column, input_columns, tables):
+        select_col_str = ", ".join(input_columns)
         query_parts = []
         for i, (table_name, info) in enumerate(tables.items(), start=1):
             if len(info["column_name"]) > 0:
@@ -126,6 +115,17 @@ class Connector(ABC):
                 """ + "\n    ".join(
             query_parts
         )
+        return query
+
+    def join_input_tables(
+        self,
+        inputs: List[Dict],
+        input_columns: List[str],
+        entity_column: str,
+        temp_joined_input_table_name: str,
+    ) -> None:
+        tables = self._get_table_info(inputs)
+        query = self._construct_join_query(entity_column, input_columns, tables)
         self.write_joined_input_table(query, temp_joined_input_table_name)
 
     def drop_joined_tables(self, table_list: List[str]) -> None:

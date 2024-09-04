@@ -38,7 +38,7 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         self.pythonWHT.connector.feature_table_name = (
             "material_model_name_hash_seq_feature_table"
         )
-        self.pythonWHT.create_joined_input_training_table = Mock(return_value=None)
+        self.pythonWHT.connector.join_input_tables = Mock(return_value=None)
         self.inputs = []
         self.input_columns = ["COL1", "COL2", "COL3"]
         self.entity_column = "user_main_id"

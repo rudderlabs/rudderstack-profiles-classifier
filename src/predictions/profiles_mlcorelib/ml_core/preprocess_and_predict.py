@@ -61,7 +61,7 @@ def preprocess_and_predict(
     booleantype_columns = results["column_names"]["input_column_types"]["booleantype"]
     ignore_features = results["column_names"]["ignore_features"]
 
-    input_columns = utils.create_input_columns_list(input_column_types)
+    input_columns = utils.extract_unique_values(input_column_types)
     transformed_arraytype_columns = {
         word: [item for item in numeric_columns if item.startswith(word)]
         for word in arraytype_columns

@@ -1,5 +1,6 @@
 import pandas as pd
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict, Set
 
 from ..utils.logger import logger
@@ -62,15 +63,8 @@ class Connector(ABC):
         input_columns = set.union(*columns_per_input)
         return list(input_columns)
 
-    def join_input_tables(
-        self,
-        inputs: List[Dict],
-        input_columns: List[str],
-        entity_column: str,
-        temp_joined_input_table_name: str,
-    ) -> None:
-        tables = {}
-        select_col_str = ", ".join(input_columns)
+    def _get_table_info(self, inputs):
+        tables = OrderedDict()
         for input_ in inputs:
             table_name = input_["table_name"]
             if table_name not in tables:
@@ -80,6 +74,10 @@ class Connector(ABC):
             if input_["column_name"]:
                 tables[table_name]["column_name"].append(input_["column_name"])
 
+        return tables
+
+    def _construct_join_query(self, entity_column, input_columns, tables):
+        select_col_str = ", ".join(input_columns)
         query_parts = []
         for i, (table_name, info) in enumerate(tables.items(), start=1):
             if len(info["column_name"]) > 0:
@@ -100,6 +98,17 @@ class Connector(ABC):
                 """ + "\n    ".join(
             query_parts
         )
+        return query
+
+    def join_input_tables(
+        self,
+        inputs: List[Dict],
+        input_columns: List[str],
+        entity_column: str,
+        temp_joined_input_table_name: str,
+    ) -> None:
+        tables = self._get_table_info(inputs)
+        query = self._construct_join_query(entity_column, input_columns, tables)
         self.write_joined_input_table(query, temp_joined_input_table_name)
 
     def drop_joined_tables(self, table_list: List[str]) -> None:

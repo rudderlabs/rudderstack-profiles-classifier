@@ -95,19 +95,15 @@ class PythonWHT:
             entity_key,
         )
 
-    def create_joined_input_training_table(
-        self, inputs, input_columns, entity_column, seq_no
-    ):
+    def get_past_inputs(self, inputs, seq_no):
+        past_inputs = []
         for input in inputs:
-            input["table_name"] = utils.replace_seq_no_in_query(
+            past_input = input.copy()
+            past_input["table_name"] = utils.replace_seq_no_in_query(
                 input["table_name"], int(seq_no)
             )
-        self.connector.join_input_tables(
-            inputs,
-            input_columns,
-            entity_column,
-            f"{self.connector.feature_table_name}_{seq_no}",
-        )
+            past_inputs.append(past_input)
+        return past_inputs
 
     def _validate_historical_materials_hash(
         self,
@@ -233,30 +229,34 @@ class PythonWHT:
                 else table_row.LABEL_END_TS.strftime(MATERIAL_DATE_FORMAT)
             )
 
-            for seq_no, suffix in zip(
+            feature_past_table_name = (
+                f"{self.connector.feature_table_name}_{int(table_row.FEATURE_SEQ_NO)}"
+                if table_row.FEATURE_SEQ_NO is not None
+                else None
+            )
+            label_past_table_name = (
+                f"{self.connector.feature_table_name}_{int(table_row.LABEL_SEQ_NO)}"
+                if table_row.LABEL_SEQ_NO is not None
+                else None
+            )
+
+            for seq_no, target_table_name in zip(
                 (table_row.FEATURE_SEQ_NO, table_row.LABEL_SEQ_NO),
-                ("_feature", "_label"),
+                (feature_past_table_name, label_past_table_name),
             ):
                 if seq_no is not None:
-                    self.create_joined_input_training_table(
-                        inputs,
+                    past_inputs = self.get_past_inputs(inputs, seq_no)
+                    self.connector.join_input_tables(
+                        past_inputs,
                         input_columns,
                         entity_column,
-                        int(seq_no),
+                        target_table_name,
                     )
 
             train_table_info = TrainTablesInfo(
-                feature_table_name=(
-                    f"{self.connector.feature_table_name}_{int(table_row.FEATURE_SEQ_NO)}"
-                    if table_row.FEATURE_SEQ_NO is not None
-                    else None
-                ),
+                feature_table_name=feature_past_table_name,
                 feature_table_date=feature_table_date,
-                label_table_name=(
-                    f"{self.connector.feature_table_name}_{int(table_row.LABEL_SEQ_NO)}"
-                    if table_row.LABEL_SEQ_NO is not None
-                    else None
-                ),
+                label_table_name=label_past_table_name,
                 label_table_date=label_table_date,
             )
             materials.append(train_table_info)

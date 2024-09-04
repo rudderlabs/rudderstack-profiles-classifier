@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import re
+from copy import deepcopy
 from typing import List, Dict, Optional, Sequence, Tuple
 
 from .rudderPB import MATERIAL_PREFIX
@@ -97,10 +98,10 @@ class PythonWHT:
 
     def get_past_inputs(self, inputs, seq_no):
         past_inputs = []
-        for input in inputs:
-            past_input = input.copy()
+        for input_ in inputs:
+            past_input = deepcopy(input_)
             past_input["table_name"] = utils.replace_seq_no_in_query(
-                input["table_name"], int(seq_no)
+                past_input["table_name"], int(seq_no)
             )
             past_inputs.append(past_input)
         return past_inputs

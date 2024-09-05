@@ -20,6 +20,7 @@ from ..utils import constants
 from ..utils.S3Utils import S3Utils
 
 from ..trainers.MLTrainer import MLTrainer
+from ..connectors.Connector import Connector
 from ..connectors.ConnectorFactory import ConnectorFactory
 
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
@@ -34,7 +35,7 @@ def preprocess_and_predict(
     model_path,
     inputs,
     output_tablename,
-    connector,
+    connector: Connector,
     trainer: MLTrainer,
 ):
     """
@@ -49,9 +50,10 @@ def preprocess_and_predict(
     train_model_id = results["model_info"]["model_id"]
     stage_name = results["model_info"]["file_location"]["stage"]
     pkl_model_file_name = results["model_info"]["file_location"]["file_name"]
-    model_hash = results["config"]["material_hash"]
-    input_model_name = results["config"]["input_model_name"]
+    entity_var_model_hash = results["config"]["entity_var_model_hash"]
+    entity_var_model_name = results["config"]["entity_var_model_name"]
 
+    input_column_types = results["column_names"]["input_column_types"]
     numeric_columns = results["column_names"]["input_column_types"]["numeric"]
     categorical_columns = results["column_names"]["input_column_types"]["categorical"]
     arraytype_columns = results["column_names"]["input_column_types"]["arraytype"]
@@ -59,6 +61,7 @@ def preprocess_and_predict(
     booleantype_columns = results["column_names"]["input_column_types"]["booleantype"]
     ignore_features = results["column_names"]["ignore_features"]
 
+    input_columns = utils.extract_unique_values(input_column_types)
     transformed_arraytype_columns = {
         word: [item for item in numeric_columns if item.startswith(word)]
         for word in arraytype_columns
@@ -71,20 +74,20 @@ def preprocess_and_predict(
 
     seq_no = whtService.get_latest_seq_no(inputs)
 
-    entity_var_table_name = whtService.compute_material_name(
-        input_model_name, model_hash, seq_no
+    end_ts = whtService.get_end_ts(entity_var_model_name, entity_var_model_hash, seq_no)
+
+    joined_input_table_name = (
+        f"prediction_joined_table_{utils.generate_random_string(5)}"
+    )
+    connector.join_input_tables(
+        inputs, input_columns, trainer.entity_column, joined_input_table_name
     )
 
-    end_ts = connector.get_end_ts(
-        whtService.get_registry_table_name(),
-        input_model_name,
-        model_hash,
-        seq_no,
+    logger.get().debug(
+        f"Pulling data from Table, created after merging the input tables - {joined_input_table_name}"
     )
-
-    logger.get().debug(f"Pulling data from Entity-Var table - {entity_var_table_name}")
     raw_data = connector.get_table(
-        entity_var_table_name, filter_condition=trainer.eligible_users
+        joined_input_table_name, filter_condition=trainer.eligible_users
     )
 
     logger.get().debug("Transforming timestamp columns.")
@@ -235,7 +238,7 @@ def preprocess_and_predict(
         )
         prev_predictions = connector.get_table(prev_prediction_table)
 
-        label_table = trainer.prepare_label_table(connector, entity_var_table_name)
+        label_table = trainer.prepare_label_table(connector, joined_input_table_name)
         prev_pred_ground_truth_table = connector.join_feature_table_label_table(
             prev_predictions, label_table, trainer.entity_column, "inner"
         )
@@ -263,7 +266,7 @@ def preprocess_and_predict(
                 "prediction_date": [prediction_date],
                 "label_date": [end_ts],
                 "prediction_table_name": [prev_prediction_table],
-                "label_table_name": [entity_var_table_name],
+                "label_table_name": [joined_input_table_name],
                 "metrics": [metrics],
             }
         ).reset_index(drop=True)
@@ -297,7 +300,7 @@ def preprocess_and_predict(
         logger.get().error(f"Error while fetching previous prediction table: {e}")
 
     logger.get().debug("Closing the session")
-
+    connector.drop_joined_tables(table_list=[joined_input_table_name])
     connector.post_job_cleanup()
     logger.get().debug("Finished Predict job")
 

@@ -84,6 +84,12 @@ class PyNativeWHT:
         )
         return merged_config
 
+    def get_end_ts(self, model_name, model_hash, seq_no):
+        # TODO: Implement this function once we completely move to pynative model
+        # _, end_ts = self.whtMaterial.wht_ctx.time_info()
+        # return end_ts
+        return self.pythonWHT.get_end_ts(model_name, model_hash, seq_no)
+
     def get_material_names(
         self,
         start_date: str,
@@ -92,7 +98,10 @@ class PyNativeWHT:
         model_hash: str,
         prediction_horizon_days: int,
         inputs: List[dict],
+        input_columns: List[str],
+        entity_column: str,
         feature_data_min_date_diff: int,
+        return_partial_pairs: bool = False,
     ) -> List[TrainTablesInfo]:
         return self.pythonWHT.get_material_names(
             start_date,
@@ -101,6 +110,8 @@ class PyNativeWHT:
             model_hash,
             prediction_horizon_days,
             inputs,
+            input_columns,
+            entity_column,
             False,
             feature_data_min_date_diff,
         )
@@ -147,6 +158,13 @@ class PyNativeWHT:
                 }
             )
         return inputs
+
+    def validate_sql_table(self, inputs, entity_column) -> None:
+        for input in inputs:
+            if input["model_type"] == "sql_template":
+                self.pythonWHT.connector.validate_sql_table(
+                    input["table_name"], entity_column
+                )
 
     def get_credentials(self, project_path: str, site_config_path: str) -> str:
         connection_name = utils.load_yaml(

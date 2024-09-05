@@ -6,8 +6,61 @@ from src.predictions.profiles_mlcorelib.utils.utils import (
     dates_proximity_check,
     datetime_to_date_string,
     generate_new_training_dates,
+    replace_seq_no_in_query,
     get_abs_date_diff,
 )
+
+
+class TestReplaceSeqNoInQuery(unittest.TestCase):
+    def test_replaces_seq_no_correctly(self):
+        test_cases = [
+            {
+                "input": "SELECT * FROM material_user_var_table_123",
+                "output": "SELECT * FROM material_user_var_table_567",
+            },
+            {
+                "input": "SELECT * FROM `schema`.`material_user_var_table_123`",
+                "output": "SELECT * FROM `schema`.`material_user_var_table_567`",
+            },
+            {
+                "input": '''SELECT days_since_last_seen FROM "rs_profiles_3"."material_user_var_table_54ddc22a_383"''',
+                "output": '''SELECT days_since_last_seen FROM "rs_profiles_3"."material_user_var_table_54ddc22a_567"''',
+            },
+            {
+                "input": "SELECT days_since_last_seen FROM 'rs_profiles_3'.'material_user_var_table_54ddc22a_383'",
+                "output": "SELECT days_since_last_seen FROM 'rs_profiles_3'.'material_user_var_table_54ddc22a_567'",
+            },
+            {
+                "input": 'SELECT days_since_last_seen FROM "rs_profiles_3"."material_user_var_table_54ddc22a_383"',
+                "output": 'SELECT days_since_last_seen FROM "rs_profiles_3"."material_user_var_table_54ddc22a_567"',
+            },
+        ]
+        for case in test_cases:
+            with self.subTest(case=case["input"]):
+                result = replace_seq_no_in_query(case["input"], 567)
+                self.assertEqual(result, case["output"])
+
+    def test_handles_empty_query(self):
+        query = ""
+        seq_no = 5
+        expected_result = f"Couldn't find an integer seq_no in the input query: {query}"
+        with self.assertRaises(Exception) as context:
+            replace_seq_no_in_query(query, seq_no)
+        self.assertIn(
+            str(context.exception),
+            expected_result,
+        )
+
+    def test_handles_missing_seq_no(self):
+        query = "SELECT * FROM material_user_var_table_"
+        seq_no = 33
+        expected_result = f"Couldn't find an integer seq_no in the input query: {query}"
+        with self.assertRaises(Exception) as context:
+            replace_seq_no_in_query(query, seq_no)
+        self.assertIn(
+            str(context.exception),
+            expected_result,
+        )
 
 
 class TestSplitMaterialTable(unittest.TestCase):

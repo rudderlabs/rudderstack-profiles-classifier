@@ -35,7 +35,13 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         connector = MockConnector()
         connector.is_valid_table = Mock(return_value=True)
         self.pythonWHT.set_connector(connector)
+        self.pythonWHT.connector.feature_table_name = (
+            "material_model_name_hash_seq_feature_table"
+        )
+        self.pythonWHT.connector.join_input_tables = Mock(return_value=None)
         self.inputs = []
+        self.input_columns = ["COL1", "COL2", "COL3"]
+        self.entity_column = "user_main_id"
 
     @patch(
         "src.predictions.profiles_mlcorelib.wht.pythonWHT.PythonWHT._validate_historical_materials_hash"
@@ -57,6 +63,8 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
             "user_var_table",
             "54ddc22a",
             self.inputs,
+            self.input_columns,
+            self.entity_column,
             materials,
             False,
         )
@@ -82,6 +90,8 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
             "user_var_table",
             "54ddc22a",
             self.inputs,
+            self.input_columns,
+            self.entity_column,
             materials,
             True,
         )
@@ -97,6 +107,8 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
             "user_var_table",
             "54ddc22a",
             self.inputs,
+            self.input_columns,
+            self.entity_column,
             materials,
             False,
         )
@@ -113,6 +125,8 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
             "user_var_table",
             "54ddc22a",
             self.inputs,
+            self.input_columns,
+            self.entity_column,
             materials,
             False,
         )
@@ -126,6 +140,8 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
             "user_var_table",
             "54ddc22a",
             self.inputs,
+            self.input_columns,
+            self.entity_column,
             materials,
             True,
         )

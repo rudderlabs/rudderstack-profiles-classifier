@@ -100,6 +100,52 @@ class TestSelectRelevantColumns(unittest.TestCase):
         )
 
 
+class TestJoinInputTables(unittest.TestCase):
+    def test_join_input_tables_correct_case(self):
+        inputs = [
+            {
+                "column_name": "is_churned",
+                "table_name": "Material_user_var_table_hash_100",
+            },
+            {
+                "column_name": "days_since_last_seen",
+                "table_name": "Material_user_var_table_hash_100",
+            },
+            {
+                "column_name": None,
+                "table_name": "Material_shopify_user_features_hash_100",
+            },
+            {
+                "column_name": None,
+                "table_name": "Material_shopify_sql_model_hash_100",
+            },
+        ]
+        input_columns = ["is_churned", "days_since_last_seen", "COL1", "COL2"]
+        entity_column = "user_main_id"
+        temp_joined_input_table_name = "temp_joined_input_table"
+
+        connector = MockSnowflakeConnector()
+        connector.schema = "schema_name"
+        connector.run_query = Mock(return_value=None)
+        connector.join_input_tables(
+            inputs, input_columns, entity_column, temp_joined_input_table_name
+        )
+
+        generated_query = """
+                                    CREATE OR REPLACE TABLE schema_name.temp_joined_input_table AS
+                                    SELECT t1.user_main_id AS user_main_id, is_churned, days_since_last_seen, COL1, COL2
+            FROM
+                (SELECT user_main_id, is_churned, days_since_last_seen FROM schema_name.Material_user_var_table_hash_100) t1
+    INNER JOIN (SELECT * FROM schema_name.Material_shopify_user_features_hash_100) t2 ON t1.user_main_id = t2.user_main_id
+    INNER JOIN (SELECT * FROM schema_name.Material_shopify_sql_model_hash_100) t3 ON t1.user_main_id = t3.user_main_id ;
+                                """
+
+        connector.run_query.assert_called_once_with(
+            generated_query,
+            response=False,
+        )
+
+
 class TestValidations(unittest.TestCase):
     def setUp(self) -> None:
         self.connector = MockSnowflakeConnector()

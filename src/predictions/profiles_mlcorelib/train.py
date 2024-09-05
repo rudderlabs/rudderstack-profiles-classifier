@@ -102,6 +102,7 @@ def _train(
 
     merged_config = utils.combine_config(default_config, config)
     merged_config = whtService.update_config_info(merged_config)
+    whtService.validate_sql_table(inputs, merged_config["data"]["entity_column"])
 
     user_preference_order_infra = merged_config["data"].pop(
         "user_preference_order_infra", None
@@ -260,11 +261,17 @@ def _train(
     )
 
     input_columns = connector.get_input_columns(trainer, inputs)
+
+    joined_input_table_name = f"{connector.feature_table_name}_for_training"
+    connector.join_input_tables(
+        inputs, input_columns, trainer.entity_column, joined_input_table_name
+    )
+
     input_column_types = connector.get_input_column_types(
         trainer,
         input_columns,
         inputs,
-        latest_entity_var_table,
+        joined_input_table_name,
     )
     logger.get().debug(f"Input column types detected: {input_column_types}")
 
@@ -282,6 +289,8 @@ def _train(
         model_hash=model_hash,
         prediction_horizon_days=trainer.prediction_horizon_days,
         inputs=inputs,
+        input_columns=input_columns,
+        entity_column=trainer.entity_column,
         feature_data_min_date_diff=feature_data_min_date_diff,
     )
     # material_names, training_dates
@@ -297,6 +306,10 @@ def _train(
         )
     except Exception as e:
         logger.get().error(f"Error while generating new materials, {str(e)}")
+
+    logger.get().info(
+        f"Training data fetched successfully. Train Table Pairs: {train_table_pairs}"
+    )
 
     mode = connector.fetch_processor_mode(
         user_preference_order_infra, is_rudder_backend
@@ -321,21 +334,28 @@ def _train(
 
     training_dates_ = []
     material_names_ = []
+    past_joined_input_tables_set = set()
     for train_table_pair_ in train_table_pairs:
-        material_names_.append(
-            [train_table_pair_.feature_table_name, train_table_pair_.label_table_name]
-        )
-        training_dates_.append(
-            [train_table_pair_.feature_table_date, train_table_pair_.label_table_date]
-        )
+        material_name_pair = [
+            train_table_pair_.feature_table_name,
+            train_table_pair_.label_table_name,
+        ]
+        material_names_.append(material_name_pair)
+        past_joined_input_tables_set.update(material_name_pair)
+
+        material_date_pair = [
+            train_table_pair_.feature_table_date,
+            train_table_pair_.label_table_date,
+        ]
+        training_dates_.append(material_date_pair)
 
     results = {
         "config": {
             "training_dates": training_dates_,
             "material_names": material_names_,
-            "material_hash": model_hash,
+            "entity_var_model_hash": model_hash,
             **asdict(trainer),
-            "input_model_name": entity_var_model_name,
+            "entity_var_model_name": entity_var_model_name,
         },
         "model_info": {
             "model_name": train_results["model_class_name"],
@@ -366,5 +386,8 @@ def _train(
             logger.get().error(f"Could not fetch {figure_name} {e}")
 
     logger.get().debug("Cleaning up the training session")
+    connector.drop_joined_tables(
+        table_list=[joined_input_table_name] + list(past_joined_input_tables_set)
+    )
     connector.post_job_cleanup()
     logger.get().debug("Training completed")

@@ -22,23 +22,18 @@ models:
             is_feature: False
         eligible_users: '*'
       inputs:
-        - packages/feature_table/entity/user/is_churned_7_days
-        - packages/feature_table/entity/user/days_since_last_seen
-        - packages/feature_table/entity/user/has_seen_recently
-        - packages/feature_table/entity/user/last_seen_category
-        - packages/feature_table/entity/user/n_orders_completed
+        - packages/feature_table/models/shopify_user_features
+        - packages/feature_table/models/rsRandomSQLModel
+
   - name: training_Regression_model
     model_type: training_model
     model_spec:
       occurred_at_col: insert_ts
       entity_key: user
       inputs:
-        - packages/feature_table/models/shopify_user_features
         - packages/feature_table/entity/user/is_churned_7_days
         - packages/feature_table/entity/user/days_since_last_seen
-        - packages/feature_table/entity/user/has_seen_recently
-        - packages/feature_table/entity/user/last_seen_category
-        - packages/feature_table/entity/user/n_orders_completed
+        - packages/feature_table/models/rsRandomSQLModel
       ml_config:
         data:
           task: regression
@@ -46,6 +41,7 @@ models:
           prediction_horizon_days: 7
           eligible_users: '*'
           output_profiles_ml_model: ltv_regression_integration_test
+
   - name: prediction_regression_model
     model_type: prediction_model
     model_spec:
@@ -53,12 +49,9 @@ models:
       entity_key: user
       training_model: models/training_regression_model
       inputs:
-        - packages/feature_table/models/shopify_user_features
         - packages/feature_table/entity/user/is_churned_7_days
         - packages/feature_table/entity/user/days_since_last_seen
-        - packages/feature_table/entity/user/has_seen_recently
-        - packages/feature_table/entity/user/last_seen_category
-        - packages/feature_table/entity/user/n_orders_completed
+        - packages/feature_table/models/rsRandomSQLModel
       ml_config:
         data:
           task: regression

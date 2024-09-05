@@ -1,5 +1,7 @@
 import math
 import re
+import random
+import string
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
@@ -17,7 +19,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
-from typing import Tuple, List
+from typing import Tuple, List, Dict
 
 import snowflake.snowpark
 from snowflake.snowpark.session import Session
@@ -130,6 +132,14 @@ def combine_config(default_config: dict, profiles_config: dict = None) -> dict:
         if key not in profiles_config:
             merged_config[key] = default_config[key]
     return merged_config
+
+
+def extract_unique_values(input_dict: Dict[str, List[str]]) -> List[str]:
+    unique_values = set()
+    for _, value_list in input_dict.items():
+        unique_values.update(value_list)
+
+    return list(unique_values)
 
 
 def get_feature_table_column_types(
@@ -808,6 +818,23 @@ def plot_user_feature_importance(
     user_feat_imp_dict = dict(zip(col_names_, shap_score.values[0]))
     figure = shap.plots.waterfall(shap_score[0], max_display=10, show=False)
     return figure, user_feat_imp_dict
+
+
+def generate_random_string(length):
+    letters = string.ascii_letters + string.digits
+    result_str = "".join(random.choice(letters) for i in range(length))
+    return result_str
+
+
+def replace_seq_no_in_query(query: str, seq_no: int) -> str:
+    matches = list(re.finditer(r"(_\d+)(`|'|\"|$)", query))
+    if len(matches) == 0:
+        raise Exception(f"Couldn't find an integer seq_no in the input query: {query}")
+    match = matches[-1]
+    if match is None:
+        raise Exception(f"Couldn't find an integer seq_no in the input query: {query}")
+    replaced_query = query[: match.start(1)] + "_" + str(seq_no) + query[match.end(1) :]
+    return replaced_query
 
 
 def get_model_configs_file_path() -> str:

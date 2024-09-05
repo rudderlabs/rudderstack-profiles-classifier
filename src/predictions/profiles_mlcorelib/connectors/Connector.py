@@ -1,12 +1,16 @@
 import pandas as pd
 from abc import ABC, abstractmethod
-from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict
+from collections import OrderedDict
+from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict, Set
+
+from ..utils.logger import logger
 
 
 class Connector(ABC):
     def __init__(self, creds: dict) -> None:
-        self.session = self.build_session(creds)
+        self.schema = None
         self.feature_table_name = None
+        self.session = self.build_session(creds)
 
     def remap_credentials(self, credentials: dict) -> dict:
         """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses"""
@@ -17,24 +21,118 @@ class Connector(ABC):
         }
         return new_creds
 
-    def get_input_columns(self, trainer_obj, inputs):
-        input_columns = set()
-
-        for input in inputs:
-            query = input["selector_sql"] + " LIMIT 1"
-            input_columns.update(self.run_query(query)[0]._fields)
-
-        input_columns.difference_update(
-            {
-                trainer_obj.index_timestamp,
-                trainer_obj.index_timestamp.upper(),
-                trainer_obj.index_timestamp.lower(),
-                trainer_obj.entity_column,
-                trainer_obj.entity_column.upper(),
-                trainer_obj.entity_column.lower(),
-            }
+    def validate_sql_table(self, table_name: str, entity_column: str) -> None:
+        total_rows_count_query = f"select count(*) from {self.schema}.{table_name};"
+        distinct_rows_count_query = (
+            f"select count(distinct {entity_column}) from {self.schema}.{table_name};"
         )
+
+        total_rows = self.run_query(total_rows_count_query)[0][0]
+        distinct_rows = self.run_query(distinct_rows_count_query)[0][0]
+
+        if total_rows != distinct_rows:
+            logger.get().error(
+                f"SQL model table {table_name} has duplicate values in entity column {entity_column}. Please make sure that the column {entity_column} in all SQL model has unique values only."
+            )
+            raise Exception(
+                f"SQL model table {table_name} has duplicate values in entity column {entity_column}. Please make sure that the column {entity_column} in all SQL model has unique values only."
+            )
+
+    def _validate_common_columns(
+        self,
+        columns_per_input: List[Set[str]],
+    ) -> None:
+        all_columns = set.union(*columns_per_input)
+
+        for column in all_columns:
+            if (
+                sum(
+                    column in ind_input_column for ind_input_column in columns_per_input
+                )
+                > 1
+            ):
+                logger.get().error(
+                    f"Common column {column} is present in 2 or more inputs. Please correct the inputs in config."
+                )
+                raise Exception(
+                    f"Common columns are present in 2 or more inputs. Please correct the inputs in config."
+                )
+
+    def get_input_columns(self, trainer_obj, inputs):
+        columns_per_input = list()
+
+        for input_ in inputs:
+            query = input_["selector_sql"] + " LIMIT 1"
+            ind_input_columns = set(self.run_query(query)[0]._fields)
+            ind_input_columns.difference_update(
+                {
+                    trainer_obj.index_timestamp,
+                    trainer_obj.index_timestamp.upper(),
+                    trainer_obj.index_timestamp.lower(),
+                    trainer_obj.entity_column,
+                    trainer_obj.entity_column.upper(),
+                    trainer_obj.entity_column.lower(),
+                }
+            )
+            columns_per_input.append(ind_input_columns)
+
+        self._validate_common_columns(columns_per_input)
+        input_columns = set.union(*columns_per_input)
         return list(input_columns)
+
+    def _get_table_info(self, inputs):
+        tables = OrderedDict()
+        for input_ in inputs:
+            table_name = input_["table_name"]
+            if table_name not in tables:
+                tables[table_name] = {
+                    "column_name": [],
+                }
+            if input_["column_name"]:
+                tables[table_name]["column_name"].append(input_["column_name"])
+
+        return tables
+
+    def _construct_join_query(self, entity_column, input_columns, tables):
+        select_col_str = ", ".join(input_columns)
+        query_parts = []
+        for i, (table_name, info) in enumerate(tables.items(), start=1):
+            if len(info["column_name"]) > 0:
+                columns = ", ".join([entity_column] + info["column_name"])
+                subquery = f"(SELECT {columns} FROM {self.schema}.{table_name})"
+            else:
+                subquery = f"(SELECT * FROM {self.schema}.{table_name})"
+
+            if i == 1:
+                query_parts.append(f"{subquery} t{i}")
+            else:
+                query_parts.append(
+                    f"INNER JOIN {subquery} t{i} ON t1.{entity_column} = t{i}.{entity_column}"
+                )
+
+        query = f"""SELECT t1.{entity_column} AS {entity_column}, {select_col_str}
+            FROM
+                """ + "\n    ".join(
+            query_parts
+        )
+        return query
+
+    def join_input_tables(
+        self,
+        inputs: List[Dict],
+        input_columns: List[str],
+        entity_column: str,
+        temp_joined_input_table_name: str,
+    ) -> None:
+        tables = self._get_table_info(inputs)
+        query = self._construct_join_query(entity_column, input_columns, tables)
+        self.write_joined_input_table(query, temp_joined_input_table_name)
+
+    def drop_joined_tables(self, table_list: List[str]) -> None:
+        for table in table_list:
+            self.run_query(
+                f"drop table if exists {self.schema}.{table};", response=False
+            )
 
     def get_input_column_types(
         self,
@@ -151,8 +249,8 @@ class Connector(ABC):
 
             for input in inputs:
                 if (
-                    column_lower in input["model_ref"].lower()
-                    and input["model_type"] == "entity_var_item"
+                    input["column_name"] is not None
+                    and column_lower == input["column_name"].lower()
                 ):
                     raise Exception(
                         f"Array type features are not supported. Please remove '{column_lower}' and any other array type features from inputs."
@@ -226,6 +324,10 @@ class Connector(ABC):
     def fetch_processor_mode(
         self, user_preference_order_infra: List[str], is_rudder_backend: bool
     ) -> str:
+        pass
+
+    @abstractmethod
+    def write_joined_input_table(self, query: str, table_name: str) -> None:
         pass
 
     @abstractmethod

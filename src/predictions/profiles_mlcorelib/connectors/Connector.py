@@ -21,6 +21,23 @@ class Connector(ABC):
         }
         return new_creds
 
+    def validate_sql_table(self, table_name: str, entity_column: str) -> None:
+        total_rows_count_query = f"select count(*) from {self.schema}.{table_name};"
+        distinct_rows_count_query = (
+            f"select count(distinct {entity_column}) from {self.schema}.{table_name};"
+        )
+
+        total_rows = self.run_query(total_rows_count_query)[0][0]
+        distinct_rows = self.run_query(distinct_rows_count_query)[0][0]
+
+        if total_rows != distinct_rows:
+            logger.get().error(
+                f"SQL model table {table_name} has duplicate values in entity column {entity_column}. Please make sure that the column {entity_column} in all SQL model has unique values only."
+            )
+            raise Exception(
+                f"SQL model table {table_name} has duplicate values in entity column {entity_column}. Please make sure that the column {entity_column} in all SQL model has unique values only."
+            )
+
     def _validate_common_columns(
         self,
         columns_per_input: List[Set[str]],

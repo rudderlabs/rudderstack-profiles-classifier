@@ -159,6 +159,13 @@ class PyNativeWHT:
             )
         return inputs
 
+    def validate_sql_table(self, inputs, entity_column) -> None:
+        for input in inputs:
+            if input["model_type"] == "sql_template":
+                self.pythonWHT.connector.validate_sql_table(
+                    input["table_name"], entity_column
+                )
+
     def get_credentials(self, project_path: str, site_config_path: str) -> str:
         connection_name = utils.load_yaml(
             os.path.join(project_path, "pb_project.yaml")

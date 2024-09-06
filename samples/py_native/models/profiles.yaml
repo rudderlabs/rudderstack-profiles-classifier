@@ -49,14 +49,14 @@ models:
           prediction_horizon_days: 7
           eligible_users: '*'
           output_profiles_ml_model: ltv_regression_integration_test
-          # new_materialisations_config:
-          #   strategy: "manual"
-          #   feature_data_min_date_diff: 14
-          #   max_no_of_dates: 3
-          #   dates:
-          #     - '2024-08-01,2024-08-07'
-          #     - '2024-08-02,2024-08-08'
-          #     - '2024-08-03,2024-08-09'
+          new_materialisations_config:
+            strategy: "manual"
+            feature_data_min_date_diff: 14
+            max_no_of_dates: 3
+            dates:
+              - '2024-08-01,2024-08-07'
+              - '2024-08-02,2024-08-08'
+              - '2024-08-03,2024-08-09'
 
   - name: prediction_regression_model
     model_type: prediction_model

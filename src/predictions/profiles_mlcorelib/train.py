@@ -96,6 +96,9 @@ def _train(
     _ = config["data"].pop(
         "inputs", None
     )  # For backward compatibility. Not using it anywhere else, hence deleting.
+    _ = config["data"].pop(
+        "output_profiles_ml_model", None
+    )  # For backward compatibility. It is a constant in case of python model and fetching it from wht context in case of pyNative.
 
     connector = ConnectorFactory.create(creds, folder_path)
     whtService.set_connector(connector)

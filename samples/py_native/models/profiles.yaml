@@ -15,10 +15,6 @@ models:
           strategy: "auto"
           feature_data_min_date_diff: 14
           max_no_of_dates: 3
-          dates:
-            - '2024-01-01,2024-01-07'
-            - '2024-01-02,2024-01-08'
-            - '2024-01-03,2024-01-09'
       prediction:
         output_columns:
           percentile:
@@ -51,8 +47,6 @@ models:
           output_profiles_ml_model: ltv_regression_integration_test
           new_materialisations_config:
             strategy: "manual"
-            feature_data_min_date_diff: 14
-            max_no_of_dates: 3
             dates:
               - '2024-08-01,2024-08-07'
               - '2024-08-02,2024-08-08'

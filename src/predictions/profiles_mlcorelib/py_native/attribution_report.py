@@ -334,7 +334,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                                         UNION ALL
                                         SELECT (date + INTERVAL '1 day')::DATE
                                         FROM date_range
-                                        WHERE date <= CURRENT_DATE
+                                        WHERE date < CURRENT_DATE
                                 ),
                                 CAMPAIGN_INFO AS (
                                         SELECT {campaign_id_column_name},  DATE({campaign_start_date}) as start_date, DATE({campaign_end_date}) as end_date 
@@ -395,22 +395,22 @@ class AttributionModelRecipe(PyNativeRecipe):
                     '{table}' AS conversion_type,
                     DATEDIFF(day, first_touch_date, converted_date) AS conversion_days,
                     {table}_user_view.first_touch_date as date,
-                    {table}_user_view.first_touch_campaign_profile_id as campaign_profile_id
+                    {table}_user_view.first_touch_{campaign_id_column_name} as {campaign_id_column_name}
                 FROM {table}_user_view
                 WHERE converted_date IS NOT NULL"""
             union_all_needed = True
         user_conversion_days_cte += ")"
         conversion_days_cte = "conversion_days_cte AS ("
-        conversion_days_cte += """
-            SELECT date, campaign_profile_id"""
+        conversion_days_cte += f"""
+            SELECT date, {campaign_id_column_name}"""
         for conversion_info in conversion_vars:
             conversion_type = conversion_info["name"]
             conversion_days_cte += f"""
                 , SUM(CASE WHEN conversion_type = '{conversion_type}' THEN conversion_days ELSE 0 END) AS {conversion_type}_total_days_to_convert_from_first_touch_across_users
                 , AVG(CASE WHEN conversion_type = '{conversion_type}' THEN conversion_days ELSE 0 END) AS {conversion_type}_avg_days_to_convert_from_first_touch"""
-        conversion_days_cte += """
+        conversion_days_cte += f"""
             FROM user_conversion_days_cte
-            GROUP BY date, campaign_profile_id
+            GROUP BY date, {campaign_id_column_name}
         )"""
 
         # Starting the SELECT query

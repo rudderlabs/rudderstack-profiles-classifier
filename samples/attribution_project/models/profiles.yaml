@@ -25,10 +25,12 @@ models:
       conversion:
         touchpoints: # Defines the user journey sequence allowing us to evaluatel first, last and multi-touch models
           - from: inputs/rsMarketingPages
+            where: user.Var('first_invoice_amount')>4
         conversion_vars: # What are the activities, outcomes, etc. that we actually want to measure. You can define more than 1. You can also define a value in addition to the count.
           - name: sf_order
             timestamp: user.Var('first_order_date')
             value: user.Var('first_invoice_amount') # Optional - adding this creates an extra column called <conversion>_<model>_value (ex: signup_first_touch_value)
+            conversion_window: 60d
           - name: sf_subscription
             timestamp: user.Var('subscription_start_date')
       campaign:

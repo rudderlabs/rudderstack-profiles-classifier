@@ -37,6 +37,7 @@ class AttributionModel(BaseModelType):
                             "type": "object",
                             "properties": {
                                 "from": {"type": "string"},
+                                "where": {"type": "string"},
                             },
                             "required": ["from"],
                             "additionalProperties": False,
@@ -565,9 +566,18 @@ class AttributionModelRecipe(PyNativeRecipe):
             journey_info_timestamp = material.de_ref(
                 journey_info["from"]
             ).model.time_filtering_column()
-            select_info = f"SELECT {entity_id_column_name}, {campaign_id_column_name}, {journey_info_timestamp} AS timestamp"
-            from_info = f"FROM {{{{{prefix}{counter}}}}}"
-            where_info = f"WHERE {campaign_id_column_name} is not NULL"
+            select_info = f"SELECT a.{entity_id_column_name}, a.{campaign_id_column_name}, a.{journey_info_timestamp} AS timestamp"
+            from_info = f"FROM {{{{{prefix}{counter}}}}} a"
+            where_info = f"WHERE (a.{campaign_id_column_name} is not NULL)"
+
+            if "where" in journey_info:
+                if ".Var" in journey_info["where"]:
+                    join_info = f"JOIN {{{{entity_var_table}}}} ON a.{entity_id_column_name} = {{{{entity_var_table}}}}.{entity_id_column_name}"
+                else:
+                    join_info = ""
+
+                from_info += f" {join_info}"
+                where_info += f" AND ( {journey_info['where']} )"
 
             journey_query = f"""{journey_query} 
                                 {union_op} 

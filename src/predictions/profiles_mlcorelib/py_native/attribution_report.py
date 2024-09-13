@@ -688,7 +688,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                 )
 
             from_info = f"FROM {{{{entity_var_table}}}}"
-            where_info = f"WHERE {conversion_info_column_name_timestamp} is not NULL"
+            where_info = f"WHERE {conversion_info_column_name_timestamp} is not NULL and {conversion_info_column_name_timestamp} != '' "
 
             conversion_query = f"""
                                 {select_info} 

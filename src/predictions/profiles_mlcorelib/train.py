@@ -288,8 +288,8 @@ def _train(
     get_material_names_partial = partial(
         whtService.get_material_names,
         end_date=end_date,
-        entity_var_model_name=entity_var_model_name,
-        model_hash=model_hash,
+        entity_var_model_name=inputs[0]["model_name"],
+        model_hash=inputs[0]["model_hash"],
         prediction_horizon_days=trainer.prediction_horizon_days,
         inputs=inputs,
         input_columns=input_columns,

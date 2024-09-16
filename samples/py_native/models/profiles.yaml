@@ -4,7 +4,7 @@ models:
     model_spec:
       entity_key: user
       training:
-        predict_var: packages/feature_table/entity/user/is_churned_7_days
+        predict_var: packages/feature_table/models/rsRandomSQLModel/dummy_int_2
         predict_window_days: 7
         eligible_users: '*'
         max_row_count: 500000
@@ -26,7 +26,6 @@ models:
             is_feature: False
         eligible_users: '*'
       inputs:
-        - packages/feature_table/models/shopify_user_features
         - packages/feature_table/models/rsRandomSQLModel
 
   - name: training_Regression_model

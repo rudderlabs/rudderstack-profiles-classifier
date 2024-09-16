@@ -54,12 +54,15 @@ class PyNativeWHT:
         material = self.whtMaterial.de_ref(model_ref)
         if material is None:
             raise Exception(f"Material not found for model ref: {model_ref}")
-        material_split = self.pythonWHT.split_material_name(material.name())
+        material_split = self.split_material_name(material.name())
         creation_ts = self.pythonWHT.get_model_creation_ts(
             material_split["model_hash"],
             entity_key,
         )
         return material_split["model_hash"], material_split["model_name"], creation_ts
+
+    def split_material_name(self, name: str) -> dict:
+        return self.pythonWHT.split_material_name(name)
 
     def get_column_name(self, model_ref):
         column_name = self.whtMaterial.de_ref(model_ref).model.db_object_name_prefix()
@@ -145,7 +148,7 @@ class PyNativeWHT:
                 table_material = self.whtMaterial.de_ref(table_material_ref)
             else:
                 table_material = material
-            material_name_dict = self.pythonWHT.split_material_name(material.name())
+            material_name_dict = self.split_material_name(material.name())
             inputs.append(
                 {
                     "table_name": table_material.name(),

@@ -665,14 +665,14 @@ class SnowflakeConnector(Connector):
     def fetch_filtered_table(
         self,
         df,
-        entity_var_model_name,
+        model_name,
         model_hash,
         start_time,
         end_time,
         columns,
     ):
         filtered_snowpark_df = (
-            df.filter(col("model_name") == entity_var_model_name)
+            df.filter(col("model_name") == model_name)
             .filter(col("model_hash") == model_hash)
             .filter(
                 (to_date(col("end_ts")) >= start_time)
@@ -685,7 +685,7 @@ class SnowflakeConnector(Connector):
     def join_feature_label_tables(
         self,
         registry_table_name: str,
-        entity_var_model_name: str,
+        model_name: str,
         model_hash: str,
         start_time: str,
         end_time: str,
@@ -694,7 +694,7 @@ class SnowflakeConnector(Connector):
         snowpark_df = self.get_material_registry_table(registry_table_name)
         feature_snowpark_df = self.fetch_filtered_table(
             snowpark_df,
-            entity_var_model_name,
+            model_name,
             model_hash,
             start_time,
             end_time,
@@ -702,7 +702,7 @@ class SnowflakeConnector(Connector):
         )
         label_snowpark_df = self.fetch_filtered_table(
             snowpark_df,
-            entity_var_model_name,
+            model_name,
             model_hash,
             utils.date_add(start_time, prediction_horizon_days),
             utils.date_add(end_time, prediction_horizon_days),

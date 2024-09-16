@@ -158,7 +158,7 @@ class PythonWHT:
     def _fetch_valid_historic_materials(
         self,
         table_row,
-        entity_var_model_name,
+        model_name,
         model_hash,
         inputs,
         input_columns,
@@ -169,11 +169,11 @@ class PythonWHT:
         feature_material_name, label_material_name = None, None
         if table_row.FEATURE_SEQ_NO is not None:
             feature_material_name = self.compute_material_name(
-                entity_var_model_name, model_hash, table_row.FEATURE_SEQ_NO
+                model_name, model_hash, table_row.FEATURE_SEQ_NO
             )
         if table_row.LABEL_SEQ_NO is not None:
             label_material_name = self.compute_material_name(
-                entity_var_model_name, model_hash, table_row.LABEL_SEQ_NO
+                model_name, model_hash, table_row.LABEL_SEQ_NO
             )
 
         found_feature_material = False
@@ -266,7 +266,7 @@ class PythonWHT:
         self,
         start_time: str,
         end_time: str,
-        entity_var_model_name: str,
+        model_name: str,
         model_hash: str,
         prediction_horizon_days: int,
         inputs: List[dict],
@@ -284,7 +284,7 @@ class PythonWHT:
         """
         feature_label_df = self.connector.join_feature_label_tables(
             self.get_registry_table_name(),
-            entity_var_model_name,
+            model_name,
             model_hash,
             start_time,
             end_time,
@@ -295,7 +295,7 @@ class PythonWHT:
         for row in feature_label_df:
             self._fetch_valid_historic_materials(
                 row,
-                entity_var_model_name,
+                model_name,
                 model_hash,
                 inputs,
                 input_columns,
@@ -468,7 +468,7 @@ class PythonWHT:
         self,
         start_date: str,
         end_date: str,
-        entity_var_model_name: str,
+        model_name: str,
         model_hash: str,
         prediction_horizon_days: int,
         inputs: List[dict],
@@ -501,7 +501,7 @@ class PythonWHT:
         (materials) = self._get_material_names(
             start_date,
             end_date,
-            entity_var_model_name,
+            model_name,
             model_hash,
             prediction_horizon_days,
             inputs,
@@ -526,7 +526,7 @@ class PythonWHT:
             (materials) = self._get_material_names(
                 start_date,
                 end_date,
-                entity_var_model_name,
+                model_name,
                 model_hash,
                 prediction_horizon_days,
                 inputs,
@@ -537,7 +537,7 @@ class PythonWHT:
         complete_sequences_materials = get_complete_sequences(materials)
         if len(complete_sequences_materials) == 0:
             raise Exception(
-                f"Tried to materialise past data but no materialized data found for {entity_var_model_name} with hash {model_hash} between dates {start_date} and {end_date}"
+                f"Tried to materialise past data but no materialized data found for {model_name} with hash {model_hash} between dates {start_date} and {end_date}"
             )
 
         return self.get_past_materials_with_valid_date_range(

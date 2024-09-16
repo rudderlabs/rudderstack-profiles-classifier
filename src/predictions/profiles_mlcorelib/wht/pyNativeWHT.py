@@ -94,7 +94,7 @@ class PyNativeWHT:
         self,
         start_date: str,
         end_date: str,
-        entity_var_model_name: str,
+        model_name: str,
         model_hash: str,
         prediction_horizon_days: int,
         inputs: List[dict],
@@ -106,7 +106,7 @@ class PyNativeWHT:
         return self.pythonWHT.get_material_names(
             start_date,
             end_date,
-            entity_var_model_name,
+            model_name,
             model_hash,
             prediction_horizon_days,
             inputs,

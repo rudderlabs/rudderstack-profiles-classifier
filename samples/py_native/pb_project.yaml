@@ -5,6 +5,6 @@ model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/profiles-features-integration-test/tree/adding-features-for-sql-model
+    url: https://github.com/rudderlabs/profiles-features-integration-test
 python_requirements:
   - profiles_mlcorelib

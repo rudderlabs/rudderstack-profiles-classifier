@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import patch
+from datetime import datetime
 from src.predictions.profiles_mlcorelib.wht.pythonWHT import PythonWHT
 
 from src.predictions.profiles_mlcorelib.utils.utils import (
@@ -8,6 +9,7 @@ from src.predictions.profiles_mlcorelib.utils.utils import (
     generate_new_training_dates,
     replace_seq_no_in_query,
     get_abs_date_diff,
+    parse_timestamp,
 )
 
 
@@ -129,6 +131,18 @@ class TestDateDiff(unittest.TestCase):
         """Test for invalid date values"""
         with self.assertRaises(ValueError):
             get_abs_date_diff("2023-11-31", "2023-11-22")
+
+
+class TestParseTimestamp(unittest.TestCase):
+    def test_with_microsecond(self):
+        result = parse_timestamp("2024-09-10 06:47:39.403249")
+        expected_output = datetime(2024, 9, 10, 6, 47, 39, 403249)
+        self.assertEqual(result, expected_output)
+
+    def test_without_microsecond(self):
+        result = parse_timestamp("2024-09-10 06:47:39")
+        expected_output = datetime(2024, 9, 10, 6, 47, 39)
+        self.assertEqual(result, expected_output)
 
 
 class TestDatesProximityCheck(unittest.TestCase):

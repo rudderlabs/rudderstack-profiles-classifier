@@ -1,6 +1,5 @@
 from datetime import datetime, timedelta
 import re
-import pandas as pd
 from copy import deepcopy
 from typing import List, Dict, Optional, Sequence, Tuple
 
@@ -46,7 +45,7 @@ class PythonWHT:
         return merged_config
 
     def get_end_ts(self) -> str:
-        current_timestamp = pd.Timestamp.now()
+        current_timestamp = datetime.now()
         return str(current_timestamp)
 
     def _getPB(self):

@@ -826,6 +826,21 @@ def generate_random_string(length):
     return result_str
 
 
+def parse_timestamp(timestamp_str: str) -> datetime:
+    formats = [
+        "%Y-%m-%d %H:%M:%S",  # Format without microseconds
+        "%Y-%m-%d %H:%M:%S.%f",  # Format with microseconds
+    ]
+    for fmt in formats:
+        try:
+            return datetime.strptime(timestamp_str, fmt)
+        except ValueError:
+            continue
+    raise ValueError(
+        f"Time data '{timestamp_str}' does not match any of the expected formats."
+    )
+
+
 def replace_seq_no_in_query(query: str, seq_no: int) -> str:
     matches = list(re.finditer(r"(_\d+)(`|'|\"|$)", query))
     if len(matches) == 0:

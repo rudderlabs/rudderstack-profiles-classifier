@@ -65,7 +65,7 @@ def preprocess_and_predict(
         word: [item for item in numeric_columns if item.startswith(word)]
         for word in arraytype_columns
     }
-    end_ts = pd.Timestamp(end_ts)
+    end_ts = utils.parse_timestamp(end_ts)
 
     # No need to decide whether to create PyNativeWHT or PythonWHT since all the methods being called
     # here have the same implementation in both classes.

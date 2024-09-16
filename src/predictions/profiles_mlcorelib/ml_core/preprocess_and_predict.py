@@ -34,6 +34,7 @@ def preprocess_and_predict(
     s3_config,
     model_path,
     inputs,
+    end_ts,
     output_tablename,
     connector: Connector,
     trainer: MLTrainer,
@@ -50,8 +51,6 @@ def preprocess_and_predict(
     train_model_id = results["model_info"]["model_id"]
     stage_name = results["model_info"]["file_location"]["stage"]
     pkl_model_file_name = results["model_info"]["file_location"]["file_name"]
-    entity_var_model_hash = results["config"]["entity_var_model_hash"]
-    entity_var_model_name = results["config"]["entity_var_model_name"]
 
     input_column_types = results["column_names"]["input_column_types"]
     numeric_columns = results["column_names"]["input_column_types"]["numeric"]
@@ -66,15 +65,12 @@ def preprocess_and_predict(
         word: [item for item in numeric_columns if item.startswith(word)]
         for word in arraytype_columns
     }
+    end_ts = pd.Timestamp(end_ts)
 
     # No need to decide whether to create PyNativeWHT or PythonWHT since all the methods being called
     # here have the same implementation in both classes.
     whtService = PyNativeWHT(None, None, None)
     whtService.set_connector(connector)
-
-    seq_no = whtService.get_latest_seq_no(inputs)
-
-    end_ts = whtService.get_end_ts(entity_var_model_name, entity_var_model_hash, seq_no)
 
     joined_input_table_name = (
         f"prediction_joined_table_{utils.generate_random_string(5)}"
@@ -314,6 +310,7 @@ if __name__ == "__main__":
     parser.add_argument("--s3_config", type=json.loads)
     parser.add_argument("--json_output_filename", type=str)
     parser.add_argument("--inputs", type=json.loads)
+    parser.add_argument("--end_ts", type=str)
     parser.add_argument("--output_tablename", type=str)
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--output_path", type=str)
@@ -354,6 +351,7 @@ if __name__ == "__main__":
         args.s3_config,
         model_path,
         args.inputs,
+        args.end_ts,
         args.output_tablename,
         connector=connector,
         trainer=trainer,

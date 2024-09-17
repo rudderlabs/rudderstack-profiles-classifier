@@ -77,7 +77,7 @@ class BigQueryConnector(CommonWarehouseConnector):
         self, _: google.cloud.bigquery.client.Client, table_name: str, **kwargs
     ) -> pd.DataFrame:
         query = self._create_get_table_query(table_name, **kwargs)
-        return self.session.query_and_wait(query).to_dataframe()
+        return self.session.query_and_wait(query, page_size=1000).to_dataframe()
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT table_name as tablename FROM `{self.project_id}.{self.schema}.INFORMATION_SCHEMA.TABLES`;"

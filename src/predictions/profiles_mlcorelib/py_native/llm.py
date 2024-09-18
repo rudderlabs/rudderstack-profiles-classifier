@@ -50,13 +50,13 @@ class LLMModel(BaseModelType):
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
         if "ids" not in build_spec:
-            entity_key1 = build_spec["entity_key"]
+            entity_key = build_spec["entity_key"]
             # TODO - select should be computed from the entity object
             build_spec["ids"] = [
                 {
-                    "select": entity_key1 + "_main_id",
+                    "select": entity_key + "_main_id",
                     "type": "rudder_id",
-                    "entity": entity_key1,
+                    "entity": entity_key,
                 }
             ]
         super().__init__(build_spec, schema_version, pb_version)

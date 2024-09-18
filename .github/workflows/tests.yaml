@@ -41,9 +41,28 @@ jobs:
     - name: Run tests
       run: python -m unittest tests/unit/*.py
 
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      propensity: ${{ steps.filter.outputs.propensity }}
+    steps:
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          propensity:
+            - '!src/predictions/profiles_mlcorelib/py_native/attribution_report.py'
+            - '!src/predictions/profiles_mlcorelib/py_native/llm.py'
+        predicate-quantifier: every
+
   integration-test:
     runs-on: ubuntu-latest
-    needs: unit-test
+    needs:
+      - changes
+      - unit-test
+    if: ${{ needs.changes.outputs.propensity == 'true' }}
 
     strategy:
       matrix:

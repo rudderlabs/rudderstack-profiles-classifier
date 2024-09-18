@@ -3,82 +3,12 @@ from unittest.mock import Mock
 from datetime import datetime
 
 from src.predictions.profiles_mlcorelib.wht.pyNativeWHT import PyNativeWHT
-
-
-class MockModel:
-    def __init__(
-        self,
-        model_type: str,
-        db_object_name: str,
-        output_type: str,
-        model_ref: str,
-        encapsulating_db_object_name: str,
-    ) -> None:
-        self._model_type = model_type
-        self.db_object_name = db_object_name
-        self.output_type = output_type
-        self._model_ref = model_ref
-        self.encapsulating_db_object_name = encapsulating_db_object_name
-
-    def model_type(self):
-        return self._model_type
-
-    def model_ref(self):
-        return self._model_ref
-
-    def db_object_name_prefix(self):
-        return self.db_object_name
-
-    def materialization(self):
-        return {"output_type": self.output_type}
-
-    def entity(self):
-        return {"IdColumnName": "user_main_id"}
-
-    def encapsulating_model(self):
-        return MockModel(
-            "entity_var_table",
-            self.encapsulating_db_object_name,
-            "table",
-            "entity/user/var_table",
-            None,
-        )
-
-
-class MockMaterial:
-    def __init__(
-        self,
-        model_type: str,
-        db_object_name: str,
-        output_type: str,
-        model_ref: str,
-        encapsulating_db_object_name: str,
-    ) -> None:
-        self.model = MockModel(
-            model_type,
-            db_object_name,
-            output_type,
-            model_ref,
-            encapsulating_db_object_name,
-        )
-        self.db_object_name = db_object_name
-        self.output_type = output_type
-        self.encapsulating_db_object_name = encapsulating_db_object_name
-
-    def name(self):
-        return f"Material_{self.db_object_name}_hash_100"
-
-    def get_selector_sql(self):
-        if self.output_type == "column":
-            return (
-                f"SELECT {self.db_object_name} FROM {self.encapsulating_db_object_name}"
-            )
-        return f"SELECT * FROM {self.db_object_name}"
+from .mocks import MockModel, MockMaterial
 
 
 class MockWhtMaterial:
     def __init__(self) -> None:
-        self.model = MockModel(None, None, None, None, None)
+        self.model = MockModel(None, None, None, None, None, None)
 
     def de_ref(self, input):
         input_map = {

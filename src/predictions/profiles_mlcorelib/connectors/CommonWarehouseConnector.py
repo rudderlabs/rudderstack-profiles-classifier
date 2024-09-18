@@ -611,29 +611,6 @@ class CommonWarehouseConnector(Connector):
             )
         return model_hash
 
-    def get_end_ts(
-        self, material_table, model_name: str, model_hash: str, seq_no: int
-    ) -> str:
-        """This function will return the end_ts with given model, model name and seq_no."""
-        df = self.get_material_registry_table(material_table)
-
-        try:
-            feature_table_info_df = (
-                df[
-                    (df["model_name"] == model_name)
-                    & (df["model_hash"] == model_hash)
-                    & (df["seq_no"] == seq_no)
-                ]
-                .reset_index(drop=True)[["end_ts"]]
-                .iloc[0]
-            )
-        except Exception as e:
-            raise Exception(
-                f"No material found with name {model_name}, hash {model_hash} and seq no {seq_no}. Error message: {e}"
-            )
-        end_ts = feature_table_info_df["end_ts"]
-        return end_ts.tz_localize(None)
-
     def add_index_timestamp_colum_for_predict_data(
         self, predict_data: pd.DataFrame, index_timestamp: str, end_ts: str
     ) -> pd.DataFrame:

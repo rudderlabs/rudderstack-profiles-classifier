@@ -485,16 +485,6 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def get_end_ts(
-        self,
-        material_table: str,
-        model_name: str,
-        model_hash: str,
-        seq_no: int,
-    ):
-        pass
-
-    @abstractmethod
     def add_index_timestamp_colum_for_predict_data(
         self, predict_data, index_timestamp: str, end_ts: str
     ):

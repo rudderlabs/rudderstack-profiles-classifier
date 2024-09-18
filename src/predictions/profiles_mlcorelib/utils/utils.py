@@ -837,7 +837,7 @@ def parse_timestamp(timestamp_str: str) -> datetime:
         except ValueError:
             continue
     raise ValueError(
-        f"Time data '{timestamp_str}' does not match any of the expected formats."
+        f"Error parsing pb run time '{timestamp_str}' from string to timestamp format."
     )
 
 

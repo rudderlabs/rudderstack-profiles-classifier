@@ -213,13 +213,34 @@ def validate_reports(directory: str, expected_files: list[str]):
         raise Exception(f"{missing_files} not found in {directory}")
 
 
+def get_latest_model_hash(
+    model_name: str,
+    site_config_path: str = None,
+    project_folder: str = None,
+):
+    args = {
+        "project_folder": project_folder,
+        "site_config_path": site_config_path,
+    }
+    pb_compile_output = RudderPB()._compile(args)
+    try:
+        model_hash = pb_compile_output[
+            pb_compile_output.index(model_name) + len(model_name) :
+        ].split("_")[1]
+    except ValueError:
+        raise Exception(
+            f"Could not find entity-var-model '{model_name}' in the output of pb compile command: {pb_compile_output}"
+        )
+    return model_hash
+
+
 def get_latest_entity_var(
     creds: dict, siteconfig_path: str, project_path: str, train_input_model_name: str
 ):
     connector = ConnectorFactory.create(creds, current_dir)
 
-    latest_model_hash, entity_var_model_name = RudderPB().get_latest_material_hash(
-        entity_key,
+    latest_model_hash = get_latest_model_hash(
+        train_input_model_name,
         siteconfig_path,
         project_path,
     )
@@ -227,13 +248,11 @@ def get_latest_entity_var(
     latest_seq_no = connector.get_latest_seq_no_from_registry(
         material_registry_table_name,
         latest_model_hash,
-        entity_var_model_name,
+        train_input_model_name,
     )
-    input_model_hash = connector.get_model_hash_from_registry(
-        material_registry_table_name, train_input_model_name, latest_seq_no
-    )
+
     connector.post_job_cleanup()
-    return input_model_hash, latest_seq_no
+    return latest_model_hash, latest_seq_no
 
 
 def validate_predictions_df_regressor(creds: dict):

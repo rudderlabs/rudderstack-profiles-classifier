@@ -152,10 +152,10 @@ class AttributionModelRecipe(PyNativeRecipe):
                 )
             except:
                 self.logger.error(
-                    f"Conversion timestamp column {timestamp_column} should be of type datetime."
+                    f"Conversion timestamp column {timestamp_column} should be of type timestamp."
                 )
                 raise ValueError(
-                    f"Conversion timestamp column {timestamp_column} should be of type datetime."
+                    f"Conversion timestamp column {timestamp_column} should be of type timestamp."
                 )
 
     def _generate_date_case(

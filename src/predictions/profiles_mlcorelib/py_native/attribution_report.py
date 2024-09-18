@@ -109,7 +109,7 @@ class AttributionModel(BaseModelType):
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:
-        return AttributionModelRecipe(self.build_spec)
+        return AttributionModelRecipe(self.build_spec, Logger("attribution_model"))
 
     def validate(self) -> Tuple[bool, str]:
         campaign_vars = self.build_spec[CAMPAIGN][CAMPAIGN_VARS]
@@ -126,8 +126,8 @@ class AttributionModel(BaseModelType):
 
 
 class AttributionModelRecipe(PyNativeRecipe):
-    def __init__(self, config: Dict) -> None:
-        self.logger = Logger("attribution_model")
+    def __init__(self, config: Dict, logger: Logger) -> None:
+        self.logger = logger
         self.config = config
 
     def describe(self, this: WhtMaterial):
@@ -751,7 +751,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             self.campaign_start_date,
             self.campaign_end_date,
         )
-        start_time, end_time = this.wht_ctx.time_info()
+        _, end_time = this.wht_ctx.time_info()
         selector_sql = self._get_final_selector_sql(
             self.campaign_id_column_name,
             conversion_name_list,

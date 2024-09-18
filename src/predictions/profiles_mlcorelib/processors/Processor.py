@@ -39,6 +39,7 @@ class Processor(ABC):
         s3_config,
         model_path,
         inputs,
+        end_ts,
         output_tablename,
         merged_config,
         site_config: dict,

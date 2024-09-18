@@ -71,6 +71,7 @@ def _predict(
     logger.get().debug(f"Using {mode} processor for predictions")
 
     site_config = utils.load_yaml(site_config_path)
+    end_ts = whtService.get_end_ts()
     presets = site_config["py_models"].get("credentials_presets")
     if presets is None or presets.get("s3") is None:
         s3_config = {}
@@ -88,6 +89,7 @@ def _predict(
         s3_config,
         model_path,
         inputs,
+        end_ts,
         output_tablename,
         merged_config,
         site_config,

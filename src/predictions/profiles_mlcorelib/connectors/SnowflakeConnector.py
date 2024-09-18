@@ -839,29 +839,6 @@ class SnowflakeConnector(Connector):
 
         return model_hash
 
-    def get_end_ts(
-        self, material_table, model_name: str, model_hash: str, seq_no: int
-    ) -> str:
-        """This function will return the end_ts with given model, model name and seq_no."""
-        snowpark_df = self.get_material_registry_table(material_table)
-
-        try:
-            feature_table_info = (
-                snowpark_df.filter(col("model_name") == model_name)
-                .filter(col("model_hash") == model_hash)
-                .filter(col("seq_no") == seq_no)
-                .select("end_ts")
-                .collect()[0]
-            )
-
-            end_ts = feature_table_info.END_TS
-        except Exception as e:
-            raise Exception(
-                f"Project is never materialzied with model hash {model_hash}. Erro message: {e}"
-            )
-
-        return end_ts
-
     def add_index_timestamp_colum_for_predict_data(
         self, predict_data, index_timestamp: str, end_ts: str
     ) -> snowflake.snowpark.Table:

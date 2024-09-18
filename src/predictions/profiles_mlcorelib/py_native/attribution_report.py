@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import List, Dict, Tuple
 from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
@@ -109,7 +109,7 @@ class AttributionModel(BaseModelType):
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:
-        return AttributionModelRecipe(self.build_spec)
+        return AttributionModelRecipe(self.build_spec, Logger("attribution_model"))
 
     def validate(self) -> Tuple[bool, str]:
         campaign_vars = self.build_spec[CAMPAIGN][CAMPAIGN_VARS]
@@ -126,12 +126,37 @@ class AttributionModel(BaseModelType):
 
 
 class AttributionModelRecipe(PyNativeRecipe):
-    def __init__(self, config: Dict) -> None:
-        self.logger = Logger("attribution_model")
+    def __init__(self, config: Dict, logger: Logger) -> None:
+        self.logger = logger
         self.config = config
 
     def describe(self, this: WhtMaterial):
         return self.sql, ".sql"
+
+    def _validate_conversion_timestamp_column_type(
+        self, this: WhtMaterial, conversion_vars: List[Dict]
+    ):
+        for conversion_info in conversion_vars:
+            timestamp_column = conversion_info["timestamp"]
+            query = f"""
+                    {{% exec %}}
+                        {{% with entity_var_table = {self.input_material_template} %}}
+                            SELECT {self.entity_id_column_name}, DATEDIFF(day, {{{{{timestamp_column}}}}}, GETDATE()) AS days_since_conversion
+                            FROM {{{{entity_var_table}}}}
+                            WHERE {{{{{timestamp_column}}}}} IS NOT NULL;
+                        {{% endwith %}}
+                    {{% endexec %}}"""
+            try:
+                this.wht_ctx.client.query_sql_without_result(
+                    this.execute_text_template(query)
+                )
+            except:
+                self.logger.error(
+                    f"Conversion timestamp column {timestamp_column} should be of type timestamp."
+                )
+                raise ValueError(
+                    f"Conversion timestamp column {timestamp_column} should be of type timestamp."
+                )
 
     def _generate_date_case(
         self, field, conversion_flag, conversion_granularity, conversion_window
@@ -645,6 +670,11 @@ class AttributionModelRecipe(PyNativeRecipe):
         self.entity_id_column_name = entities[self.conversion_entity]["IdColumnName"]
         self.campaign_id_column_name = entities[self.campaign_entity]["IdColumnName"]
 
+        self.input_material_template = f"this.DeRef(makePath({conversion_vars[0]['timestamp']}.Model.GetVarTableRef()))"
+        self.campaign_var_template = (
+            f"this.DeRef('entity/{self.campaign_entity}/var_table')"
+        )
+
         self.inputs = set()
         self._define_input_dependency(user_journeys, campaign_details, campaign_vars)
 
@@ -751,7 +781,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             self.campaign_start_date,
             self.campaign_end_date,
         )
-        start_time, end_time = this.wht_ctx.time_info()
+        _, end_time = this.wht_ctx.time_info()
         selector_sql = self._get_final_selector_sql(
             self.campaign_id_column_name,
             conversion_name_list,
@@ -762,12 +792,10 @@ class AttributionModelRecipe(PyNativeRecipe):
             end_time,
         )
 
-        input_material_template = f"this.DeRef(makePath({conversion_vars[0]['timestamp']}.Model.GetVarTableRef()))"
-        campaign_var_template = f"this.DeRef('entity/{self.campaign_entity}/var_table')"
         query_template = f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
-                    {{% with entity_var_table = {input_material_template} campaign_var_table = {campaign_var_template} {set_jouney_ref} {set_daily_campaign_details_ref} %}}
+                    {{% with entity_var_table = {self.input_material_template} campaign_var_table = {self.campaign_var_template} {set_jouney_ref} {set_daily_campaign_details_ref} %}}
                     WITH {index_cte_query}
                         , {multiconversion_cte_query}
                         , {journey_cte_query}
@@ -783,4 +811,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         return
 
     def execute(self, this: WhtMaterial):
+        self._validate_conversion_timestamp_column_type(
+            this, self.config[CONVERSION][CONVERSION_VARS]
+        )
         this.wht_ctx.client.query_sql_without_result(self.sql)

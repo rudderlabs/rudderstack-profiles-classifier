@@ -87,8 +87,8 @@ def preprocess_and_predict(
     )
 
     logger.get().debug("Transforming timestamp columns.")
-    for col in timestamp_columns:
-        raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
+    # for col in timestamp_columns:
+    #     raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
 
     logger.get().debug(f"Transforming arraytype columns.")
     _, raw_data = connector.transform_arraytype_features(

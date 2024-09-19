@@ -116,10 +116,10 @@ def prepare_feature_table(
         )
         feature_table = connector.drop_cols(feature_table, [trainer.label_column])
 
-        for col in timestamp_columns:
-            feature_table = connector.add_days_diff(
-                feature_table, col, col, feature_table_dt
-            )
+        # for col in timestamp_columns:
+        #     feature_table = connector.add_days_diff(
+        #         feature_table, col, col, feature_table_dt
+        #     )
         label_table = trainer.prepare_label_table(connector, label_table_name)
         feature_table = connector.join_feature_table_label_table(
             feature_table, label_table, trainer.entity_column, "inner"

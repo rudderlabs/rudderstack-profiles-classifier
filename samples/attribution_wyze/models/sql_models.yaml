@@ -1,0 +1,29 @@
+models:
+  - name: sqlSubscriptionDetails
+    model_type: sql_template
+    model_spec:
+      validity_time: 24h # 1 day
+      occurred_at_col: INVOICE_DATE
+      materialization:
+        output_type: ephemeral
+        run_type: discrete
+      single_sql: |
+        {% with SubStarts = this.DeRef("inputs/rsSubServiceStart") subRenewals = this.DeRef("inputs/rsSubServiceRenewal") subUpgrades = this.DeRef("inputs/rsSubServiceUpgrade") %}
+
+        Select ANONYMOUS_ID,DEVICE_ID,EVENT,EVENT_TEXT,INVOICE_AMOUNT,INVOICE_DATE, SHOPIFY_CUSTOMER_ID, SUBSCRIPTION_TYPE from {{SubStarts}}
+        UNION ALL
+        Select ANONYMOUS_ID,DEVICE_ID,EVENT,EVENT_TEXT,INVOICE_AMOUNT,INVOICE_DATE, SHOPIFY_CUSTOMER_ID, SUBSCRIPTION_TYPE from {{subRenewals}}
+        UNION ALL
+        Select ANONYMOUS_ID,DEVICE_ID,EVENT,EVENT_TEXT,INVOICE_AMOUNT,INVOICE_DATE, SHOPIFY_CUSTOMER_ID, SUBSCRIPTION_TYPE from  {{subUpgrades}}
+
+        {% endwith %}
+      ids:
+        - select: ANONYMOUS_ID
+          type: anonymous_id
+          entity: user
+        - select: SHOPIFY_CUSTOMER_ID
+          type: shopify_customer_id
+          entity: user
+        - select: DEVICE_ID
+          type: device_id
+          entity: user

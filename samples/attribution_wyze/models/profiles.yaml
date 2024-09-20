@@ -1,0 +1,79 @@
+models:
+  #ID Stitching Model(s)
+  - name: customer_id_graph
+    model_type: id_stitcher
+    model_spec:
+      validity_time: 24h # 1 day
+      entity_key: user
+      edge_sources:
+        - from: inputs/rsAndroidAccountCreated
+        - from: inputs/rsSubServiceStart
+        - from: inputs/rsIOSAccountCreated
+        - from: inputs/rsMarketingIdentifies
+        - from: inputs/rsShopifyOrderCompleted
+        - from: inputs/rsAndroidAccountUpdated
+        - from: inputs/rsIOSAccountUpdated
+
+  - name: customer_profile
+    model_type: feature_table_model
+    model_spec:
+      validity_time: 24h # 1 day
+      entity_key: user
+      features:
+        - days_since_last_seen
+        - is_churned_7_days
+        - subscription_start_date
+        - subscription_invoice_total
+
+var_groups:
+  - name: user_vars
+    entity_key: user
+    vars:
+      - entity_var:
+          name: max_timestamp_tracks
+          select: max(timestamp)
+          from: inputs/rsMarketingTracks
+          is_feature: false
+      - entity_var:
+          name: max_timestamp_pages
+          select: max(timestamp)
+          from: inputs/rsMarketingPages
+          description: The total value of products that are part of the last transaction.
+          is_feature: false
+      - entity_var:
+          name: max_timestamp_bw_tracks_pages
+          select: CASE WHEN {{user.Var("max_timestamp_tracks")}}>={{user.Var("max_timestamp_pages")}} THEN {{user.Var("max_timestamp_tracks")}} ELSE {{user.Var("max_timestamp_pages")}} END
+          is_feature: false
+      - entity_var:
+          name: days_since_last_seen
+          select: "{{macro_datediff('{{user.Var(\"max_timestamp_bw_tracks_pages\")}}')}}"
+          description: Days since user last logged in
+      - entity_var:
+          name: is_churned_7_days
+          select: case when {{user.Var("days_since_last_seen")}} > 7 then 1 else 0 end
+          description: It specifies if there is any activity observed in the last n days. It is dependent on days_since_last_seen
+      - entity_var:
+          name: subscription_start_date
+          description: Subscription start date
+          select: min(INVOICE_DATE::date)
+          from: models/sqlSubscriptionDetails
+      - entity_var:
+          name: subscription_invoice_total
+          description: Subscription services revenue only
+          select: sum(INVOICE_AMOUNT::numeric(12,2))
+          from: models/sqlSubscriptionDetails
+      - entity_var:
+          name: first_invoice_amount
+          select: first_value(INVOICE_AMOUNT)
+          from: models/sqlSubscriptionDetails
+          description: dollar amount of first order per users
+          window:
+            order_by:
+              - INVOICE_DATE asc
+          is_feature: false
+      - entity_var:
+          name: first_order_date
+          select: min(INVOICE_DATE)
+          from: models/sqlSubscriptionDetails
+          description: date of first order per user
+          is_feature: false

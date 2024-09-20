@@ -1,0 +1,73 @@
+# Project name
+name: wyze_demo
+schema_version: 69
+connection: wyze_demo
+python_requirements:
+  - profiles-rudderstack>=0.13.0
+  - profiles_mlcorelib
+
+model_folders:
+  - models
+  
+entities:
+  - name: user
+    id_stitcher: models/customer_id_graph
+    id_types:
+      - user_id
+      - anonymous_id
+      - email
+      - shopify_customer_id
+      - device_id
+    feature_views:
+      using_ids:
+        - id: email
+          name: customer_profile_by_email
+        - id: device_id
+          name: customer_profile_by_device_id
+
+  - name: campaign
+    id_stitcher: models/campaign_id_graph
+    id_column_name: campaign_profile_id 
+    id_types:
+      - campaign_id
+      - ad_id
+      - campaign_name
+      - utm_campaign
+      - creative_id
+      - conversion_id
+    feature_views:
+      using_ids:
+        - id: campaign_id
+          name: campaign_performancy_by_id
+
+
+
+id_types:
+  - name: user_id
+  - name: shopify_customer_id
+  - name: device_id
+    filters:
+      - type: exclude
+        value: "carol.foster@example.com"
+  - name: anonymous_id
+    filters:
+      - type: exclude
+        value: ""
+      - type: exclude
+        value: "unknown"
+      - type: exclude
+        value: "NaN"
+  - name: email
+    filters:
+      - type: include
+        regex: ".+@.+"
+      - type: exclude
+        value: "test@company.com"
+
+# Campaign Entity Only
+  - name: campaign_id
+  - name: ad_id
+  - name: campaign_name
+  - name: utm_campaign
+  - name: creative_id
+  - name: conversion_id

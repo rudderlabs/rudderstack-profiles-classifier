@@ -568,13 +568,23 @@ class PythonWHT:
             if column_name is None:
                 model_hash = self.split_material_name(selector_sql)["model_hash"]
 
+            encapsulating_model_name, encapsulating_model_hash = None, None
+            if column_name is not None:
+                encapsulating_model_dict = self.split_material_name(table_name)
+                encapsulating_model_name, encapsulating_model_hash = (
+                    encapsulating_model_dict["model_name"],
+                    encapsulating_model_dict["model_hash"],
+                )
+
             inputs.append(
                 {
                     "selector_sql": selector_sql,
-                    "table_name": table_name.strip('"`'),
+                    "table_name": table_name,
                     "model_name": extract_model_name_from_query(selector_sql),
                     "column_name": column_name,
                     "model_hash": model_hash,
+                    "encapsulating_model_name": encapsulating_model_name,
+                    "encapsulating_model_hash": encapsulating_model_hash,
                 }
             )
         if skip_compile:

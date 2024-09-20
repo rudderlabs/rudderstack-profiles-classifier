@@ -54,15 +54,12 @@ class PyNativeWHT:
         material = self.whtMaterial.de_ref(model_ref)
         if material is None:
             raise Exception(f"Material not found for model ref: {model_ref}")
-        material_split = self.split_material_name(material.name())
+        material_split = self.pythonWHT.split_material_name(material.name())
         creation_ts = self.pythonWHT.get_model_creation_ts(
             material_split["model_hash"],
             entity_key,
         )
         return material_split["model_hash"], material_split["model_name"], creation_ts
-
-    def split_material_name(self, name: str) -> dict:
-        return self.pythonWHT.split_material_name(name)
 
     def get_column_name(self, model_ref):
         column_name = self.whtMaterial.de_ref(model_ref).model.db_object_name_prefix()
@@ -140,13 +137,21 @@ class PyNativeWHT:
             #     id_column_name = self.whtMaterial.model.entity()["IdColumnName"]
             #     self.whtMaterial.de_ref(input + f"/var_table/{id_column_name}")
             column_name = None
+            encapsulating_model_name, encapsulating_model_hash = None, None
             if material.model.materialization()["output_type"] == "column":
                 column_name = material.model.db_object_name_prefix()
                 table_material_ref = material.model.encapsulating_model().model_ref()
                 table_material = self.whtMaterial.de_ref(table_material_ref)
+                encapsulating_model_dict = self.pythonWHT.split_material_name(
+                    table_material.name()
+                )
+                encapsulating_model_name, encapsulating_model_hash = (
+                    encapsulating_model_dict["model_name"],
+                    encapsulating_model_dict["model_hash"],
+                )
             else:
                 table_material = material
-            material_name_dict = self.split_material_name(material.name())
+            material_name_dict = self.pythonWHT.split_material_name(material.name())
             inputs.append(
                 {
                     "table_name": table_material.name(),
@@ -156,6 +161,8 @@ class PyNativeWHT:
                     "column_name": column_name,
                     "model_name": material_name_dict["model_name"],
                     "model_hash": material_name_dict["model_hash"],
+                    "encapsulating_model_name": encapsulating_model_name,
+                    "encapsulating_model_hash": encapsulating_model_hash,
                 }
             )
         return inputs

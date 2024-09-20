@@ -284,14 +284,23 @@ def _train(
         # Default feature dates minimum difference
         feature_data_min_date_diff = 3
 
-    input_header_material_dict = whtService.split_material_name(inputs[0]["table_name"])
+    if inputs[0]["encapsulating_model_name"] is None:
+        input_header_model_name, input_header_model_hash = (
+            inputs[0]["model_name"],
+            inputs[0]["model_hash"],
+        )
+    else:
+        input_header_model_name, input_header_model_hash = (
+            inputs[0]["encapsulating_model_name"],
+            inputs[0]["encapsulating_model_hash"],
+        )
 
     logger.get().info("Getting past data for training")
     get_material_names_partial = partial(
         whtService.get_material_names,
         end_date=end_date,
-        model_name=input_header_material_dict["model_name"],
-        model_hash=input_header_material_dict["model_hash"],
+        model_name=input_header_model_name,
+        model_hash=input_header_model_hash,
         prediction_horizon_days=trainer.prediction_horizon_days,
         inputs=inputs,
         input_columns=input_columns,

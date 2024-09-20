@@ -200,6 +200,8 @@ class TestGetInputs(unittest.TestCase):
                     "table_name": "Material_user_var_table_hash_100",
                     "model_name": "is_churned",
                     "model_hash": "hash",
+                    "encapsulating_model_name": "user_var_table",
+                    "encapsulating_model_hash": "hash",
                 },
                 {
                     "column_name": None,
@@ -209,6 +211,8 @@ class TestGetInputs(unittest.TestCase):
                     "table_name": "Material_user_var_table_hash_100",
                     "model_name": "user_var_table",
                     "model_hash": "hash",
+                    "encapsulating_model_name": None,
+                    "encapsulating_model_hash": None,
                 },
                 {
                     "column_name": None,
@@ -218,6 +222,8 @@ class TestGetInputs(unittest.TestCase):
                     "table_name": "Material_shopify_user_features_hash_100",
                     "model_name": "shopify_user_features",
                     "model_hash": "hash",
+                    "encapsulating_model_name": None,
+                    "encapsulating_model_hash": None,
                 },
                 {
                     "column_name": None,
@@ -227,6 +233,8 @@ class TestGetInputs(unittest.TestCase):
                     "table_name": "Material_shopify_sql_model_hash_100",
                     "model_name": "shopify_sql_model",
                     "model_hash": "hash",
+                    "encapsulating_model_name": None,
+                    "encapsulating_model_hash": None,
                 },
             ],
         )

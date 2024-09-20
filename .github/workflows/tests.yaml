@@ -55,7 +55,7 @@ jobs:
           propensity:
             - '!src/predictions/profiles_mlcorelib/py_native/attribution_report.py'
             - '!tests/integration/attribution/**'
-            - '!samples/attribution_project'
+            - '!samples/attribution_project/**'
             - '!src/predictions/profiles_mlcorelib/py_native/llm.py'
         predicate-quantifier: every
 
@@ -72,7 +72,7 @@ jobs:
         filters: |
           attribution:
             - 'src/predictions/setup.py'
-            - 'samples/attribution_project'
+            - '!samples/attribution_project/**'
             - '.github/**'
             - 'tests/integration/attribution/**'
             - 'tests/integration/utils.py'

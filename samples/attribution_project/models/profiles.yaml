@@ -1,92 +1,54 @@
 models:
-  - name: rudder_user_id_stitcher
+  #ID Stitching Model(s)
+  - name: customer_id_graph
     model_type: id_stitcher
     model_spec:
       validity_time: 24h # 1 day
       entity_key: user
       edge_sources:
-        - from: inputs/rsUserVar
-        - from: inputs/rsMarketingPages
-  - name: attribution_feature_model
+        - from: inputs/rsAndroidAccountCreated
+        - from: inputs/rsSubServiceStart
+        - from: inputs/rsIOSAccountCreated
+        - from: inputs/rsMarketingIdentifies
+        - from: inputs/rsShopifyOrderCompleted
+        - from: inputs/rsAndroidAccountUpdated
+        - from: inputs/rsIOSAccountUpdated
+
+  - name: customer_profile
     model_type: feature_table_model
     model_spec:
-      validity_time: 0s # 1 day
+      validity_time: 24h # 1 day
       entity_key: user
       features:
-        - first_order_date
-        - first_invoice_amount
         - subscription_start_date
-  # Beginning of the attribution model which will combine the user and campaign entity data
-  - name: campaign_performance_report
-    model_type: attribution
-    model_spec:
-      # what events contribute the user journey and outcome we are seeking to measure
-      entity_key: user
-      conversion:
-        touchpoints: # Defines the user journey sequence allowing us to evaluatel first, last and multi-touch models
-          - from: inputs/rsMarketingPages
-            where: 4 < {{user.Var('first_invoice_amount')}}
-        conversion_vars: # What are the activities, outcomes, etc. that we actually want to measure. You can define more than 1. You can also define a value in addition to the count.
-          - name: sf_order
-            timestamp: user.Var('first_order_date')
-            value: user.Var('first_invoice_amount') # Optional - adding this creates an extra column called <conversion>_<model>_value (ex: signup_first_touch_value)
-            conversion_window: 60d
-          - name: sf_subscription
-            timestamp: user.Var('subscription_start_date')
-      campaign:
-        entity_key: campaign
-        campaign_start_date: campaign_start_date # Defines the beginning boundary for each campaign
-        campaign_end_date: campaign_end_date # Defines the ending boundary for each campaign
-        campaign_vars: #These represent columns that will be repeated and are pulled from the campaign_var table
-          - fb_ads_conversions_value
-          - google_ads_utm_campaign
-          - fb_ads_impressions
-          - fb_ads_conversions
-          - google_ads_clicks
-        campaign_details: #These represent columns that will be computed daily
-          - cost:
-              - from: inputs/ga_campaign_stats
-                date: date
-                select: sum(cost_micros / 1000000 )
-              - from: inputs/lkdn_ad_analytic_campaign
-                date: day
-                select: sum(cost_in_usd)
-              - from: inputs/fb_basic_campaign
-                date: date
-                select: sum(spend)
-          - impressions:
-              - from: inputs/ga_campaign_stats
-                date: date
-                select: sum(impressions)
-              - from: inputs/lkdn_ad_analytic_campaign
-                date: day
-                select: sum(impressions)
-              - from: inputs/fb_basic_campaign
-                date: date
-                select: sum(impressions)
-          - clicks:
-              - from: inputs/ga_campaign_stats
-                date: date
-                select: sum(clicks)
-              - from: inputs/lkdn_ad_analytic_campaign
-                date: day
-                select: sum(clicks)
-              - from: inputs/fb_basic_campaign
-                date: date
-                select: sum(reach)
+        - subscription_invoice_total
+
 var_groups:
   - name: user_vars
     entity_key: user
     vars:
       - entity_var:
-          name: first_order_date
-          select: ANY_VALUE(first_order_date)
-          from: inputs/rsUserVar
+          name: subscription_start_date
+          description: Subscription start date
+          select: min(INVOICE_DATE::date)
+          from: models/sqlSubscriptionDetails
+      - entity_var:
+          name: subscription_invoice_total
+          description: Subscription services revenue only
+          select: sum(INVOICE_AMOUNT)
+          from: models/sqlSubscriptionDetails
       - entity_var:
           name: first_invoice_amount
-          select: ANY_VALUE(first_invoice_amount)
-          from: inputs/rsUserVar
+          select: first_value(INVOICE_AMOUNT)
+          from: models/sqlSubscriptionDetails
+          description: dollar amount of first order per users
+          window:
+            order_by:
+              - INVOICE_DATE asc ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+          is_feature: false
       - entity_var:
-          name: subscription_start_date
-          select: ANY_VALUE(subscription_start_date)
-          from: inputs/rsUserVar
+          name: first_order_date
+          select: min(INVOICE_DATE::date)
+          from: models/sqlSubscriptionDetails
+          description: date of first order per user
+          is_feature: false

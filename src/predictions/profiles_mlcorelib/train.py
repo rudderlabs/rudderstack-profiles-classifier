@@ -284,6 +284,9 @@ def _train(
         # Default feature dates minimum difference
         feature_data_min_date_diff = 3
 
+    # We are checking model_name and hash from first index of inputs to fetch initial set of existing tables
+    # as per the requirements from material registry table and on those,
+    # validation is performed with all the inputs to fetch correct required past materials
     if inputs[0]["encapsulating_model_name"] is None:
         input_header_model_name, input_header_model_hash = (
             inputs[0]["model_name"],

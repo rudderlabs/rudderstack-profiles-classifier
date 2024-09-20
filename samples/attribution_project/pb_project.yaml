@@ -3,7 +3,7 @@ name: attribution_input_test
 # Project's yaml schema version
 schema_version: 69
 # WH Connection Profile to use.
-connection: redshift_sample
+connection: test
 # Model folders to use.
 model_folders:
   - models

@@ -1088,18 +1088,15 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
     # The method is called with valid arguments and all tables exist in the warehouse registry.
     def test_valid_arguments_all_tables_exist(self):
         self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
-        result = self.whtService._validate_historical_materials_hash(
-            self.inputs[0], 1, 2
-        )
+        self.connector.is_valid_table = Mock(return_value=True)
+        result = self.whtService._validate_historical_materials_hash(self.inputs[0], 1)
         self.assertTrue(result)
 
     def test_valid_arguments_some_tables_dont_exist(self):
         self.connector.check_table_entry_in_material_registry = Mock(
             side_effect=[True, False]
         )
-        result = self.whtService._validate_historical_materials_hash(
-            self.inputs[0], 1, 2
-        )
+        result = self.whtService._validate_historical_materials_hash(self.inputs[0], 1)
         self.assertFalse(result)
 
 

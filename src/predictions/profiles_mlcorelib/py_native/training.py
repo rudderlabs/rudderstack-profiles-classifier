@@ -77,6 +77,9 @@ class TrainingModel(BaseModelType):
             }
         if build_spec.get("validity_time", None) is None:
             build_spec["validity_time"] = "month"
+        label_column = build_spec["ml_config"]["data"]["label_column"]
+        if label_column not in build_spec["inputs"]:
+            build_spec["inputs"].append(label_column)
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:

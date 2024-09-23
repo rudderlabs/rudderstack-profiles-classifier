@@ -26,7 +26,17 @@ models:
             is_feature: False
         eligible_users: '*'
       inputs:
-        - packages/feature_table/models/shopify_user_features
+        - packages/feature_table/entity/user/max_timestamp_tracks
+        - packages/feature_table/entity/user/max_timestamp_pages
+        - packages/feature_table/entity/user/max_timestamp_bw_tracks_pages
+        - packages/feature_table/entity/user/n_orders_completed
+        - packages/feature_table/entity/user/gross_amt_spent_in_past_90_days
+        - packages/feature_table/entity/user/days_since_last_seen
+        - packages/feature_table/entity/user/is_churned_7_days
+        - packages/feature_table/entity/user/has_seen_recently
+        - packages/feature_table/entity/user/last_seen_category
+        - packages/feature_table/entity/user/random_agg_event
+        - packages/feature_table/entity/user/random_float_feature
         - packages/feature_table/models/rsRandomSQLModel
 
   - name: training_Regression_model

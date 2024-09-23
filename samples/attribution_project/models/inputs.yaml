@@ -1,32 +1,130 @@
 inputs:
-  - name: rsUserVar
-    source_metadata:
-      role: "*"
-      category: "webhook|null"
-    contract:
-      is_optional: false
-      is_event_stream: true
-      with_entity_ids:
-        - user
-      with_columns:
-        - name: user_pseudo_id
+  - name: rsAndroidAccountCreated
     app_defaults:
-      table: dev.attribution_data.rs_user_var
+      table: ANDROID_APP.ACCOUNT_CREATED
+      occurred_at_col: timestamp
       ids:
-        - select: "user_pseudo_id"
-          type: user_pseudo_id
+        - select: lower(USER_ID)
+          type: email
           entity: user
-          to_default_stitcher: false
-  - name: rsMarketingPages
+        - select: DEVICE_ID
+          type: device_id
+          entity: user
+  - name: rsSubServiceRenewal
     app_defaults:
-      table: dev.attribution_data.marketing_website_pages
+      table: BACKEND_SUBSCRIPTION_SERVICE.SUBSCRIPTION_RENEWAL
+      occurred_at_col: timestamp
+      ids:
+        - select: DEVICE_ID
+          type: device_id
+          entity: user
+        - select: ANONYMOUS_ID
+          type: anonymous_id
+          entity: user
+        - select: SHOPIFY_CUSTOMER_ID
+          type: shopify_customer_id
+          entity: user
+  - name: rsSubServiceStart
+    app_defaults:
+      table: BACKEND_SUBSCRIPTION_SERVICE.SUBSCRIPTION_START
       occurred_at_col: timestamp
       ids:
         - select: ANONYMOUS_ID
           type: anonymous_id
           entity: user
-          to_default_stitcher: false
+        - select: SHOPIFY_CUSTOMER_ID
+          type: shopify_customer_id
+          entity: user
+        - select: DEVICE_ID
+          type: device_id
+          entity: user
+  - name: rsSubServiceUpgrade
+    app_defaults:
+      table: BACKEND_SUBSCRIPTION_SERVICE.SUBSCRIPTION_UPGRADE
+      occurred_at_col: timestamp
+      ids:
+        - select: SHOPIFY_CUSTOMER_ID
+          type: shopify_customer_id
+          entity: user
+        - select: DEVICE_ID
+          type: device_id
+          entity: user
+        - select: ANONYMOUS_ID
+          type: anonymous_id
+          entity: user
+  - name: rsIOSAccountCreated
+    app_defaults:
+      table: IOS_APP.ACCOUNT_CREATED
+      occurred_at_col: timestamp
+      ids:
+        - select: DEVICE_ID
+          type: device_id
+          entity: user
+        - select: lower(USER_ID)
+          type: email
+          entity: user
+  - name: rsMarketingIdentifies
+    app_defaults:
+      table: MARKETING_WEBSITE.IDENTIFIES
+      occurred_at_col: timestamp
+      ids:
+        - select: ANONYMOUS_ID
+          type: anonymous_id
+          entity: user
+        - select: lower(EMAIL)
+          type: email
+          entity: user
+        - select: lower(USER_ID)
+          type: email
+          entity: user
+  - name: rsMarketingPages
+    app_defaults:
+      table: MARKETING_WEBSITE.PAGES
+      occurred_at_col: timestamp
+      ids:
+        - select: ANONYMOUS_ID
+          type: anonymous_id
+          entity: user
         - select: UTM_CAMPAIGN
           type: utm_campaign
           entity: campaign
-          to_default_stitcher: false
+  - name: rsShopifyOrderCompleted
+    app_defaults:
+      table: SHOPIFY_STORE.ORDER_COMPLETED
+      occurred_at_col: timestamp
+      ids:
+        - select: lower(EMAIL)
+          type: email
+          entity: user
+        - select: DEVICE_ID
+          type: device_id
+          entity: user
+        - select: SHOPIFY_CUSTOMER_ID
+          type: shopify_customer_id
+          entity: user
+        # WE SHOULD IGNORE THIS ANONYMOUS ID AFTER FIRST RUN OF ID GRAPH
+        - select: ANONYMOUS_ID
+          type: anonymous_id
+          entity: user
+  - name: rsAndroidAccountUpdated
+    app_defaults:
+      table: ANDROID_APP.ACCOUNT_UPDATED
+      occurred_at_col: timestamp
+      ids:
+        - select: lower(USER_ID)
+          type: email
+          entity: user
+        - select: USERNAME
+          type: user_id
+          entity: user
+  - name: rsIOSAccountUpdated
+    app_defaults:
+      table: IOS_APP.ACCOUNT_UPDATED
+      occurred_at_col: timestamp
+      ids:
+        - select: USERNAME
+          type: user_id
+          entity: user
+        - select: lower(USER_ID)
+          type: email
+          entity: user

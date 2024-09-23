@@ -41,9 +41,49 @@ jobs:
     - name: Run tests
       run: python -m unittest tests/unit/*.py
 
-  integration-test:
+  propensity_changes:
     runs-on: ubuntu-latest
-    needs: unit-test
+    permissions:
+      pull-requests: read
+    outputs:
+      propensity: ${{ steps.filter.outputs.propensity }}
+    steps:
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          propensity:
+            - '!src/predictions/profiles_mlcorelib/py_native/attribution_report.py'
+            - '!tests/integration/attribution/**'
+            - '!samples/attribution_project/**'
+            - '!src/predictions/profiles_mlcorelib/py_native/llm.py'
+        predicate-quantifier: every
+
+  attribution_changes:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      attribution: ${{ steps.filter.outputs.attribution }}
+    steps:
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          attribution:
+            - 'src/predictions/setup.py'
+            - 'samples/attribution_project/**'
+            - '.github/**'
+            - 'tests/integration/attribution/**'
+            - 'tests/integration/utils.py'
+            - 'src/predictions/profiles_mlcorelib/py_native/attribution_report.py'
+
+  propensity-integration-test:
+    runs-on: ubuntu-latest
+    needs:
+      - propensity_changes
+      - unit-test
+    if: ${{ needs.propensity_changes.outputs.propensity == 'true' }}
 
     strategy:
       matrix:
@@ -54,6 +94,40 @@ jobs:
             site_config: BIGQUERY_SITE_CONFIG
           - test: tests/integration/snowflake/pynative.py
             site_config: SNOWFLAKE_SITE_CONFIG
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.10.13
+        cache: 'pip'
+
+    - name: Install local mlcorelib
+      working-directory: src/predictions
+      run: pip3 install .
+
+    - name: Run pynative integration test
+      run: python -m unittest ${{matrix.warehouse.test}}
+      env:
+          SITE_CONFIG: ${{secrets[matrix.warehouse.site_config]}}
+
+  attribution-integration-test:
+    runs-on: ubuntu-latest
+    needs:
+      - attribution_changes
+      - unit-test
+    if: ${{ needs.attribution_changes.outputs.attribution == 'true' }}
+
+    strategy:
+      matrix:
+        warehouse:
+          - test: tests/integration/attribution/attribution.py
+            site_config: SNOWFLAKE_SITE_CONFIG
+          - test: tests/integration/attribution/attribution.py
+            site_config: REDSHIFT_SITE_CONFIG_V2
 
     steps:
     - name: Check out code

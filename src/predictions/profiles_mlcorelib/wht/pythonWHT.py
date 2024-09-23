@@ -135,12 +135,12 @@ class PythonWHT:
                     {"model_name": model_name, "model_hash": model_hash, "seq_no": seq},
                 ), f"Material registry entry for model name - {model_name}, model hash - {model_hash}, seq - {seq} does not exist."
 
-                material_table_name = self.compute_material_name(
-                    input["model_name"], input["model_hash"], seq
+                past_material_name = utils.replace_seq_no_in_query(
+                    input["table_name"], seq
                 )
                 assert self.connector.is_valid_table(
-                    material_table_name
-                ), f"Table {material_table_name} does not exist in the warehouse."
+                    past_material_name
+                ), f"Table {past_material_name} does not exist in the warehouse."
                 return True
             else:
                 return False

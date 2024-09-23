@@ -29,115 +29,126 @@ class MockConnector:
     is_valid_table = None
 
 
-# class TestFetchValidHistoricMaterials(unittest.TestCase):
-#     def setUp(self) -> None:
-#         self.pythonWHT = PythonWHT("site_config", "project_folder")
-#         connector = MockConnector()
-#         connector.is_valid_table = Mock(return_value=True)
-#         self.pythonWHT.set_connector(connector)
-#         self.pythonWHT.connector.feature_table_name = (
-#             "material_model_name_hash_seq_feature_table"
-#         )
-#         self.pythonWHT.connector.join_input_tables = Mock(return_value=None)
-#         self.inputs = []
-#         self.input_columns = ["COL1", "COL2", "COL3"]
-#         self.entity_column = "user_main_id"
+class TestFetchValidHistoricMaterials(unittest.TestCase):
+    def setUp(self) -> None:
+        self.pythonWHT = PythonWHT("site_config", "project_folder")
+        connector = MockConnector()
+        connector.is_valid_table = Mock(return_value=True)
+        self.pythonWHT.set_connector(connector)
+        self.pythonWHT.connector.feature_table_name = (
+            "material_model_name_hash_seq_feature_table"
+        )
+        self.pythonWHT.connector.join_input_tables = Mock(return_value=None)
+        self.inputs = [
+            {
+                "table_name": "Material_model_name_hash_1",
+                "model_name": "model_name",
+                "model_hash": "hash",
+            },
+        ]
+        self.input_columns = ["COL1", "COL2", "COL3"]
+        self.entity_column = "user_main_id"
 
-#     @patch(
-#         "src.predictions.profiles_mlcorelib.wht.pythonWHT.PythonWHT._validate_historical_materials_hash"
-#     )
-#     def test_all_data_present_and_valid(self, mock_validate_historical_materials_hash):
-#         # Mock dependencies
+    @patch(
+        "src.predictions.profiles_mlcorelib.wht.pythonWHT.PythonWHT._validate_historical_materials_hash"
+    )
+    def test_all_data_present_and_valid(self, mock_validate_historical_materials_hash):
+        # Mock dependencies
 
-#         mock_validate_historical_materials_hash.return_value = True
-#         materials = []
-#         table_row = MockTableRow()
-#         table_row.FEATURE_SEQ_NO = 10
-#         table_row.LABEL_SEQ_NO = 20
-#         table_row.FEATURE_END_TS = datetime.strptime("2023-01-01", "%Y-%m-%d")
-#         table_row.LABEL_END_TS = datetime.strptime("2023-01-07", "%Y-%m-%d")
+        mock_validate_historical_materials_hash.return_value = True
+        materials = []
+        table_row = MockTableRow()
+        table_row.FEATURE_SEQ_NO = 10
+        table_row.LABEL_SEQ_NO = 20
+        table_row.FEATURE_END_TS = datetime.strptime("2023-01-01", "%Y-%m-%d")
+        table_row.LABEL_END_TS = datetime.strptime("2023-01-07", "%Y-%m-%d")
 
-#         # Call the function
-#         self.pythonWHT._fetch_valid_historic_materials(
-#             table_row,
-#             self.inputs,
-#             self.input_columns,
-#             self.entity_column,
-#             materials,
-#             False,
-#         )
+        # Call the function
+        self.pythonWHT._fetch_valid_historic_materials(
+            table_row,
+            self.inputs,
+            self.input_columns,
+            self.entity_column,
+            materials,
+            False,
+        )
 
-#         # Assertions
-#         self.assertEqual(len(materials), 1)
+        # Assertions
+        self.assertEqual(len(materials), 1)
 
-# @patch(
-#     "src.predictions.profiles_mlcorelib.wht.pythonWHT.PythonWHT._validate_historical_materials_hash"
-# )
-# def test_missing_sequence_number(self, mock_compute_material_name):
+    def test_missing_sequence_number(self):
 
-#     materials = []
-#     table_row = MockTableRow()
-#     table_row.FEATURE_SEQ_NO = 10
-#     table_row.LABEL_SEQ_NO = None
-#     table_row.FEATURE_END_TS = datetime.strptime("2023-01-01", "%Y-%m-%d")
-#     table_row.LABEL_END_TS = None
+        self.pythonWHT.connector.check_table_entry_in_material_registry = Mock(
+            return_value=True
+        )
+        self.pythonWHT.connector.is_valid_table = Mock(return_value=True)
+        self.pythonWHT.get_registry_table_name = Mock(
+            return_value="material_registry_4"
+        )
 
-#     # Call the function
-#     self.pythonWHT._fetch_valid_historic_materials(
-#         table_row,
-#         self.inputs,
-#         self.input_columns,
-#         self.entity_column,
-#         materials,
-#         True,
-#     )
+        materials = []
+        table_row = MockTableRow()
+        table_row.FEATURE_SEQ_NO = 10
+        table_row.LABEL_SEQ_NO = None
+        table_row.FEATURE_END_TS = datetime.strptime("2023-01-01", "%Y-%m-%d")
+        table_row.LABEL_END_TS = None
 
-#     # Assertions
-#     self.assertEqual(len(materials), 1)
+        # Call the function
+        self.pythonWHT._fetch_valid_historic_materials(
+            table_row,
+            self.inputs,
+            self.input_columns,
+            self.entity_column,
+            materials,
+            True,
+        )
 
-#     materials = []
+        # Assertions
+        self.assertEqual(len(materials), 1)
 
-#     # Call the function
-#     self.pythonWHT._fetch_valid_historic_materials(
-#         table_row,
-#         self.inputs,
-#         self.input_columns,
-#         self.entity_column,
-#         materials,
-#         False,
-#     )
+        materials = []
 
-#     # Assertions
-#     self.assertEqual(len(materials), 0)  # No data appended
+        # Call the function
+        self.pythonWHT._fetch_valid_historic_materials(
+            table_row,
+            self.inputs,
+            self.input_columns,
+            self.entity_column,
+            materials,
+            False,
+        )
 
-#     materials = []
-#     table_row = MockTableRow()  # All None values
+        # Assertions
+        self.assertEqual(len(materials), 0)  # No data appended
 
-#     # Call the function
-#     self.pythonWHT._fetch_valid_historic_materials(
-#         table_row,
-#         self.inputs,
-#         self.input_columns,
-#         self.entity_column,
-#         materials,
-#         False,
-#     )
+        materials = []
+        table_row = MockTableRow()  # All None values
 
-#     # Assertions
-#     self.assertEqual(len(materials), 0)
+        # Call the function
+        self.pythonWHT._fetch_valid_historic_materials(
+            table_row,
+            self.inputs,
+            self.input_columns,
+            self.entity_column,
+            materials,
+            False,
+        )
 
-#     # Call the function
-#     self.pythonWHT._fetch_valid_historic_materials(
-#         table_row,
-#         self.inputs,
-#         self.input_columns,
-#         self.entity_column,
-#         materials,
-#         True,
-#     )
+        # Assertions
+        self.assertEqual(len(materials), 0)
 
-#     # Assertions
-#     self.assertEqual(len(materials), 0)
+        # Call the function
+        self.pythonWHT._fetch_valid_historic_materials(
+            table_row,
+            self.inputs,
+            self.input_columns,
+            self.entity_column,
+            materials,
+            True,
+        )
+
+        # Assertions
+        self.assertEqual(len(materials), 0)
 
 
 class TestGetPastMaterialsWithValidDateRange(unittest.TestCase):

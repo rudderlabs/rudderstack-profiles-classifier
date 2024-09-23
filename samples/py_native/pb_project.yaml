@@ -8,3 +8,4 @@ packages:
     url: https://github.com/rudderlabs/profiles-features-integration-test
 python_requirements:
   - profiles_mlcorelib
+  - profiles_rudderstack==0.18.0

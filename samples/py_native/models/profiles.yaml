@@ -32,7 +32,6 @@ models:
         - packages/feature_table/entity/user/n_orders_completed
         - packages/feature_table/entity/user/gross_amt_spent_in_past_90_days
         - packages/feature_table/entity/user/days_since_last_seen
-        - packages/feature_table/entity/user/is_churned_7_days
         - packages/feature_table/entity/user/has_seen_recently
         - packages/feature_table/entity/user/last_seen_category
         - packages/feature_table/entity/user/random_agg_event

@@ -159,20 +159,23 @@ class PythonWHT:
         materials,
         return_partial_pairs: bool = False,
     ):
-        found_feature_material, found_label_material = False, False
+        all_feature_valid, all_label_valid = True, True
 
         for input in inputs:
-            if self._validate_historical_materials_hash(
+            if not self._validate_historical_materials_hash(
                 input,
                 table_row.FEATURE_SEQ_NO,
             ):
-                found_feature_material = True
+                all_feature_valid = False
 
-            if self._validate_historical_materials_hash(
+            if not self._validate_historical_materials_hash(
                 input,
                 table_row.LABEL_SEQ_NO,
             ):
-                found_label_material = True
+                all_label_valid = False
+
+        found_feature_material = True if all_feature_valid else False
+        found_label_material = True if all_label_valid else False
 
         # Both not found in the warehouse (no point in including invalid pairs)
         if not found_feature_material and not found_label_material:

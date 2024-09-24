@@ -198,13 +198,13 @@ class PythonWHT:
         feature_table_date = (
             table_row.FEATURE_END_TS.strftime(MATERIAL_DATE_FORMAT)
             if found_feature_material
-            else "None"
+            else None
         )
 
         label_table_date = (
             table_row.LABEL_END_TS.strftime(MATERIAL_DATE_FORMAT)
             if found_label_material
-            else "None"
+            else None
         )
 
         feature_past_table_name = (

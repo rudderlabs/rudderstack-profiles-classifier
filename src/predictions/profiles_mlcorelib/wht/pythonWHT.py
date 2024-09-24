@@ -277,8 +277,8 @@ class PythonWHT:
 
         feature_label_df = self.connector.join_feature_label_tables(
             self.get_registry_table_name(),
-            input_header_model_name,
-            input_header_model_hash,
+            inputs[0]["model_name"],
+            inputs[0]["model_hash"],
             start_time,
             end_time,
             prediction_horizon_days,

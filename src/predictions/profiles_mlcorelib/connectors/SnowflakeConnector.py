@@ -57,6 +57,7 @@ class SnowflakeConnector(Connector):
         self.dtype_utils_mapping = {
             "numeric": "DecimalType",
             "categorical": "StringType",
+            "timestamp": "TimestampType",
         }
         self.run_id = hashlib.md5(
             f"{str(datetime.now())}_{uuid.uuid4()}".encode()

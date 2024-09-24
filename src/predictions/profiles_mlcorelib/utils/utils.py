@@ -160,7 +160,7 @@ def get_feature_table_column_types(
         input_column_types["numeric"][col] = dtype_mapping["numeric"]
 
     for col in input_column_types["timestamp"]:
-        input_column_types["numeric"][col] = dtype_mapping["numeric"]
+        input_column_types["timestamp"][col] = dtype_mapping["timestamp"]
 
     for col in feature_table.columns:
         if col.upper() in (label_column.upper(), entity_column.upper()):

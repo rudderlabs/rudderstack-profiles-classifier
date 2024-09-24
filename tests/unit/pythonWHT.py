@@ -242,8 +242,6 @@ class TestGetInputs(unittest.TestCase):
                 "model_ref": "user/all/last_seen",
                 "model_type": "entity_var_item",
                 "model_hash": None,
-                "encapsulating_model_name": "user_var_table",
-                "encapsulating_model_hash": "54ddc22a",
             },
             {
                 "selector_sql": """SELECT last_seen FROM `schema`.`material_user_var_table_54ddc22a_383`""",
@@ -253,8 +251,6 @@ class TestGetInputs(unittest.TestCase):
                 "model_ref": "user/all/last_seen",
                 "model_type": "entity_var_item",
                 "model_hash": None,
-                "encapsulating_model_name": "user_var_table",
-                "encapsulating_model_hash": "54ddc22a",
             },
             {
                 "selector_sql": '''SELECT last_seen FROM "material_user_var_table_54ddc22a_383"''',
@@ -264,8 +260,6 @@ class TestGetInputs(unittest.TestCase):
                 "model_ref": "user/all/last_seen",
                 "model_type": "entity_var_item",
                 "model_hash": None,
-                "encapsulating_model_name": "user_var_table",
-                "encapsulating_model_hash": "54ddc22a",
             },
             {
                 "selector_sql": '''SELECT last_seen2 FROM "schema"."material_user_var_table_54ddc22a_383"''',
@@ -275,8 +269,6 @@ class TestGetInputs(unittest.TestCase):
                 "model_ref": "user/all/last_seen2",
                 "model_type": "entity_var_item",
                 "model_hash": None,
-                "encapsulating_model_name": "user_var_table",
-                "encapsulating_model_hash": "54ddc22a",
             },
             {
                 "selector_sql": """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384""",
@@ -286,8 +278,6 @@ class TestGetInputs(unittest.TestCase):
                 "model_ref": "models/feature_table_model1",
                 "model_type": "feature_table_model",
                 "model_hash": "45223ds1",
-                "encapsulating_model_name": None,
-                "encapsulating_model_hash": None,
             },
             {
                 "selector_sql": """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL2_45223ds1_384""",
@@ -297,8 +287,6 @@ class TestGetInputs(unittest.TestCase):
                 "model_ref": "models/feature_table_model2",
                 "model_type": "feature_table_model",
                 "model_hash": "45223ds1",
-                "encapsulating_model_name": None,
-                "encapsulating_model_hash": None,
             },
         ]
         self.assertEqual(result, expected_result)
@@ -327,8 +315,6 @@ class TestGetInputs(unittest.TestCase):
                 "model_ref": "user/all/last_seen",
                 "model_type": "entity_var_item",
                 "model_hash": None,
-                "encapsulating_model_name": "user_var_table",
-                "encapsulating_model_hash": "54ddc22a",
             },
         ]
         self.assertEqual(result, expected_result)

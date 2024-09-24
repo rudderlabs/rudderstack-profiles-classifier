@@ -262,19 +262,6 @@ class PythonWHT:
             List[TrainTablesInfo]: A list of TrainTablesInfo objects,
             each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
-        # We are using model_name and hash from first index of inputs to fetch a initial set of tables from material_registry.
-        # These data is further used to validate over all the given inputs to filter validated & existing past materials.
-        if inputs[0]["encapsulating_model_name"] is None:
-            input_header_model_name, input_header_model_hash = (
-                inputs[0]["model_name"],
-                inputs[0]["model_hash"],
-            )
-        else:
-            input_header_model_name, input_header_model_hash = (
-                inputs[0]["encapsulating_model_name"],
-                inputs[0]["encapsulating_model_hash"],
-            )
-
         feature_label_df = self.connector.join_feature_label_tables(
             self.get_registry_table_name(),
             inputs[0]["model_name"],
@@ -557,14 +544,6 @@ class PythonWHT:
             if column_name is None:
                 model_hash = self.split_material_name(selector_sql)["model_hash"]
 
-            encapsulating_model_name, encapsulating_model_hash = None, None
-            if column_name is not None:
-                encapsulating_model_dict = self.split_material_name(table_name)
-                encapsulating_model_name, encapsulating_model_hash = (
-                    encapsulating_model_dict["model_name"],
-                    encapsulating_model_dict["model_hash"],
-                )
-
             inputs.append(
                 {
                     "selector_sql": selector_sql,
@@ -572,8 +551,6 @@ class PythonWHT:
                     "model_name": extract_model_name_from_query(selector_sql),
                     "column_name": column_name,
                     "model_hash": model_hash,
-                    "encapsulating_model_name": encapsulating_model_name,
-                    "encapsulating_model_hash": encapsulating_model_hash,
                 }
             )
         if skip_compile:

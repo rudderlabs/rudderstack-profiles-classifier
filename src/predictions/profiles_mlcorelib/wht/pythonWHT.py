@@ -179,7 +179,6 @@ class PythonWHT:
 
         # Both not found in the warehouse (no point in including invalid pairs)
         if not found_feature_material and not found_label_material:
-            logger.get().debug("Invalid pair found. Skipping the sequence.")
             return
 
         # One of them is not found in the warehouse and we don't want to include invalid pairs
@@ -194,9 +193,6 @@ class PythonWHT:
             not (found_feature_material and found_label_material)
             and not return_partial_pairs
         ):
-            logger.get().debug(
-                f"Condition not met given return_partial_pairs as {return_partial_pairs}."
-            )
             return
 
         feature_table_date = (

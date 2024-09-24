@@ -245,8 +245,6 @@ class PythonWHT:
         self,
         start_time: str,
         end_time: str,
-        model_name: str,
-        model_hash: str,
         prediction_horizon_days: int,
         inputs: List[dict],
         input_columns: List[str],
@@ -261,10 +259,23 @@ class PythonWHT:
             List[TrainTablesInfo]: A list of TrainTablesInfo objects,
             each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
+        # We are using model_name and hash from first index of inputs to fetch a initial set of tables from material_registry.
+        # These data is further used to validate over all the given inputs to filter validated & existing past materials.
+        if inputs[0]["encapsulating_model_name"] is None:
+            input_header_model_name, input_header_model_hash = (
+                inputs[0]["model_name"],
+                inputs[0]["model_hash"],
+            )
+        else:
+            input_header_model_name, input_header_model_hash = (
+                inputs[0]["encapsulating_model_name"],
+                inputs[0]["encapsulating_model_hash"],
+            )
+
         feature_label_df = self.connector.join_feature_label_tables(
             self.get_registry_table_name(),
-            model_name,
-            model_hash,
+            input_header_model_name,
+            input_header_model_hash,
             start_time,
             end_time,
             prediction_horizon_days,
@@ -445,8 +456,6 @@ class PythonWHT:
         self,
         start_date: str,
         end_date: str,
-        model_name: str,
-        model_hash: str,
         prediction_horizon_days: int,
         inputs: List[dict],
         input_columns: List[str],
@@ -478,8 +487,6 @@ class PythonWHT:
         (materials) = self._get_material_names(
             start_date,
             end_date,
-            model_name,
-            model_hash,
             prediction_horizon_days,
             inputs,
             input_columns,
@@ -503,8 +510,6 @@ class PythonWHT:
             (materials) = self._get_material_names(
                 start_date,
                 end_date,
-                model_name,
-                model_hash,
                 prediction_horizon_days,
                 inputs,
                 input_columns,
@@ -514,7 +519,7 @@ class PythonWHT:
         complete_sequences_materials = get_complete_sequences(materials)
         if len(complete_sequences_materials) == 0:
             raise Exception(
-                f"Tried to materialise past data but no materialized data found for {model_name} with hash {model_hash} between dates {start_date} and {end_date}"
+                f"Tried to materialise past data but no materialized data found for given inputs between dates {start_date} and {end_date}"
             )
 
         return self.get_past_materials_with_valid_date_range(

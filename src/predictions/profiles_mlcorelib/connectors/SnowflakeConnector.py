@@ -102,6 +102,9 @@ class SnowflakeConnector(Connector):
                                     {query} ;
                                 """
 
+        logger.get().info(
+            f"create table query:===================\n {create_temp_table_query}"
+        )
         self.run_query(create_temp_table_query, response=False)
 
     def get_entity_var_table_ref(self, table_name: str) -> str:

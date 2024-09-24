@@ -136,10 +136,14 @@ class TestGetMaterialNames(unittest.TestCase):
             {
                 "model_ref": "model1.yaml",
                 "selector_sql": """select * from material_user_var_736465_0""",
+                "model_name": "user_var",
+                "model_hash": "736465",
             },
             {
                 "model_ref": "model2.yaml",
                 "selector_sql": """select * from material_user_var_736465_0""",
+                "model_name": "user_var",
+                "model_hash": "736465",
             },
         ]
         self.input_columns = ["COL1", "COL2", "COL3"]
@@ -372,8 +376,6 @@ class TestGetMaterialNames(unittest.TestCase):
         materials = self.whtService.get_material_names(
             self.start_date,
             self.end_date,
-            self.features_profiles_model,
-            self.model_hash,
             self.prediction_horizon_days,
             self.inputs,
             self.input_columns,
@@ -409,8 +411,6 @@ class TestGetMaterialNames(unittest.TestCase):
         materials = self.whtService.get_material_names(
             self.start_date,
             self.end_date,
-            self.features_profiles_model,
-            self.model_hash,
             self.prediction_horizon_days,
             self.inputs,
             self.input_columns,
@@ -445,8 +445,6 @@ class TestGetMaterialNames(unittest.TestCase):
             self.whtService.get_material_names(
                 self.start_date,
                 self.end_date,
-                self.features_profiles_model,
-                self.model_hash,
                 self.prediction_horizon_days,
                 self.inputs,
                 self.input_columns,

@@ -49,6 +49,9 @@ class CommonWarehouseConnector(Connector):
                                     {query} ;
                                 """
 
+        logger.get().info(
+            f"create table query:===================\n {create_temp_table_query}"
+        )
         for query in [drop_table_query, create_temp_table_query]:
             self.run_query(query, response=False)
 

@@ -125,13 +125,13 @@ class TestPyNativeWHT(unittest.TestCase):
         self.pyNativeWHT.get_material_names(
             "2021-10-10",
             "2021-10-10",
-            "user_var_table",
-            "f2345h",
             "7",
             [
                 {
                     "model_ref": "entity/user/is_churned",
                     "table_name": "material_{model_name}_{hash}_{seq_no}",
+                    "model_name": "user_var_table",
+                    "model_hash": "f2345h",
                 }
             ],
             ["is_churned"],
@@ -141,13 +141,13 @@ class TestPyNativeWHT(unittest.TestCase):
         self.pyNativeWHT.pythonWHT.get_material_names.assert_called_once_with(
             "2021-10-10",
             "2021-10-10",
-            "user_var_table",
-            "f2345h",
             "7",
             [
                 {
                     "model_ref": "entity/user/is_churned",
                     "table_name": "material_{model_name}_{hash}_{seq_no}",
+                    "model_name": "user_var_table",
+                    "model_hash": "f2345h",
                 }
             ],
             ["is_churned"],

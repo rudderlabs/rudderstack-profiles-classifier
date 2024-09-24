@@ -136,10 +136,14 @@ class TestGetMaterialNames(unittest.TestCase):
             {
                 "model_ref": "model1.yaml",
                 "selector_sql": """select * from material_user_var_736465_0""",
+                "model_name": "user_var",
+                "model_hash": "736465",
             },
             {
                 "model_ref": "model2.yaml",
                 "selector_sql": """select * from material_user_var_736465_0""",
+                "model_name": "user_var",
+                "model_hash": "736465",
             },
         ]
         self.input_columns = ["COL1", "COL2", "COL3"]
@@ -372,8 +376,6 @@ class TestGetMaterialNames(unittest.TestCase):
         materials = self.whtService.get_material_names(
             self.start_date,
             self.end_date,
-            self.features_profiles_model,
-            self.model_hash,
             self.prediction_horizon_days,
             self.inputs,
             self.input_columns,
@@ -409,8 +411,6 @@ class TestGetMaterialNames(unittest.TestCase):
         materials = self.whtService.get_material_names(
             self.start_date,
             self.end_date,
-            self.features_profiles_model,
-            self.model_hash,
             self.prediction_horizon_days,
             self.inputs,
             self.input_columns,
@@ -445,8 +445,6 @@ class TestGetMaterialNames(unittest.TestCase):
             self.whtService.get_material_names(
                 self.start_date,
                 self.end_date,
-                self.features_profiles_model,
-                self.model_hash,
                 self.prediction_horizon_days,
                 self.inputs,
                 self.input_columns,
@@ -1088,18 +1086,15 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
     # The method is called with valid arguments and all tables exist in the warehouse registry.
     def test_valid_arguments_all_tables_exist(self):
         self.connector.check_table_entry_in_material_registry = Mock(return_value=True)
-        result = self.whtService._validate_historical_materials_hash(
-            self.inputs[0], 1, 2
-        )
+        self.connector.is_valid_table = Mock(return_value=True)
+        result = self.whtService._validate_historical_materials_hash(self.inputs[0], 1)
         self.assertTrue(result)
 
     def test_valid_arguments_some_tables_dont_exist(self):
         self.connector.check_table_entry_in_material_registry = Mock(
             side_effect=[True, False]
         )
-        result = self.whtService._validate_historical_materials_hash(
-            self.inputs[0], 1, 2
-        )
+        result = self.whtService._validate_historical_materials_hash(self.inputs[0], 1)
         self.assertFalse(result)
 
 

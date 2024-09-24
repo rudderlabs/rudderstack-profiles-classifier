@@ -598,7 +598,7 @@ class Connector(ABC):
     def join_feature_label_tables(
         self,
         registry_table_name: str,
-        entity_var_model_name: str,
+        model_name: str,
         model_hash: str,
         start_time: str,
         end_time: str,

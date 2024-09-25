@@ -39,7 +39,13 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
             "material_model_name_hash_seq_feature_table"
         )
         self.pythonWHT.connector.join_input_tables = Mock(return_value=None)
-        self.inputs = []
+        self.inputs = [
+            {
+                "table_name": "Material_model_name_hash_1",
+                "model_name": "model_name",
+                "model_hash": "hash",
+            },
+        ]
         self.input_columns = ["COL1", "COL2", "COL3"]
         self.entity_column = "user_main_id"
 
@@ -60,8 +66,6 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         # Call the function
         self.pythonWHT._fetch_valid_historic_materials(
             table_row,
-            "user_var_table",
-            "54ddc22a",
             self.inputs,
             self.input_columns,
             self.entity_column,
@@ -72,10 +76,15 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         # Assertions
         self.assertEqual(len(materials), 1)
 
-    @patch(
-        "src.predictions.profiles_mlcorelib.wht.pythonWHT.PythonWHT._validate_historical_materials_hash"
-    )
-    def test_missing_sequence_number(self, mock_compute_material_name):
+    def test_missing_sequence_number(self):
+
+        self.pythonWHT.connector.check_table_entry_in_material_registry = Mock(
+            return_value=True
+        )
+        self.pythonWHT.connector.is_valid_table = Mock(return_value=True)
+        self.pythonWHT.get_registry_table_name = Mock(
+            return_value="material_registry_4"
+        )
 
         materials = []
         table_row = MockTableRow()
@@ -87,8 +96,6 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         # Call the function
         self.pythonWHT._fetch_valid_historic_materials(
             table_row,
-            "user_var_table",
-            "54ddc22a",
             self.inputs,
             self.input_columns,
             self.entity_column,
@@ -104,8 +111,6 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         # Call the function
         self.pythonWHT._fetch_valid_historic_materials(
             table_row,
-            "user_var_table",
-            "54ddc22a",
             self.inputs,
             self.input_columns,
             self.entity_column,
@@ -122,8 +127,6 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         # Call the function
         self.pythonWHT._fetch_valid_historic_materials(
             table_row,
-            "user_var_table",
-            "54ddc22a",
             self.inputs,
             self.input_columns,
             self.entity_column,
@@ -137,8 +140,6 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         # Call the function
         self.pythonWHT._fetch_valid_historic_materials(
             table_row,
-            "user_var_table",
-            "54ddc22a",
             self.inputs,
             self.input_columns,
             self.entity_column,

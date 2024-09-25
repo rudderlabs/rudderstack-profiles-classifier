@@ -45,8 +45,8 @@ models:
       inputs:
         - packages/feature_table/entity/user/is_churned_7_days
         - packages/feature_table/entity/user/days_since_last_seen
-        - packages/feature_table/models/max_timestamp_pages
-        - packages/feature_table/models/max_timestamp_tracks
+        - packages/feature_table/entity/user/max_timestamp_pages
+        - packages/feature_table/entity/user/max_timestamp_tracks
         - packages/feature_table/models/rsRandomSQLModel
       ml_config:
         data:
@@ -71,8 +71,8 @@ models:
       inputs:
         - packages/feature_table/entity/user/is_churned_7_days
         - packages/feature_table/entity/user/days_since_last_seen
-        - packages/feature_table/models/max_timestamp_pages
-        - packages/feature_table/models/max_timestamp_tracks
+        - packages/feature_table/entity/user/max_timestamp_pages
+        - packages/feature_table/entity/user/max_timestamp_tracks
         - packages/feature_table/models/rsRandomSQLModel
       ml_config:
         data:

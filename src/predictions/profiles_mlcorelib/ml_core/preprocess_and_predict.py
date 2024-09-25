@@ -199,6 +199,11 @@ def preprocess_and_predict(
 
     logger.get().debug("Creating predictions on the feature data")
 
+    logger.get().debug(
+        f"predict_data column_names:=============\n{predict_data.columns}"
+    )
+    logger.get().debug(f"input_df column_names:=============\n{input_df.columns}")
+
     preds_with_percentile = connector.call_prediction_udf(
         predict_data,
         prediction_udf,

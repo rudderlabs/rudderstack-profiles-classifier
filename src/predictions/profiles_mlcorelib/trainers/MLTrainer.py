@@ -223,22 +223,6 @@ class MLTrainer(ABC):
             test_data,
         ) = self.prepare_data(feature_df)
 
-        numeric_cols = [
-            col.upper()
-            for col in input_col_types["numeric"]
-            if col.upper() in feature_df
-        ]
-        categorical_cols = [
-            col.upper()
-            for col in input_col_types["categorical"]
-            if col.upper() in feature_df
-        ]
-        timestamp_cols = [
-            col.upper()
-            for col in input_col_types["timestamp"]
-            if col.upper() in feature_df
-        ]
-
         n_folds = train_config["model_params"]["fold"]
         fold_strategy = train_config["model_params"]["fold_strategy"]
 

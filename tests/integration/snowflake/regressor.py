@@ -5,7 +5,8 @@ from tests.integration.utils import *
 import os
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
-creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
+# creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
+creds["schema"] = "AMBUJ"
 
 train_input_model_name = "shopify_user_features"
 

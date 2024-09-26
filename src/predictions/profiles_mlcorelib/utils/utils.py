@@ -228,7 +228,10 @@ def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> Lis
 
 
 def transform_null(
-    df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str]
+    df: pd.DataFrame,
+    numeric_columns: List[str],
+    categorical_columns: List[str],
+    timestamp_columns: List[str],
 ) -> pd.DataFrame:
     for col in numeric_columns:
         df[col] = df[col].astype("float64")
@@ -237,6 +240,9 @@ def transform_null(
         df[col] = df[col].astype("float64")
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: 0})
     df[categorical_columns] = df[categorical_columns].replace({pd.NA: "unknown"})
+    df[timestamp_columns] = df[timestamp_columns].replace(
+        {pd.NA: df[timestamp_columns].median()}
+    )
     return df
 
 

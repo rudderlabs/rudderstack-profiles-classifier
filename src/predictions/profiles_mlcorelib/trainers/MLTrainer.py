@@ -212,7 +212,9 @@ class MLTrainer(ABC):
             if col.upper() in feature_df
         ]
 
-        feature_df = utils.transform_null(feature_df, numeric_cols, categorical_cols)
+        feature_df = utils.transform_null(
+            feature_df, numeric_cols, categorical_cols, timestamp_cols
+        )
 
         (
             train_x,

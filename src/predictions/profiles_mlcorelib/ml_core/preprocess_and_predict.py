@@ -158,6 +158,8 @@ def preprocess_and_predict(
         class predict_scores:
             def end_partition(self, df):
                 df.columns = features
+                current_time = pd.Timestamp.now()
+
                 for col in numeric_columns:
                     df[col] = df[col].astype("float64")
                 df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
@@ -166,8 +168,7 @@ def preprocess_and_predict(
                 df[categorical_columns] = df[categorical_columns].fillna("unknown")
                 for col in timestamp_columns:
                     df[col] = pd.to_datetime(df[col], errors="coerce")
-                    median_date = df[col].dropna().median()
-                    df[col] = df[col].fillna(median_date)
+                    df[col] = df[col].fillna(current_time)
 
                 predictions = predict_helper(df, pkl_model_file_name)
 

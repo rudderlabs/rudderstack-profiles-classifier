@@ -162,7 +162,7 @@ def preprocess_and_predict(
         class predict_scores:
             def end_partition(self, df):
                 df.columns = features
-                utils.transform_null(
+                df = utils.transform_null(
                     df, numeric_columns, categorical_columns, timestamp_columns
                 )
                 # for col in numeric_columns:
@@ -171,6 +171,10 @@ def preprocess_and_predict(
                 # df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
                 # df[numeric_columns] = df[numeric_columns].fillna(0)
                 # df[categorical_columns] = df[categorical_columns].fillna("unknown")
+                # for col in timestamp_columns:
+                #     df[col] = pd.to_datetime(df[col], errors="coerce")
+                #     median_date = df[col].dropna().median()
+                #     df[col] = df[col].fillna(median_date)
 
                 predictions = predict_helper(df, pkl_model_file_name)
 
@@ -195,6 +199,9 @@ def preprocess_and_predict(
 
         def predict_scores_rs(df: pd.DataFrame) -> pd.DataFrame:
             df.columns = features
+            df = utils.transform_null(
+                df, numeric_columns, categorical_columns, timestamp_columns
+            )
             predictions = predict_helper(df, pkl_model_file_name)
             return predictions
 

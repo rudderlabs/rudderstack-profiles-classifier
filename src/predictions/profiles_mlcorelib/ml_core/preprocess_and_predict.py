@@ -162,12 +162,15 @@ def preprocess_and_predict(
         class predict_scores:
             def end_partition(self, df):
                 df.columns = features
-                for col in numeric_columns:
-                    df[col] = df[col].astype("float64")
-                df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-                df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
-                df[numeric_columns] = df[numeric_columns].fillna(0)
-                df[categorical_columns] = df[categorical_columns].fillna("unknown")
+                utils.transform_null(
+                    df, numeric_columns, categorical_columns, timestamp_columns
+                )
+                # for col in numeric_columns:
+                #     df[col] = df[col].astype("float64")
+                # df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+                # df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+                # df[numeric_columns] = df[numeric_columns].fillna(0)
+                # df[categorical_columns] = df[categorical_columns].fillna("unknown")
 
                 predictions = predict_helper(df, pkl_model_file_name)
 

@@ -233,8 +233,6 @@ def transform_null(
     categorical_columns: List[str],
     timestamp_columns: List[str],
 ) -> pd.DataFrame:
-    for col in numeric_columns:
-        df[col] = df[col].astype("float64")
     """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
     for col in numeric_columns:
         df[col] = df[col].astype("float64")

@@ -240,9 +240,10 @@ def transform_null(
         df[col] = df[col].astype("float64")
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: 0})
     df[categorical_columns] = df[categorical_columns].replace({pd.NA: "unknown"})
-    df[timestamp_columns] = df[timestamp_columns].replace(
-        {pd.NA: df[timestamp_columns].median()}
-    )
+    for col in timestamp_columns:
+        df[col] = pd.to_datetime(df[col], errors="coerce")
+        median_date = df[col].dropna().median()
+        df[col] = df[col].fillna(median_date)
     return df
 
 

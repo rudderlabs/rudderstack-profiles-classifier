@@ -85,7 +85,6 @@ def train_and_store_model_results(
 
 def prepare_feature_table(
     train_table_pair: constants.TrainTablesInfo,
-    timestamp_columns: List[str],
     input_columns: List[str],
     **kwargs,
 ):
@@ -96,9 +95,7 @@ def prepare_feature_table(
     try:
         feature_table_name = train_table_pair.feature_table_name
         label_table_name = train_table_pair.label_table_name
-        feature_table_dt = utils.convert_ts_str_to_dt_str(
-            train_table_pair.feature_table_date
-        )
+
         if trainer.eligible_users:
             feature_table = connector.get_table(
                 feature_table_name, filter_condition=trainer.eligible_users
@@ -116,10 +113,6 @@ def prepare_feature_table(
         )
         feature_table = connector.drop_cols(feature_table, [trainer.label_column])
 
-        # for col in timestamp_columns:
-        #     feature_table = connector.add_days_diff(
-        #         feature_table, col, col, feature_table_dt
-        #     )
         label_table = trainer.prepare_label_table(connector, label_table_name)
         feature_table = connector.join_feature_table_label_table(
             feature_table, label_table, trainer.entity_column, "inner"
@@ -156,7 +149,6 @@ def preprocess_and_train(
         )
         feature_table_instance = prepare_feature_table(
             train_table_pair,
-            list(input_column_types["timestamp"].keys()),
             input_columns,
             connector=connector,
             trainer=trainer,

@@ -86,10 +86,6 @@ def preprocess_and_predict(
         joined_input_table_name, filter_condition=trainer.eligible_users
     )
 
-    logger.get().debug("Transforming timestamp columns.")
-    # for col in timestamp_columns:
-    #     raw_data = connector.add_days_diff(raw_data, col, col, end_ts)
-
     logger.get().debug(f"Transforming arraytype columns.")
     _, raw_data = connector.transform_arraytype_features(
         raw_data,
@@ -162,19 +158,16 @@ def preprocess_and_predict(
         class predict_scores:
             def end_partition(self, df):
                 df.columns = features
-                df = utils.transform_null(
-                    df, numeric_columns, categorical_columns, timestamp_columns
-                )
-                # for col in numeric_columns:
-                #     df[col] = df[col].astype("float64")
-                # df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-                # df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
-                # df[numeric_columns] = df[numeric_columns].fillna(0)
-                # df[categorical_columns] = df[categorical_columns].fillna("unknown")
-                # for col in timestamp_columns:
-                #     df[col] = pd.to_datetime(df[col], errors="coerce")
-                #     median_date = df[col].dropna().median()
-                #     df[col] = df[col].fillna(median_date)
+                for col in numeric_columns:
+                    df[col] = df[col].astype("float64")
+                df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+                df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+                df[numeric_columns] = df[numeric_columns].fillna(0)
+                df[categorical_columns] = df[categorical_columns].fillna("unknown")
+                for col in timestamp_columns:
+                    df[col] = pd.to_datetime(df[col], errors="coerce")
+                    median_date = df[col].dropna().median()
+                    df[col] = df[col].fillna(median_date)
 
                 predictions = predict_helper(df, pkl_model_file_name)
 
@@ -208,11 +201,6 @@ def preprocess_and_predict(
         prediction_udf = predict_scores_rs
 
     logger.get().debug("Creating predictions on the feature data")
-
-    logger.get().debug(
-        f"predict_data column_names:=============\n{predict_data.columns}"
-    )
-    logger.get().debug(f"input_df column_names:=============\n{input_df.columns}")
 
     preds_with_percentile = connector.call_prediction_udf(
         predict_data,

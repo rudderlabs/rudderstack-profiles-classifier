@@ -238,6 +238,7 @@ class MLTrainer(ABC):
             date_features=timestamp_cols,
             fold=n_folds,
             fold_strategy=fold_strategy,
+            feature_selection=False,
         )
 
         for custom_metric in custom_metrics:

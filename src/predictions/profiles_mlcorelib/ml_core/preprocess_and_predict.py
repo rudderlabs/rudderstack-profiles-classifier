@@ -158,7 +158,7 @@ def preprocess_and_predict(
         class predict_scores:
             def end_partition(self, df):
                 df.columns = features
-                current_time = pd.Timestamp.now()
+                current_time = pd.Timestamp.now().floor("S")
 
                 for col in numeric_columns:
                     df[col] = df[col].astype("float64")

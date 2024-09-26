@@ -234,7 +234,7 @@ def transform_null(
     timestamp_columns: List[str],
 ) -> pd.DataFrame:
     """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
-    current_time = pd.Timestamp.now()
+    current_time = pd.Timestamp.now().floor("S")
     for col in numeric_columns:
         df[col] = df[col].astype("float64")
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: 0})

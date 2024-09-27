@@ -126,6 +126,11 @@ def preprocess_and_predict(
         return model
 
     def predict_helper(df, pkl_model_file_name: str) -> Any:
+        df.columns = features
+        df = utils.transform_null(
+            df, numeric_columns, categorical_columns, timestamp_columns
+        )
+
         trained_model = load_model(pkl_model_file_name)
         df.columns = [x.upper() for x in df.columns]
         return trainer.predict(trained_model, df)
@@ -157,28 +162,6 @@ def preprocess_and_predict(
         )
         class predict_scores:
             def end_partition(self, df):
-                df.columns = features
-                df = utils.transform_null(
-                    df, numeric_columns, categorical_columns, timestamp_columns
-                )
-                # current_time = pd.Timestamp.now().strftime(
-                #     constants.NULL_TRANSFORMATION_TIMESTAMP_FORMAT
-                # )
-
-                # for col in numeric_columns:
-                #     df[col] = df[col].astype("float64")
-                # df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-                # df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
-                # df[numeric_columns] = df[numeric_columns].fillna(0)
-                # df[categorical_columns] = df[categorical_columns].fillna("unknown")
-                # for col in timestamp_columns:
-                #     df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
-                #     df[col] = df[col].dt.strftime(
-                #         constants.NULL_TRANSFORMATION_TIMESTAMP_FORMAT
-                #     )
-                #     df[col] = pd.to_datetime(df[col], errors="coerce")
-                #     df[col] = df[col].fillna(current_time)
-
                 predictions = predict_helper(df, pkl_model_file_name)
 
                 # Create a new DataFrame with the extracted column names
@@ -201,10 +184,6 @@ def preprocess_and_predict(
         local_folder = connector.get_local_dir()
 
         def predict_scores_rs(df: pd.DataFrame) -> pd.DataFrame:
-            df.columns = features
-            df = utils.transform_null(
-                df, numeric_columns, categorical_columns, timestamp_columns
-            )
             predictions = predict_helper(df, pkl_model_file_name)
             return predictions
 

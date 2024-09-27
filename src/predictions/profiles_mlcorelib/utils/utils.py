@@ -234,15 +234,18 @@ def transform_null(
     timestamp_columns: List[str],
 ) -> pd.DataFrame:
     """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
-    current_time = pd.Timestamp.now()
+    current_time = pd.Timestamp.now().strftime(
+        constants.NULL_TRANSFORMATION_TIMESTAMP_FORMAT
+    )
 
     for col in numeric_columns:
         df[col] = df[col].astype("float64")
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: 0})
     df[categorical_columns] = df[categorical_columns].replace({pd.NA: "unknown"})
     for col in timestamp_columns:
+        df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
+        df[col] = df[col].dt.strftime(constants.NULL_TRANSFORMATION_TIMESTAMP_FORMAT)
         df[col] = pd.to_datetime(df[col], errors="coerce")
-        # min_time = df[col].dropna().min()
         df[col] = df[col].fillna(current_time)
     return df
 

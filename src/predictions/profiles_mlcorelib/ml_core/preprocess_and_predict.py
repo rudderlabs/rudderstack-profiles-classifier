@@ -158,18 +158,26 @@ def preprocess_and_predict(
         class predict_scores:
             def end_partition(self, df):
                 df.columns = features
-                current_time = pd.Timestamp.now()
+                df = utils.transform_null(
+                    df, numeric_columns, categorical_columns, timestamp_columns
+                )
+                # current_time = pd.Timestamp.now().strftime(
+                #     constants.NULL_TRANSFORMATION_TIMESTAMP_FORMAT
+                # )
 
-                for col in numeric_columns:
-                    df[col] = df[col].astype("float64")
-                df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
-                df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
-                df[numeric_columns] = df[numeric_columns].fillna(0)
-                df[categorical_columns] = df[categorical_columns].fillna("unknown")
-                for col in timestamp_columns:
-                    df[col] = pd.to_datetime(df[col], errors="coerce")
-                    # min_time = df[col].dropna().min()
-                    df[col] = df[col].fillna(current_time)
+                # for col in numeric_columns:
+                #     df[col] = df[col].astype("float64")
+                # df[numeric_columns] = df[numeric_columns].replace({pd.NA: np.nan})
+                # df[categorical_columns] = df[categorical_columns].replace({pd.NA: None})
+                # df[numeric_columns] = df[numeric_columns].fillna(0)
+                # df[categorical_columns] = df[categorical_columns].fillna("unknown")
+                # for col in timestamp_columns:
+                #     df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
+                #     df[col] = df[col].dt.strftime(
+                #         constants.NULL_TRANSFORMATION_TIMESTAMP_FORMAT
+                #     )
+                #     df[col] = pd.to_datetime(df[col], errors="coerce")
+                #     df[col] = df[col].fillna(current_time)
 
                 predictions = predict_helper(df, pkl_model_file_name)
 

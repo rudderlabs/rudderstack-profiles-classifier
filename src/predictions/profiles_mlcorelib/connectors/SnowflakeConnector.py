@@ -664,16 +664,16 @@ class SnowflakeConnector(Connector):
 
     def fetch_filtered_table(
         self,
-        df,
-        model_name,
-        model_hash,
-        start_time,
-        end_time,
-        columns,
-    ):
+        df: snowflake.snowpark.Table,
+        model_name: str,
+        model_hash: str,
+        start_time: str,
+        end_time: str,
+        columns: List[str],
+    ) -> snowflake.snowpark.Table:
         filtered_snowpark_df = (
-            df.filter(col("model_name") == model_name)
-            .filter(col("model_hash") == model_hash)
+            df.filter(F.lower(col("model_name")) == model_name.lower())
+            .filter(F.lower(col("model_hash")) == model_hash.lower())
             .filter(
                 (to_date(col("end_ts")) >= start_time)
                 & (to_date(col("end_ts")) <= end_time)
@@ -783,8 +783,8 @@ class SnowflakeConnector(Connector):
         snowpark_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
-                snowpark_df.filter(col("model_hash") == model_hash)
-                .filter(col("entity_key") == entity_key)
+                snowpark_df.filter(F.lower(col("model_hash")) == model_hash.lower())
+                .filter(F.lower(col("entity_key")) == entity_key.lower())
                 .sort(col("creation_ts"), ascending=False)
                 .select(col("creation_ts"))
                 .collect()[0]
@@ -804,8 +804,8 @@ class SnowflakeConnector(Connector):
         snowpark_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
-                snowpark_df.filter(col("model_hash") == model_hash)
-                .filter(col("model_name") == model_name)
+                snowpark_df.filter(F.lower(col("model_hash")) == model_hash.lower())
+                .filter(F.lower(col("model_name")) == model_name.lower())
                 .sort(col("creation_ts"), ascending=False)
                 .select(col("seq_no"))
                 .collect()[0]

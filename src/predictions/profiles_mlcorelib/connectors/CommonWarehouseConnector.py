@@ -597,7 +597,9 @@ class CommonWarehouseConnector(Connector):
         material_registry_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
-                material_registry_df.query(f'model_name.str.lower() == "{model_name.lower()}"')
+                material_registry_df.query(
+                    f'model_name.str.lower() == "{model_name.lower()}"'
+                )
                 .query(f"seq_no == {seq_no}")
                 .sort_values(by="creation_ts", ascending=False)
                 .reset_index(drop=True)[["model_hash"]]

@@ -6,6 +6,7 @@ from typing import Tuple
 from profiles_rudderstack.schema import (
     EntityKeyBuildSpecSchema,
     FeatureDetailsBuildSpecSchema,
+    EntityIdsBuildSpecSchema,
 )
 
 from .warehouse import standardize_ref_name
@@ -28,6 +29,7 @@ class PredictionModel(BaseModelType):
             "occurred_at_col": {"type": "string"},
             **EntityKeyBuildSpecSchema["properties"],
             **FeatureDetailsBuildSpecSchema["properties"],
+            **EntityIdsBuildSpecSchema["properties"],
             "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
             "training_model": {"type": "string"},
             "ml_config": {

@@ -75,14 +75,15 @@ class PredictionModel(BaseModelType):
                 {"name": build_spec["ml_config"]["outputs"]["column_names"]["score"]},
             ],
         }
-        build_spec["ids"] = [
-            {
-                "select": entity_key
-                + "_main_id",  # FIXME: select should be computed from the entity object
-                "type": "rudder_id",
-                "entity": entity_key,
-            }
-        ]
+        if "ids" not in build_spec:
+            build_spec["ids"] = [
+                {
+                    "select": entity_key
+                    + "_main_id",  # FIXME: select should be computed from the entity object
+                    "type": "rudder_id",
+                    "entity": entity_key,
+                }
+            ]
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:

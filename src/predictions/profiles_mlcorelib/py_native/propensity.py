@@ -4,6 +4,7 @@ from profiles_rudderstack.material import WhtFolder
 from typing import Tuple
 from profiles_rudderstack.schema import (
     EntityKeyBuildSpecSchema,
+    EntityIdsBuildSpecSchema,
 )
 
 PredictionColumnSpecSchema = {
@@ -24,6 +25,7 @@ class PropensityModel(BaseModelType):
         "additionalProperties": False,
         "properties": {
             **EntityKeyBuildSpecSchema["properties"],
+            **EntityIdsBuildSpecSchema["properties"],
             "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
             "training": {
                 "type": "object",
@@ -163,7 +165,7 @@ class PropensityModel(BaseModelType):
                 )
         if self.build_spec["prediction"].get("eligible_users", None) is not None:
             data["eligible_users"] = self.build_spec["prediction"]["eligible_users"]
-        return {
+        spec = {
             "entity_key": self.build_spec["entity_key"],
             "training_model": training_model_ref,
             "inputs": self.build_spec["inputs"],
@@ -178,6 +180,9 @@ class PropensityModel(BaseModelType):
             },
             "features": features,
         }
+        if "ids" in self.build_spec:
+            spec["ids"] = self.build_spec["ids"]
+        return spec
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return NoOpRecipe()

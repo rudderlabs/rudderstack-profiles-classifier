@@ -435,8 +435,8 @@ class CommonWarehouseConnector(Connector):
     ):
         filtered_df = (
             df.loc[
-                (df["model_name"] == model_name)
-                & (df["model_hash"] == model_hash)
+                (df["model_name"].str.lower() == model_name.lower())
+                & (df["model_hash"].str.lower() == model_hash.lower())
                 & (df["end_ts"].dt.date >= pd.to_datetime(start_time).date())
                 & (df["end_ts"].dt.date <= pd.to_datetime(end_time).date()),
                 columns.keys(),
@@ -558,8 +558,8 @@ class CommonWarehouseConnector(Connector):
         redshift_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
-                redshift_df.query(f'model_hash == "{model_hash}"')
-                .query(f'entity_key == "{entity_key}"')
+                redshift_df.query(f'model_hash.str.lower() == "{model_hash.lower()}"')
+                .query(f'entity_key.str.lower() == "{entity_key.lower()}"')
                 .sort_values(by="creation_ts", ascending=False)
                 .reset_index(drop=True)[["creation_ts"]]
                 .iloc[0]
@@ -578,8 +578,8 @@ class CommonWarehouseConnector(Connector):
         redshift_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
-                redshift_df.query(f'model_hash == "{model_hash}"')
-                .query(f'model_name == "{model_name}"')
+                redshift_df.query(f'model_hash.str.lower() == "{model_hash.lower()}"')
+                .query(f'model_name.str.lower() == "{model_name.lower()}"')
                 .sort_values(by="creation_ts", ascending=False)
                 .reset_index(drop=True)[["seq_no"]]
                 .iloc[0]
@@ -597,7 +597,9 @@ class CommonWarehouseConnector(Connector):
         material_registry_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
-                material_registry_df.query(f'model_name == "{model_name}"')
+                material_registry_df.query(
+                    f'model_name.str.lower() == "{model_name.lower()}"'
+                )
                 .query(f"seq_no == {seq_no}")
                 .sort_values(by="creation_ts", ascending=False)
                 .reset_index(drop=True)[["model_hash"]]

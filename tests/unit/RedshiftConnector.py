@@ -130,7 +130,7 @@ class TestGetMaterialNames(unittest.TestCase):
         self.start_date = "2022-01-01"
         self.end_date = "2022-01-31"
         self.features_profiles_model = "model_name"
-        self.model_hash = "model_hash"
+        self.model_hash = "MODEL_HASH"
         self.prediction_horizon_days = 7
         self.inputs = [
             {
@@ -165,8 +165,8 @@ class TestGetMaterialNames(unittest.TestCase):
                     f"NOT_{self.features_profiles_model}",
                 ],
                 "model_hash": [
-                    self.model_hash,
-                    self.model_hash,
+                    self.model_hash.lower(),
+                    self.model_hash.upper(),
                     self.model_hash,
                     f"NOT_{self.model_hash}",
                 ],

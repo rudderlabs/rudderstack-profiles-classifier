@@ -57,6 +57,7 @@ jobs:
             - '!tests/integration/attribution/**'
             - '!samples/attribution_project/**'
             - '!src/predictions/profiles_mlcorelib/py_native/llm.py'
+            - '!src/predictions/profiles_mlcorelib/py_native/id_stitcher/**'
         predicate-quantifier: every
 
   attribution_changes:

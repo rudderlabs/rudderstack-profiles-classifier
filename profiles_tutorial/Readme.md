@@ -8,6 +8,8 @@ tutorial.py is a script that demonstrates the core concepts of profiles, along w
 git clone git@github.com:rudderlabs/rudder-ai-pocs.git
 ```
 
+Unzip the sample_data.zip
+
 ## Environment setup
 ```
 poetry install

@@ -2,7 +2,9 @@ import os
 from typing import Dict
 import pandas as pd
 from profiles_rudderstack.client import BaseClient
-from profiles_rudderstack.reader import Reader
+
+# TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
+# from profiles_rudderstack.reader import Reader
 import networkx as nx
 import plotly.graph_objects as go
 import networkx as nx
@@ -31,7 +33,7 @@ cluster_analysis_prompt = """
 class ClusterReport:
     def __init__(
         self,
-        reader: Reader,
+        reader,
         wh_client: BaseClient,
         entity: Dict,
         table_report: TableReport,

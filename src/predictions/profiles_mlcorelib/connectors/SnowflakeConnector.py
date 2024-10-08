@@ -90,7 +90,7 @@ class SnowflakeConnector(Connector):
             self.connection_parameters["private_key"] = private_key
         session = Session.builder.configs(self.connection_parameters).create()
         # Removing the private key to prevent serialisation error in the snowflake stored procedure
-        _ = self.connection_parameters.pop("private_key")
+        _ = self.connection_parameters.pop("private_key", None)
         return session
 
     def join_file_path(self, file_name: str) -> str:

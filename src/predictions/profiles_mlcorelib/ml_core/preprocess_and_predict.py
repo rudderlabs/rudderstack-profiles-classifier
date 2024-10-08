@@ -350,7 +350,7 @@ if __name__ == "__main__":
     try:
         if isinstance(args.inputs, list) and isinstance(args.inputs[0], dict):
             for input_ in args.inputs:
-                inputs_info.append(utils.InputsConfig(*input_))
+                inputs_info.append(utils.InputsConfig(**input_))
     except Exception as e:
         logger.get().error(f"Error while parsing inputs: {e}")
         raise Exception(f"Error while parsing inputs: {e}")

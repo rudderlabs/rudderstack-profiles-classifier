@@ -39,6 +39,7 @@ setup(
         "pycaret==3.3.1",
         "boto3>=1.34.153",
         "google-auth-oauthlib>=1.0.0",
+        "cryptography>=42.0.4",
     ],
     include_package_data=True,
 )

@@ -8,7 +8,8 @@ import shutil
 import pandas as pd
 from datetime import datetime
 
-from typing import Any, Iterable, List, Tuple, Union, Optional, Sequence, Dict
+
+from typing import Any, Iterable, List, Union, Sequence, Dict
 
 import snowflake.snowpark
 import snowflake.snowpark.types as T
@@ -22,6 +23,8 @@ from ..utils import constants
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
 from ..wht.rudderPB import MATERIAL_PREFIX
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.backends import default_backend
 
 local_folder = constants.SF_LOCAL_STORAGE_DIR
 
@@ -74,7 +77,20 @@ class SnowflakeConnector(Connector):
     def build_session(self, credentials: dict) -> snowflake.snowpark.Session:
         self.schema = credentials.get("schema", None)
         self.connection_parameters = self.remap_credentials(credentials)
+        if "privateKey" in credentials:
+            private_key = load_pem_private_key(
+                credentials["privateKey"].encode(),
+                password=(
+                    credentials["privateKeyPassphrase"].encode()
+                    if credentials.get("privateKeyPassphrase")
+                    else None
+                ),
+                backend=default_backend(),
+            )
+            self.connection_parameters["private_key"] = private_key
         session = Session.builder.configs(self.connection_parameters).create()
+        # Removing the private key to prevent serialisation error in the snowflake stored procedure
+        _ = self.connection_parameters.pop("private_key")
         return session
 
     def join_file_path(self, file_name: str) -> str:

@@ -77,7 +77,6 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         self.assertEqual(len(materials), 1)
 
     def test_missing_sequence_number(self):
-
         self.pythonWHT.connector.check_table_entry_in_material_registry = Mock(
             return_value=True
         )

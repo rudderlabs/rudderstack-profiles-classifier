@@ -3,7 +3,8 @@ from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial, WhtModel
 from profiles_rudderstack.logger import Logger
-from .yamlReport import YamlReport
+from .yaml_report import YamlReport
+from .table_report import TableReport
 
 
 class IdStitcherDebuggerModel(BaseModelType):
@@ -71,8 +72,14 @@ class ModelRecipe(PyNativeRecipe):
             if input_material is None:
                 raise ValueError(f"Model {input_model_ref} not found")
             edge_source["input_model"] = input_material.model
-        yaml_report = YamlReport(edge_sources, self.id_stitcher_model.entity())
-        yaml_report.run()
+        entity = self.id_stitcher_model.entity()
+        yaml_report = YamlReport(edge_sources, entity)
+        table_report = TableReport(
+            this.wht_ctx.client, self.id_stitcher_model, entity, yaml_report
+        )
+        reports = [yaml_report, table_report]
+        for report in reports:
+            report.run()
         # FIXME:
         # 1. material warehouse object does not exist after material run
         # 2. Stop generating the .txt file

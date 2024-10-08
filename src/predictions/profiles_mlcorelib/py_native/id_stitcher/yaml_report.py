@@ -1,3 +1,6 @@
+from typing import Dict
+
+
 def dfs(node, visited, component, graph):
     visited.add(node)
     component.append(node)
@@ -24,6 +27,18 @@ class YamlReport:
             for input_model_id in input_model.ids():
                 if input_model_id["entity"] == entity["Name"]:
                     result.append(input_model_id["type"])
+        return result
+
+    def edge_source_pairs(self) -> Dict:
+        result = {}
+        for edge_source in self.edge_sources:
+            ids = self._get_id_types(self.edge_sources[0])
+            pairs = []
+            for i in range(len(ids)):
+                for j in range(i + 1, len(ids)):
+                    pair = (ids[i]["type"], ids[j]["type"])
+                    pairs.append(pair)
+            result[edge_source["from"]] = pairs
         return result
 
     def run(self):

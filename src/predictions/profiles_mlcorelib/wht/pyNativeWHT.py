@@ -93,7 +93,7 @@ class PyNativeWHT:
         start_date: str,
         end_date: str,
         prediction_horizon_days: int,
-        inputs: List[dict],
+        inputs: List[utils.InputsConfig],
         input_columns: List[str],
         entity_column: str,
         feature_data_min_date_diff: int,
@@ -121,17 +121,17 @@ class PyNativeWHT:
     def get_registry_table_name(self) -> str:
         return self.pythonWHT.get_registry_table_name()
 
-    def get_latest_seq_no(self, inputs: List[dict]) -> int:
+    def get_latest_seq_no(self, inputs: List[utils.InputsConfig]) -> int:
         return self.pythonWHT.get_latest_seq_no(inputs)
 
     def get_inputs(self, input_model_refs: List[str]) -> List[dict]:
-        inputs = []
-        for input in input_model_refs:
-            material = self.whtMaterial.de_ref(input)
+        inputs: List[utils.InputsConfig] = []
+        for input_model_ref in input_model_refs:
+            material = self.whtMaterial.de_ref(input_model_ref)
             # if material.model.model_type() == "sql_template":
-            #     material = self.whtMaterial.de_ref(input + "/var_table")
+            #     material = self.whtMaterial.de_ref(input_model_ref + "/var_table")
             #     id_column_name = self.whtMaterial.model.entity()["IdColumnName"]
-            #     self.whtMaterial.de_ref(input + f"/var_table/{id_column_name}")
+            #     self.whtMaterial.de_ref(input_model_ref + f"/var_table/{id_column_name}")
             column_name = None
             if material.model.materialization()["output_type"] == "column":
                 column_name = material.model.db_object_name_prefix()
@@ -140,24 +140,26 @@ class PyNativeWHT:
             else:
                 table_material = material
             material_name_dict = self.pythonWHT.split_material_name(material.name())
-            inputs.append(
-                {
-                    "table_name": table_material.name(),
-                    "model_ref": material.model.model_ref(),
-                    "model_type": material.model.model_type(),
-                    "selector_sql": material.get_selector_sql(),
-                    "column_name": column_name,
-                    "model_name": material_name_dict["model_name"],
-                    "model_hash": material_name_dict["model_hash"],
-                }
-            )
+
+            input = {
+                "table_name": table_material.name(),
+                "model_ref": material.model.model_ref(),
+                "model_type": material.model.model_type(),
+                "selector_sql": material.get_selector_sql(),
+                "column_name": column_name,
+                "model_name": material_name_dict["model_name"],
+                "model_hash": material_name_dict["model_hash"],
+            }
+            inputs.append(utils.InputsConfig(**input))
         return inputs
 
-    def validate_sql_table(self, inputs, entity_column) -> None:
+    def validate_sql_table(
+        self, inputs: List[utils.InputsConfig], entity_column: str
+    ) -> None:
         for input in inputs:
-            if input["model_type"] == "sql_template":
+            if input.model_type == "sql_template":
                 self.pythonWHT.connector.validate_sql_table(
-                    input["table_name"], entity_column
+                    input.table_name, entity_column
                 )
 
     def get_credentials(self, project_path: str, site_config_path: str) -> str:

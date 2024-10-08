@@ -2,6 +2,7 @@
 from src.predictions.profiles_mlcorelib.connectors.SnowflakeConnector import (
     SnowflakeConnector,
 )
+from src.predictions.profiles_mlcorelib.utils.utils import InputsConfig
 import pandas as pd
 from unittest.mock import Mock, patch
 import unittest
@@ -103,22 +104,42 @@ class TestSelectRelevantColumns(unittest.TestCase):
 class TestJoinInputTables(unittest.TestCase):
     def test_join_input_tables_correct_case(self):
         inputs = [
-            {
-                "column_name": "is_churned",
-                "table_name": "Material_user_var_table_hash_100",
-            },
-            {
-                "column_name": "days_since_last_seen",
-                "table_name": "Material_user_var_table_hash_100",
-            },
-            {
-                "column_name": None,
-                "table_name": "Material_shopify_user_features_hash_100",
-            },
-            {
-                "column_name": None,
-                "table_name": "Material_shopify_sql_model_hash_100",
-            },
+            InputsConfig(
+                table_name="Material_user_var_table_hash_100",
+                model_ref="user/all/is_churned",
+                model_type="entity_var_item",
+                selector_sql='SELECT * FROM "schema"."Material_user_var_table_hash_100"',
+                model_name="is_churned",
+                model_hash="hash",
+                column_name="is_churned",
+            ),
+            InputsConfig(
+                table_name="Material_user_var_table_hash_100",
+                model_ref="user/all/days_since_last_seen",
+                model_type="entity_var_item",
+                selector_sql='SELECT * FROM "schema"."Material_user_var_table_hash_100"',
+                model_name="days_since_last_seen",
+                model_hash="hash",
+                column_name="days_since_last_seen",
+            ),
+            InputsConfig(
+                table_name="Material_shopify_user_features_hash_100",
+                model_ref="models/shopify_user_features",
+                model_type="feature_table_model",
+                selector_sql='SELECT * FROM "schema"."Material_shopify_user_features_hash_100"',
+                model_name="shopify_user_features",
+                model_hash="hash",
+                column_name=None,
+            ),
+            InputsConfig(
+                table_name="Material_shopify_sql_model_hash_100",
+                model_ref="models/shopify_sql_model",
+                model_type="sql_template",
+                selector_sql='SELECT * FROM "schema"."Material_shopify_sql_model_hash_100"',
+                model_name="shopify_sql_model",
+                model_hash="hash",
+                column_name=None,
+            ),
         ]
         input_columns = ["is_churned", "days_since_last_seen", "COL1", "COL2"]
         entity_column = "user_main_id"

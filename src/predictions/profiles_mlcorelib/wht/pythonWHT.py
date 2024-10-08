@@ -92,19 +92,19 @@ class PythonWHT:
             entity_key,
         )
 
-    def get_past_inputs(self, inputs, seq_no):
+    def get_past_inputs(self, inputs: List[utils.InputsConfig], seq_no: int):
         past_inputs = []
         for input_ in inputs:
             past_input = deepcopy(input_)
-            past_input["table_name"] = utils.replace_seq_no_in_query(
-                past_input["table_name"], int(seq_no)
+            past_input.table_name = utils.replace_seq_no_in_query(
+                past_input.table_name, int(seq_no)
             )
             past_inputs.append(past_input)
         return past_inputs
 
     def _validate_historical_materials_hash(
         self,
-        input: dict,
+        input: utils.InputsConfig,
         material_seq_no: Optional[int],
     ) -> bool:
         """
@@ -120,14 +120,14 @@ class PythonWHT:
         # This check is for entity var item input in python model.
         # Without the hash, there is nothing to verify in the registry table.
         # So we assume that the var table contains this var item.
-        if input["model_hash"] is None:
+        if input.model_hash is None:
             return True
         try:
             # Replace the last seq_no with the current seq_no
             # and prepare sql statement to check for the table existence
             # Ex. select * from material_shopify_user_features_fa138b1a_785 limit 1
-            model_name = input["model_name"]
-            model_hash = input["model_hash"]
+            model_name = input.model_name
+            model_hash = input.model_hash
             if material_seq_no is not None:
                 seq = int(material_seq_no)
                 assert self.connector.check_table_entry_in_material_registry(
@@ -136,7 +136,7 @@ class PythonWHT:
                 ), f"Material registry entry for model name - {model_name}, model hash - {model_hash}, seq - {seq} does not exist."
 
                 past_material_name = utils.replace_seq_no_in_query(
-                    input["table_name"], seq
+                    input.table_name, seq
                 )
                 assert self.connector.is_valid_table(
                     past_material_name
@@ -161,15 +161,15 @@ class PythonWHT:
     ):
         found_feature_material, found_label_material = True, True
 
-        for input in inputs:
+        for input_ in inputs:
             if not self._validate_historical_materials_hash(
-                input,
+                input_,
                 table_row.FEATURE_SEQ_NO,
             ):
                 found_feature_material = False
 
             if not self._validate_historical_materials_hash(
-                input,
+                input_,
                 table_row.LABEL_SEQ_NO,
             ):
                 found_label_material = False
@@ -242,7 +242,7 @@ class PythonWHT:
         start_time: str,
         end_time: str,
         prediction_horizon_days: int,
-        inputs: List[dict],
+        inputs: List[utils.InputsConfig],
         input_columns: List[str],
         entity_column: str,
         return_partial_pairs: bool = False,
@@ -257,8 +257,8 @@ class PythonWHT:
         """
         feature_label_df = self.connector.join_feature_label_tables(
             self.get_registry_table_name(),
-            inputs[0]["model_name"],
-            inputs[0]["model_hash"],
+            inputs[0].model_name,
+            inputs[0].model_hash,
             start_time,
             end_time,
             prediction_horizon_days,
@@ -282,7 +282,7 @@ class PythonWHT:
         materials: List[TrainTablesInfo],
         start_date: str,
         prediction_horizon_days: int,
-        inputs: List[dict],
+        inputs: List[utils.InputsConfig],
     ) -> None:
         """
         Generates training dataset from start_date and end_date, and fetches the resultant table names from the material_table.
@@ -290,7 +290,7 @@ class PythonWHT:
         Returns:
             Tuple[str, str]: A tuple containing feature table date and label table date strings
         """
-        model_refs = [input["model_ref"] for input in inputs]
+        model_refs = [input_.model_ref for input_ in inputs]
         feature_package_path = utils.get_feature_package_path(model_refs)
         feature_date, label_date = self._get_valid_feature_label_dates(
             materials,
@@ -440,7 +440,7 @@ class PythonWHT:
         start_date: str,
         end_date: str,
         prediction_horizon_days: int,
-        inputs: List[dict],
+        inputs: List[utils.InputsConfig],
         input_columns: List[str],
         entity_column: str,
         return_partial_pairs: bool = False,
@@ -511,11 +511,11 @@ class PythonWHT:
             feature_data_min_date_diff,
         )
 
-    def get_latest_seq_no(self, inputs: List[dict]) -> int:
-        return int(inputs[0]["table_name"].split("_")[-1])
+    def get_latest_seq_no(self, inputs: List[utils.InputsConfig]) -> int:
+        return int(inputs[0].table_name.split("_")[-1])
 
     def get_inputs(self, selector_sqls: str, skip_compile: bool) -> List[dict]:
-        inputs = []
+        inputs: List[utils.InputsConfig] = []
         for selector_sql in selector_sqls:
             schema_table_name = selector_sql.split(" ")[-1]
             table_name = schema_table_name.split(".")[-1].strip('"`')
@@ -537,15 +537,17 @@ class PythonWHT:
             if column_name is None:
                 model_hash = self.split_material_name(selector_sql)["model_hash"]
 
-            inputs.append(
-                {
-                    "selector_sql": selector_sql,
-                    "table_name": table_name,
-                    "model_name": extract_model_name_from_query(selector_sql),
-                    "column_name": column_name,
-                    "model_hash": model_hash,
-                }
-            )
+            input = {
+                "selector_sql": selector_sql,
+                "table_name": table_name,
+                "model_name": extract_model_name_from_query(selector_sql),
+                "column_name": column_name,
+                "model_hash": model_hash,
+                "model_ref": None,
+                "model_type": None,
+            }
+            inputs.append(utils.InputsConfig(**input))
+
         if skip_compile:
             return inputs
         args = {
@@ -559,7 +561,7 @@ class PythonWHT:
             pb_show_models_response_output
         )
         for input in inputs:
-            model_name = input["model_name"]
+            model_name = input.model_name
             matching_models = [
                 # Ignoring first element since it is the name of the project
                 (key.split("/", 1)[-1], models_info[key]["model_type"])
@@ -572,15 +574,17 @@ class PythonWHT:
                 )
             if len(matching_models) == 0:
                 raise ValueError(f"No match found for ref {model_name} in show models")
-            input["model_ref"] = matching_models[0][0]
-            input["model_type"] = matching_models[0][1]
+            input.model_ref = matching_models[0][0]
+            input.model_type = matching_models[0][1]
 
         logger.get().info(f"Found input models: {inputs}")
         return inputs
 
-    def validate_sql_table(self, inputs, entity_column) -> None:
+    def validate_sql_table(
+        self, inputs: List[utils.InputsConfig], entity_column: str
+    ) -> None:
         for input in inputs:
-            if input["model_type"] == "sql_template":
+            if input.model_type == "sql_template":
                 raise Exception(
                     "SQL models are not supported in python model as input. Please either use pyNative model or remove SQL models from the input."
                 )

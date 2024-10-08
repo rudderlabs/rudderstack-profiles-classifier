@@ -13,6 +13,7 @@ from src.predictions.profiles_mlcorelib.trainers.TrainerFactory import (
 from src.predictions.profiles_mlcorelib.wht.pythonWHT import PythonWHT
 
 import src.predictions.profiles_mlcorelib.utils.utils as utils
+from src.predictions.profiles_mlcorelib.utils.utils import InputsConfig
 from src.predictions.profiles_mlcorelib.utils.constants import TrainTablesInfo
 from src.predictions.profiles_mlcorelib.connectors.RedshiftConnector import (
     RedshiftConnector,
@@ -133,18 +134,24 @@ class TestGetMaterialNames(unittest.TestCase):
         self.model_hash = "model_hash"
         self.prediction_horizon_days = 7
         self.inputs = [
-            {
-                "model_ref": "model1.yaml",
-                "selector_sql": """select * from material_user_var_736465_0""",
-                "model_name": "user_var",
-                "model_hash": "736465",
-            },
-            {
-                "model_ref": "model2.yaml",
-                "selector_sql": """select * from material_user_var_736465_0""",
-                "model_name": "user_var",
-                "model_hash": "736465",
-            },
+            InputsConfig(
+                table_name="material_user_var_736465_0",
+                model_ref="model1.yaml",
+                model_type="feature_table_model",
+                selector_sql="""select * from material_user_var_736465_0""",
+                model_name="user_var",
+                model_hash="736465",
+                column_name=None,
+            ),
+            InputsConfig(
+                table_name="material_user_var_736465_0",
+                model_ref="model2.yaml",
+                model_type="feature_table_model",
+                selector_sql="""select * from material_user_var_736465_0""",
+                model_name="user_var",
+                model_hash="736465",
+                column_name=None,
+            ),
         ]
         self.input_columns = ["COL1", "COL2", "COL3"]
         self.entity_column = "user_main_id"
@@ -882,7 +889,17 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         self.feature_data_min_date_diff = 0
         self.trainer.feature_data_min_date_diff = self.feature_data_min_date_diff
         self.trainer.materialisation_dates = []
-        self.inputs = [{"model_ref": "model_name"}]
+        self.inputs = [
+            InputsConfig(
+                table_name="material_model_name_hash_1",
+                model_ref="model_name",
+                model_type="feature_table_model",
+                selector_sql="""select * from material_model_name_hash_1""",
+                model_name="model_name",
+                model_hash="hash",
+                column_name=None,
+            ),
+        ]
 
     @patch("src.predictions.profiles_mlcorelib.utils.utils.date_add")
     @patch("src.predictions.profiles_mlcorelib.utils.utils.dates_proximity_check")
@@ -1064,20 +1081,24 @@ class TestValidateHistoricalMaterialsHash(unittest.TestCase):
         self.site_config_path = "siteconfig.yaml"
         self.project_folder = "project_folder"
         self.inputs = [
-            {
-                "table_name": "material_table_1",
-                "model_ref": "model1.yaml",
-                "selector_sql": """select * from material_user_var_736465_0""",
-                "model_hash": "736465",
-                "model_name": "user_var",
-            },
-            {
-                "table_name": "material_table_1",
-                "model_ref": "model2.yaml",
-                "selector_sql": """select * from material_user_var_736465_0""",
-                "model_hash": "736465",
-                "model_name": "user_var",
-            },
+            InputsConfig(
+                table_name="material_table_1",
+                model_ref="model1.yaml",
+                model_type="feature_table_model",
+                selector_sql="""select * from material_user_var_736465_0""",
+                model_name="user_var",
+                model_hash="736465",
+                column_name=None,
+            ),
+            InputsConfig(
+                table_name="material_table_1",
+                model_ref="model2.yaml",
+                model_type="feature_table_model",
+                selector_sql="""select * from material_user_var_736465_0""",
+                model_name="user_var",
+                model_hash="736465",
+                column_name=None,
+            ),
         ]
         self.whtService = PythonWHT("siteconfig.yaml", "project_folder")
         self.whtService.set_connector(self.connector)
@@ -1586,26 +1607,42 @@ class Testget_input_column_types(unittest.TestCase):
         ]
 
         inputs = [
-            {
-                "model_ref": "inputs/user_var_table1",
-                "model_type": "input_var_item",
-                "column_name": None,
-            },
-            {
-                "model_ref": "inputs/user_var_table2",
-                "model_type": "input_var_item",
-                "column_name": None,
-            },
-            {
-                "model_ref": "user/all/last_seen",
-                "model_type": "entity_var_item",
-                "column_name": "last_seen",
-            },
-            {
-                "model_ref": "user/all/last_seen2",
-                "model_type": "entity_var_item",
-                "column_name": "last_seen2",
-            },
+            InputsConfig(
+                table_name="material_user_var_table1_hash_1",
+                model_ref="inputs/user_var_table1",
+                model_type="input_var_item",
+                selector_sql='SELECT * FROM "schema"."material_user_var_table1_hash_1"',
+                model_name="user_var_table1",
+                model_hash="hash",
+                column_name=None,
+            ),
+            InputsConfig(
+                table_name="material_user_var_table1_hash_1",
+                model_ref="inputs/user_var_table2",
+                model_type="input_var_item",
+                selector_sql='SELECT * FROM "schema"."material_user_var_table2_hash_1"',
+                model_name="user_var_table2",
+                model_hash="hash",
+                column_name=None,
+            ),
+            InputsConfig(
+                table_name="material_user_var_hash_1",
+                model_ref="user/all/last_seen",
+                model_type="entity_var_item",
+                selector_sql='SELECT * FROM "schema"."material_user_var_hash_1"',
+                model_name="last_seen",
+                model_hash="hash",
+                column_name="last_seen",
+            ),
+            InputsConfig(
+                table_name="material_user_var_hash_1",
+                model_ref="user/all/last_seen2",
+                model_type="entity_var_item",
+                selector_sql='SELECT * FROM "schema"."material_user_var_hash_1"',
+                model_name="last_seen2",
+                model_hash="hash",
+                column_name="last_seen2",
+            ),
         ]
         input_ignore_features = (
             []

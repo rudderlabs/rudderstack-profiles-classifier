@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import patch, Mock
 from src.predictions.profiles_mlcorelib.wht.pythonWHT import PythonWHT
 from src.predictions.profiles_mlcorelib.utils.constants import TrainTablesInfo
+from src.predictions.profiles_mlcorelib.utils.utils import InputsConfig
 from src.predictions.profiles_mlcorelib.connectors.RedshiftConnector import (
     RedshiftConnector,
 )
@@ -40,12 +41,17 @@ class TestFetchValidHistoricMaterials(unittest.TestCase):
         )
         self.pythonWHT.connector.join_input_tables = Mock(return_value=None)
         self.inputs = [
-            {
-                "table_name": "Material_model_name_hash_1",
-                "model_name": "model_name",
-                "model_hash": "hash",
-            },
+            InputsConfig(
+                table_name="Material_model_name_hash_1",
+                model_ref="user/all/model_name",
+                model_type="feature_table_model",
+                selector_sql='SELECT * FROM "schema"."Material_model_name_hash_1"',
+                model_name="model_name",
+                model_hash="hash",
+                column_name=None,
+            ),
         ]
+
         self.input_columns = ["COL1", "COL2", "COL3"]
         self.entity_column = "user_main_id"
 
@@ -181,7 +187,17 @@ class TestGetPastMaterialsWithValidDateRange(unittest.TestCase):
 class TestGetLatestSeqNo(unittest.TestCase):
     def test_get_latest_seq_no(self):
         result = PythonWHT("site_config", "project_folder").get_latest_seq_no(
-            [{"table_name": "material_user_var_table_123"}]
+            [
+                InputsConfig(
+                    table_name="material_user_var_table_123",
+                    model_ref="user/all/model",
+                    model_type="entity_var_item",
+                    selector_sql='SELECT model FROM "schema"."material_user_var_table_54ddc22a_383"',
+                    model_name="model",
+                    model_hash=None,
+                    column_name="model",
+                )
+            ]
         )
         self.assertEqual(result, 123)
 
@@ -234,60 +250,60 @@ class TestGetInputs(unittest.TestCase):
         wht = PythonWHT("site_config_path", "project_folder")
         result = wht.get_inputs(selector_sqls, False)
         expected_result = [
-            {
-                "selector_sql": '''SELECT last_seen FROM "schema"."material_user_var_table_54ddc22a_383"''',
-                "table_name": "material_user_var_table_54ddc22a_383",
-                "model_name": "last_seen",
-                "column_name": "last_seen",
-                "model_ref": "user/all/last_seen",
-                "model_type": "entity_var_item",
-                "model_hash": None,
-            },
-            {
-                "selector_sql": """SELECT last_seen FROM `schema`.`material_user_var_table_54ddc22a_383`""",
-                "table_name": "material_user_var_table_54ddc22a_383",
-                "model_name": "last_seen",
-                "column_name": "last_seen",
-                "model_ref": "user/all/last_seen",
-                "model_type": "entity_var_item",
-                "model_hash": None,
-            },
-            {
-                "selector_sql": '''SELECT last_seen FROM "material_user_var_table_54ddc22a_383"''',
-                "table_name": "material_user_var_table_54ddc22a_383",
-                "model_name": "last_seen",
-                "column_name": "last_seen",
-                "model_ref": "user/all/last_seen",
-                "model_type": "entity_var_item",
-                "model_hash": None,
-            },
-            {
-                "selector_sql": '''SELECT last_seen2 FROM "schema"."material_user_var_table_54ddc22a_383"''',
-                "table_name": "material_user_var_table_54ddc22a_383",
-                "model_name": "last_seen2",
-                "column_name": "last_seen2",
-                "model_ref": "user/all/last_seen2",
-                "model_type": "entity_var_item",
-                "model_hash": None,
-            },
-            {
-                "selector_sql": """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384""",
-                "table_name": "MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384",
-                "model_name": "feature_table_model1",
-                "column_name": None,
-                "model_ref": "models/feature_table_model1",
-                "model_type": "feature_table_model",
-                "model_hash": "45223ds1",
-            },
-            {
-                "selector_sql": """SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL2_45223ds1_384""",
-                "table_name": "MATERIAL_FEATURE_TABLE_MODEL2_45223ds1_384",
-                "model_name": "feature_table_model2",
-                "column_name": None,
-                "model_ref": "models/feature_table_model2",
-                "model_type": "feature_table_model",
-                "model_hash": "45223ds1",
-            },
+            InputsConfig(
+                table_name="material_user_var_table_54ddc22a_383",
+                model_ref="user/all/last_seen",
+                model_type="entity_var_item",
+                selector_sql='SELECT last_seen FROM "schema"."material_user_var_table_54ddc22a_383"',
+                model_name="last_seen",
+                model_hash=None,
+                column_name="last_seen",
+            ),
+            InputsConfig(
+                table_name="material_user_var_table_54ddc22a_383",
+                model_ref="user/all/last_seen",
+                model_type="entity_var_item",
+                selector_sql="SELECT last_seen FROM `schema`.`material_user_var_table_54ddc22a_383`",
+                model_name="last_seen",
+                model_hash=None,
+                column_name="last_seen",
+            ),
+            InputsConfig(
+                table_name="material_user_var_table_54ddc22a_383",
+                model_ref="user/all/last_seen",
+                model_type="entity_var_item",
+                selector_sql='SELECT last_seen FROM "material_user_var_table_54ddc22a_383"',
+                model_name="last_seen",
+                model_hash=None,
+                column_name="last_seen",
+            ),
+            InputsConfig(
+                table_name="material_user_var_table_54ddc22a_383",
+                model_ref="user/all/last_seen2",
+                model_type="entity_var_item",
+                selector_sql='SELECT last_seen2 FROM "schema"."material_user_var_table_54ddc22a_383"',
+                model_name="last_seen2",
+                model_hash=None,
+                column_name="last_seen2",
+            ),
+            InputsConfig(
+                table_name="MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384",
+                model_ref="models/feature_table_model1",
+                model_type="feature_table_model",
+                selector_sql="SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL1_45223ds1_384",
+                model_name="feature_table_model1",
+                model_hash="45223ds1",
+                column_name=None,
+            ),
+            InputsConfig(
+                table_name="MATERIAL_FEATURE_TABLE_MODEL2_45223ds1_384",
+                model_ref="models/feature_table_model2",
+                model_type="feature_table_model",
+                selector_sql="SELECT * FROM schema.MATERIAL_FEATURE_TABLE_MODEL2_45223ds1_384",
+                model_name="feature_table_model2",
+                model_hash="45223ds1",
+                column_name=None,
+            ),
         ]
         self.assertEqual(result, expected_result)
 
@@ -307,14 +323,14 @@ class TestGetInputs(unittest.TestCase):
         wht = PythonWHT("site_config_path", "project_folder")
         result = wht.get_inputs(selector_sqls, False)
         expected_result = [
-            {
-                "selector_sql": '''SELECT last_seen FROM "schema"."material_user_var_table_54ddc22a_383"''',
-                "table_name": "material_user_var_table_54ddc22a_383",
-                "model_name": "last_seen",
-                "column_name": "last_seen",
-                "model_ref": "user/all/last_seen",
-                "model_type": "entity_var_item",
-                "model_hash": None,
-            },
+            InputsConfig(
+                table_name="material_user_var_table_54ddc22a_383",
+                model_ref="user/all/last_seen",
+                model_type="entity_var_item",
+                selector_sql='SELECT last_seen FROM "schema"."material_user_var_table_54ddc22a_383"',
+                model_name="last_seen",
+                model_hash=None,
+                column_name="last_seen",
+            )
         ]
         self.assertEqual(result, expected_result)

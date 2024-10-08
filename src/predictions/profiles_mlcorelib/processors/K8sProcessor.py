@@ -3,6 +3,7 @@ import json
 import uuid
 import time
 from typing import List
+from dataclasses import asdict
 from kubernetes import client, config, watch
 import base64
 import sys
@@ -12,6 +13,7 @@ from ..utils import constants
 from ..utils.logger import logger
 from ..utils.S3Utils import S3Utils
 from ..utils.constants import TrainTablesInfo
+from ..utils import utils
 
 
 class K8sProcessor(Processor):
@@ -269,7 +271,7 @@ class K8sProcessor(Processor):
         wh_creds: dict,
         s3_config: dict,
         model_path: str,
-        inputs: List[dict],
+        inputs: List[utils.InputsConfig],
         end_ts: str,
         output_tablename: str,
         merged_config: dict,
@@ -305,7 +307,7 @@ class K8sProcessor(Processor):
             "--json_output_filename",
             json_output_filename,
             "--inputs",
-            json.dumps(inputs),
+            json.dumps(inputs, default=asdict),
             "--end_ts",
             end_ts,
             "--output_tablename",

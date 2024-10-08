@@ -1,6 +1,7 @@
 import os
 import json
 from typing import List
+from dataclasses import asdict
 import sys
 
 from ..utils import utils
@@ -85,7 +86,7 @@ class LocalProcessor(Processor):
             "--json_output_filename",
             json_output_filename,
             "--inputs",
-            json.dumps(inputs),
+            json.dumps(inputs, default=asdict),
             "--end_ts",
             end_ts,
             "--output_tablename",

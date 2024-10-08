@@ -40,6 +40,8 @@ setup(
         "boto3>=1.34.153",
         "google-auth-oauthlib>=1.0.0",
         "cryptography>=42.0.2",
+        "plotly>=5.24.1",
+        "networkx>=3.3",
     ],
     include_package_data=True,
 )

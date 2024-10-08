@@ -5,6 +5,7 @@ from profiles_rudderstack.material import WhtMaterial, WhtModel
 from profiles_rudderstack.logger import Logger
 from .yaml_report import YamlReport
 from .table_report import TableReport
+from .cluster_report import ClusterReport
 
 
 class IdStitcherDebuggerModel(BaseModelType):
@@ -77,7 +78,10 @@ class ModelRecipe(PyNativeRecipe):
         table_report = TableReport(
             this.wht_ctx.client, self.id_stitcher_model, entity, yaml_report
         )
-        reports = [yaml_report, table_report]
+        cluster_report = ClusterReport(
+            self.reader, this.wht_ctx.client, entity, table_report
+        )
+        reports = [yaml_report, table_report, cluster_report]
         for report in reports:
             report.run()
         # FIXME:

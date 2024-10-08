@@ -39,6 +39,8 @@ setup(
         "pycaret==3.3.1",
         "boto3>=1.34.153",
         "google-auth-oauthlib>=1.0.0",
+        "plotly>=5.24.1",
+        "networkx>=3.3",
     ],
     include_package_data=True,
 )

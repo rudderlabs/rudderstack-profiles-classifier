@@ -3,13 +3,15 @@ from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial, WhtModel
 from profiles_rudderstack.logger import Logger
+
+from .llm_report import LLMReport
 from .yaml_report import YamlReport
 from .table_report import TableReport
 from .cluster_report import ClusterReport
 
 
-class IdStitcherDebuggerModel(BaseModelType):
-    TypeName = "id_stitcher_debugger"
+class AuditIdStitcherModel(BaseModelType):
+    TypeName = "audit_id_stitcher"
     BuildSpecSchema = {
         "type": "object",
         "additionalProperties": False,
@@ -32,7 +34,7 @@ class ModelRecipe(PyNativeRecipe):
     def __init__(self, build_spec: dict) -> None:
         super().__init__()
         self.build_spec = build_spec
-        self.logger = Logger("IdStitcherDebuggerModelRecipe")
+        self.logger = Logger("AuditIdStitcherModelRecipe")
         self.id_stitcher_model: Optional[WhtModel] = None
 
     def describe(self, this: WhtMaterial):
@@ -81,7 +83,14 @@ class ModelRecipe(PyNativeRecipe):
         cluster_report = ClusterReport(
             self.reader, this.wht_ctx.client, entity, table_report
         )
-        reports = [yaml_report, table_report, cluster_report]
+        llm_report = LLMReport(
+            self.reader,
+            self.build_spec["access_token"],
+            this.base_wht_project.warehouse_credentials(),
+            table_report,
+            entity,
+        )
+        reports = [yaml_report, table_report, cluster_report, llm_report]
         for report in reports:
             report.run()
         # FIXME:

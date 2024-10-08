@@ -154,7 +154,14 @@ class TableReport:
         ORDER BY cluster_size DESC
         LIMIT {limit}
         """
-        return self.wh_client.query_sql_with_result(query).to_dict(orient="records")
+        result = self.wh_client.query_sql_with_result(query)
+        return [
+            {
+                "main_id": row[main_id_key.upper()],
+                "cluster_size": row["CLUSTER_SIZE"],
+            }
+            for row in result.to_dict(orient="records")
+        ]
 
     def analyze_singleton_nodes(self) -> Dict[str, int]:
         main_id_key = self.entity["IdColumnName"]
@@ -196,7 +203,7 @@ class TableReport:
         for type1, type2 in valid_pairs:
             query = f"""
             SELECT COUNT(*) as count
-            FROM {self.output_table}
+            FROM {self.edges_table}
             WHERE (id1_type = '{type1}' AND id2_type = '{type2}')
                 OR (id1_type = '{type2}' AND id2_type = '{type1}')
             """
@@ -296,16 +303,15 @@ class TableReport:
         print(f"main id for entity {entity_key}: {main_id_key}")
 
         print(f"\n\nAnalyzing ID Stitcher for entity: {entity_key}")
-        print(f"\n\nAnalyzing ID Stitcher for entity: {entity_key}")
 
         self.analysis_results = {
-            "clusters": 0,
             "node_types": [],
             "unique_id_counts": {},
             "top_nodes": [],
             "top_clusters": [],
-            "avg_edge_count": 0,
+            "average_edge_count": 0,
             "potential_issues": [],
+            "singleton_analysis": {},
         }
         node_types = self.get_node_types()
         self.analysis_results["node_types"] = node_types
@@ -319,8 +325,8 @@ class TableReport:
         total_distinct_ids = sum(self.analysis_results["unique_id_counts"].values())
         print("Total Distinct IDs")
         print(f"\tBefore stitching: {total_distinct_ids}")
-        self.analysis_results["clusters"] = self.get_total_main_ids()
-        print(f'\tAfter stitching: {self.analysis_results["clusters"]}')
+        clusters = self.get_total_main_ids()
+        print(f"\tAfter stitching: {clusters}")
 
         top_nodes = self.get_top_nodes_by_edges(10)
         self.analysis_results["top_nodes"] = top_nodes
@@ -391,20 +397,16 @@ class TableReport:
         print(
             "\n\nTop 5 biggest clusters after id stitching (and the distinct id types in each cluster):"
         )
-        for n, cluster in enumerate(top_clusters):
-            main_id = cluster[main_id_key.upper()]
-            print(f"\tMain ID: {main_id}, Size: {cluster['CLUSTER_SIZE']}")
+        for _, cluster in enumerate(top_clusters):
+            print(f"\tMain ID: {cluster['main_id']}, Size: {cluster['cluster_size']}")
             query = f"""
-            SELECT other_id_type, count(*) as count FROM {self.output_table} WHERE {main_id_key} = '{main_id}' GROUP BY 1 ORDER BY 2 DESC
+            SELECT other_id_type, count(*) as count FROM {self.output_table} WHERE {main_id_key} = '{cluster['main_id']}' GROUP BY 1 ORDER BY 2 DESC
             """
             result = self.wh_client.query_sql_with_result(query).to_dict(
                 orient="records"
             )
             for row in result:
                 print(f"\t\t{row['OTHER_ID_TYPE']}: {row['COUNT']}")
-            self.analysis_results["top_clusters"][n]["composition"] = {
-                row["OTHER_ID_TYPE"]: row["COUNT"] for row in result
-            }
 
         singleton_analysis = self.analyze_singleton_nodes()
         self.analysis_results["singleton_analysis"] = singleton_analysis

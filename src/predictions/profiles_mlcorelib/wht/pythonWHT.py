@@ -136,7 +136,6 @@ class PythonWHT:
                     self.get_registry_table_name(),
                     {"model_name": model_name, "model_hash": model_hash, "seq_no": seq},
                     material_registry_table,
-                    material_validity_cache,
                 ), f"Material registry entry for model name - {model_name}, model hash - {model_hash}, seq - {seq} does not exist."
 
                 past_material_name = utils.replace_seq_no_in_query(

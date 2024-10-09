@@ -153,21 +153,17 @@ class SnowflakeConnector(Connector):
         registry_table_name: str,
         material: dict,
         material_registry_table: snowflake.snowpark.Table = None,
-        material_validity_cache: dict = None,
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well.
         Right now, we consider tables as materialised if the metadata status is 2.
         """
-        if material_validity_cache is None:
-            material_validity_cache = {}
-
         material_key = (
             f"{material['model_name']}_{material['model_hash']}_{material['seq_no']}"
         )
-        if material_key in material_validity_cache:
-            return material_validity_cache[material_key]
+        if material_key in self.material_validity_cache:
+            return self.material_validity_cache[material_key]
 
         if material_registry_table is None:
             material_registry_table = self.get_material_registry_table(
@@ -182,7 +178,7 @@ class SnowflakeConnector(Connector):
             .count()
         )
         has_entry = num_rows != 0
-        material_validity_cache[material_key] = has_entry
+        self.material_validity_cache[material_key] = has_entry
         return has_entry
 
     def get_table(self, table_name: str, **kwargs) -> snowflake.snowpark.Table:
@@ -1275,7 +1271,7 @@ class SnowflakeConnector(Connector):
             return True
         else:
             logger.get().info(
-                "Function name match found. Dropping all functions with the same name"
+                f"UDFs with the same name {fn_name} found. Dropping them."
             )
             for fn in fn_list:
                 fn_signature = fn["arguments"].split("RETURN")[0]

@@ -216,21 +216,20 @@ class CommonWarehouseConnector(Connector):
         registry_table_name: str,
         material: dict,
         material_registry_table: pd.DataFrame = None,
-        material_validity_cache: dict = None,
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well
         """
-        if material_validity_cache is None:
-            material_validity_cache = {}
-
         material_key = (
             f"{material['model_name']}_{material['model_hash']}_{material['seq_no']}"
         )
-        if material_key in material_validity_cache:
-            return material_validity_cache[material_key]
-
+        if material_key in self.material_validity_cache:
+            return self.material_validity_cache[material_key]
+        
+        # TODO: We will never have the below scenario. But removing this, we also have a redundant parameter registry_table_name. 
+        # Safely removing that, and the upstream functions all changes the function signature in multiple places.
+        # So leaving it for now. Need to be fixed in a separate PR.
         if material_registry_table is None:
             material_registry_table = self.get_material_registry_table(
                 registry_table_name
@@ -247,7 +246,7 @@ class CommonWarehouseConnector(Connector):
             & (material_registry_table["seq_no"] == material["seq_no"])
         ]
         is_valid = result.shape[0] != 0
-        material_validity_cache[material_key] = is_valid
+        self.material_validity_cache[material_key] = is_valid
         return is_valid
 
     def get_table(self, table_name: str, **kwargs) -> pd.DataFrame:

@@ -226,8 +226,8 @@ class CommonWarehouseConnector(Connector):
         )
         if material_key in self.material_validity_cache:
             return self.material_validity_cache[material_key]
-        
-        # TODO: We will never have the below scenario. But removing this, we also have a redundant parameter registry_table_name. 
+
+        # TODO: We will never have the below scenario. But removing this, we also have a redundant parameter registry_table_name.
         # Safely removing that, and the upstream functions all changes the function signature in multiple places.
         # So leaving it for now. Need to be fixed in a separate PR.
         if material_registry_table is None:

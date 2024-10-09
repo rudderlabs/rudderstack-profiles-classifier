@@ -358,7 +358,7 @@ class Connector(ABC):
 
     @abstractmethod
     def check_table_entry_in_material_registry(
-        self, registry_table_name: str, material: dict
+        self, registry_table_name: str, material: dict, material_validity_cache: dict = None
     ) -> bool:
         pass
 
@@ -603,6 +603,7 @@ class Connector(ABC):
         start_time: str,
         end_time: str,
         prediction_horizon_days: int,
+        registry_table = None,
     ) -> Iterable:
         pass
 

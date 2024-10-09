@@ -152,25 +152,33 @@ class SnowflakeConnector(Connector):
         self,
         registry_table_name: str,
         material: dict,
+        material_registry_table: snowflake.snowpark.Table = None,
+        cache: dict = None
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well.
         Right now, we consider tables as materialised if the metadata status is 2.
         """
-        material_registry_table = self.get_table(registry_table_name)
+        if cache is None:
+            cache = {}
+        
+        material_key = f"{material['model_name']}_{material['model_hash']}_{material['seq_no']}"
+        if material_key in cache:
+            return cache[material_key]
+        
+        if not material_registry_table:
+            material_registry_table = self.get_material_registry_table(registry_table_name)
         num_rows = (
-            material_registry_table.withColumn(
-                "status", F.get_path("metadata", F.lit("complete.status"))
-            )
-            .filter(F.col("status") == 2)
+            material_registry_table
             .filter(F.lower(col("model_name")) == material["model_name"].lower())
             .filter(F.lower(col("model_hash")) == material["model_hash"].lower())
             .filter(col("seq_no") == material["seq_no"])
             .count()
         )
-
-        return num_rows != 0
+        has_entry = num_rows != 0
+        cache[material_key] = has_entry
+        return has_entry
 
     def get_table(self, table_name: str, **kwargs) -> snowflake.snowpark.Table:
         filter_condition = kwargs.get("filter_condition", None)
@@ -706,10 +714,12 @@ class SnowflakeConnector(Connector):
         start_time: str,
         end_time: str,
         prediction_horizon_days: int,
+        registry_table: snowflake.snowpark.Table = None,
     ) -> Iterable:
-        snowpark_df = self.get_material_registry_table(registry_table_name)
+        if not registry_table:
+            registry_table = self.get_material_registry_table(registry_table_name)
         feature_snowpark_df = self.fetch_filtered_table(
-            snowpark_df,
+            registry_table,
             model_name,
             model_hash,
             start_time,
@@ -717,7 +727,7 @@ class SnowflakeConnector(Connector):
             columns=["seq_no", "end_ts"],
         )
         label_snowpark_df = self.fetch_filtered_table(
-            snowpark_df,
+            registry_table,
             model_name,
             model_hash,
             utils.date_add(start_time, prediction_horizon_days),
@@ -1149,10 +1159,10 @@ class SnowflakeConnector(Connector):
         """
         material_registry_table = (
             self.get_table(material_registry_table_name)
-            .sort(F.col("creation_ts").desc())
-            .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
-            .filter(F.col("status") == 2)
-        )
+        .sort(F.col("creation_ts").desc())
+        .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
+        .filter(F.col("status") == 2)
+            )
         return material_registry_table
 
     def generate_type_hint(
@@ -1233,7 +1243,6 @@ class SnowflakeConnector(Connector):
     ) -> None:
         all_stages = self.run_query(f"show stages like '{stage_name.replace('@', '')}'")
         if len(all_stages) == 0:
-            logger.get().info(f"Stage {stage_name} does not exist. No files to delete.")
             return
 
         import_files = [element.split("/")[-1] for element in import_paths]
@@ -1258,7 +1267,6 @@ class SnowflakeConnector(Connector):
         """
         fn_list = self.session.sql(f"show user functions like '{fn_name}'").collect()
         if len(fn_list) == 0:
-            logger.get().info(f"Function {fn_name} does not exist")
             return True
         else:
             logger.get().info(

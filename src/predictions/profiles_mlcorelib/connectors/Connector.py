@@ -11,6 +11,7 @@ class Connector(ABC):
         self.schema = None
         self.feature_table_name = None
         self.session = self.build_session(creds)
+        self.material_validity_cache = {}
 
     def remap_credentials(self, credentials: dict) -> dict:
         """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses"""
@@ -358,7 +359,10 @@ class Connector(ABC):
 
     @abstractmethod
     def check_table_entry_in_material_registry(
-        self, registry_table_name: str, material: dict
+        self,
+        registry_table_name: str,
+        material: dict,
+        material_registry_table=None,
     ) -> bool:
         pass
 
@@ -603,6 +607,7 @@ class Connector(ABC):
         start_time: str,
         end_time: str,
         prediction_horizon_days: int,
+        registry_table=None,
     ) -> Iterable:
         pass
 

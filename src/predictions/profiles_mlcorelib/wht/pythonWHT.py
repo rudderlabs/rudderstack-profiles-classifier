@@ -35,10 +35,10 @@ class PythonWHT:
         self.connector = connector
 
     def update_config_info(self, merged_config):
-        merged_config["data"][
-            "entity_column"
-        ] = self.connector.get_entity_column_case_corrected(
-            merged_config["data"]["entity_column"]
+        merged_config["data"]["entity_column"] = (
+            self.connector.get_entity_column_case_corrected(
+                merged_config["data"]["entity_column"]
+            )
         )
 
         self.connector.feature_table_name = f"{merged_config['data']['output_profiles_ml_model']}_{utils.generate_random_string(5)}_feature_table"

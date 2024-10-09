@@ -215,6 +215,7 @@ class CommonWarehouseConnector(Connector):
         self,
         registry_table_name: str,
         material: dict,
+        material_registry_table: pd.DataFrame = None,
         material_validity_cache: dict = None,
     ) -> bool:
         """
@@ -230,7 +231,10 @@ class CommonWarehouseConnector(Connector):
         if material_key in material_validity_cache:
             return material_validity_cache[material_key]
 
-        material_registry_table = self.get_material_registry_table(registry_table_name)
+        if material_registry_table is None:
+            material_registry_table = self.get_material_registry_table(
+                registry_table_name
+            )
         result = material_registry_table.loc[
             (
                 material_registry_table["model_name"].str.lower()

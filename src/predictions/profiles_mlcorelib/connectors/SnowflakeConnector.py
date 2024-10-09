@@ -153,23 +153,23 @@ class SnowflakeConnector(Connector):
         registry_table_name: str,
         material: dict,
         material_registry_table: snowflake.snowpark.Table = None,
-        cache: dict = None,
+        material_validity_cache: dict = None,
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well.
         Right now, we consider tables as materialised if the metadata status is 2.
         """
-        if cache is None:
-            cache = {}
+        if material_validity_cache is None:
+            material_validity_cache = {}
 
         material_key = (
             f"{material['model_name']}_{material['model_hash']}_{material['seq_no']}"
         )
-        if material_key in cache:
-            return cache[material_key]
+        if material_key in material_validity_cache:
+            return material_validity_cache[material_key]
 
-        if not material_registry_table:
+        if material_registry_table is None:
             material_registry_table = self.get_material_registry_table(
                 registry_table_name
             )
@@ -182,7 +182,7 @@ class SnowflakeConnector(Connector):
             .count()
         )
         has_entry = num_rows != 0
-        cache[material_key] = has_entry
+        material_validity_cache[material_key] = has_entry
         return has_entry
 
     def get_table(self, table_name: str, **kwargs) -> snowflake.snowpark.Table:

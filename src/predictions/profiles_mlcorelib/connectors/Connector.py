@@ -361,6 +361,7 @@ class Connector(ABC):
         self,
         registry_table_name: str,
         material: dict,
+        material_registry_table=None,
         material_validity_cache: dict = None,
     ) -> bool:
         pass

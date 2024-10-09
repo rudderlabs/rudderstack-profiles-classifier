@@ -153,7 +153,7 @@ class SnowflakeConnector(Connector):
         registry_table_name: str,
         material: dict,
         material_registry_table: snowflake.snowpark.Table = None,
-        cache: dict = None
+        cache: dict = None,
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
@@ -162,16 +162,21 @@ class SnowflakeConnector(Connector):
         """
         if cache is None:
             cache = {}
-        
-        material_key = f"{material['model_name']}_{material['model_hash']}_{material['seq_no']}"
+
+        material_key = (
+            f"{material['model_name']}_{material['model_hash']}_{material['seq_no']}"
+        )
         if material_key in cache:
             return cache[material_key]
-        
+
         if not material_registry_table:
-            material_registry_table = self.get_material_registry_table(registry_table_name)
+            material_registry_table = self.get_material_registry_table(
+                registry_table_name
+            )
         num_rows = (
-            material_registry_table
-            .filter(F.lower(col("model_name")) == material["model_name"].lower())
+            material_registry_table.filter(
+                F.lower(col("model_name")) == material["model_name"].lower()
+            )
             .filter(F.lower(col("model_hash")) == material["model_hash"].lower())
             .filter(col("seq_no") == material["seq_no"])
             .count()
@@ -1159,10 +1164,10 @@ class SnowflakeConnector(Connector):
         """
         material_registry_table = (
             self.get_table(material_registry_table_name)
-        .sort(F.col("creation_ts").desc())
-        .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
-        .filter(F.col("status") == 2)
-            )
+            .sort(F.col("creation_ts").desc())
+            .withColumn("status", F.get_path("metadata", F.lit("complete.status")))
+            .filter(F.col("status") == 2)
+        )
         return material_registry_table
 
     def generate_type_hint(

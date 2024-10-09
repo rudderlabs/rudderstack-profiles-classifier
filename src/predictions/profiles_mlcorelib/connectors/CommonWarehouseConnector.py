@@ -212,7 +212,10 @@ class CommonWarehouseConnector(Connector):
             return False
 
     def check_table_entry_in_material_registry(
-        self, registry_table_name: str, material: dict, material_validity_cache: dict = None
+        self,
+        registry_table_name: str,
+        material: dict,
+        material_validity_cache: dict = None,
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
@@ -220,11 +223,13 @@ class CommonWarehouseConnector(Connector):
         """
         if material_validity_cache is None:
             material_validity_cache = {}
-        
-        material_key = f"{material['model_name']}_{material['model_hash']}_{material['seq_no']}"
+
+        material_key = (
+            f"{material['model_name']}_{material['model_hash']}_{material['seq_no']}"
+        )
         if material_key in material_validity_cache:
             return material_validity_cache[material_key]
-        
+
         material_registry_table = self.get_material_registry_table(registry_table_name)
         result = material_registry_table.loc[
             (
@@ -464,7 +469,7 @@ class CommonWarehouseConnector(Connector):
         prediction_horizon_days: int,
         registry_table: pd.DataFrame = None,
     ) -> Iterable:
-        if not registry_table:
+        if registry_table is None:
             registry_table = self.get_material_registry_table(registry_table_name)
         feature_df = self.fetch_filtered_table(
             registry_table,

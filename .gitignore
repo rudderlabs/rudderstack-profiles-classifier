@@ -34,4 +34,3 @@ scripts/local_simulator.py
 *.parquet
 *.pkl
 samples/base_git_flow/*
-.pre-commit-config.yaml

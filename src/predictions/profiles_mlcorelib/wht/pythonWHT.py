@@ -35,10 +35,10 @@ class PythonWHT:
         self.connector = connector
 
     def update_config_info(self, merged_config):
-        merged_config["data"]["entity_column"] = (
-            self.connector.get_entity_column_case_corrected(
-                merged_config["data"]["entity_column"]
-            )
+        merged_config["data"][
+            "entity_column"
+        ] = self.connector.get_entity_column_case_corrected(
+            merged_config["data"]["entity_column"]
         )
 
         self.connector.feature_table_name = f"{merged_config['data']['output_profiles_ml_model']}_{utils.generate_random_string(5)}_feature_table"
@@ -106,7 +106,7 @@ class PythonWHT:
         self,
         input: dict,
         material_seq_no: Optional[int],
-        material_registry_table = None,
+        material_registry_table=None,
         material_validity_cache: dict = None,
     ) -> bool:
         """
@@ -136,7 +136,7 @@ class PythonWHT:
                     self.get_registry_table_name(),
                     {"model_name": model_name, "model_hash": model_hash, "seq_no": seq},
                     material_registry_table,
-                    material_validity_cache
+                    material_validity_cache,
                 ), f"Material registry entry for model name - {model_name}, model hash - {model_hash}, seq - {seq} does not exist."
 
                 past_material_name = utils.replace_seq_no_in_query(
@@ -162,7 +162,7 @@ class PythonWHT:
         entity_column,
         materials,
         return_partial_pairs: bool = False,
-        material_registry_table = None,
+        material_registry_table=None,
         material_validity_cache: dict = None,
     ):
         found_feature_material, found_label_material = True, True
@@ -265,7 +265,9 @@ class PythonWHT:
             List[TrainTablesInfo]: A list of TrainTablesInfo objects,
             each containing the names of the feature and label tables, as well as their corresponding training dates.
         """
-        registry_table = self.connector.get_material_registry_table(self.get_registry_table_name())
+        registry_table = self.connector.get_material_registry_table(
+            self.get_registry_table_name()
+        )
         feature_label_df = self.connector.join_feature_label_tables(
             self.get_registry_table_name(),
             inputs[0]["model_name"],

@@ -298,12 +298,11 @@ def _train(
     train_table_pairs = get_material_names_partial(start_date=start_date)
     # Generate new materials for training data
     try:
-        train_table_pairs = trainer.check_and_generate_more_materials(
+        train_table_pairs = whtService.check_and_generate_more_materials(
             get_material_names_partial,
             train_table_pairs,
             inputs,
-            whtService,
-            connector,
+            trainer,
         )
     except Exception as e:
         logger.get().error(f"Error while generating new materials, {str(e)}")

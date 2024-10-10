@@ -101,7 +101,9 @@ class PropensityModel(BaseModelType):
         parent_folder.add_child_specs(
             training_model_name, "training_model", training_spec
         )
-        training_model_ref = parent_folder.folder_ref() + training_model_name
+        # Fixme: Uncomment the following line once pb is released with the rpc method
+        # training_model_ref = parent_folder.folder_ref_from_level_root() + training_model_name
+        training_model_ref = "models/" + training_model_name
         prediction_spec = self._get_prediction_spec(training_model_ref, training_spec)
         parent_folder.add_child_specs(
             model_name + "_prediction",

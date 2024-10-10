@@ -13,7 +13,8 @@ logger = logging.getLogger(__name__)
 class DatabaseManager:
     def __init__(self, config: dict, input_handler: InputHandler):
         self.config = config
-        self.session = self.connect_to_snowflake()
+        logger.info(f"Connecting to snowflake account: {self.config['account']}")
+        self.connector = self.connect_to_snowflake()
         self.input_handler = input_handler
 
     def connect_to_snowflake(self):
@@ -35,7 +36,7 @@ class DatabaseManager:
     def upload_sample_data(self, sample_data_dir: str, table_suffix: str) -> dict:
         new_table_names = {}
         to_upload = True
-        res = self.session.run_query(f"SHOW TABLES IN SCHEMA {self.config['input_database']}.{self.config['input_schema'].upper()}")
+        res = self.connector.run_query(f"SHOW TABLES IN SCHEMA {self.config['input_database']}.{self.config['input_schema'].upper()}")
         existing_tables = [row[1].lower() for row in res]
         
         for filename in os.listdir(sample_data_dir):
@@ -57,10 +58,11 @@ class DatabaseManager:
                     to_upload = False
                     continue
 
-                _ = self.session.run_query(f"DROP TABLE {self.config['input_database']}.{self.config['input_schema']}.{table_name}")
+                _ = self.connector.run_query(f"DROP TABLE {self.config['input_database']}.{self.config['input_schema']}.{table_name}")
 
             df = pd.read_csv(os.path.join(sample_data_dir, filename))
-            self.session.write_pandas(df, 
+            logger.info(f"Uploading file {filename} as table {table_name} with {df.shape[0]} rows and {df.shape[1]} columns")
+            self.connector.session.write_pandas(df, 
                                       table_name, 
                                       database=self.config['input_database'].upper(), 
                                       schema=self.config['input_schema'].upper(), 
@@ -69,7 +71,7 @@ class DatabaseManager:
         return new_table_names
 
     def find_relevant_tables(self, new_table_names: dict) -> List[str]:
-        res = self.session.run_query(f"SHOW TABLES IN SCHEMA {self.config['input_database']}.{self.config['input_schema']}")
+        res = self.connector.run_query(f"SHOW TABLES IN SCHEMA {self.config['input_database']}.{self.config['input_schema']}")
         tables = [row[1] for row in res]
         relevant_tables = [table for table in tables if table in new_table_names.values()]
         return relevant_tables
@@ -77,7 +79,7 @@ class DatabaseManager:
     def get_columns(self, table: str) -> List[str]:
         try:
             query = f"DESCRIBE TABLE {self.config['input_database']}.{self.config['input_schema']}.{table}"
-            result = self.session.run_query(query, output_type="list")
+            result = self.connector.run_query(query, output_type="list")
             columns = [row["name"] for row in result]
         except Exception as e:
             raise Exception(f"Error fetching columns for {table}: {e}")
@@ -86,7 +88,7 @@ class DatabaseManager:
     def get_sample_data(self, table: str, column: str, num_samples: int = 5) -> List[str]:
         try:
             query = f"SELECT {column} FROM {self.config['input_database']}.{self.config['input_schema']}.{table} where {column} is not null LIMIT {num_samples}"
-            df: pd.DataFrame = self.session.run_query(query, output_type="pandas")
+            df: pd.DataFrame = self.connector.run_query(query, output_type="pandas")
             if df.empty:
                 return []
             samples = df.iloc[:,0].dropna().astype(str).tolist()
@@ -134,9 +136,8 @@ class DatabaseManager:
         if not applicable_id_types:
             logger.info(f"No valid id_types selected for `{table}` table. Skipping this table (it won't be part of id stitcher)")
             return {}, "next"
-        
-        logger.info(f"\nNow let's map different id_types in table `{table}` to a column (you can also use SQL string operations on these columns: ex: LOWER(EMAIL_ID)):\n")
-
+                
+        logger.info(f"\nNow let's map different id_types in table `{table}` to a column (you can also use SQL string operations on these columns: ex: LOWER(EMAIL_ID), in case you want to use email as an id_type while also treating them as case insensitive):\n")
         table_mappings = []
         for id_type in applicable_id_types:
             while True:
@@ -148,7 +149,7 @@ class DatabaseManager:
                     for col in suggested_cols:
                         sample_data = self.get_sample_data(table, col)
                         logger.info(f" - {col} (sample data: {sample_data})")
-                user_input = self.input_handler.get_user_input(f"Enter the column(s) for id_type '{id_type}' in table `{table}` (comma-separated if there are multiple columns in the same table mapping to {id_type}), or 'skip' to skip:\n> ")
+                user_input = self.input_handler.get_user_input(f"Enter the column(s) for id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n> ")
                 if user_input.lower() == 'back':
                     return None, "back"
                 if user_input.lower() == 'skip':

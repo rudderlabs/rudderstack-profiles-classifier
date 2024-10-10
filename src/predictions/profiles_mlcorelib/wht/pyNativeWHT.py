@@ -6,6 +6,7 @@ from ..utils import utils
 
 from ..utils.constants import TrainTablesInfo
 from ..connectors.Connector import Connector
+from ..trainers.MLTrainer import MLTrainer
 from .pythonWHT import PythonWHT
 from profiles_rudderstack.material import WhtMaterial
 
@@ -168,3 +169,14 @@ class PyNativeWHT:
         )["connection"]
         connection = utils.load_yaml(site_config_path)["connections"][connection_name]
         return connection["outputs"][connection["target"]]
+
+    def check_and_generate_more_materials(
+        self,
+        get_material_func: callable,
+        materials: List[TrainTablesInfo],
+        inputs: List[utils.InputsConfig],
+        trainer: MLTrainer,
+    ):
+        return self.pythonWHT.check_and_generate_more_materials(
+            get_material_func, materials, inputs, trainer
+        )

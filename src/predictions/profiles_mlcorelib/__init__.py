@@ -20,3 +20,7 @@ def register_extensions(project):
     from .py_native.propensity import PropensityModel
 
     project.register_model_type(PropensityModel)
+
+    from .py_native.id_stitcher.debugger import IdStitcherDebuggerModel
+
+    project.register_model_type(IdStitcherDebuggerModel)

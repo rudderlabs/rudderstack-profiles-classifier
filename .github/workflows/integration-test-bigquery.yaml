@@ -7,6 +7,7 @@ on:
     paths-ignore:
       - 'src/predictions/profiles_mlcorelib/py_native/attribution_report.py'
       - 'src/predictions/profiles_mlcorelib/py_native/llm.py'
+      - 'src/predictions/profiles_mlcorelib/py_native/id_stitcher/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

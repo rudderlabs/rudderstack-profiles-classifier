@@ -131,7 +131,7 @@ class TestGetMaterialNames(unittest.TestCase):
         self.start_date = "2022-01-01"
         self.end_date = "2022-01-31"
         self.features_profiles_model = "model_name"
-        self.model_hash = "model_hash"
+        self.model_hash = "MODEL_HASH"
         self.prediction_horizon_days = 7
         self.inputs = [
             InputsConfig(
@@ -172,8 +172,8 @@ class TestGetMaterialNames(unittest.TestCase):
                     f"NOT_{self.features_profiles_model}",
                 ],
                 "model_hash": [
-                    self.model_hash,
-                    self.model_hash,
+                    self.model_hash.lower(),
+                    self.model_hash.upper(),
                     self.model_hash,
                     f"NOT_{self.model_hash}",
                 ],
@@ -942,12 +942,11 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
 
         # Call the function
         self.trainer.check_min_data_requirement = Mock(side_effect=[False, True, True])
-        result = self.trainer.check_and_generate_more_materials(
+        result = self.whtService.check_and_generate_more_materials(
             mock_get_material_func,
             materials=self.materials.copy(),
             inputs=self.inputs,
-            whtService=self.whtService,
-            connector=self.connector,
+            trainer=self.trainer,
         )
 
         # Assertions
@@ -973,12 +972,11 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         mock_rudderpb_run.side_effect = ValueError
 
         self.trainer.check_min_data_requirement = Mock(return_value=False)
-        result = self.trainer.check_and_generate_more_materials(
+        result = self.whtService.check_and_generate_more_materials(
             mock_get_material_func,
             materials=self.materials.copy(),
             inputs=self.inputs,
-            whtService=self.whtService,
-            connector=self.connector,
+            trainer=self.trainer,
         )
 
         self.assertEqual(len(result), 1)  # Only one material generated
@@ -1033,12 +1031,11 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         ]
         self.trainer.check_min_data_requirement = Mock(side_effect=[False, False, True])
         self.trainer.materialisation_strategy = "manual"
-        result = self.trainer.check_and_generate_more_materials(
+        result = self.whtService.check_and_generate_more_materials(
             mock_get_material_func,
             materials=self.materials.copy(),
             inputs=self.inputs,
-            whtService=self.whtService,
-            connector=self.connector,
+            trainer=self.trainer,
         )
 
         # Assertions
@@ -1058,12 +1055,11 @@ class TestCheckAndGenerateMoreMaterials(unittest.TestCase):
         mock_rudderpb_run.side_effect = ValueError
         self.trainer.check_min_data_requirement = Mock(return_value=False)
 
-        result = self.trainer.check_and_generate_more_materials(
+        result = self.whtService.check_and_generate_more_materials(
             mock_get_material_func,
             materials=self.materials.copy(),
             inputs=self.inputs,
-            whtService=self.whtService,
-            connector=self.connector,
+            trainer=self.trainer,
         )
 
         self.assertEqual(len(result), 1)  # Only one material generated

@@ -8,7 +8,8 @@ import shutil
 import pandas as pd
 from datetime import datetime
 
-from typing import Any, Iterable, List, Tuple, Union, Optional, Sequence, Dict
+
+from typing import Any, Iterable, List, Union, Sequence, Dict
 
 import snowflake.snowpark
 import snowflake.snowpark.types as T
@@ -22,6 +23,8 @@ from ..utils import constants
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
 from ..wht.rudderPB import MATERIAL_PREFIX
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.backends import default_backend
 
 local_folder = constants.SF_LOCAL_STORAGE_DIR
 
@@ -74,7 +77,20 @@ class SnowflakeConnector(Connector):
     def build_session(self, credentials: dict) -> snowflake.snowpark.Session:
         self.schema = credentials.get("schema", None)
         self.connection_parameters = self.remap_credentials(credentials)
+        if "privateKey" in credentials:
+            private_key = load_pem_private_key(
+                credentials["privateKey"].encode(),
+                password=(
+                    credentials["privateKeyPassphrase"].encode()
+                    if credentials.get("privateKeyPassphrase")
+                    else None
+                ),
+                backend=default_backend(),
+            )
+            self.connection_parameters["private_key"] = private_key
         session = Session.builder.configs(self.connection_parameters).create()
+        # Removing the private key to prevent serialisation error in the snowflake stored procedure
+        _ = self.connection_parameters.pop("private_key", None)
         return session
 
     def join_file_path(self, file_name: str) -> str:
@@ -136,25 +152,34 @@ class SnowflakeConnector(Connector):
         self,
         registry_table_name: str,
         material: dict,
+        material_registry_table: snowflake.snowpark.Table = None,
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well.
         Right now, we consider tables as materialised if the metadata status is 2.
         """
-        material_registry_table = self.get_table(registry_table_name)
-        num_rows = (
-            material_registry_table.withColumn(
-                "status", F.get_path("metadata", F.lit("complete.status"))
+        material_key = (
+            f"{material['model_name']}_{material['model_hash']}_{material['seq_no']}"
+        )
+        if material_key in self.material_validity_cache:
+            return self.material_validity_cache[material_key]
+
+        if material_registry_table is None:
+            material_registry_table = self.get_material_registry_table(
+                registry_table_name
             )
-            .filter(F.col("status") == 2)
-            .filter(F.lower(col("model_name")) == material["model_name"].lower())
+        num_rows = (
+            material_registry_table.filter(
+                F.lower(col("model_name")) == material["model_name"].lower()
+            )
             .filter(F.lower(col("model_hash")) == material["model_hash"].lower())
             .filter(col("seq_no") == material["seq_no"])
             .count()
         )
-
-        return num_rows != 0
+        has_entry = num_rows != 0
+        self.material_validity_cache[material_key] = has_entry
+        return has_entry
 
     def get_table(self, table_name: str, **kwargs) -> snowflake.snowpark.Table:
         filter_condition = kwargs.get("filter_condition", None)
@@ -664,16 +689,16 @@ class SnowflakeConnector(Connector):
 
     def fetch_filtered_table(
         self,
-        df,
-        model_name,
-        model_hash,
-        start_time,
-        end_time,
-        columns,
-    ):
+        df: snowflake.snowpark.Table,
+        model_name: str,
+        model_hash: str,
+        start_time: str,
+        end_time: str,
+        columns: List[str],
+    ) -> snowflake.snowpark.Table:
         filtered_snowpark_df = (
-            df.filter(col("model_name") == model_name)
-            .filter(col("model_hash") == model_hash)
+            df.filter(F.lower(col("model_name")) == model_name.lower())
+            .filter(F.lower(col("model_hash")) == model_hash.lower())
             .filter(
                 (to_date(col("end_ts")) >= start_time)
                 & (to_date(col("end_ts")) <= end_time)
@@ -690,10 +715,12 @@ class SnowflakeConnector(Connector):
         start_time: str,
         end_time: str,
         prediction_horizon_days: int,
+        registry_table: snowflake.snowpark.Table = None,
     ) -> Iterable:
-        snowpark_df = self.get_material_registry_table(registry_table_name)
+        if not registry_table:
+            registry_table = self.get_material_registry_table(registry_table_name)
         feature_snowpark_df = self.fetch_filtered_table(
-            snowpark_df,
+            registry_table,
             model_name,
             model_hash,
             start_time,
@@ -701,7 +728,7 @@ class SnowflakeConnector(Connector):
             columns=["seq_no", "end_ts"],
         )
         label_snowpark_df = self.fetch_filtered_table(
-            snowpark_df,
+            registry_table,
             model_name,
             model_hash,
             utils.date_add(start_time, prediction_horizon_days),
@@ -783,8 +810,8 @@ class SnowflakeConnector(Connector):
         snowpark_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
-                snowpark_df.filter(col("model_hash") == model_hash)
-                .filter(col("entity_key") == entity_key)
+                snowpark_df.filter(F.lower(col("model_hash")) == model_hash.lower())
+                .filter(F.lower(col("entity_key")) == entity_key.lower())
                 .sort(col("creation_ts"), ascending=False)
                 .select(col("creation_ts"))
                 .collect()[0]
@@ -804,8 +831,8 @@ class SnowflakeConnector(Connector):
         snowpark_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
-                snowpark_df.filter(col("model_hash") == model_hash)
-                .filter(col("model_name") == model_name)
+                snowpark_df.filter(F.lower(col("model_hash")) == model_hash.lower())
+                .filter(F.lower(col("model_name")) == model_name.lower())
                 .sort(col("creation_ts"), ascending=False)
                 .select(col("seq_no"))
                 .collect()[0]
@@ -1217,7 +1244,6 @@ class SnowflakeConnector(Connector):
     ) -> None:
         all_stages = self.run_query(f"show stages like '{stage_name.replace('@', '')}'")
         if len(all_stages) == 0:
-            logger.get().info(f"Stage {stage_name} does not exist. No files to delete.")
             return
 
         import_files = [element.split("/")[-1] for element in import_paths]
@@ -1242,11 +1268,10 @@ class SnowflakeConnector(Connector):
         """
         fn_list = self.session.sql(f"show user functions like '{fn_name}'").collect()
         if len(fn_list) == 0:
-            logger.get().info(f"Function {fn_name} does not exist")
             return True
         else:
             logger.get().info(
-                "Function name match found. Dropping all functions with the same name"
+                f"UDFs with the same name {fn_name} found. Dropping them."
             )
             for fn in fn_list:
                 fn_signature = fn["arguments"].split("RETURN")[0]

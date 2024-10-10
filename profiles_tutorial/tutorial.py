@@ -1,6 +1,8 @@
 import logging
 import sys
+import os
 import warnings
+import subprocess
 from input_handler import InputHandler, InputSteps
 from database_manager import DatabaseManager
 from file_generator import FileGenerator
@@ -9,7 +11,6 @@ warnings.filterwarnings("ignore", category=UserWarning, module="snowflake.connec
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
-# Set higher logging level for snowflake connector
 logging.getLogger("snowflake.connector").setLevel(logging.ERROR)
 logging.getLogger("snowflake.connector.network").setLevel(logging.ERROR)
 
@@ -31,6 +32,7 @@ class ProfileBuilder:
         connection_name = self.create_siteconfig()
         self.generate_project_files(entity_name, id_types, connection_name, id_mappings)
         logger.info("Profile Builder project files have been created successfully!")
+        self.prompt_to_do_pb_run(first_run=True)
 
     def display_welcome_message(self):
         welcome_message = """
@@ -68,24 +70,39 @@ class ProfileBuilder:
     def connect_to_snowflake(self):
         logger.info("We will now search your warehouse account for tables and columns that are relevant for building profiles for this entity.")
         logger.info("Please provide the necessary details for connecting to your warehouse.")
-        
-        inputs = {}
-        inputs.update(self.input_handler.collect_user_inputs(InputSteps.common()))
-        inputs.update(self.input_handler.collect_user_inputs(InputSteps.input()))
-        inputs.update(self.input_handler.collect_user_inputs(InputSteps.output()))
+        bypass = False
+        if bypass:
+            # get password from user
+            password = self.input_handler.get_user_input("Enter password for profiles_demo user", password=True)
+            self.config = {     
+                "account": "ina31471.us-east-1",
+                "output_database": "DREW_PB_TUTORIAL_DB",
+                "output_schema": "DILEEP_TEST",
+                "input_database": "DREW_PB_TUTORIAL_DB",
+                "input_schema": "DILEEP_TEST",
+                "password": password,
+                "type": "snowflake",
+                "role": "DEMO_ROLE",
+                "warehouse": "ADHOC_WH",
+                "user": "profiles_demo",
+                }
+        else:
+            inputs = {}
+            inputs.update(self.input_handler.collect_user_inputs(InputSteps.common()))
+            inputs.update(self.input_handler.collect_user_inputs(InputSteps.input()))
+            inputs.update(self.input_handler.collect_user_inputs(InputSteps.output()))
 
-        self.config = {
-            "account": inputs[InputSteps.ACCOUNT],
-            "user": inputs[InputSteps.USERNAME],
-            "password": inputs[InputSteps.PASSWORD],
-            "role": inputs[InputSteps.ROLE],
-            "warehouse": inputs[InputSteps.WAREHOUSE],
-            "input_database": inputs[InputSteps.INPUT_DATABASE],
-            "input_schema": inputs[InputSteps.INPUT_SCHEMA],
-            "output_database": inputs[InputSteps.OUTPUT_DATABASE],
-            "output_schema": inputs[InputSteps.OUTPUT_SCHEMA]
-        }
-
+            self.config = {
+                "account": inputs[InputSteps.ACCOUNT],
+                "user": inputs[InputSteps.USERNAME],
+                "password": inputs[InputSteps.PASSWORD],
+                "role": inputs[InputSteps.ROLE],
+                "warehouse": inputs[InputSteps.WAREHOUSE],
+                "input_database": inputs[InputSteps.INPUT_DATABASE],
+                "input_schema": inputs[InputSteps.INPUT_SCHEMA],
+                "output_database": inputs[InputSteps.OUTPUT_DATABASE],
+                "output_schema": inputs[InputSteps.OUTPUT_SCHEMA]
+            }
         self.db_manager = DatabaseManager(self.config, self.input_handler)
 
     def upload_sample_data(self):
@@ -154,6 +171,26 @@ class ProfileBuilder:
         self.file_generator.create_pb_project(entity_name, id_types, connection_name)
         self.file_generator.create_inputs_yaml(id_mappings)
         self.file_generator.create_profiles_yaml(entity_name, id_mappings.keys())
+
+    def _subprocess_run(self, args):
+        response = subprocess.run(
+            args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
+        )
+    
+    def prompt_to_do_pb_run(self, first_run=True):
+        if first_run:
+            prompt = """
+            Now let's run the generated profiles project. The command to run is `pb run`. 
+            You would normally do that in your terminal as a cli command.
+            But for this guided demo, you can just enter the command and the tutorial will execute it for you.
+            """
+            self.input_handler.display_multiline_message(prompt)
+        self.input_handler.get_user_input("Enter `pb run` to continue", options=["pb run"])
+        logger.info("Running the profiles project...(This will take a few minutes)")
+        os.chdir("profiles")
+        self._subprocess_run(["pb", "run"])
+        os.chdir("..")
+        logger.info("Amazing! Profiles project run completed!")
 
 def main():
     profile_builder = ProfileBuilder()

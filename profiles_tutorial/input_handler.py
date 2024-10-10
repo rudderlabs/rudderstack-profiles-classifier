@@ -1,6 +1,7 @@
 import getpass
 from enum import Enum
 from typing import List, Dict
+from config import PREDEFINED_ID_TYPES
 
 class InputSteps(Enum):
     ACCOUNT = "Account (ex: ina31471.us-east-1): "
@@ -69,16 +70,35 @@ class InputHandler:
         return inputs
 
     def display_multiline_message(self, message: str):
-        for line in message.strip().split("\n"):
+        for line in message.split("\n"):
             print(line)
             input("")
 
     def guide_id_type_input(self, entity_name):
-        predefined_id_types = ['device_id', 'email', 'user_id', 'shopify_customer_id', 'anonymous_id', 'shopify_store_id']
+        about_id_types = {"anonymous_id": """
+                          RudderStack creates a cookie for each user when they visit your site.
+                           This cookie is used to identify the user across different sessions.
+                           Every single event from event stream will have an anonymous_id.""", 
+                          "email": """If a customer signs up using their email, this can be used to identify customers across devices, or even when they clear cookies.""",
+                          "user_id": """
+                          Most apps/websites define their own user_id for signed in users. 
+                          These are the "identified" users, and typically most common id type for computing various metrics such as daily active users, monthly active users, etc.""",
+                          "device_id": """
+                          Often, we also identify users through their device ids. 
+                          Example, for an IoT device company like Wyze, the events sent from their devices will have device ids and not an email or user_id. 
+                          The ID stitcher helps connect these events to the user_id/email of the user as long as there's even a single event linking them (ex: a 'register your device' event)""", 
+                         "shopify_store_id": """
+                         When you have a payment service provider like Shopify, you may have different store ids - ex, one for website, one for android app etc.
+                         You don't usually want to identify your users with a shopify_store_id. But for this demo, lets do it, just to see what happens."""}
         selected_id_types = []
         print("We'll go through some common id types one by one. As this is a demo, please type the exact name as suggested")
-        for expected_id_type in predefined_id_types:
+        for n, expected_id_type in enumerate(PREDEFINED_ID_TYPES):
             while True:
+                if n == 0:
+                    print("The first id type is anonymous_id.")
+                else:
+                    print(f"Now, the next id: {expected_id_type}.")
+                self.display_multiline_message(about_id_types[expected_id_type])
                 user_input = self.get_user_input(f"\nLet's add '{expected_id_type}' as an id type for {entity_name}: ")
                 if user_input.lower() == expected_id_type.lower():
                     selected_id_types.append(expected_id_type)

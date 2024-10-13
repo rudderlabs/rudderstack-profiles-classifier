@@ -26,6 +26,7 @@ def run_project():
         raise e
     finally:
         cleanup_pb_project(project_path, siteconfig_path)
-
+        cleanup_args = pb_cleanup_warehouse_tables(project_path, siteconfig_path)
+        subprocess.run(cleanup_args) 
 
 run_project()

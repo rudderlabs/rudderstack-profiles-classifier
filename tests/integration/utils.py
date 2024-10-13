@@ -112,6 +112,22 @@ def cleanup_pb_project(project_path, siteconfig_path):
     os.remove(siteconfig_path)
 
 
+def pb_cleanup_warehouse_tables(project_path, siteconfig_path):
+    cleanup_args = [
+        "pb",
+        "cleanup",
+        "materials",
+        "-p",
+        project_path,
+        "-c",
+        siteconfig_path,
+        "--migrate_on_load=True",
+        "--retention_time_in_days",
+        "30",
+    ]
+    return cleanup_args
+
+
 def assert_training_artefacts():
     output_folder = get_pynative_output_folder()
     models = [

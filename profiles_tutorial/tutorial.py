@@ -154,6 +154,8 @@ class ProfileBuilder:
         # create a directory called profiles if doesn't exist
         if not os.path.exists("profiles"):
             os.makedirs("profiles")
+        if not os.path.exists("profiles/models"):
+            os.makedirs("profiles/models")
         self.file_generator.create_pb_project(entity_name, id_types, connection_name)
         self.file_generator.create_inputs_yaml(id_mappings)
         self.file_generator.create_profiles_yaml(entity_name, id_mappings.keys())         

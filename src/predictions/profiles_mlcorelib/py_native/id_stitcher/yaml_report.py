@@ -20,23 +20,23 @@ class YamlReport:
         input_model = edge_source["input_model"]
         if "ids" not in edge_source or len(edge_source["ids"]) == 0:
             for id in input_model.ids():
-                if id["entity"] == entity["Name"]:
-                    result.append(id["type"])
+                if id.entity() == entity["Name"]:
+                    result.append(id.type())
             return result
         for id in edge_source["ids"]:
             for input_model_id in input_model.ids():
-                if input_model_id["entity"] == entity["Name"]:
-                    result.append(input_model_id["type"])
+                if input_model_id.entity() == entity["Name"]:
+                    result.append(input_model_id.type())
         return result
 
     def edge_source_pairs(self) -> Dict:
         result = {}
         for edge_source in self.edge_sources:
-            ids = self._get_id_types(self.edge_sources[0])
+            ids = self._get_id_types(edge_source)
             pairs = []
             for i in range(len(ids)):
                 for j in range(i + 1, len(ids)):
-                    pair = (ids[i]["type"], ids[j]["type"])
+                    pair = (ids[i], ids[j])
                     pairs.append(pair)
             result[edge_source["from"]] = pairs
         return result

@@ -89,7 +89,8 @@ class InputHandler:
                           The ID stitcher helps connect these events to the user_id/email of the user as long as there's even a single event linking them (ex: a 'register your device' event)""", 
                          "shopify_store_id": """
                          When you have a payment service provider like Shopify, you may have different store ids - ex, one for website, one for android app etc.
-                         You don't usually want to identify your users with a shopify_store_id. But for this demo, lets do it, just to see what happens."""}
+                         You don't usually want to identify your users with a shopify_store_id. But for this demo, lets do it, just to see what happens.""",
+                         "shopify_customer_id": """Shopify customer id is a unique identifier for a customer in Shopify, given by Shopify. It is used to identify a customer across different sessions."""}
         selected_id_types = []
         print("We'll go through some common id types one by one. As this is a demo, please type the exact name as suggested")
         for n, expected_id_type in enumerate(PREDEFINED_ID_TYPES):

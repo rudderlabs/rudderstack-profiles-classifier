@@ -3,4 +3,4 @@ TABLE_SUFFIX = 'PB_TUTORIAL' #ToDo: Make it human readable, or let user modify i
 CONFIG_FILE_PATH = "profiles/pb_project.yaml"
 INPUTS_FILE_PATH = "profiles/models/inputs.yaml"
 PROFILES_FILE_PATH = "profiles/models/profiles.yaml"
-PREDEFINED_ID_TYPES = ['anonymous_id','email', 'user_id', 'device_id', 'shopify_store_id']
+PREDEFINED_ID_TYPES = ['anonymous_id','email', 'user_id', 'device_id', 'shopify_store_id', "shopify_customer_id"]

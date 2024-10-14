@@ -33,6 +33,10 @@ class ProfileBuilder:
         self.generate_project_files(entity_name, id_types, connection_name, id_mappings)
         logger.info("Profile Builder project files have been created successfully!")
         self.prompt_to_do_pb_run(first_run=True)
+        id_stitcher_table_name = self.get_latest_id_stitcher_table_name(entity_name)
+        self.explain_pb_run_results(entity_name, id_stitcher_table_name)
+        distinct_main_ids = self.id_stitcher_queries(entity_name, id_stitcher_table_name)
+        self.second_run(distinct_main_ids, entity_name, id_stitcher_table_name)
 
     def display_welcome_message(self):
         welcome_message = """
@@ -70,7 +74,7 @@ class ProfileBuilder:
     def connect_to_snowflake(self):
         logger.info("We will now search your warehouse account for tables and columns that are relevant for building profiles for this entity.")
         logger.info("Please provide the necessary details for connecting to your warehouse.")
-        bypass = False
+        bypass = True
         if bypass:
             # get password from user
             password = self.input_handler.get_user_input("Enter password for profiles_demo user", password=True)
@@ -147,6 +151,12 @@ class ProfileBuilder:
         return self.file_generator.create_siteconfig(self.config)
 
     def generate_project_files(self, entity_name, id_types, connection_name, id_mappings):
+        # create a directory called profiles if doesn't exist
+        if not os.path.exists("profiles"):
+            os.makedirs("profiles")
+        self.file_generator.create_pb_project(entity_name, id_types, connection_name)
+        self.file_generator.create_inputs_yaml(id_mappings)
+        self.file_generator.create_profiles_yaml(entity_name, id_mappings.keys())         
         about_files = f"""
         We will now discuss a couple of files that are needed to build profiles for this entity.
         First, the `siteconfig.yaml` file we just created.  You can check it and come back -  it's stored in a folder called `.pb` in your home directory.
@@ -167,10 +177,6 @@ class ProfileBuilder:
         - `models/profiles.yaml`: This is where we define the actual model configuration -  what all tables/sources it should look at for an id stitcher, what user features we should build etc.
         """
         self.input_handler.display_multiline_message(about_files)
-        
-        self.file_generator.create_pb_project(entity_name, id_types, connection_name)
-        self.file_generator.create_inputs_yaml(id_mappings)
-        self.file_generator.create_profiles_yaml(entity_name, id_mappings.keys())
 
     def _subprocess_run(self, args):
         response = subprocess.run(
@@ -191,6 +197,124 @@ class ProfileBuilder:
         self._subprocess_run(["pb", "run"])
         os.chdir("..")
         logger.info("Amazing! Profiles project run completed!")
+
+    def get_latest_id_stitcher_table_name(self, entity_name: str) -> str:
+        id_stitchers = []
+        id_stitcher_model_name = f"{entity_name}_id_stitcher"
+        for folder in os.listdir("profiles/output/prod/seq_no/latest/run"):
+            if id_stitcher_model_name in folder:
+                id_stitchers.append(folder)
+        if len(id_stitchers) == 1:
+            return id_stitchers[0]
+        else:
+            creation_time = 0
+            for id_stitcher in id_stitchers:
+                t = os.path.getctime(f"profiles/output/prod/seq_no/latest/run/{id_stitcher}")
+                if t > creation_time:
+                    creation_time = t
+                    id_stitcher_table_name = id_stitcher
+            return id_stitcher_table_name
+
+    def explain_pb_run_results(self, entity_name: str, id_stitcher_table_name: str):
+        prompt = f"""
+        This should have created multiple tables in your warehouse account, and a lot of files in the profiles folder. 
+        Let's explore them. First, the files. 
+        In the profiles folder, you should see a folder structure like this:
+        ```
+        .
+        └── profiles
+            ├── output
+            │   └── prod
+            │       └── seq_no
+            │           └── 1
+            │              └── compile
+            │              └── run
+            |                 └── Material_{entity_name}_id_stitcher_<hash>_1.sql
+            │                 └── Material_{entity_name}_all_<hash>_1.sql
+            .....
+        ```
+        The output folder contains the results of the profiles project run. Each run creates a new seq_no folder, with the sql files that powered the run.
+        You see multiple sql files, and also some folders (again containing sql files within them).
+        The profiles-core generates these sql files, creates a dependency graph so that it knows the order in which these sql files should be run, and finally runs them.
+        The sql files have the queries that ran on your warehouse account and have created various tables. 
+        For this run, there is one important table created - {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name}, which has the id_stitcher output. 
+        You can check it in your warehouse. There are three key columns in this table, along with some other timestamp meta-data columns we can ignore for now:
+            - `{entity_name}_main_id` - This is an id that Profiles creates. It uniquely identifies an entity (ex: user) across systems.
+            - `other_id` - the id stitched to the original id. This is what your data already has - email, anonymous_id etc. 
+            - `other_id_type` - the type of id from the original table. These are all the id_types you had provided earlier.
+        Basically, if two users have the same email and phone number, their {entity_name}_main_id will be the same, and we will map them to the same entity.
+        So in this table, we can expect multiple rows for a unique {entity_name}, all sharing the same {entity_name}_main_id. But other_id + other_id_type should be unique. 
+        """
+        self.input_handler.display_multiline_message(prompt)
+    
+    def id_stitcher_queries(self, entity_name: str, id_stitcher_table_name: str) -> int:
+        query_distinct_main_ids = f"select count(distinct {entity_name}_main_id) from {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name}"
+        logger.info("You can check the total number of entities in your project by running the following query in your warehouse account:")
+        logger.info(query_distinct_main_ids)
+        # run query
+        result = self.db_manager.connector.run_query(query_distinct_main_ids)
+        logger.info(f"We ran it for you, and the number you should see is: {result[0][0]}")
+        return result[0][0]
+        
+    def _explain_first_run(self, distinct_ids: int, entity_name: str, id_stitcher_table_name: str):
+        assert distinct_ids == 3
+        query = f"""select {entity_name}_main_id, other_id_type, count(*) as cnt from {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name}
+        group by 1,2
+        order by 1,3"""
+
+        prompt = f"""
+        You can see that the number of distinct {entity_name}_main_ids is 3. 
+        That's very low for a real project. What's happening?
+        Let's explore by first checking the number of distinct other ids of each type, within each of these 3 main ids.
+        You can run the following query in your warehouse account to see the number of distinct other ids of each type, within each of these 3 main ids:
+        {query}
+        NOTE: This is feasible here as we just have 3 main ids. For a real project, you will have a lot more, so the exact query wouldn't be practical.
+        """
+
+        self.input_handler.display_multiline_message(prompt)
+        logger.info(f"We are running it for you, and the result is:")
+        result = self.db_manager.connector.run_query(query, output_type="pandas")
+        logger.info(result)
+
+        prompt = f"""
+        You can see that for each of the three main ids, there are tens of emails, user_ids, device_ids etc all mapping to a single {entity_name}_main_id. 
+        But interestingly, there's a single shopify_store_id per main_id
+        This is an important clue. A shopify_store_id is not something that we associate at a {entity_name} level, but instead at a shop/store level.
+        Adding this in the id stitcher has resulted in over-stitching of the {entity_name}s. 
+        Now let's fix this. We need to make two changes to the project files. First in pb_project.yaml, and second in inputs.yaml.
+        In `pb_project.yaml`, let's remove `shopify_store_id` as an id_type. This is in three places - 
+            - under entities -> id_types
+            - under feature_views -> using_ids
+            - under id_types
+        You can remove all the lines with `shopify_store_id` in them.
+        This tells profiles that 'shopify_store_id' is not an id_type associated with {entity_name}.
+        While this file has the declaration of the id graph that we now cleaned up, inputs.yaml has the actual data sources and their ids.
+        So we need to remove the shopify_store_id from inputs.yaml too.
+        In `inputs.yaml`, remove all references to `shopify_store_id` as an id. You should see it in identifies and pages tables.
+        """
+        self.input_handler.display_multiline_message(prompt)
+        self.input_handler.get_user_input("Enter 'done' to continue once you have made the changes", options=["done"])
+
+    def second_run(self, distinct_ids: int, entity_name: str, id_stitcher_table_name: str):
+        self._explain_first_run(distinct_ids, entity_name, id_stitcher_table_name)
+        logger.info("Now let's run the updated profiles project")
+        self.prompt_to_do_pb_run(first_run=False)
+        updated_id_stitcher_table_name = self.get_latest_id_stitcher_table_name(entity_name)
+        prompt = f"""
+        You can see that the id stitcher table name has changed. It is now {updated_id_stitcher_table_name}.
+        Notice how the hash has changed. This is because we removed shopify_store_id as an id_type, and hence the graph is different.
+        The hash is a fingerprint of the definition, so it changes if the profiles project changes.
+        What's the number of distinct {entity_name}_main_ids now?
+        """
+        self.input_handler.display_multiline_message(prompt)
+        distinct_ids_upd = self.id_stitcher_queries(entity_name, updated_id_stitcher_table_name)
+        prompt = f"""
+        This is {distinct_ids_upd}. This is much better than the earlier number {distinct_ids}!
+        It's important to note how adding a bad id type resulted in such a notorious id stitching, collapsing all users into just a handful of main ids
+        But bad id types aren't the only reason for over stitching. Sometimes, a few bad data points can also cause this
+        """
+        self.input_handler.display_multiline_message(prompt)
+
 
 def main():
     profile_builder = ProfileBuilder()

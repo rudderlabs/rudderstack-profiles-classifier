@@ -58,7 +58,7 @@ class ModelRecipe(PyNativeRecipe):
         id_stitcher_models = {}
         models = this.base_wht_project.models(model_types=["id_stitcher"])
         for model in models:
-            id_stitcher_models[model.name()] = model  
+            id_stitcher_models[model.name()] = model
         if len(id_stitcher_models) > 1:
             selected_model_name = self.reader.get_input(
                 f"Multiple id_stitcher models found. Please select one {id_stitcher_models.keys()}"

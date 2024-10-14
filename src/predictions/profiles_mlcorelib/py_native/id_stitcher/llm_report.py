@@ -1,5 +1,7 @@
 from typing import Dict
 import requests
+
+from .config import LLM_SERVICE_URL
 from .table_report import TableReport
 
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
@@ -56,7 +58,6 @@ class LLMReport:
         }
 
     def _request(self, prompt: str):
-        url = "https://api.rudderstack.com/v2/profiles/idStitcher/debug"
         body = {
             "prompt": prompt,
             "session_id": self.session_id,
@@ -71,7 +72,7 @@ class LLMReport:
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
         }
-        response = requests.post(url, json=body, headers=headers)
+        response = requests.post(LLM_SERVICE_URL, json=body, headers=headers)
         if not response.ok:
             status_code = response.status_code
             error_response = response.json()["message"]

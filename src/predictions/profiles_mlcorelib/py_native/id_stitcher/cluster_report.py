@@ -291,9 +291,9 @@ class ClusterReport:
         output_dir = os.path.join(os.getcwd(), "graph_outputs")
         while True:
             user_input = self.reader.get_input(
-                "Enter an ID to visualize (or 'quit' to skip this step): "
+                "Enter an ID to visualize (or 'skip' to skip this step): "
             )
-            if user_input.lower() in ["quit", "exit", "done"]:
+            if user_input.lower() in ["quit", "exit", "done", "skip"]:
                 print("Exiting interactive mode.")
                 break
             print("\n\n")

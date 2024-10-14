@@ -48,7 +48,7 @@ class TableReport:
             # 3. Mapping table
             if name.lower().endswith("edges"):
                 self.edges_table = name
-            elif not name.lower().endswith("mapping"):
+            elif not name.lower().endswith("mappings"):
                 self.output_table = name
 
     def get_node_types(self):

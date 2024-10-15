@@ -21,10 +21,12 @@ class AuditIdStitcherModel(BaseModelType):
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
+        build_spec["materialization"] = {"output_type": "ephemeral"}
         super().__init__(build_spec, schema_version, pb_version)
+        self.recipe = ModelRecipe(self.build_spec)
 
     def get_material_recipe(self) -> PyNativeRecipe:
-        return ModelRecipe(self.build_spec)
+        return self.recipe
 
     def validate(self):
         return super().validate()
@@ -36,14 +38,12 @@ class ModelRecipe(PyNativeRecipe):
         self.build_spec = build_spec
         self.logger = Logger("AuditIdStitcherModelRecipe")
         self.id_stitcher_model: Optional[WhtModel] = None
+        # There is no guarantee that the register_dependencies will be called only once
+        # So we need to keep track of whether the run has been completed
+        self.run_completed = False
 
     def describe(self, this: WhtMaterial):
-        return (
-            f"""
-        Material - {this.name()}
-        """,
-            ".txt",
-        )
+        pass
 
     def register_dependencies(self, this: WhtMaterial):
         self._set_id_stitcher_model(this)
@@ -51,6 +51,7 @@ class ModelRecipe(PyNativeRecipe):
         for edge_source in edge_sources:
             input_model_ref = edge_source["from"]
             this.de_ref(input_model_ref)
+        self._run(this)
 
     def _set_id_stitcher_model(self, this: WhtMaterial):
         if self.id_stitcher_model is not None:
@@ -67,7 +68,10 @@ class ModelRecipe(PyNativeRecipe):
             selected_model_name = list(id_stitcher_models.keys())[0]
         self.id_stitcher_model = id_stitcher_models[selected_model_name]
 
-    def execute(self, this: WhtMaterial):
+    def _run(self, this: WhtMaterial):
+        if self.run_completed:
+            return
+
         edge_sources = self.id_stitcher_model.build_spec()["edge_sources"]
         for edge_source in edge_sources:
             input_model_ref = edge_source["from"]
@@ -93,6 +97,7 @@ class ModelRecipe(PyNativeRecipe):
         reports = [yaml_report, table_report, cluster_report, llm_report]
         for report in reports:
             report.run()
-        # FIXME:
-        # 1. material warehouse object does not exist after material run
-        # 2. Stop generating the .txt file
+        self.run_completed = True
+
+    def execute(self, this: WhtMaterial):
+        pass

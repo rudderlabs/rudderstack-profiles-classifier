@@ -125,7 +125,7 @@ class PyNativeWHT:
     def get_latest_seq_no(self, inputs: List[utils.InputsConfig]) -> int:
         return self.pythonWHT.get_latest_seq_no(inputs)
 
-    def get_inputs(self, input_model_refs: List[str]) -> List[dict]:
+    def get_inputs(self, input_model_refs: List[str]) -> List[utils.InputsConfig]:
         inputs: List[utils.InputsConfig] = []
         for input_model_ref in input_model_refs:
             material = self.whtMaterial.de_ref(input_model_ref)

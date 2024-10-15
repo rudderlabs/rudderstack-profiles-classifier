@@ -525,7 +525,9 @@ class PythonWHT:
     def get_latest_seq_no(self, inputs: List[utils.InputsConfig]) -> int:
         return int(inputs[0].table_name.split("_")[-1])
 
-    def get_inputs(self, selector_sqls: str, skip_compile: bool) -> List[dict]:
+    def get_inputs(
+        self, selector_sqls: str, skip_compile: bool
+    ) -> List[utils.InputsConfig]:
         inputs: List[utils.InputsConfig] = []
         for selector_sql in selector_sqls:
             schema_table_name = selector_sql.split(" ")[-1]

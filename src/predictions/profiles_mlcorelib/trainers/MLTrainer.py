@@ -237,6 +237,10 @@ class MLTrainer(ABC):
             categorical_features=categorical_cols,
             fold=n_folds,
             fold_strategy=fold_strategy,
+            system_log=False,
+            verbose=False,
+            html=False,
+            n_jobs=1,
         )
 
         for custom_metric in custom_metrics:
@@ -251,7 +255,11 @@ class MLTrainer(ABC):
             sort=metric_to_optimize, include=models_to_include
         )
         tuned_model = pycaret_tune_model(
-            best_model, optimize=metric_to_optimize, return_train_score=True
+            best_model,
+            optimize=metric_to_optimize,
+            return_train_score=True,
+            verbose=False,
+            tuner_verbose=False,
         )
 
         model_class_name = tuned_model.__class__.__name__

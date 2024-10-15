@@ -9,6 +9,7 @@ from profiles_rudderstack.schema import (
 
 PredictionColumnSpecSchema = {
     "type": "object",
+    "additionalProperties": False,
     "properties": {
         "name": {"type": "string"},
         "description": {"type": "string"},

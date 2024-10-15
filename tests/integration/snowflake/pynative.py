@@ -17,6 +17,8 @@ def run_project():
             "-c",
             siteconfig_path,
             "--migrate_on_load",
+            "--seq_no",
+            "743",
         ]
         subprocess.run(pb_args)
         assert_training_artefacts()

@@ -190,7 +190,9 @@ class TrainingRecipe(PyNativeRecipe):
     def register_dependencies(self, this: WhtMaterial):
         if self._get_creds(this)["type"] == "snowflake":
             if sys.version_info >= (3, 11):
-                raise Exception(f"Python version >=3.11 is not supported for Snowflake. Current version: {sys.version_info}")
+                raise Exception(
+                    f"Python version >=3.11 is not supported for Snowflake. Current version: {sys.version_info}"
+                )
         this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
         whtService = PyNativeWHT(
             this,
@@ -203,7 +205,7 @@ class TrainingRecipe(PyNativeRecipe):
     def get_training_file_path(this: WhtMaterial):
         folder = this.get_output_folder()
         return f"{folder}/{this.name()}/training_file"
-    
+
     def _get_creds(self, this: WhtMaterial):
         site_config_path = this.wht_ctx.site_config().get("FilePath")
         whtService = PyNativeWHT(

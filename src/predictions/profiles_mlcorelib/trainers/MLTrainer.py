@@ -229,6 +229,13 @@ class MLTrainer(ABC):
         fold_strategy = train_config["model_params"]["fold_strategy"]
 
         # Initialize PyCaret setup for the model with train and test data
+        #  system_log = True tries to write to a logs.log file in the current working directory.
+        # On snowflake, that's the root directory, which is not writable.
+        # This causes an error - this is not entirely reproducable, as this is gracefully handled by pycaret
+        # but some external libraries/access issues is causing error in some snowflake environments (likely when std.stderr is not writable/redirected to a file where write access is not allowed)
+        # So we disable logging. But this is not honored in tuned_model step below, because it launches parallel jobs and they are not picking this config. They work on default config
+        # By setting n_jobs = 1, tune_model step is forced to run in single thread, so this error doesn't happen.
+        # This may make training slower. We can revisit and find a better solution if that becomes an issue.
         setup = pycaret_model_setup(
             data=train_data,
             test_data=test_data,

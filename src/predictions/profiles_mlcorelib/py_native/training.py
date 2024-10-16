@@ -191,7 +191,7 @@ class TrainingRecipe(PyNativeRecipe):
         if self._get_creds(this)["type"] == "snowflake":
             if sys.version_info >= (3, 11):
                 raise Exception(
-                    f"Python version >=3.11 is not supported for Snowflake. Current version: {sys.version_info}"
+                    f"Propensity model on Snowflake requires Python versions between 3.8 and 3.10. Current version: {sys.version_info}"
                 )
         this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
         whtService = PyNativeWHT(

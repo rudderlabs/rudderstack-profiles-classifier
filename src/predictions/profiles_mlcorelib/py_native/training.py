@@ -1,5 +1,6 @@
 import os
 import shutil
+import sys
 from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
@@ -187,6 +188,9 @@ class TrainingRecipe(PyNativeRecipe):
         return current_time - time_delta[validity_time]
 
     def register_dependencies(self, this: WhtMaterial):
+        if self._get_creds(this)["type"] == "snowflake":
+            if sys.version_info >= (3, 11):
+                raise Exception(f"Python version >=3.11 is not supported for Snowflake. Current version: {sys.version_info}")
         this.de_ref(self.build_spec["ml_config"]["data"]["label_column"])
         whtService = PyNativeWHT(
             this,
@@ -199,6 +203,17 @@ class TrainingRecipe(PyNativeRecipe):
     def get_training_file_path(this: WhtMaterial):
         folder = this.get_output_folder()
         return f"{folder}/{this.name()}/training_file"
+    
+    def _get_creds(self, this: WhtMaterial):
+        site_config_path = this.wht_ctx.site_config().get("FilePath")
+        whtService = PyNativeWHT(
+            this, site_config_path, this.base_wht_project.project_path()
+        )
+        # TODO: Get creds from pywht
+        creds = whtService.get_credentials(
+            this.base_wht_project.project_path(), site_config_path
+        )
+        return creds
 
     def execute(self, this: WhtMaterial):
         logger.set_logger(self.logger)
@@ -214,9 +229,7 @@ class TrainingRecipe(PyNativeRecipe):
             this, site_config_path, this.base_wht_project.project_path()
         )
         # TODO: Get creds from pywht
-        creds = whtService.get_credentials(
-            this.base_wht_project.project_path(), site_config_path
-        )
+        creds = self._get_creds(this)
         output_filename = TrainingRecipe.get_training_file_path(this)
         runtime_info = {"is_rudder_backend": this.base_wht_project.is_rudder_backend()}
         config = self.build_spec.get("ml_config", {})

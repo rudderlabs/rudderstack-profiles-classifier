@@ -51,10 +51,18 @@ class RedshiftConnector(CommonWarehouseConnector):
         session.execute(f"SET search_path TO {self.schema};")
         return session
 
+    def _run_query(self, query: str) -> redshift_connector.cursor.Cursor:
+        try:
+            return self.session.execute(query)
+        except:
+            # Retry by recreating session to handle timeouts
+            self.session = self.build_session(self.creds)
+            return self.session.execute(query)
+
     def run_query(self, query: str, response=True) -> Optional[List]:
         """Runs the given query on the redshift connection and returns a Named Tuple."""
         if response:
-            query_run_obj = self.session.execute(query)
+            query_run_obj = self._run_query(query)
             if query_run_obj.description:
                 column_names = [desc[0] for desc in query_run_obj.description]
                 row_outputs = query_run_obj.fetchall()
@@ -66,7 +74,7 @@ class RedshiftConnector(CommonWarehouseConnector):
                     "No result set is present for given query. Please check the query."
                 )
         else:
-            return self.session.execute(query)
+            return self._run_query(query)
 
     def get_entity_var_table_ref(self, table_name: str) -> str:
         return f'"{self.schema}"."{table_name.lower()}"'
@@ -78,11 +86,11 @@ class RedshiftConnector(CommonWarehouseConnector):
         self, _: redshift_connector.cursor.Cursor, table_name: str, **kwargs
     ) -> pd.DataFrame:
         query = self._create_get_table_query(table_name, **kwargs)
-        return self.session.execute(query).fetch_dataframe()
+        return self._run_query(query).fetch_dataframe()
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';"
-        return self.session.execute(query).fetch_dataframe()
+        return self._run_query(query).fetch_dataframe()
 
     def fetch_table_metadata(self, table_name: str) -> List:
         """Fetches the schema fields(column_name, data_type) tuple of the given table."""

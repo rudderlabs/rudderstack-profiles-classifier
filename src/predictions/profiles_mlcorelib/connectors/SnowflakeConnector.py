@@ -376,6 +376,7 @@ class SnowflakeConnector(Connector):
                     top_10_freq_sum += row.COUNT
                 if top_10_freq_sum < (cardinal_feature_threshold * total_rows):
                     high_cardinal_features.append(field.name)
+        high_cardinal_features.append("high_cardinality_feature")
         return high_cardinal_features
 
     def get_timestamp_columns(

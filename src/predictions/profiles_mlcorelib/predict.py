@@ -27,7 +27,7 @@ warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 def _predict(
     creds: dict,
     model_path: str,
-    inputs: List[dict],
+    inputs: List[utils.InputsConfig],
     output_tablename: str,
     config: dict,
     runtime_info: dict,

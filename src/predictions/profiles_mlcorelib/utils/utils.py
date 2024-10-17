@@ -19,7 +19,7 @@ from sklearn.metrics import (
 from sklearn.model_selection import train_test_split
 import numpy as np
 import pandas as pd
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Optional
 
 import snowflake.snowpark
 from snowflake.snowpark.session import Session
@@ -74,6 +74,19 @@ class OutputsConfig:
 
     column_names: dict
     feature_meta_data: List[dict]
+
+
+@dataclass
+class InputsConfig:
+    """InputsConfig class is used to store the inputs configuration parameters"""
+
+    table_name: str
+    model_ref: str
+    model_type: str
+    selector_sql: str
+    model_name: str
+    model_hash: str
+    column_name: Optional[str] = None
 
 
 def split_train_test(

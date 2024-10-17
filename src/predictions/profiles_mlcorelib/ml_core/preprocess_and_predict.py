@@ -346,11 +346,19 @@ if __name__ == "__main__":
 
     model_path = os.path.join(output_dir, args.json_output_filename)
 
+    inputs_info: List[utils.InputsConfig] = []
+    try:
+        for input_ in args.inputs:
+            inputs_info.append(utils.InputsConfig(**input_))
+    except Exception as e:
+        logger.get().error(f"Error while parsing inputs: {e}")
+        raise Exception(f"Error while parsing inputs: {e}")
+
     _ = preprocess_and_predict(
         wh_creds,
         args.s3_config,
         model_path,
-        args.inputs,
+        inputs_info,
         args.end_ts,
         args.output_tablename,
         connector=connector,

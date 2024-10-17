@@ -27,9 +27,9 @@ def run_project():
     except Exception as e:
         raise e
     finally:
-        cleanup_pb_project(pynative_project, siteconfig_path)
         cleanup_args = pb_cleanup_warehouse_tables(pynative_project, siteconfig_path)
         subprocess.run(cleanup_args)
+        cleanup_pb_project(pynative_project, siteconfig_path)
 
 
 run_project()

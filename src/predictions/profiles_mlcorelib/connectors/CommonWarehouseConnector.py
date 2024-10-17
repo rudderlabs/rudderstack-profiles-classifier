@@ -415,6 +415,7 @@ class CommonWarehouseConnector(Connector):
                 top_10_freq_sum = sum(feature_data.value_counts().head(10))
                 if top_10_freq_sum < cardinal_feature_threshold * total_rows:
                     high_cardinal_features.append(field)
+        high_cardinal_features.append("high_cardinality_feature")
         return high_cardinal_features
 
     def get_default_label_value(

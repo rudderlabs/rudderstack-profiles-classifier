@@ -90,6 +90,7 @@ def get_directory_name(regex: str):
     for file in directories:
         if compiledRegex.match(file):
             return file
+    print(directories)
     raise Exception(f"Material for {regex} not found")
 
 

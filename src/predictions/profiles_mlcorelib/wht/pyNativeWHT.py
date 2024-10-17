@@ -148,7 +148,8 @@ class PyNativeWHT:
                 "model_type": material.model.model_type(),
                 "selector_sql": material.get_selector_sql(),
                 "column_name": column_name,
-                "model_name": material_name_dict["model_name"],
+                # FIXME: Once python model is removed, get rid of model_name and replace it with model_ref
+                "model_name": material.model.name(),
                 "model_hash": material_name_dict["model_hash"],
             }
             inputs.append(utils.InputsConfig(**input))

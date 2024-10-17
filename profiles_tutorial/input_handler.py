@@ -26,7 +26,10 @@ class InputSteps(Enum):
     def output(cls):
         return [cls.OUTPUT_DATABASE, cls.OUTPUT_SCHEMA]
 
-class InputHandler:
+class InputHandler: 
+    def __init__(self, fast_mode: bool):
+        self.fast_mode = fast_mode
+
     def get_user_input(self, prompt, options=None, password=False, default=None):
         full_prompt = f"{prompt} "
         if default:
@@ -72,7 +75,8 @@ class InputHandler:
     def display_multiline_message(self, message: str):
         for line in message.split("\n"):
             print(line)
-            input("")
+            if not self.fast_mode:
+                input("")
 
     def guide_id_type_input(self, entity_name):
         about_id_types = {"anonymous_id": """
@@ -89,7 +93,8 @@ class InputHandler:
                           The ID stitcher helps connect these events to the user_id/email of the user as long as there's even a single event linking them (ex: a 'register your device' event)""", 
                          "shopify_store_id": """
                          When you have a payment service provider like Shopify, you may have different store ids - ex, one for website, one for android app etc.
-                         You don't usually want to identify your users with a shopify_store_id. But for this demo, lets do it, just to see what happens."""}
+                         You don't usually want to identify your users with a shopify_store_id. But for this demo, lets do it, just to see what happens.""",
+                         "shopify_customer_id": """Shopify customer id is a unique identifier for a customer in Shopify, given by Shopify. It is used to identify a customer across different sessions."""}
         selected_id_types = []
         print("We'll go through some common id types one by one. As this is a demo, please type the exact name as suggested")
         for n, expected_id_type in enumerate(PREDEFINED_ID_TYPES):
@@ -99,7 +104,11 @@ class InputHandler:
                 else:
                     print(f"Now, the next id: {expected_id_type}.")
                 self.display_multiline_message(about_id_types[expected_id_type])
-                user_input = self.get_user_input(f"\nLet's add '{expected_id_type}' as an id type for {entity_name}: ")
+                if self.fast_mode:
+                    default = expected_id_type
+                else:
+                    default = None
+                user_input = self.get_user_input(f"\nLet's add '{expected_id_type}' as an id type for {entity_name}: ", default=default)
                 if user_input.lower() == expected_id_type.lower():
                     selected_id_types.append(expected_id_type)
                     break

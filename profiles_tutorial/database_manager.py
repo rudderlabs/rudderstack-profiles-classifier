@@ -11,11 +11,12 @@ from input_handler import InputHandler
 logger = logging.getLogger(__name__)
 
 class DatabaseManager:
-    def __init__(self, config: dict, input_handler: InputHandler):
+    def __init__(self, config: dict, input_handler: InputHandler, fast_mode: bool):
         self.config = config
         logger.info(f"Connecting to snowflake account: {self.config['account']}")
         self.connector = self.connect_to_snowflake()
         self.input_handler = input_handler
+        self.fast_mode = fast_mode
 
     def connect_to_snowflake(self):
         try:
@@ -149,7 +150,11 @@ class DatabaseManager:
                     for col in suggested_cols:
                         sample_data = self.get_sample_data(table, col)
                         logger.info(f" - {col} (sample data: {sample_data})")
-                user_input = self.input_handler.get_user_input(f"Enter the column(s) for id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n> ")
+                if self.fast_mode:
+                    default = id_type
+                else:
+                    default = None
+                user_input = self.input_handler.get_user_input(f"Enter the column(s) for id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n> ", default=default)
                 if user_input.lower() == 'back':
                     return None, "back"
                 if user_input.lower() == 'skip':
@@ -166,16 +171,17 @@ class DatabaseManager:
                     sample_data = self.get_sample_data(table, col)
                     logger.info(f"- {col} (sample data: {sample_data})")
 
-                confirm = self.input_handler.get_user_input("Is this correct? (yes/no): ", options=["yes", "no"])
-                if confirm.lower() == 'yes':
-                    for col in selected_columns:
-                        mapping = {"select": col, 
-                                   "type": id_type,
-                                   "entity": entity_name}
-                        table_mappings.append(mapping)
-                    break
-                else:
-                    logger.info("Let's try mapping again.\n")
+                # confirm = self.input_handler.get_user_input("Is this correct? (yes/no): ", options=["yes", "no"])
+                # if confirm.lower() == 'yes':
+                for col in selected_columns:
+                    mapping = {"select": col, 
+                                "type": id_type,
+                                "entity": entity_name}
+                    table_mappings.append(mapping)
+                break
+                #     break
+                # else:
+                #     logger.info("Let's try mapping again.\n")
         if table_mappings:
             logger.info("Following is the summary of id types selected: \n")
             summary = {"table": table, 

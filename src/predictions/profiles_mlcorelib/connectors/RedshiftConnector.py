@@ -33,7 +33,11 @@ class RedshiftConnector(CommonWarehouseConnector):
             "arraytype": {"super": None},
             "booleantype": {"boolean": None, "bool": None},
         }
-        self.dtype_utils_mapping = {"numeric": "float", "categorical": "str"}
+        self.dtype_utils_mapping = {
+            "numeric": "float",
+            "categorical": "str",
+            "timestamp": "timestamp without time zone",
+        }
         super().__init__(creds, folder_path, data_type_mapping)
 
     def build_session(self, credentials: dict) -> redshift_connector.cursor.Cursor:

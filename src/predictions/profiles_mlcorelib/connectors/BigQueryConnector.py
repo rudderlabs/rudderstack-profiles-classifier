@@ -37,7 +37,11 @@ class BigQueryConnector(CommonWarehouseConnector):
             "arraytype": {"ARRAY": None},
             "booleantype": {"BOOLEAN": None, "BOOL": None},
         }
-        self.dtype_utils_mapping = {"numeric": "FLOAT", "categorical": "STRING"}
+        self.dtype_utils_mapping = {
+            "numeric": "FLOAT",
+            "categorical": "STRING",
+            "timestamp": "TIMESTAMP",
+        }
         super().__init__(creds, folder_path, data_type_mapping)
 
     def build_session(self, credentials: dict) -> google.cloud.bigquery.client.Client:

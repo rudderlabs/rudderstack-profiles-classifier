@@ -3,6 +3,7 @@ import time
 from predict import *
 from tests.integration.utils import *
 import os
+import subprocess
 
 creds = json.loads(os.environ["SNOWFLAKE_SITE_CONFIG"])
 creds["schema"] = "CLASSIFIER_INTEGRATION_TEST"
@@ -52,6 +53,24 @@ def cleanup_pb_project(project_path, siteconfig_path):
         if os.path.exists(dir_path):
             shutil.rmtree(dir_path)
     os.remove(siteconfig_path)
+
+
+def pb_cleanup_warehouse_tables(project_path, siteconfig_path):
+    cleanup_command = " ".join(
+        [
+            "pb",
+            "cleanup",
+            "materials",
+            "-p",
+            project_path,
+            "-c",
+            siteconfig_path,
+            "--migrate_on_load=True",
+            "--retention_time_in_days",
+            "4",
+        ]
+    )
+    return cleanup_command
 
 
 def cleanup_reports(reports_folders):
@@ -162,6 +181,8 @@ def test_classification():
     except Exception as e:
         raise e
     finally:
+        cleanup_cmd = pb_cleanup_warehouse_tables(project_path, siteconfig_path)
+        subprocess.run(f"yes | {cleanup_cmd}", shell=True, text=True)
         cleanup_pb_project(project_path, siteconfig_path)
         cleanup_reports(reports_folders)
 

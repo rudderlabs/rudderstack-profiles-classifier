@@ -58,6 +58,8 @@ class ModelRecipe(PyNativeRecipe):
             return
         id_stitcher_models = {}
         models = this.base_wht_project.models(model_types=["id_stitcher"])
+        if len(models) == 0:
+            raise ValueError("No id_stitcher model found in the project")
         for model in models:
             id_stitcher_models[model.name()] = model
         if len(id_stitcher_models) > 1:
@@ -93,6 +95,7 @@ class ModelRecipe(PyNativeRecipe):
             this.base_wht_project.warehouse_credentials(),
             table_report,
             entity,
+            this.wht_ctx.site_config().get("FilePath"),
         )
         reports = [yaml_report, table_report, cluster_report, llm_report]
         for report in reports:

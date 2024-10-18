@@ -57,7 +57,7 @@ class MockMaterial:
         encapsulating_db_object_name: str,
     ) -> None:
         self.model = MockModel(
-            None,
+            db_object_name,
             model_type,
             db_object_name,
             output_type,

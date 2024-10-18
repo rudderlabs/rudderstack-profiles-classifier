@@ -113,16 +113,20 @@ def cleanup_pb_project(project_path, siteconfig_path):
 
 
 def pb_cleanup_warehouse_tables(project_path, siteconfig_path):
-    cleanup_command = " ".join([
-        "pb",
-        "cleanup",
-        "materials",
-        "-p", project_path,
-        "-c", siteconfig_path,
-        "--migrate_on_load=True",
-        "--retention_time_in_days",
-        "4",
-    ])
+    cleanup_command = " ".join(
+        [
+            "pb",
+            "cleanup",
+            "materials",
+            "-p",
+            project_path,
+            "-c",
+            siteconfig_path,
+            "--migrate_on_load=True",
+            "--retention_time_in_days",
+            "4",
+        ]
+    )
     return cleanup_command
 
 

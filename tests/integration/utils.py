@@ -113,19 +113,17 @@ def cleanup_pb_project(project_path, siteconfig_path):
 
 
 def pb_cleanup_warehouse_tables(project_path, siteconfig_path):
-    cleanup_args = [
+    cleanup_command = " ".join([
         "pb",
         "cleanup",
         "materials",
-        "-p",
-        project_path,
-        "-c",
-        siteconfig_path,
+        "-p", project_path,
+        "-c", siteconfig_path,
         "--migrate_on_load=True",
         "--retention_time_in_days",
         "4",
-    ]
-    return cleanup_args
+    ])
+    return cleanup_command
 
 
 def assert_training_artefacts():

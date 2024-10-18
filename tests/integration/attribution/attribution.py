@@ -28,8 +28,8 @@ def run_project():
     except Exception as e:
         raise e
     finally:
-        cleanup_args = pb_cleanup_warehouse_tables(project_directory, siteconfig_path)
-        subprocess.run(cleanup_args)
+        cleanup_cmd = pb_cleanup_warehouse_tables(project_directory, siteconfig_path)
+        subprocess.run(f"yes | {cleanup_cmd}", shell=True, text=True)
         cleanup_pb_project(project_directory, siteconfig_path)
 
 

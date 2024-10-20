@@ -215,7 +215,7 @@ class TableReport:
         # missing indirect connections too.
         if warn:
             print(
-                "Following id types are defined in id stitcher graph before id-stitching to come from same table, but we do not have any direct edges between them in the data (indirect edges can exist)."
+                "Following id types are defined in id stitcher model inputs to come from same table, but we never see them together before id-stitching (they may be linked later by the stitching through other ids though):"
             )
             for issue in missing_connections:
                 print(issue)
@@ -395,30 +395,21 @@ class TableReport:
 
         # Main-ids with the highest count of other ids, for each id type
         query = f"""
-        SELECT other_id_type, {main_id_key}, max_count
-        FROM (
-            SELECT other_id_type, {main_id_key}, count(*) as max_count,
-                ROW_NUMBER() OVER (PARTITION BY other_id_type ORDER BY count(*) DESC) as row_num
-            FROM {self.output_table}
-            GROUP BY other_id_type, {main_id_key}
-        )
-        WHERE row_num = 1
-        ORDER BY other_id_type
+        select other_id_type, max(count_value) as max_count from
+        (SELECT {main_id_key}, other_id_type, count(*) as count_value
+        FROM {self.output_table}
+        GROUP BY {main_id_key}, other_id_type) a group by other_id_type
         """
         result = self.wh_client.query_sql_with_result(query)
-        print(
-            "\nMain-ids with the highest count of other ids, for each id type, after stitching:"
-        )
+        print("\nHighest count of other ids, for each id type, after stitching:")
         for row in result.to_dict(orient="records"):
-            print(f"\t\tOther_id_type: {row['OTHER_ID_TYPE']}")
-            print(f"\t\tMax_count: {row['MAX_COUNT']}")
-            print(f"\t\tMain ID: {row[main_id_key.upper()]}\n")
+            print(f"\t\t{row['OTHER_ID_TYPE']}: {row['MAX_COUNT']}")
 
         # Top N biggest clusters
         top_clusters = self.get_top_clusters(5)
         self.analysis_results["top_clusters"] = top_clusters
         print(
-            "\nTop 5 biggest clusters after id stitching (and the distinct id types in each cluster):"
+            "\n\nTop 5 biggest clusters after id stitching (and the distinct id types in each cluster):"
         )
         for _, cluster in enumerate(top_clusters):
             print(f"\tMain ID: {cluster['main_id']}, Size: {cluster['cluster_size']}")

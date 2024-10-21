@@ -29,11 +29,9 @@ install_requires = [
     "google-auth-oauthlib>=1.0.0",
     "cryptography>=42.0.2",
     "plotly>=5.24.1",
-    "networkx>=3.3",
+    "snowflake-snowpark-python[pandas]>=1.11.1",
+    "networkx",
 ]
-
-if sys.version_info < (3, 12):
-    install_requires.append("snowflake-snowpark-python[pandas]>=1.11.1")
 
 setup(
     name="profiles_mlcorelib",

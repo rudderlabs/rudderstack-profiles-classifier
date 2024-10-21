@@ -215,12 +215,12 @@ class TableReport:
         # missing indirect connections too.
         if warn:
             print(
-                "Following id types are defined in id stitcher graph to come from same table, but we do not have any direct edges between them in the data (indirect edges can exist)."
+                "Following id types are defined in id stitcher model inputs to come from same table, but we never see them together before id-stitching (they may be linked later by the stitching through other ids though):"
             )
             for issue in missing_connections:
                 print(issue)
         print(
-            "\n Check for missing edges between id types (direct or indirect) after id stitching:"
+            "\n Check for missing edges between id types (direct or indirect) after id-stitching:"
         )
         missing_connections = []
 
@@ -337,7 +337,9 @@ class TableReport:
             )
 
         # Top N nodes by edge count for each type
-        print("Top 5 nodes of different types, before id stitching, by edge counts:")
+        print(
+            "For each id type, here are the top 5 id values that had the highest edge counts:"
+        )
         for node_type in node_types:
             top_nodes = self.get_top_nodes_by_edges(5, node_type)
             print(f"\n\ttype {node_type} by edge count:")
@@ -390,6 +392,18 @@ class TableReport:
         )
         for row in result.to_dict(orient="records"):
             print(f"\t\t{row['OTHER_ID_TYPE']}: {row['AVG_COUNT']}")
+
+        # Main-ids with the highest count of other ids, for each id type
+        query = f"""
+        select other_id_type, max(count_value) as max_count from
+        (SELECT {main_id_key}, other_id_type, count(*) as count_value
+        FROM {self.output_table}
+        GROUP BY {main_id_key}, other_id_type) a group by other_id_type
+        """
+        result = self.wh_client.query_sql_with_result(query)
+        print("\nHighest count of other ids, for each id type, after stitching:")
+        for row in result.to_dict(orient="records"):
+            print(f"\t\t{row['OTHER_ID_TYPE']}: {row['MAX_COUNT']}")
 
         # Top N biggest clusters
         top_clusters = self.get_top_clusters(5)

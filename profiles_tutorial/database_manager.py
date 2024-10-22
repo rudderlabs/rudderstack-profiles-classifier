@@ -105,11 +105,16 @@ class DatabaseManager:
             logger.error(f"Error fetching columns for {table}: {e}")
             return None, "back"
         
+        id_type_mapping = {"anon_id": "anonymous_id"}
         # Shortlist columns based on regex matches with id_types
         shortlisted_columns = {}
         for id_type in id_types:
-            pattern = re.compile(rf".*{id_type}.*", re.IGNORECASE)
-            matched_columns = [col for col in columns if pattern.match(col)]
+            #cleaned_id_type = re.sub(r'(id|_)', '', id_type, flags=re.IGNORECASE)
+            # Create pattern that ignores 'id' and '_' in column names
+            #pattern = re.compile(rf".*{re.escape(cleaned_id_type)}.*", re.IGNORECASE)
+            #pattern = re.compile(rf".*{id_type}.*", re.IGNORECASE)
+            #matched_columns = [col for col in columns if pattern.match(re.sub(r'(id|_)', '', col, flags=re.IGNORECASE))]
+            matched_columns = [col for col in columns if col.lower() == id_type.lower() or col.lower() == id_type_mapping.get(id_type, id_type).lower()]
             if matched_columns:
                 shortlisted_columns[id_type] = matched_columns
 
@@ -134,6 +139,12 @@ class DatabaseManager:
 
         applicable_id_types = [it for it in id_types if it.lower() in [ait.lower() for ait in applicable_id_types]]
 
+        # Assert that all in shortlisted columns are in applicable_id_types
+        for id_type in shortlisted_columns:
+            if id_type not in applicable_id_types:
+                logger.info(f"Please enter all id types applicable to the `{table}` table. The id type `{id_type}` is not found.")
+                return None, "back"
+
         if not applicable_id_types:
             logger.info(f"No valid id_types selected for `{table}` table. Skipping this table (it won't be part of id stitcher)")
             return {}, "next"
@@ -144,16 +155,16 @@ class DatabaseManager:
             while True:
                 logger.info(f"\nid type: {id_type}")
                 # Suggest columns based on regex matches
-                suggested_cols = shortlisted_columns.get(id_type, [])
-                if suggested_cols:
-                    logger.info("Suggestions based on column names:")
-                    for col in suggested_cols:
-                        sample_data = self.get_sample_data(table, col)
-                        logger.info(f" - {col} (sample data: {sample_data})")
-                if self.fast_mode:
-                    default = id_type
-                else:
-                    default = None
+                # suggested_cols = shortlisted_columns.get(id_type, [])
+                # if suggested_cols:
+                #     logger.info("Suggestions based on column names:")
+                #     for col in suggested_cols:
+                #         sample_data = self.get_sample_data(table, col)
+                #         logger.info(f" - {col} (sample data: {sample_data})")
+                #if self.fast_mode:
+                default = id_type_mapping.get(id_type, id_type)
+                # else:
+                #     default = None
                 user_input = self.input_handler.get_user_input(f"Enter the column(s) for id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n> ", default=default)
                 if user_input.lower() == 'back':
                     return None, "back"

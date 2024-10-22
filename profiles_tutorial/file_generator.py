@@ -16,10 +16,6 @@ class FileGenerator:
         self.yaml.width = 4096  # Prevent line wrapping
 
     def create_siteconfig(self, config: dict) -> str:
-        logger.info("""We need to save the warehouse credentials in a file called `siteconfig.yaml`. 
-              This file is stored in a folder called `.pb` in your home directory. 
-              This helps profile builder to connect to your warehouse account and run the project automatically.""")
-
         home_dir = str(Path.home())
         pb_dir = os.path.join(home_dir, ".pb")
         os.makedirs(pb_dir, exist_ok=True)
@@ -74,7 +70,7 @@ class FileGenerator:
             "entities": [
                 {
                     "name": entity_name,
-                    "id_stitcher": f"models/{entity_name}_id_stitcher",
+                    "id_stitcher": f"models/{entity_name}_id_graph",
                     "id_types": id_types,
                     "feature_views": {
                         "using_ids": [
@@ -108,15 +104,16 @@ class FileGenerator:
         with open(INPUTS_FILE_PATH, "w") as f:
             self.yaml.dump(inputs, f)
 
-    def create_profiles_yaml(self, entity_name, tables):
+    def create_profiles_yaml(self, entity_name, tables, model_name):
         edge_sources = []
         for table in tables:
-            table_name = "rs" + table.replace(f"_{TABLE_SUFFIX}", "").capitalize()
-            edge_sources.append({"from": f"inputs/{table_name}"})
+            #table_name = "rs" + table.replace(f"_{TABLE_SUFFIX}", "").capitalize()
+            #edge_sources.append({"from": f"inputs/{table_name}"})
+            edge_sources.append({"from": table})
         profiles = {
             "models": [
                 {
-                    "name": f"{entity_name}_id_stitcher",
+                    "name": model_name,
                     "model_type": "id_stitcher",
                     "model_spec": {
                         "validity_time": "24h",

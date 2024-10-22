@@ -2,29 +2,30 @@ import getpass
 from enum import Enum
 from typing import List, Dict
 from config import PREDEFINED_ID_TYPES
+import time
 
 class InputSteps(Enum):
-    ACCOUNT = "Account (ex: ina31471.us-east-1): "
+    ACCOUNT = "Account Name (ex: ina31471.us-east-1): "
     USERNAME = "Username: "
     PASSWORD = "Password: "
     ROLE = "Role: "
     WAREHOUSE = "Warehouse: "
-    INPUT_DATABASE = "Input Database name: "
-    INPUT_SCHEMA = "Input Schema name: "
-    OUTPUT_DATABASE = "Output Database name: "
-    OUTPUT_SCHEMA = "Output Schema name: "
+    # INPUT_DATABASE = "Input Database name: "
+    # INPUT_SCHEMA = "Input Schema name: "
+    OUTPUT_DATABASE = "Database name (this is where the seed data will be uploaded, and also the profiles output tables will be created): "
+    OUTPUT_SCHEMA = "Schema name (this is where the seed data will be uploaded, and also the profiles output tables will be created): "
 
     @classmethod
     def common(cls):
-        return [cls.ACCOUNT, cls.USERNAME, cls.PASSWORD, cls.ROLE, cls.WAREHOUSE]
+        return [cls.ACCOUNT, cls.USERNAME, cls.PASSWORD, cls.ROLE, cls.WAREHOUSE, cls.OUTPUT_DATABASE, cls.OUTPUT_SCHEMA]
 
-    @classmethod
-    def input(cls):
-        return [cls.INPUT_DATABASE, cls.INPUT_SCHEMA]
+    # @classmethod
+    # def input(cls):
+    #     return [cls.INPUT_DATABASE, cls.INPUT_SCHEMA]
 
-    @classmethod
-    def output(cls):
-        return [cls.OUTPUT_DATABASE, cls.OUTPUT_SCHEMA]
+    # @classmethod
+    # def output(cls):
+    #     return [cls.OUTPUT_DATABASE, cls.OUTPUT_SCHEMA]
 
 class InputHandler: 
     def __init__(self, fast_mode: bool):
@@ -74,33 +75,41 @@ class InputHandler:
 
     def display_multiline_message(self, message: str):
         for line in message.split("\n"):
-            print(line)
+            if line:
+                print(line)
             if not self.fast_mode:
                 input("")
+    
+    # def print_and_wait(self, message: str, delay: int = 10):
+    #     print(message)
+    #     time.sleep(delay)
 
     def guide_id_type_input(self, entity_name):
-        about_id_types = {"anonymous_id": """
+        about_id_types = {"anon_id": """
                           RudderStack creates a cookie for each user when they visit your site.
-                           This cookie is used to identify the user across different sessions.
-                           Every single event from event stream will have an anonymous_id.""", 
+                           This cookie is used to identify the user across different sessions anonymously, prior to the users identifying themselves.
+                           Every single event from event stream will have this, called anonymous_id.""", 
                           "email": """If a customer signs up using their email, this can be used to identify customers across devices, or even when they clear cookies.""",
                           "user_id": """
                           Most apps/websites define their own user_id for signed in users. 
                           These are the "identified" users, and typically most common id type for computing various metrics such as daily active users, monthly active users, etc.""",
                           "device_id": """
-                          Often, we also identify users through their device ids. 
-                          Example, for an IoT device company like Wyze, the events sent from their devices will have device ids and not an email or user_id. 
-                          The ID stitcher helps connect these events to the user_id/email of the user as long as there's even a single event linking them (ex: a 'register your device' event)""", 
+                          This is a more specialized id type specific to SEcure Solutions, LLC. Since they sell IoT devices, they want to link specific device ids back to specific users.
+                          The ID stitcher helps connect these events to the user_id/email of the user as long as there's even a single event linking them (ex: a 'register your device' event).""",
+                         "shopify_customer_id": """
+                         An Ecommerce platform like Shopify will auto generate a unique identifier for each unique user who completes any sort of checkout conversion and thereby become an official customer. 
+                         This unique identifier is called, “shopify_customer_id”. We will want to bring this ID Type in in order to enhance the user ID Graph. """, 
                          "shopify_store_id": """
-                         When you have a payment service provider like Shopify, you may have different store ids - ex, one for website, one for android app etc.
-                         You don't usually want to identify your users with a shopify_store_id. But for this demo, lets do it, just to see what happens.""",
-                         "shopify_customer_id": """Shopify customer id is a unique identifier for a customer in Shopify, given by Shopify. It is used to identify a customer across different sessions."""}
+                         When you have a payment service provider like Shopify, you may have different store or apps - one for website, one for android app etc. 
+                         These different apps or stores may have their own unique identifiers. It is important to note here, this id type is of a higher level grain than the user identifiers. 
+                         One store id may be linked to many users.  And so for the user entity, we should not bring it in. 
+                         But for the purposes of this tutorial, we will go ahead and bring it in to show you what happens and how to troubleshoot when a resolved profile id has merged multiple users together."""}
         selected_id_types = []
         print("We'll go through some common id types one by one. As this is a demo, please type the exact name as suggested")
         for n, expected_id_type in enumerate(PREDEFINED_ID_TYPES):
             while True:
                 if n == 0:
-                    print("The first id type is anonymous_id.")
+                    print(f"The first id type is {expected_id_type}.")
                 else:
                     print(f"Now, the next id: {expected_id_type}.")
                 self.display_multiline_message(about_id_types[expected_id_type])

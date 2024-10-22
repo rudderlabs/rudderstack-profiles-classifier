@@ -1,4 +1,5 @@
 import logging
+import time
 import sys
 import os
 import warnings
@@ -25,15 +26,23 @@ class ProfileBuilder:
 
     def run(self):
         self.display_welcome_message()
-        entity_name = self.get_entity_name()
-        id_types = self.get_id_types(entity_name)
+        # Connection
         self.connect_to_snowflake()
+        connection_name = self.create_siteconfig()
         new_table_names = self.upload_sample_data()
         relevant_tables = self.find_relevant_tables(new_table_names)
-        id_mappings = self.map_tables_to_id_types(relevant_tables, id_types, entity_name)
-        connection_name = self.create_siteconfig()
-        self.generate_project_files(entity_name, id_types, connection_name, id_mappings)
-        logger.info("Profile Builder project files have been created successfully!")
+        self.display_about_project_files(connection_name)
+        # pb_project.yaml
+        entity_name, id_types = self.generate_pb_project(connection_name)
+        # inputs.yaml
+        self.map_tables_to_id_types(relevant_tables, id_types, entity_name)
+
+        # profiles.yaml
+        self.build_id_stitcher_model(relevant_tables, entity_name)
+
+        self.pb_runs(entity_name)
+
+    def pb_runs(self, entity_name):
         self.prompt_to_do_pb_run(first_run=True)
         id_stitcher_table_name = self.get_latest_id_stitcher_table_name(entity_name)
         #id_stitcher_table_name = "Material_user_id_stitcher_6a2cd3af_10" #FixMe: comment this line
@@ -42,42 +51,90 @@ class ProfileBuilder:
         self.second_run(distinct_main_ids, entity_name, id_stitcher_table_name)
 
     def display_welcome_message(self):
-        welcome_message = """\tThis is a guided tutorial on RudderStack Profiles (Press Enter/↵ to continue). 
-        This involves details on key concepts of Profiles. You will also build a basic profiles project as you go through this tutorial (Press Enter/↵ to continue).
-        Please read through the text in detail and press Enter (↵) to continue to the next step. It asks you to enter a few details in between.
+        messages = """
+        This is a guided interactive tutorial on Rudderstack Profiles. This tutorial will walk through key concepts of profiles and how it works. 
+        As a part of this tutorial, we will also build a basic project with an ID Stitcher Model ultimately producing an ID Graph in your warehouse.
+        This tutorial will have multiple interactive components. Most of the interaction will take place within your terminal or command line. 
+        However, we will prompt you to interact with a yaml configuration directly.
+        And of course, we are producing output tables and views based on a fictional business in your output schema in your warehouse that you can query directly in your DBMS console or preferred IDE.
+        The goal of this tutorial is to familiarize you with the profiles product in the rudderstack platform.
+        This includes details on the yaml configuration, how data unification works, what the outputs look like after a run, and how to troubleshoot and build a solid ID Graph around a user entity. 
+        Our goal is that you can then immediately put this knowledge to action with your own data by building your own profiles project and extending it further to unify your data around a defined entity, 
+        building a c360 degree view of this entity, and putting that data into action for the benefit of your business!
         """
-        self.input_handler.display_multiline_message(welcome_message)
+        print(messages)
+        self.input_handler.display_multiline_message("Please read through the text in detail and press Enter to continue to each next step. Press “Enter” now")
 
+        fitional_business_overview = """
+        In a moment, we will seed your warehouse with fictional business data to run the profiles project on during this tutorial. (Press Enter to continue)
+        The business in this tutorial is `Secure Solutions, LLC`. This fictional business sells security IOT devices as well as a security management subscription service. 
+        They have a number of Shopify stores and a subscription management service, and one brick and motor store where customers can buy security equipment and checkout at a Kiosk. 
+        But their pre and post sale messaging to their current and prospective customers are limited because they do not have a great view of their customers and how they interact within their business ecosystem. 
+        They also struggle to allocate marketing and campaign money across their ad platforms because they do not have a great view on the user journey and what marketing initiatives are truly succesful, and what aren’t. 
+        In order to improve their business messaging they have to have a solid 360 degree view of their customers so that they can send the right messages, at the right time, to the right people. 
+        Additionally, in order to allocate marketing spend, they have to have solid campaign reporting that builds on this 360 view of the customer. 
+        In order to do both of these, Secure Solutions has to build a solid ID Graph around their customer data.
+        This tutorial will walk through how to setup a profiles project, bring in source data, and build a solid ID Graph around the customer. 
+        Secure Solutions, LLC knows that they have around 319 customers. 171 of which represent known users and the remaining 148 are unknown"""
+        self.input_handler.display_multiline_message(fitional_business_overview)
+        
     def get_entity_name(self):
-        return self.input_handler.get_user_input("What do you like to call your primary entity? (ex - user, customer, account etc)")
+        about_entity_message = """
+        We are now going to define an entity around which we want to model data. In every company there are business artifacts that are tracked across systems for the purpose of creating a complete data picture of the artifact.
+        In Profiles, this artifact is called an entity. 
+        `Entites` can be as common as users, accounts, and households. But can expand to be anything that you track across systems and want to gain a complete picture of, such as campagins, devices or accounts.
+        Entities are the central concept that a profiles project is built around. The identity graphs and C360 tables will be built around an entity.
+        """
+        print(about_entity_message)
+        return self.input_handler.get_user_input("For the purpose of this tutorial, we will define a 'user' entity. Please enter `user`", default="user", options=['user'])
 
     def get_id_types(self, entity_name):
         about_id_types = """
-        You would be collecting different identifiers for this entity, such as email, phone number, user_id, anonymous_id etc.
-        These identifiers form digital footprints across your event tracking systems. An entity is identified by these identifiers. 
-        For example, a user may have an anonymous_id, email, phone_number, user_id etc. Each of these are called id_types.
-        An account may have a domain, account_id, organisation_id etc. 
-        A product may have sku, product_id, product_name etc.
-        """
-        self.input_handler.display_multiline_message(about_id_types)
-        
-        logger.info("You can add more id_types later, but for now, let's get started with the most important ones - typically seen in .")
-        id_types = self.input_handler.guide_id_type_input(entity_name)
+        You will be collecting different identifiers for this entity, such as email, phone number, user_id, anonymous_id etc.
+        For your entity, some of these identifiers may represent anonymous activity while others represent known activity.
 
-        about_id_types_advanced = """
+        These identifiers form digital footprints across the event tracking systems. An entity is identified by these identifiers. 
+        An account may have a domain, account_id, organization_id etc. 
+        A product may have sku, product_id, product_name etc.
+
+        For our example, a user may have a few anonymous_ids, one email, and one user_id etc. Part of the profiles building process is qualifyign these id values as `id_types`.
+        And in a subsequent step, doing a mapping execrise where we map specific columns from your input tables to these id_types connected to the entity defined above.
+
+        Best pratices for defining id_types for an enitty is that the values need to be unique to a single instance of your entity. 
+        When picking `id_types` consider the granularity of the `entity`. At the user grain, you will want to pick a unique `id_type` of the same grain.
+        For higher level grains such as organization or account, you can include user level grain `id_type` as well as org level `id_type`.
+        
         Some times, these ids may also be very transient, like a session id or an order_id. As long as they uniquely map to one entity (ex: user), you can use them.
         For example, an order_id is likely won't be shared by two users, so it can uniquely identify a user, even if we typically associate order_id with an order.
         This gets very useful when we join data from different systems such as payment systems, marketing campaign systems, order management systems etc.
-        But for this guided demo, we will stick to the most important id_types.
+
+        In this tutorial, we are going to define a pre-set list of id_types that belong to the customers (user entity) of Secure Solutions, LLC.
+        
+        We'll go through some common id types one by one. As this is a demo, please type the exact name as suggested.
         """
-        self.input_handler.display_multiline_message(about_id_types_advanced)
+        self.input_handler.display_multiline_message(about_id_types)
+        id_types = self.input_handler.guide_id_type_input(entity_name)
+        
+        conclusion = """
+        Great! We have now defined an entity called “user” along with the associated id_types that exist across our different source systems. 
+        Now, let's move onto bringing in our data sources in order to run the ID Stitcher model and output an ID Graph"""
+        print(conclusion)
         return id_types
 
     def connect_to_snowflake(self):
-        logger.info("We will now search your warehouse account for tables and columns that are relevant for building profiles for this entity.")
-        logger.info("Please provide the necessary details for connecting to your warehouse.")
-        bypass = True
-        if bypass:
+        connection_messages = """
+        Profiles is a SQL based tool that's setup using a yaml configuration. 
+        We will walk you through a basic profiles yaml configuration in order to generate the SQL that will run in your warehouse. 
+        But first, we must build a connection between your configuration and your warehouse.
+        RudderStack Profiles writes all the output tables and views to a single schema and database. 
+        But the inputs can come from multiple databases and schemas.
+        This is a very common scenario, given that your warehouse data come from different sources and systems. 
+        Ex: you may have event stream data sitting in RudderStack database with schemas - mobile, web, server etc. Then Salesforce data may be in a different database called `SalesforceDB` and schema called `Salesforce`. 
+        Profiles can ingest data from any number of different input databases and schemas as long as the user has access to them.
+        For this demo though, we are ingesting the seed data into the same database and schema as the output. So you can create a sample schema in your warehouse and use that if you want to keep all your existing schemas clean.
+        We recommend creating a new schema for this purpose - may be call it `profiles_tutorial`. If you prefer creating a new schema, please do that now and come back."""
+        self.input_handler.display_multiline_message(connection_messages)
+        if self.fast_mode:
             # get password from user
             password = self.input_handler.get_user_input("Enter password for profiles_demo user", password=True)
             self.config = {     
@@ -95,8 +152,8 @@ class ProfileBuilder:
         else:
             inputs = {}
             inputs.update(self.input_handler.collect_user_inputs(InputSteps.common()))
-            inputs.update(self.input_handler.collect_user_inputs(InputSteps.input()))
-            inputs.update(self.input_handler.collect_user_inputs(InputSteps.output()))
+            # inputs.update(self.input_handler.collect_user_inputs(InputSteps.input()))
+            # inputs.update(self.input_handler.collect_user_inputs(InputSteps.output()))
 
             self.config = {
                 "account": inputs[InputSteps.ACCOUNT],
@@ -104,15 +161,16 @@ class ProfileBuilder:
                 "password": inputs[InputSteps.PASSWORD],
                 "role": inputs[InputSteps.ROLE],
                 "warehouse": inputs[InputSteps.WAREHOUSE],
-                "input_database": inputs[InputSteps.INPUT_DATABASE],
-                "input_schema": inputs[InputSteps.INPUT_SCHEMA],
+                "input_database": inputs[InputSteps.OUTPUT_DATABASE],
+                "input_schema": inputs[InputSteps.OUTPUT_SCHEMA],
                 "output_database": inputs[InputSteps.OUTPUT_DATABASE],
                 "output_schema": inputs[InputSteps.OUTPUT_SCHEMA]
             }
         self.db_manager = DatabaseManager(self.config, self.input_handler, self.fast_mode)
-
+        
     def upload_sample_data(self):
-        logger.info(f"Uploading sample data to your warehouse account. We will add a suffix `{TABLE_SUFFIX}` to the table names to avoid conflicts and not overwrite any existing tables.")
+        logger.info("Now, let's seed your warehouse with the sample data from Secure Solutions, LLC")
+        logger.info(f"We will add a suffix `{TABLE_SUFFIX}` to the table names to avoid conflicts and not overwrite any existing tables.")
         return self.db_manager.upload_sample_data(SAMPLE_DATA_DIR, TABLE_SUFFIX)
 
     def find_relevant_tables(self, new_table_names):
@@ -122,12 +180,29 @@ class ProfileBuilder:
             if not relevant_tables:
                 logger.error("No relevant tables found. Please check your inputs and try again.")
                 sys.exit(1)
+            logger.info(f"Found {len(relevant_tables)} relevant tables: {relevant_tables}")
             return relevant_tables
         except Exception as e:
             logger.exception(f"An error occurred while fetching tables: {e}")
             sys.exit(1)
 
     def map_tables_to_id_types(self, relevant_tables, id_types, entity_name):
+        about_input_definitions = """
+        We need to bring in the warehouse tables that have the relevant data for us to build an id graph off of. For this part of the tutorial, we will be updating the inputs.yaml file we mentioned above.
+        The beauty of profiles is that it can take any table in your warehouse, whether it's collected by Rudderstack or not. For the tutorial, we will keep it simple and define 3 event sources coming from Secure Solutions, LLC's Shopify stores.
+        1. PAGES: this is an event table that tracks all behavior (including anonymous activity)  across their stores. 
+        2. TRACKS: This event table tracks a specific event along with user information about that event. The event tracked in this table is an ORDER_COMPLETED event. 
+        3. IDENTIFIES: Users can sign up for a newsletter from the business. This event captures that event along with the users anonymous id and email. Thereby linking their anonymous activity to a specific email address.
+        Each table will have it's own input definition and we will define those here. This is also where we do the mapping exercise mention above. 
+        Within each definition, we will map specific columns to the user entity's ID Types defined in the pb_project.yaml 
+        We want to tell profiles exactly what columns to select in each table and map those columns to the id_types that we previously defined. 
+        Note, the columns names of the input tables are irrelevant. 
+        What is relevant is what the data represents and that you map it accordingly. 
+        For example, you will notice that the anonymous_id in the input tables is called anonymous_id. 
+        But the id type we defined in the pb project yaml is anon_id. So we need to connect those two for each identifier column in each input.
+        """
+        self.input_handler.display_multiline_message(about_input_definitions)
+
         id_mappings = {}
         table_index = 0
         while table_index < len(relevant_tables):
@@ -147,27 +222,49 @@ class ProfileBuilder:
                         "full_table_name": f"{self.config['input_database']}.{self.config['input_schema']}.{table}"
                     }
                 table_index += 1
-        return id_mappings
-
-    def create_siteconfig(self):
-        return self.file_generator.create_siteconfig(self.config)
-
-    def generate_project_files(self, entity_name, id_types, connection_name, id_mappings):
-        # create a directory called profiles if doesn't exist
-        if not os.path.exists("profiles"):
-            os.makedirs("profiles")
-        if not os.path.exists("profiles/models"):
-            os.makedirs("profiles/models")
-        self.file_generator.create_pb_project(entity_name, id_types, connection_name)
         self.file_generator.create_inputs_yaml(id_mappings)
-        self.file_generator.create_profiles_yaml(entity_name, id_mappings.keys())         
+        print("Perfect! You can now examine your inputs.yaml file and see the input definitions.")
+    
+    def build_id_stitcher_model(self, table_names, entity_name):
+        id_stitcher_spec = """
+        Now, let's define an ID Stitcher Model. This model type will generate SQL which will run in your data warehouse and ultimately output an ID Graph. 
+        Let's first define a name for the model. This will also be the name of the output view within your warehouse after the run is completed."""
+        self.input_handler.display_multiline_message(id_stitcher_spec)
+        id_graph_model_name = self.input_handler.get_user_input("Enter a name for the model, Let's give the name `user_id_graph`", options=["user_id_graph"])
+        id_stitcher_spec2 = """
+        The id stitcher model has a concept known as an “edge”. An Edge is simply a direct connection between two nodes. 
+        In profiles, a single node is a combination of your id value, and id type. So a full edge record would have 2 nodes.
+        One side will have 1 id value and its associated id type. The other side having another id value and its associated id type. 
+        The record itself is considered an edge. Which is the connection between the 2 nodes. Within the ID Stitcher Model, we want to define the edge sources, which are the data tables we will access in order to extract the edges to build your ID Graph. 
+        The edge sources come from input sources, which we define in inputs.yaml file. These point to a table in the warehouse, but they can be referd with a different name within profiles project. 
+        The "input model name" is different from the warehouse table name. In our demo, we give a `rs` prefix to the model names. You can see that in the inputs.yaml file too.       
+        Since we have already defined our inputs sources, we can refer to them directly in the model spec here. Let's add our edge source:
+        """
+        edge_sources = []
+        self.input_handler.display_multiline_message(id_stitcher_spec2)
+        for table in table_names:
+            table_name = "rs" + table.replace(f"_{TABLE_SUFFIX}", "").capitalize()
+            edge_source = self.input_handler.get_user_input(f"Enter `inputs/{table_name}` as an edge source", options=[f"inputs/{table_name}"])
+            edge_sources.append(edge_source)
+        self.file_generator.create_profiles_yaml(entity_name, edge_sources, id_graph_model_name)
+        print("Perfect! You can now examine your profiles.yaml file and see the model spec for the ID Stitcher.")
+        
+    def create_siteconfig(self):
+        about_siteconfig = """
+        We store the connection information in a file called `siteconfig.yaml`.
+        This file is stored in a folder called `.pb` in your home directory. 
+        This helps profile builder to connect to your warehouse account and run the project automatically.
+        """
+        print(about_siteconfig)
+        return self.file_generator.create_siteconfig(self.config)
+            
+    def display_about_project_files(self, connection_name):
         about_files = f"""
-        We will now discuss a couple of files that are needed to build profiles for this entity.
-        First, the `siteconfig.yaml` file we just created.  You can check it and come back -  it's stored in a folder called `.pb` in your home directory.
-        Next, we have created a folder called `profiles` in the current directory, with some files too. The contents look like this:
+        Now let's create a profiles project. 
+        A profiles project contains mainly a few yaml files, of following structure:
         ```
         .
-        └── profiles
+        └── <project_directory>
             ├── pb_project.yaml
             └── models
                 └── inputs.yaml
@@ -175,12 +272,27 @@ class ProfileBuilder:
         
         Here's a brief description of what each file is:
 
-        - `pb_project.yaml`: This file contains the project declaration - name of the project, with the  {entity_name} entity you defined, their id types etc. It also includes the warehouse connection info with the name {connection_name} (the same name as in siteconfig.yaml). 
-        We have filled some of the details for you. You can check it and come back (please do not edit this file for now)
-        - `models/inputs.yaml`: This file contains the input data sources - the tables and columns that map to the entities and their id types.
-        - `models/profiles.yaml`: This is where we define the actual model configuration -  what all tables/sources it should look at for an id stitcher, what user features we should build etc.
+        - `pb_project.yaml`: This file contains the project declaration - name of the project, with entity info, their id types etc. 
+            It also includes the warehouse connection name - `{connection_name}`, which calls the connection config we created in the previous step (the same name as in siteconfig.yaml). 
+        - `models/inputs.yaml`: This file will contain the input data sources - the tables and columns that map to the entities and their id types. We will explain this in more detail in the subsequent steps.
+        - `models/profiles.yaml`: This is where we define the model configurations for the id stitcher and any features/traits you want to build for your defined entity. For the tutorial, we will only build an ID Graph using the ID Stitcher Model Type. 
+
+        These files will be created in this tutorial, with the details you will provide in the next steps. 
+        Also, for this tutorial, we will use a directory called `profiles` to store all the files. We will create it here in the current directory.
         """
         self.input_handler.display_multiline_message(about_files)
+
+    def generate_pb_project(self, connection_name):
+        # create a directory called profiles if doesn't exist
+        if not os.path.exists("profiles"):
+            os.makedirs("profiles")
+        if not os.path.exists("profiles/models"):
+            os.makedirs("profiles/models")
+        entity_name = self.get_entity_name()
+        id_types = self.get_id_types(entity_name)
+        self.file_generator.create_pb_project(entity_name, id_types, connection_name)
+        print("We have updated the pb_project.yaml file with this info. Please check it out.")
+        return entity_name, id_types
 
     def _subprocess_run(self, args):
         response = subprocess.run(
@@ -204,7 +316,7 @@ class ProfileBuilder:
 
     def get_latest_id_stitcher_table_name(self, entity_name: str) -> str:
         id_stitchers = []
-        id_stitcher_model_name = f"{entity_name}_id_stitcher"
+        id_stitcher_model_name = f"{entity_name}_id_graph"
         for folder in os.listdir("profiles/output/prod/seq_no/latest/run"):
             if id_stitcher_model_name in folder:
                 id_stitchers.append(folder)
@@ -233,7 +345,7 @@ class ProfileBuilder:
             │           └── 1
             │              └── compile
             │              └── run
-            |                 └── Material_{entity_name}_id_stitcher_<hash>_1.sql
+            |                 └── Material_{entity_name}_id_graph_<hash>_1.sql
             │                 └── Material_{entity_name}_all_<hash>_1.sql
             .....
         ```
@@ -513,7 +625,7 @@ if __name__ == "__main__":
     parser.add_argument("--fast", help="Run the tutorial in fast mode", type=str, default='y')
     args = parser.parse_args()
     if args.fast == 'y':
-        print("Fast mode is enabled. Normally, we print one line at a time, but for fast mode we stop only for user inputs. They too have defaults mostly.")
+        print("Fast mode is enabled. Normally, we print one line at a time, but for fast mode we stop only for user inputs.")
         bypass = True
     else:
         bypass = False

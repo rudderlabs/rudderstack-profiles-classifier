@@ -6,6 +6,7 @@ from profiles_rudderstack.client import BaseClient
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
 # from profiles_rudderstack.reader import Reader
 import networkx as nx
+from pyvis.network import Network
 import plotly.graph_objects as go
 import networkx as nx
 from .table_report import TableReport
@@ -154,114 +155,111 @@ class ClusterReport:
             )
 
     def create_interactive_graph(self, G: nx.Graph, file_path: str):
-        if G.number_of_nodes() > 300:
-            pos = nx.random_layout(G)
-        else:
-            # Use Fruchterman-Reingold layout for initial node positions
-            pos = nx.spring_layout(G, k=0.5, iterations=50)
-        # Create edges
-        edge_x = []
-        edge_y = []
-        for edge in G.edges():
-            x0, y0 = pos[edge[0]]
-            x1, y1 = pos[edge[1]]
-            edge_x.extend([x0, x1, None])
-            edge_y.extend([y0, y1, None])
+        # Removing self-loops from the graph
+        G.remove_edges_from(nx.selfloop_edges(G))
 
-        edge_trace = go.Scatter(
-            x=edge_x,
-            y=edge_y,
-            line=dict(width=0.5, color="#888"),
-            hoverinfo="none",
-            mode="lines",
-            showlegend=False,
+        def generate_colors(n):
+            HSV_tuples = [(x * 1.0 / n, 0.7, 0.7) for x in range(n)]
+            return [
+                "#%02x%02x%02x" % tuple(int(i * 255) for i in colorsys.hsv_to_rgb(*hsv))
+                for hsv in HSV_tuples
+            ]
+
+        def get_opacity(degree, max_degree):
+            return 0.3 + (degree / max_degree) * 0.7
+
+        id_types = set(nx.get_node_attributes(G, "id_type").values())
+        colors = generate_colors(len(id_types))
+        color_map = dict(zip(id_types, colors))
+
+        degrees = dict(G.degree())
+        max_degree = max(degrees.values()) if degrees else 0
+
+        net = Network(
+            notebook=False,
+            height="1000px",
+            width="100%",
+            bgcolor="#ffffff",
+            font_color="black",
         )
 
-        # Create nodes
-        node_x = []
-        node_y = []
-        node_text = []
-        node_color = []
-
-        # Create a dynamic color map
-        distinct_id_types = set(G.nodes[node]["id_type"] for node in G.nodes())
-        color_scheme = self._generate_color_scheme(distinct_id_types)
-
-        for node in G.nodes():
-            x, y = pos[node]
-            node_x.append(x)
-            node_y.append(y)
-            node_text.append(f"Node: {node}<br>Type: {G.nodes[node]['id_type']}")
-            node_color.append(color_scheme[G.nodes[node]["id_type"]])
-
-        node_trace = go.Scatter(
-            x=node_x,
-            y=node_y,
-            mode="markers",
-            hoverinfo="text",
-            text=node_text,
-            marker=dict(showscale=False, color=node_color, size=10, line_width=2),
-            showlegend=False,
-        )
-
-        # Create figure
-        fig = go.Figure(data=[edge_trace, node_trace])
-
-        # Add dragmode and newshape parameters
-        fig.update_layout(
-            title=f"Network Graph",
-            showlegend=False,
-            hovermode="closest",
-            dragmode="pan",
-            clickmode="event+select",
-            newshape=dict(line_color="cyan"),
-            margin=dict(b=20, l=5, r=5, t=40),
-            annotations=[
-                dict(
-                    text="Network Graph",
-                    showarrow=False,
-                    xref="paper",
-                    yref="paper",
-                    x=0.005,
-                    y=-0.002,
-                )
-            ],
-            xaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-            yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
-        )
-
-        # Make nodes draggable
-        fig.update_traces(
-            marker=dict(size=10, line=dict(width=2, color="DarkSlateGrey")),
-            selector=dict(mode="markers"),
-        )
-
-        # Add legend
-        for id_type, color in color_scheme.items():
-            fig.add_trace(
-                go.Scatter(
-                    x=[None],
-                    y=[None],
-                    mode="markers",
-                    marker=dict(size=10, color=color),
-                    name=id_type,
-                    showlegend=True,
-                )
+        # Add nodes and edges for the visualization graph
+        for node, attrs in G.nodes(data=True):
+            color = color_map.get(attrs["id_type"], "#808080")
+            degree = degrees[node]
+            opacity = get_opacity(degree, max_degree)
+            rgba_color = f'rgba{tuple(int(color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4)) + (opacity,)}'
+            net.add_node(
+                node,
+                color=rgba_color,
+                title=f"ID: {node}\nID-Type: {attrs['id_type']}\nDegree: {degree}",
             )
 
-        # Save the figure
+        for source, target in G.edges():
+            net.add_edge(source, target, color="#888888")
 
-        fig.write_html(
-            file_path,
-            auto_open=False,
-            include_plotlyjs="cdn",
-            config={
-                "displayModeBar": True,
-                "scrollZoom": True,
-                "editable": True,
-                "modeBarButtonsToAdd": ["drawopenpath", "eraseshape"],
-            },
+        net.set_options(
+            """
+            var options = {
+                "physics": {
+                    "forceAtlas2Based": {
+                    "gravitationalConstant": -50,
+                    "centralGravity": 0.01,
+                    "springLength": 100,
+                    "springConstant": 0.08
+                    },
+                    "minVelocity": 0.75,
+                    "solver": "forceAtlas2Based"
+                },
+                "nodes": {
+                    "font": {
+                    "color": "black"
+                    },
+                    "borderWidth": 2,
+                    "borderWidthSelected": 4
+                },
+                "edges": {
+                    "color": {
+                    "inherit": false
+                    },
+                    "smooth": {
+                    "enabled": true,
+                    "type": "dynamic"
+                    }
+                }
+            }
+        """
         )
+        net.save_graph(file_path)
+
+        # Create legend HTML
+        legend_items = []
+        for id_type, color in color_map.items():
+            legend_items.append(
+                f"""
+                <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                    <div style="width: 20px; height: 20px; background-color: {color}; margin-right: 10px; border-radius: 3px;"></div>
+                    <div>{id_type}</div>
+                </div>
+            """
+            )
+
+        legend_html = f"""
+        <div style="position: fixed; top: 20px; right: 20px; background-color: rgba(255, 255, 255, 0.9); 
+                    padding: 15px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000;">
+            <div style="font-weight: bold; margin-bottom: 10px;">ID Types</div>
+            {''.join(legend_items)}
+        </div>
+        """
+
+        # Add the legend HTML in saved file
+        with open(file_path, "r") as file:
+            content = file.read()
+
+        modified_content = content.replace("<body>", f"<body>{legend_html}")
+
+        with open(file_path, "w") as file:
+            file.write(modified_content)
 
         print(
             f"Your network visualization is ready! We've saved an interactive map of your data connections here:\n{file_path}"

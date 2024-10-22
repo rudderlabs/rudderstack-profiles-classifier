@@ -31,6 +31,7 @@ install_requires = [
     "plotly>=5.24.1",
     "snowflake-snowpark-python[pandas]>=1.11.1",
     "networkx",
+    "pyvis",
 ]
 
 setup(

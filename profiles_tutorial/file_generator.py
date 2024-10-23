@@ -61,7 +61,7 @@ class FileGenerator:
 
         return connection_name
 
-    def create_pb_project(self, entity_name, id_types, connection_name):
+    def create_pb_project(self, entity_name, id_types, connection_name, id_graph_model):
         pb_project = {
             "name": "demo_project",
             "schema_version": 72,
@@ -70,7 +70,7 @@ class FileGenerator:
             "entities": [
                 {
                     "name": entity_name,
-                    "id_stitcher": f"models/{entity_name}_id_graph",
+                    "id_stitcher": f"models/{id_graph_model}",
                     "id_types": id_types,
                     "feature_views": {
                         "using_ids": [
@@ -147,12 +147,25 @@ class FileGenerator:
                     return False
         return True
     
-    def validate_bad_anons_are_filtered(self):
+    # def validate_bad_anons_are_filtered(self):
+    #     with open(CONFIG_FILE_PATH, "r") as file:
+    #         pb_project = yaml.safe_load(file)
+    #     regex_to_match = "(c8bc33a0-7cb7-47f9-b24f-73e077346142|f0ed91a9-e1a9-46a5-9257-d590f45612fe|cbe0ea73-4878-4892-ac82-b9ad42797000|f4690568-e9e7-4182-abc6-6ea2791daba3|b369d6f5-c17a-457c-ab86-5649c1b53883)"
+    #     for id_type in pb_project["id_types"]:
+    #         if id_type["name"] == "anonymous_id":
+    #             if "filters" in id_type and id_type["filters"][0]["type"] == "exclude" and id_type["filters"][0]["regex"] == regex_to_match:
+    #                 return True
+    #     return False
+    
+    def update_bad_anons_filter(self):
+        regex_pattern = "(c8bc33a0-7cb7-47f9-b24f-73e077346142|f0ed91a9-e1a9-46a5-9257-d590f45612fe|cbe0ea73-4878-4892-ac82-b9ad42797000|f4690568-e9e7-4182-abc6-6ea2791daba3|b369d6f5-c17a-457c-ab86-5649c1b53883)"
         with open(CONFIG_FILE_PATH, "r") as file:
             pb_project = yaml.safe_load(file)
-        regex_to_match = "(c8bc33a0-7cb7-47f9-b24f-73e077346142|f0ed91a9-e1a9-46a5-9257-d590f45612fe|cbe0ea73-4878-4892-ac82-b9ad42797000|f4690568-e9e7-4182-abc6-6ea2791daba3|b369d6f5-c17a-457c-ab86-5649c1b53883)"
         for id_type in pb_project["id_types"]:
-            if id_type["name"] == "anonymous_id":
-                if "filters" in id_type and id_type["filters"][0]["type"] == "exclude" and id_type["filters"][0]["regex"] == regex_to_match:
-                    return True
-        return False
+            if id_type["name"] == "anon_id":
+                id_type["filters"] = [{"type": "exclude",
+                                        "regex": regex_pattern
+                                        }
+                                        ]
+        with open(CONFIG_FILE_PATH, "w") as file:
+            yaml.dump(pb_project, file)

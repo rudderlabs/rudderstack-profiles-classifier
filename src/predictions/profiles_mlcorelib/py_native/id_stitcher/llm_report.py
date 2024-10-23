@@ -7,6 +7,12 @@ from .table_report import TableReport
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
 # from profiles_rudderstack.reader import Reader
 
+from enum import Enum
+
+
+class ProgramState(Enum):
+    STOP = 1
+
 
 class LLMReport:
     def __init__(
@@ -26,15 +32,33 @@ class LLMReport:
 
     def run(self):
         print("You can now ask questions about the ID Stitcher analysis results.")
+        if not self.access_token:
+            state = self._prompt_for_access_token(
+                "We couldn't find RudderStack access token in your siteconfig file. To access the LLM analysis, please enter an access token (if you don't have one, you can create it from the RudderStack dashboard)."
+            )
+            if state == ProgramState.STOP:
+                return
         while True:
             user_input = self.reader.get_input(
                 "Enter your question. (or 'quit' to skip this step): \n"
             )
             if user_input.lower() in ["quit", "exit", "done"]:
                 break
-            should_exit = self._request(user_input)
-            if should_exit:
+            state = self._request(user_input)
+            if state == ProgramState.STOP:
                 break
+
+    def _prompt_for_access_token(self, prompt: str) -> ProgramState:
+        user_input = self.reader.get_input(
+            prompt
+            + " If you'd prefer to complete this step later, you can choose 'quit' to skip it for now."
+        )
+        if user_input.lower() in ["quit", "exit", "done"]:
+            return ProgramState.STOP
+        self.access_token = user_input
+        print(
+            "Please add this token to the 'rudderstack_access_token' key in your siteconfig file to avoid entering it each time."
+        )
 
     def _get_report(self, report):
         unique_id_counts = []
@@ -77,14 +101,12 @@ class LLMReport:
             status_code = response.status_code
             error_response = response.json()["message"]
             if status_code == 401 or status_code == 403:
-                print(
-                    f"\n{error_response}: Please ensure that the siteconfig has a valid access token under the key `rudderstack_access_token`. You can get the access token from the RudderStack dashboard. Rerun the program after updating the access token.\n"
+                return self._prompt_for_access_token(
+                    f"\n{error_response}: The provided access token is invalid. Please enter a valid access token."
                 )
-                return True
             print(f"\n{status_code} {error_response}\n")
         else:
             data = response.json()
             message = data["result"]["message"]
             self.session_id = data["session_id"]
             print(f"\n\n{message}\n\n")
-        return False

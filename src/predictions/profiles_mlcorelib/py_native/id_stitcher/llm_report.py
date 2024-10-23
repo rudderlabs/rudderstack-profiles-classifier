@@ -57,7 +57,7 @@ class LLMReport:
             return ProgramState.STOP
         self.access_token = user_input
         print(
-            "Please add this token to your siteconfig file to avoid entering it each time."
+            "Please add this token to the 'rudderstack_access_token' key in your siteconfig file to avoid entering it each time."
         )
 
     def _get_report(self, report):

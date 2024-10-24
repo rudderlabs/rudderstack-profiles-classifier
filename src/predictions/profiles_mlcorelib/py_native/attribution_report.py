@@ -613,18 +613,33 @@ class AttributionModelRecipe(PyNativeRecipe):
             counter += 1
         return journey_query, set_jouney_ref
 
-    def _define_input_dependency(self, user_journeys, campaign_details, campaign_vars):
+    def try_deref(self, this: WhtMaterial, model_ref: str):
+        try:
+            this.de_ref(model_ref)
+        except Exception:
+            # Note: Customer will still see error logs from wht side
+            self.logger.debug(f"Skipping {model_ref} as it does not exist")
+            return
+        self.inputs.add(model_ref)
+
+    def _define_input_dependency(
+        self, this: WhtMaterial, user_journeys, campaign_details, campaign_vars
+    ):
         self.inputs.add(f"{self.conversion_entity}/all/var_table")
         for obj in user_journeys:
             tbl = obj["from"]
+            column = this.de_ref(tbl).model.time_filtering_column()
+            if not column:
+                raise Exception(f"Occurred at column not found in {tbl}")
             self.inputs.update(
                 (
                     tbl,
                     f"{tbl}/var_table",
-                    f"{tbl}/var_table/{self.campaign_id_column_name}",
-                    f"{tbl}/var_table/{self.entity_id_column_name}",
                 )
             )
+            # FIXME: Once pb 0.19 is released, remove the try_deref and check for model ids to decide if the model ref exists
+            self.try_deref(this, f"{tbl}/var_table/{self.campaign_id_column_name}")
+            self.try_deref(this, f"{tbl}/var_table/{self.entity_id_column_name}")
 
         for campaign_detail in campaign_details:
             for _, values in campaign_detail.items():
@@ -676,7 +691,9 @@ class AttributionModelRecipe(PyNativeRecipe):
         )
 
         self.inputs = set()
-        self._define_input_dependency(user_journeys, campaign_details, campaign_vars)
+        self._define_input_dependency(
+            this, user_journeys, campaign_details, campaign_vars
+        )
 
         for dependency in self.inputs:
             this.de_ref(dependency)

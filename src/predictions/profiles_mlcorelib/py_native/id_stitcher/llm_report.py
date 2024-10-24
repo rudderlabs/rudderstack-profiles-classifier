@@ -1,5 +1,6 @@
 from typing import Dict
 import requests
+from profiles_rudderstack.material import WhtMaterial
 
 from .config import LLM_SERVICE_URL
 from .table_report import TableReport
@@ -18,13 +19,13 @@ class LLMReport:
     def __init__(
         self,
         reader,
+        this: WhtMaterial,
         access_token: str,
-        warehouse_credentials: dict,
         table_report: TableReport,
         entity: Dict,
     ):
         self.access_token = access_token
-        self.warehouse_credentials = warehouse_credentials
+        self.warehouse_credentials = this.base_wht_project.warehouse_credentials()
         self.table_report = table_report
         self.reader = reader
         self.entity = entity

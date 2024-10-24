@@ -2,6 +2,7 @@ import os
 from typing import Dict
 import pandas as pd
 from profiles_rudderstack.client import BaseClient
+from profiles_rudderstack.material import WhtMaterial
 
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
 # from profiles_rudderstack.reader import Reader
@@ -10,6 +11,7 @@ from pyvis.network import Network
 import plotly.graph_objects as go
 import networkx as nx
 from .table_report import TableReport
+from ..warehouse import run_query
 import colorsys
 
 cluster_analysis_prompt = """
@@ -35,34 +37,36 @@ class ClusterReport:
     def __init__(
         self,
         reader,
-        wh_client: BaseClient,
+        this: WhtMaterial,
         entity: Dict,
         table_report: TableReport,
     ):
         self.reader = reader
-        self.wh_client = wh_client
+        self.wh_client = this.wht_ctx.client
         self.entity = entity
         self.table_report = table_report
 
     def get_edges_data(self, node_id: str) -> pd.DataFrame:
         cluster_query_template = """
             with cluster_cte as 
-            (select other_id from {id_graph_table} where {entity_main_id} in 
-            (select {entity_main_id} from {id_graph_table} where other_id = '{node_id}' or {entity_main_id} = '{node_id}')
+            (select other_id from {db}.{schema}.{id_graph_table} where {entity_main_id} in 
+            (select {entity_main_id} from {db}.{schema}.{id_graph_table} where other_id = '{node_id}' or {entity_main_id} = '{node_id}')
             )
             select distinct id1, id1_type, id2, id2_type from 
-            (select id1, id1_type, id2, id2_type from {edges_table} where id1 in (select other_id from cluster_cte) 
+            (select id1, id1_type, id2, id2_type from {db}.{schema}.{edges_table} where id1 in (select other_id from cluster_cte) 
             union all
-            select id1, id1_type, id2, id2_type from {edges_table} where id2 in (select other_id from cluster_cte) )
+            select id1, id1_type, id2, id2_type from {db}.{schema}.{edges_table} where id2 in (select other_id from cluster_cte) )
             where id1 != id2 and id1_type != id2_type
         """
         query = cluster_query_template.format(
             entity_main_id=self.entity["IdColumnName"],
             edges_table=self.table_report.edges_table,
             id_graph_table=self.table_report.output_table,
+            db=self.table_report.db,
+            schema=self.table_report.schema,
             node_id=node_id,
         )
-        result = self.wh_client.query_sql_with_result(query)
+        result = run_query(self.wh_client, query)
         result.columns = [col.lower() for col in result.columns]
         return result
 

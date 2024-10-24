@@ -4,16 +4,17 @@ from ruamel.yaml import YAML
 import logging
 from config import TABLE_SUFFIX, CONFIG_FILE_PATH, INPUTS_FILE_PATH, PROFILES_FILE_PATH
 import yaml
-
+from input_handler import InputHandler
 logger = logging.getLogger(__name__)
 
 class FileGenerator:
-    def __init__(self, fast_mode: bool):
+    def __init__(self, fast_mode: bool, input_handler: InputHandler):
         self.fast_mode = fast_mode
         self.yaml = YAML()
         self.yaml.preserve_quotes = True
         self.yaml.indent(mapping=2, sequence=4, offset=2)
         self.yaml.width = 4096  # Prevent line wrapping
+        self.input_handler = input_handler
 
     def create_siteconfig(self, config: dict) -> str:
         home_dir = str(Path.home())
@@ -29,7 +30,7 @@ class FileGenerator:
 
         connection_name = "test"
         while connection_name in existing_siteconfig.get("connections", {}):
-            replace = input(f"Connection '{connection_name}' already exists. Should we replace it? (yes/no): ").lower()
+            replace = self.input_handler.get_user_input(f"Connection '{connection_name}' already exists. Should we replace it? (yes/no): ", options=["yes", "no"])
             if replace == "yes":
                 break
             connection_name = input("Enter a new connection name: ")
@@ -72,11 +73,6 @@ class FileGenerator:
                     "name": entity_name,
                     "id_stitcher": f"models/{id_graph_model}",
                     "id_types": id_types,
-                    "feature_views": {
-                        "using_ids": [
-                            {"id": id_type, "name": f"with_{id_type}"} for id_type in id_types
-                        ]
-                    }
                 }
             ],
             "id_types": [{"name": id_type} for id_type in id_types]
@@ -134,12 +130,7 @@ class FileGenerator:
             inputs = yaml.safe_load(file)
         if "shopify_store_id" in pb_project["entities"][0]["id_types"] or "shopify_store_id" in [id_type["name"] for id_type in pb_project["id_types"]]:
             logger.error("shopify_store_id still exists in pb_project.yaml")
-            return False
-        for feature_view in pb_project["entities"][0]["feature_views"]["using_ids"]:
-            if feature_view["id"] == "shopify_store_id":
-                logger.error("shopify_store_id still exists in Feature views in pb_project.yaml")
-                return False
-            
+            return False            
         for input_table in inputs["inputs"]:
             for id_info in input_table["app_defaults"]["ids"]:
                 if id_info["type"] == "shopify_store_id":

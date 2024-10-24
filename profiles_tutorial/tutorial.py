@@ -1,3 +1,4 @@
+
 import logging
 import time
 import re
@@ -5,6 +6,7 @@ import sys
 import os
 import warnings
 import subprocess
+import zipfile
 from input_handler import InputHandler, InputSteps
 from database_manager import DatabaseManager
 from file_generator import FileGenerator
@@ -23,7 +25,7 @@ class ProfileBuilder:
         self.config = {}
         self.db_manager = None
         self.input_handler = InputHandler(fast_mode)
-        self.file_generator = FileGenerator(fast_mode)
+        self.file_generator = FileGenerator(fast_mode, self.input_handler)
         self.fast_mode = fast_mode
 
     def run(self):
@@ -86,7 +88,7 @@ class ProfileBuilder:
             │              └── compile
             │              
         ```
-        Do check out the output directory and sql files produced. 
+        You can check out the output directory and sql files produced. 
         This `pb compile` command actually did not run the profiles project. It only 'compiled' the project, i.e., created these sql files. Now let's move on to actually running the project.
         """
         self.input_handler.display_multiline_message(about_pb_compile)
@@ -100,7 +102,7 @@ class ProfileBuilder:
         And of course, we are producing output tables and views based on a fictional business in your output schema in your warehouse that you can query directly in your DBMS console or preferred IDE.
         The goal of this tutorial is to familiarize you with the profiles product in the rudderstack platform.
         This includes details on the yaml configuration, how data unification works, what the outputs look like after a run, and how to troubleshoot and build a solid ID Graph around a user entity. 
-        Our goal is that you can then immediately put this knowledge to action with your own data by building your own profiles project and extending it further to unify your data around a defined entity, 
+        Our goal is that you can immediately put this knowledge to action with your own data by building your own profiles project and extending it further to unify your data around a defined entity, 
         building a c360 degree view of this entity, and putting that data into action for the benefit of your business!
         """
         print(messages)
@@ -109,21 +111,22 @@ class ProfileBuilder:
         fitional_business_overview = """
         In a moment, we will seed your warehouse with fictional business data to run the profiles project on during this tutorial. (Press Enter to continue)
         The business in this tutorial is `Secure Solutions, LLC`. This fictional business sells security IOT devices as well as a security management subscription service. 
-        They have a number of Shopify stores and a subscription management service, and one brick and motor store where customers can buy security equipment and checkout at a Kiosk. 
+        They have a number of Shopify stores and a subscription management service, and one brick and mortar store where customers can buy security equipment and checkout at a Kiosk. 
         But their pre and post sale messaging to their current and prospective customers are limited because they do not have a great view of their customers and how they interact within their business ecosystem. 
-        They also struggle to allocate marketing and campaign money across their ad platforms because they do not have a great view on the user journey and what marketing initiatives are truly succesful, and what aren’t. 
+        They also struggle to allocate marketing and campaign money across their ad platforms because they do not have a great view on the user journey and what marketing initiatives are truly successful, and what aren’t. 
         In order to improve their business messaging they have to have a solid 360 degree view of their customers so that they can send the right messages, at the right time, to the right people. 
         Additionally, in order to allocate marketing spend, they have to have solid campaign reporting that builds on this 360 view of the customer. 
         In order to do both of these, Secure Solutions has to build a solid ID Graph around their customer data.
         This tutorial will walk through how to setup a profiles project, bring in source data, and build a solid ID Graph around the customer. 
-        Secure Solutions, LLC knows that they have around 319 customers. 171 of which represent known users and the remaining 148 are unknown"""
+        Secure Solutions, LLC knows that they have around 319 customers. 171 of which represent known users and the remaining 148 are unknown.
+        Meaning, they have not performed any sort of conversion yet."""
         self.input_handler.display_multiline_message(fitional_business_overview)
         
     def get_entity_name(self):
         about_entity_message = """
-        We are now going to define an entity around which we want to model data. In every company there are business artifacts that are tracked across systems for the purpose of creating a complete data picture of the artifact.
+        We are now going to define an entity in the pb_project.yaml file around which we want to model the input data. In every company there are business artifacts that are tracked across systems for the purpose of creating a complete data picture of the artifact.
         In Profiles, this artifact is called an entity. 
-        `Entites` can be as common as users, accounts, and households. But can expand to be anything that you track across systems and want to gain a complete picture of, such as campagins, devices or accounts.
+        `Entities` can be as common as users, accounts, and households. But can expand to be anything that you track across systems and want to gain a complete picture of, such as campaigns, devices or accounts.
         Entities are the central concept that a profiles project is built around. The identity graphs and C360 tables will be built around an entity.
         """
         print(about_entity_message)
@@ -138,14 +141,14 @@ class ProfileBuilder:
         An account may have a domain, account_id, organization_id etc. 
         A product may have sku, product_id, product_name etc.
 
-        For our example, a user may have a few anonymous_ids, one email, and one user_id etc. Part of the profiles building process is qualifyign these id values as `id_types`.
-        And in a subsequent step, doing a mapping execrise where we map specific columns from your input tables to these id_types connected to the entity defined above.
+        For our example, a user may have a few anonymous_ids, one email, and one user_id etc. Part of the profiles building process is qualifying these id values as `id_types`.
+        And in a subsequent step, doing a mapping exercise where we map specific columns from your input tables to these id_types connected to the entity defined above.
 
-        Best pratices for defining id_types for an enitty is that the values need to be unique to a single instance of your entity. 
+        Best practices for defining id_types for an entity is that the values need to be unique to a single instance of your entity. 
         When picking `id_types` consider the granularity of the `entity`. At the user grain, you will want to pick a unique `id_type` of the same grain.
         For higher level grains such as organization or account, you can include user level grain `id_type` as well as org level `id_type`.
         
-        Some times, these ids may also be very transient, like a session id or an order_id. As long as they uniquely map to one entity (ex: user), you can use them.
+        Sometimes, these ids may also be very transient, like a session id or an order_id. As long as they uniquely map to one entity (ex: user), you can use them.
         For example, an order_id is likely won't be shared by two users, so it can uniquely identify a user, even if we typically associate order_id with an order.
         This gets very useful when we join data from different systems such as payment systems, marketing campaign systems, order management systems etc.
 
@@ -157,8 +160,8 @@ class ProfileBuilder:
         id_types = self.input_handler.guide_id_type_input(entity_name)
         
         conclusion = """
-        Great! We have now defined an entity called “user” along with the associated id_types that exist across our different source systems. 
-        Now, let's move onto bringing in our data sources in order to run the ID Stitcher model and output an ID Graph"""
+        We have now defined an entity called "user" along with the associated id_types that exist across our different source systems. 
+        Now, let's move onto bringing in our data sources in order to run the ID Stitcher model and output an ID Graph."""
         print(conclusion)
         return id_types
 
@@ -169,11 +172,11 @@ class ProfileBuilder:
         But first, we must build a connection between your configuration and your warehouse.
         RudderStack Profiles writes all the output tables and views to a single schema and database. 
         But the inputs can come from multiple databases and schemas.
-        This is a very common scenario, given that your warehouse data come from different sources and systems. 
+        This is a very common scenario, given that your warehouse data can come from different sources and systems. 
         Ex: you may have event stream data sitting in RudderStack database with schemas - mobile, web, server etc. Then Salesforce data may be in a different database called `SalesforceDB` and schema called `Salesforce`. 
         Profiles can ingest data from any number of different input databases and schemas as long as the user has access to them.
         For this demo though, we are ingesting the seed data into the same database and schema as the output. So you can create a sample schema in your warehouse and use that if you want to keep all your existing schemas clean.
-        We recommend creating a new schema for this purpose - may be call it `profiles_tutorial`. If you prefer creating a new schema, please do that now and come back."""
+        We recommend creating a new schema for this purpose - a helpful name would be `profiles_tutorial`. If you prefer creating a new schema, please do that now and come back."""
         self.input_handler.display_multiline_message(connection_messages)
         if self.fast_mode:
             # get password from user
@@ -229,16 +232,16 @@ class ProfileBuilder:
 
     def map_tables_to_id_types(self, relevant_tables, id_types, entity_name):
         about_input_definitions = """
-        We need to bring in the warehouse tables that have the relevant data for us to build an id graph off of. For this part of the tutorial, we will be updating the inputs.yaml file we mentioned above.
-        The beauty of profiles is that it can take any table in your warehouse, whether it's collected by Rudderstack or not. For the tutorial, we will keep it simple and define 3 event sources coming from Secure Solutions, LLC's Shopify stores.
+        Now, we need to bring in the warehouse tables that have the relevant data for us to build an id graph off of. For this part of the tutorial, we will be updating the inputs.yaml file we mentioned above.
+        The beauty of profiles is that it can ingest any table in your warehouse, whether it's collected by Rudderstack or not. For the tutorial, we will keep it simple and define 3 event sources coming from Secure Solutions, LLC's Shopify stores.
         1. PAGES: this is an event table that tracks all behavior (including anonymous activity)  across their stores. 
         2. TRACKS: This event table tracks a specific event along with user information about that event. The event tracked in this table is an ORDER_COMPLETED event. 
         3. IDENTIFIES: Users can sign up for a newsletter from the business. This event captures that event along with the users anonymous id and email. Thereby linking their anonymous activity to a specific email address.
-        Each table will have it's own input definition and we will define those here. This is also where we do the mapping exercise mention above. 
+        Each table will have its own input definition and we will define those here. This is also where we do the mapping exercise mentioned above. 
         Within each definition, we will map specific columns to the user entity's ID Types defined in the pb_project.yaml 
-        We want to tell profiles exactly what columns to select in each table and map those columns to the id_types that we previously defined. 
-        Note, the columns names of the input tables are irrelevant. 
-        What is relevant is what the data represents and that you map it accordingly. 
+        We want to tell profiles exactly what columns to select in each table and map those columns to the id_types that we defined on the entity level in the pb_project.yaml file. 
+        Note, the column names of the input tables are irrelevant. 
+        What is relevant is what the data in each column represents and that you map the specific columns to the associated id_types. 
         For example, you will notice that the anonymous_id in the input tables is called anonymous_id. 
         But the id type we defined in the pb project yaml is anon_id. So we need to connect those two for each identifier column in each input.
         """
@@ -275,11 +278,11 @@ class ProfileBuilder:
         id_stitcher_spec2 = """
         The id stitcher model has a concept known as an “edge”. An Edge is simply a direct connection between two nodes. 
         In profiles, a single node is a combination of your id value, and id type. So a full edge record would have 2 nodes.
-        One side will have 1 id value and its associated id type. The other side having another id value and its associated id type. 
+        One side will have 1 id value and its associated id type. The other side will have another id value and its associated id type. 
         The record itself is considered an edge. Which is the connection between the 2 nodes. Within the ID Stitcher Model, we want to define the edge sources, which are the data tables we will access in order to extract the edges to build your ID Graph. 
-        The edge sources come from input sources, which we define in inputs.yaml file. These point to a table in the warehouse, but they can be referd with a different name within profiles project. 
+        The edge sources come from your defined input sources, which we define in inputs.yaml file. These point to a table in the warehouse, but they can be referred with a different name within profiles project. 
         The "input model name" is different from the warehouse table name. In our demo, we give a `rs` prefix to the model names. You can see that in the inputs.yaml file too.       
-        Since we have already defined our inputs sources, we can refer to them directly in the model spec here. Let's add our edge source:
+        Since we have already defined our input sources, we can refer to them directly in the model spec here. Let's add our edge sources:
         """
         edge_sources = []
         self.input_handler.display_multiline_message(id_stitcher_spec2)
@@ -302,7 +305,7 @@ class ProfileBuilder:
     def display_about_project_files(self, connection_name):
         about_files = f"""
         Now let's create a profiles project. 
-        A profiles project contains mainly a few yaml files, of following structure:
+        A profiles project contains a few yaml files, of following structure:
         ```
         .
         └── <project_directory>
@@ -313,9 +316,9 @@ class ProfileBuilder:
         
         Here's a brief description of what each file is:
 
-        - `pb_project.yaml`: This file contains the project declaration - name of the project, with entity info, their id types etc. 
+        - `pb_project.yaml`: This file contains the project declaration. The name of the project, entity, and the entity's defined id types etc.
             It also includes the warehouse connection name - `{connection_name}`, which calls the connection config we created in the previous step (the same name as in siteconfig.yaml). 
-        - `models/inputs.yaml`: This file will contain the input data sources - the tables and columns that map to the entities and their id types. We will explain this in more detail in the subsequent steps.
+        - `models/inputs.yaml`: This file will contain the input data sources - the tables and columns that map to the entity and their id types. We will explain this in more detail in the subsequent steps.
         - `models/profiles.yaml`: This is where we define the model configurations for the id stitcher and any features/traits you want to build for your defined entity. For the tutorial, we will only build an ID Graph using the ID Stitcher Model Type. 
 
         These files will be created in this tutorial, with the details you will provide in the next steps. 
@@ -384,12 +387,12 @@ class ProfileBuilder:
         prompt = f"""
         Congrats! You have completed your first profiles run.
         This should have created multiple tables in your warehouse account, and a new seq_no folder in the profiles/output folder - just like the prev output of `pb compile`. 
-        These sql files are actually executed on your warehouse now. That's the difference from the compile command. Every new `pb run` or `pb compile` creates a new seq_no folder.
+        These sql files were actually executed on your warehouse now. That's the difference from the compile command. Every new `pb run` or `pb compile` creates a new seq_no folder.
 
         Lets observe the output ID Graph produced. The table that was created, which we will query now is {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name}.        
         There are three key columns in this table, along with some other timestamp meta-data columns we can ignore for now:
             - `{entity_name}_main_id` - This is an id that Profiles creates. It uniquely identifies an entity (ex: user) across systems.
-            - `other_id` - the id stitched to the original id. This is what your data already has - email, anonymous_id etc. 
+            - `other_id` - These are the id value extracted from the edge sources stitched to the user_main_id
             - `other_id_type` - the type of id from the original table. These are all the id_types you had provided earlier.
         
         So in this table, we can expect multiple rows for a unique {entity_name}, all sharing the same {entity_name}_main_id. But other_id + other_id_type should be unique. 
@@ -421,11 +424,11 @@ class ProfileBuilder:
 
         
         intro_text = f"""
-        Now, lets perform some QA on the ID graph and verify the output. 
-        We mentioned above there is a column called `{entity_name}_main_id` which is supposed to represent a unique key for a unique user with multiple IDs.
+        Now, let's perform some QA on the ID graph and verify the output. 
+        As mentioned above, there is a column called `{entity_name}_main_id` which is supposed to represent a unique key for a unique user with multiple IDs.
         Let's get a count of the other ids per main id to see what we have. Remember, Secure Solutions, LLC is expecting roughly 319 distinct users. 
-        171 of those being identified known users who have either signed up for the newsletter or have completed an order.
-        Those user_main_ids should have a unique email, user_id, and shopify_customer_id associated with it. Any {entity_name}_main_id that solely have anonymous_ids would represent unknown users.
+        171 of those being identified (or known) users who have either signed up for the newsletter or have completed an order.
+        Those user_main_ids should have a unique email, user_id, and shopify_customer_id associated with it. Any {entity_name}_main_id that solely has anonymous_ids would represent unknown users.
         Here's the query we will run: 
         """
         self.input_handler.display_multiline_message(intro_text)
@@ -454,12 +457,11 @@ class ProfileBuilder:
         Notice the count of user_ids and emails within each user_main_id where you can see that there are many users. That means, these users have been merged in error. 
         But interestingly, there's a single shopify_store_id per main_id
         This is an important clue. A shopify_store_id is not something that we associate at a {entity_name} level, but instead at a shop/store level.
-        You may want to bring this in to a user 360 view as a feature, but it should not be involved in the stitching process in any way since the values are not meant to be unique for a user.
+        You may want to bring this into a user 360 view as a feature, but it should not be involved in the stitching process in any way since the values are not meant to be unique for a user.
         Adding this in the id stitcher has resulted in over-stitching of the {entity_name}s. 
         Now let's fix this. We need to make two changes to the project files. First in pb_project.yaml, and second in inputs.yaml.
-        In `pb_project.yaml`, let's remove `shopify_store_id` as an id_type. This is in three places - 
+        In `pb_project.yaml`, let's remove `shopify_store_id` as an id_type. This is in two places - 
             - under entities -> id_types
-            - under feature_views -> using_ids
             - under id_types
         In our inputs.yaml we need to remove the id mappings we previously created for the shopify_store_id. You can remove the select, type, entity key/values 
         from the PAGES and IDENTIFIES input definitions underneath the `ids:` key in each definition. 
@@ -494,9 +496,9 @@ class ProfileBuilder:
         Optionally, you can inspect and see that profiles appended an additional seq_no directory in the outputs folder on this run. 
         This directory has the newly generated sql based on your edited configuration. Because we did not build any new models, the sql is very similar. 
         You will notice though, the hash number for the models are now different ({updated_id_stitcher_table_name} vs {id_stitcher_table_name}). 
-        That is because we edited the source data for the id_stitcher model. If you add, delete, or tweak the source data feeding the ID Stitcher model, or any other model, pb will generate a new hash for that model.
-        Representing the fact that, though it is the same model type running again, the actual SQL will be slightly different. 
-        Since we are already familiar with the contents of the ID Graph, lets go ahead and aggregate this table and see how many user_main_ids we get this time."""
+        That is because we edited the source data for the id_stitcher model. If you add, delete, or update any of the configuraton for a model, pb will generate a new hash for that model and run it fresh.
+        Representing the fact that, though it is the same model type running again, the actual SQL will be slightly different due to the updated configuration. 
+        Since we are already familiar with the contents of the ID Graph, let's go ahead and aggregate this table and see how many user_main_ids we get this time."""
         self.input_handler.display_multiline_message(second_run_prompt)
 
         # prompt = f"""
@@ -515,7 +517,7 @@ class ProfileBuilder:
         #         """
         prompt = f"""
         Interesting, the number you should see is: {distinct_ids_upd}. This is much better than the earlier number {distinct_ids}!
-        It's important to note how adding a bad id type resulted in such a notorious id stitching, collapsing all users into just a handful of main ids
+        It's important to note how adding a bad id type resulted in, collapsing all users into just a handful of main ids
         But bad id types aren't the only reason for over stitching. Sometimes, a few bad data points can also cause this. 
         Let's see if we have any overly large clusters within this current output. 
         Run the following query:
@@ -544,8 +546,8 @@ class ProfileBuilder:
         edge_table_intro = f"""
         This is a much more healthy id graph. But it does appear that we have 5 user_main_ids that have an unusually high ID count. All of the user_main_ids below the top 5 seem to be fine. 
         Lets see how we can troubleshoot and fix this newly discovered issue. 
-        We already reviewed the id types we brought in. And with the removal of the shopify store id as an id type that was not unique to a user, the rest are fine. 
-        This means that, within one or more of the id types that remain, there are specific values (bad data) that has caused additional overstitching to happen in the last run. 
+        We already reviewed the id types we brought in. And with the removal of the shopify store id as an id type that was not unique to a user, we know the rest are fine. 
+        This means that, within one or more of the id types that remain, there are specific values that have caused additional overstitching to happen in the last run. 
         But how do we find these bad values?
         Since the ID Graph is the finished output, we will have to back up from that and see how it was constructed in order to observe what could have possibly caused additional overstitching. 
         We can do that by accessing a pre stitched table. That table is the Edges Table. The table name is `{edge_table}`.
@@ -555,7 +557,7 @@ class ProfileBuilder:
         The table name will always be your main id graph output table with `_internal_edges` appended to it.
         Run the query below in order to see the contents of the edge table
         `select * from {edge_table} where id1 != id2 limit 100;`
-        Now, lets run a more advanced query in order to analyze what id values have possibly stitched multiple users together. 
+        Now, let's run a more advanced query in order to analyze what id values have possibly stitched multiple users together. 
         Here, we are analyzing the count of edges for each side of the nodes using the edge table as the source. 
         """
         self.input_handler.display_multiline_message(edge_table_intro)
@@ -613,8 +615,8 @@ class ProfileBuilder:
         print(dense_edges.head(20))
         explain_bad_anon_ids = f"""
         Secure Solutions, LLC would expect an accurate user_main_id for a known active user who has purchased a number of IoT devices to have between 15 to 25 other ids.
-        This healthy user_main_id would encompass a number of device ids, a number of anonymous_ids, but only one email, shopify_customer_id, and user_id. 
-        This means, the count of edges between the different id values associated with a single user should be in the same ball park.  
+        A healthy user_main_id would encompass a number of device ids, a number of anonymous_ids, but only one email, shopify_customer_id, and user_id. 
+        This means, the count of edges between the different id values associated with a single user should be in the same ballpark.  
         However, after analyzing the output of the above query, we can see that 5 anonymous_ids have a count of edges well over 30. 
         This is a clue to the bad values. The true test is to see if these anonymous_ids are connected to more than one email, user_id, or shopify_customer_id. 
         We will extend this query to see.
@@ -649,7 +651,7 @@ class ProfileBuilder:
             CASE WHEN other_id_type = 'device_id' THEN 1 ELSE 0 END AS device_id,
             CASE WHEN other_id_type = 'user_id' THEN 1 ELSE 0 END AS user_id,
             CASE WHEN other_id_type = 'email' THEN 1 ELSE 0 END AS email,
-            CASE WHEN other_id_type = 'shopify_customer_id' THEN 1 ELSE 0 END AS shopify_customer_id,
+            CASE WHEN other_id_type = 'shopify_customer_id' THEN 1 ELSE 0 END AS shopify_customer_id
     from edge_table )
     SELECT
         id_type,
@@ -673,14 +675,14 @@ class ProfileBuilder:
         print(bad_anons.head(20))
         explain_bad_anon_ids2 = """
         We sorted the query on an id type (email) where we know there should only be one per user_main_id. 
-        And we can see that the 5 anonymous_ids seen in the previous query have 12 emails, user_ids, and shopify_customer_is linked to them. 
+        And we can see that each of the 5 anonymous_ids seen in the previous query have 12 emails, user_ids, and shopify_customer_is linked to them. 
         You can also expand the array column to get a full list of the other ids that were directly linked to each single id value. 
-        You can see for the first anonymous_id for example, that there are many users merged. 
+        You can see for the first anonymous_id for example, that there are many users merged together. 
         These 5 anonymous_ids are the clear culprit as to what has caused some of these users to merge. 
-        Recalling the beginning of this tutorial, Secure Solutions, LLC has 1 brick and motor store where customer can purchase IoT security devices from where they can checkout from an in store Kiosk. 
+        Recalling the beginning of this tutorial, Secure Solutions, LLC has 1 brick and mortar store where customers can purchase IoT security devices from where they can checkout from an in store Kiosk. 
         In a realistic scenario, we could go back into our source event tables (the same ones we defined as input sources within this project) and see that the IP Address between these 5 anonymous_ids are all the same. 
         Meaning, there is a single machine that is causing these users to merge. 
-        So how do we fix this? We dont want to remove anonymous_id as an id type since Secure Solutions wants to track and build features off of anonymous activity as well as known. 
+        So how do we fix this? We don't want to remove anonymous_id as an id type since Secure Solutions wants to track and build features off of anonymous activity as well as known. 
         Instead, we need to filter out these specific values from being involved in the stitching process to begin with. 
         We have public docs available on the different methods for filtering, as there are multiple ways. (ref: https://www.rudderstack.com/docs/profiles/cli-user-guide/structure/#filters)
         But to wrap up this tutorial, we will go ahead and add a regex filter on the anonymous_id type. 
@@ -769,14 +771,14 @@ class ProfileBuilder:
         seq_no3, id_stitcher_table_name_3 = self.prompt_to_do_pb_run(id_graph_model, command=f'pb run --seq_no {seq_no2}')
         prompt = f"""
         You can see that the id stitcher table name has changed again. It is now {id_stitcher_table_name_3} (from earlier {id_stitcher_table_2} and {id_stitcher_table_1}).
-        The filter on anonymous_id resulted in changing of the hash. But as we reused prev seq_no, the suffix seq_no did not change.
+        The filter on anonymous_id resulted in the changing of the hash. But as we reused prev seq_no, the suffix seq_no did not change.
         Let's check the number of distinct {entity_name}_main_ids now.
         """
         self.input_handler.display_multiline_message(prompt)
         distinct_ids_3 = self.id_stitcher_queries(entity_name, id_stitcher_table_name_3)
         prompt = f"""
         The number of distinct {entity_name}_main_ids is now {distinct_ids_3}. Great! Remember at the beginning we expected to have 319 {entity_name}_main_ids.
-        Lets quickly look at the count of other ids per {entity_name}_main_id
+        Let's quickly look at the count of other ids per {entity_name}_main_id
         """
         self.input_handler.display_multiline_message(prompt)
 
@@ -826,7 +828,27 @@ class ProfileBuilder:
     #     self.analyze_updated_results(entity_name, updated_id_stitcher_table_name, distinct_main_ids)
 
 
+
+
+def unzip_sample_data():
+    zip_file_path = "sample_data.zip"
+    # Ensure the zip file exists
+    if not os.path.exists(zip_file_path):
+        raise Exception(f"Error: {zip_file_path} not found.")
+    # Unzip the file
+    try:
+        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            for file_info in zip_ref.infolist():
+                if not file_info.filename.startswith('__MACOSX'):
+                    zip_ref.extract(file_info, '.')
+        print(f"Successfully extracted {zip_file_path} to the current directory")
+    except Exception as e:
+        raise Exception(f"An error occurred while extracting: {str(e)}")
+
 def main(fast_mode: bool):
+    if not os.path.exists("sample_data"):
+        print("Unzipping sample data...")
+        unzip_sample_data()
     profile_builder = ProfileBuilder(fast_mode)
     profile_builder.run()
 
@@ -834,10 +856,10 @@ if __name__ == "__main__":
     # Add a 'fast' flag that sets bypass = True and also removes input() step in multi line prints
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fast", help="Run the tutorial in fast mode", type=str, default='y')
+    parser.add_argument("--fast", help="Run the tutorial in fast mode", type=str, default='n')
     args = parser.parse_args()
     if args.fast == 'y':
-        print("Fast mode is enabled. Normally, we print one line at a time, but for fast mode we stop only for user inputs.")
+        print("Fast mode is enabled. Normally, we print one line at a time, but for fast mode we stop only for user inputs. Disable by running `python tutorial.py --fast n`\n")
         bypass = True
     else:
         bypass = False

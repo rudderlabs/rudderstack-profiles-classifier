@@ -88,19 +88,19 @@ class InputHandler:
         about_id_types = {"anon_id": """
                           RudderStack creates a cookie for each user when they visit your site.
                            This cookie is used to identify the user across different sessions anonymously, prior to the users identifying themselves.
-                           Every single event from event stream will have this, called anonymous_id.""", 
+                           Every single event from event stream will have an anonymous_id.""", 
                           "email": """If a customer signs up using their email, this can be used to identify customers across devices, or even when they clear cookies.""",
                           "user_id": """
                           Most apps/websites define their own user_id for signed in users. 
-                          These are the "identified" users, and typically most common id type for computing various metrics such as daily active users, monthly active users, etc.""",
+                          These are the "identified" users, and typically the most common id type for computing various metrics such as daily active users, monthly active users, etc.""",
                           "device_id": """
-                          This is a more specialized id type specific to SEcure Solutions, LLC. Since they sell IoT devices, they want to link specific device ids back to specific users.
+                          This is a more specialized id type specific to Secure Solutions, LLC. Since they sell IoT devices, they want to link specific device ids back to specific users.
                           The ID stitcher helps connect these events to the user_id/email of the user as long as there's even a single event linking them (ex: a 'register your device' event).""",
                          "shopify_customer_id": """
                          An Ecommerce platform like Shopify will auto generate a unique identifier for each unique user who completes any sort of checkout conversion and thereby become an official customer. 
                          This unique identifier is called, “shopify_customer_id”. We will want to bring this ID Type in in order to enhance the user ID Graph. """, 
                          "shopify_store_id": """
-                         When you have a payment service provider like Shopify, you may have different store or apps - one for website, one for android app etc. 
+                         When you have a payment service provider like Shopify, you may have different stores or apps - one for a website, one for an android app etc. 
                          These different apps or stores may have their own unique identifiers. It is important to note here, this id type is of a higher level grain than the user identifiers. 
                          One store id may be linked to many users.  And so for the user entity, we should not bring it in. 
                          But for the purposes of this tutorial, we will go ahead and bring it in to show you what happens and how to troubleshoot when a resolved profile id has merged multiple users together."""}
@@ -113,11 +113,8 @@ class InputHandler:
                 else:
                     print(f"Now, the next id: {expected_id_type}.")
                 self.display_multiline_message(about_id_types[expected_id_type])
-                if self.fast_mode:
-                    default = expected_id_type
-                else:
-                    default = None
-                user_input = self.get_user_input(f"\nLet's add '{expected_id_type}' as an id type for {entity_name}: ", default=default)
+                default = expected_id_type
+                user_input = self.get_user_input(f"\nLet's add '{expected_id_type}' as an id type for {entity_name}: ", default=default, options=[default])
                 if user_input.lower() == expected_id_type.lower():
                     selected_id_types.append(expected_id_type)
                     break

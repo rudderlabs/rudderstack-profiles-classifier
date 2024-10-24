@@ -131,8 +131,8 @@ class DatabaseManager:
 
         # Display all available id_types
         logger.info(f"Following are all the id types defined earlier: \n\t{','.join(id_types)}")
-
-        applicable_id_types_input = self.input_handler.get_user_input(f"Enter the comma-separated list of id_types applicable to the `{table}` table: \n>")
+        shortlisted_id_types = ",".join(list(shortlisted_columns.keys()))
+        applicable_id_types_input = self.input_handler.get_user_input(f"Enter the comma-separated list of id_types applicable to the `{table}` table: \n>", options=[shortlisted_id_types], default=shortlisted_id_types)
         if applicable_id_types_input.lower() == 'back':
             return None, "back"
         applicable_id_types = [id_type.strip() for id_type in applicable_id_types_input.split(",") if id_type.strip() in [id_type_.lower() for id_type_ in id_types]]
@@ -165,7 +165,7 @@ class DatabaseManager:
                 default = id_type_mapping.get(id_type, id_type)
                 # else:
                 #     default = None
-                user_input = self.input_handler.get_user_input(f"Enter the column(s) for id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n> ", default=default)
+                user_input = self.input_handler.get_user_input(f"Enter the column(s) to map the id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n> ", default=default,options=[default])
                 if user_input.lower() == 'back':
                     return None, "back"
                 if user_input.lower() == 'skip':

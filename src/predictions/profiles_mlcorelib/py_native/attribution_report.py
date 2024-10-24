@@ -630,7 +630,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             tbl = obj["from"]
             column = this.de_ref(tbl).model.time_filtering_column()
             if not column:
-                raise Exception(f"occurred_at_col column not found in {tbl}")
+                raise Exception(f"occurred_at_col field not found in {tbl} yaml")
             self.inputs.update(
                 (
                     tbl,

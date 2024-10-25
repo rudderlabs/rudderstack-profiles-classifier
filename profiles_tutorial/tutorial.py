@@ -142,7 +142,7 @@ class ProfileBuilder:
         A product may have sku, product_id, product_name etc.
 
         For our example, a user may have a few anonymous_ids, one email, and one user_id etc. Part of the profiles building process is qualifying these id values as `id_types`.
-        And in a subsequent step, doing a mapping exercise where we map specific columns from your input tables to these id_types connected to the entity defined above.
+        And in a subsequent step, we will do a mapping exercise where we map specific columns from your input tables to these id_types connected to the entity defined above.
 
         Best practices for defining id_types for an entity is that the values need to be unique to a single instance of your entity. 
         When picking `id_types` consider the granularity of the `entity`. At the user grain, you will want to pick a unique `id_type` of the same grain.

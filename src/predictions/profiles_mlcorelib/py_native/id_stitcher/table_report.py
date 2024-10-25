@@ -31,11 +31,15 @@ class TableReport:
             filter_dict_subquery = "metadata.complete.status::integer = 2"
         elif self.wh_type == "bigquery":
             filter_dict_subquery = (
-                "JSON_EXTRACT_SCALAR(metadata, '$.complete.status') = '2'"
+                "cast(json_extract_scalar(metadata, '$.complete.status') as int) = 2"
+            )
+        elif self.wh_type == "databricks":
+            filter_dict_subquery = (
+                "cast(get_json_object(metadata, '$.complete.status') as int) = 2"
             )
         else:
             raise Exception(
-                "Warehouses other than Snowflake, Redshift and BigQuery are not supported yet."
+                "Warehouses other than Snowflake, Redshift, BigQuery and Databricks are not supported yet."
             )
 
         query = f"""
@@ -167,7 +171,15 @@ class TableReport:
                     approx_quantiles(cluster_size, 100)[offset(90)] as p90,
                     approx_quantiles(cluster_size, 100)[offset(99)] as p99
                     """
-        elif self.wh_type == "snowflake" or self.wh_type == "redshift":
+        elif self.wh_type == "databricks":
+            percentile_subquery = """
+                    percentile(cluster_size, 0.25) as p25,
+                    percentile(cluster_size, 0.5) as p50,
+                    percentile(cluster_size, 0.75) as p75,
+                    percentile(cluster_size, 0.9) as p90,
+                    percentile(cluster_size, 0.99) as p99
+                    """
+        elif self.wh_type in ("snowflake", "redshift"):
             percentile_subquery = """
                     percentile_cont(0.25) within group (order by cluster_size) as p25,
                     percentile_cont(0.5) within group (order by cluster_size) as p50, 
@@ -177,7 +189,7 @@ class TableReport:
                     """
         else:
             raise Exception(
-                "Warehouses other than Snowflake, Redshift and BigQuery are not supported yet."
+                "Warehouses other than Snowflake, Redshift, BigQuery and Databricks are not supported yet."
             )
 
         # Output should indicate the cluster sizes - min, max, count of single, average, median , percentils - 25, 50, 75, 90, 99

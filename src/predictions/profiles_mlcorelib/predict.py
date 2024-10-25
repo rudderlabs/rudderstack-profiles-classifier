@@ -93,4 +93,5 @@ def _predict(
         output_tablename,
         merged_config,
         site_config,
+        whtService.get_model_hash(),
     )

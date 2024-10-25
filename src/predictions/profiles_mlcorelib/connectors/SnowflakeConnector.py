@@ -757,6 +757,7 @@ class SnowflakeConnector(Connector):
         lookahead_days: int,
         current_date: str,
         model_name: str,
+        model_hash: str,
         material_registry: str,
     ):
         past_predictions_end_date = utils.date_add(current_date, -lookahead_days)
@@ -764,15 +765,14 @@ class SnowflakeConnector(Connector):
 
         try:
             past_predictions_info = (
-                registry_df.filter(col("model_name") == model_name)
-                .filter(col("model_type") == "python_model")
+                registry_df.filter(col("model_hash") == model_hash)
                 .filter(to_date(col("end_ts")) == past_predictions_end_date)
                 .sort(F.col("creation_ts").desc())
                 .collect()[0]
             )
         except IndexError:
             raise Exception(
-                f"No past predictions found for model {model_name} before {past_predictions_end_date}"
+                f"No past predictions found with model hash {model_hash} before {past_predictions_end_date}"
             )
 
         predictions_table_name = (

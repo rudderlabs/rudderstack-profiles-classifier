@@ -49,6 +49,9 @@ class PythonWHT:
         current_timestamp = datetime.now()
         return str(current_timestamp)
 
+    def get_model_hash(self) -> str:
+        return "random_hash"
+
     def _getPB(self):
         mock = False
         if mock:

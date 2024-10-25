@@ -622,6 +622,7 @@ class Connector(ABC):
         lookahead_days: int,
         current_date: str,
         model_name: str,
+        model_hash: str,
         material_registry: str,
     ):
         pass

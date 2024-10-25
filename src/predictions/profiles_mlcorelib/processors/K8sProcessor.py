@@ -277,6 +277,7 @@ class K8sProcessor(Processor):
         merged_config: dict,
         site_config: dict,
         pkl_model_file_name: str,
+        model_hash: str,
     ):
         credentials_presets = site_config["py_models"]["credentials_presets"]
         k8s_config = credentials_presets["kubernetes"]
@@ -316,6 +317,8 @@ class K8sProcessor(Processor):
             json.dumps(merged_config),
             "--pkl_model_file_name",
             pkl_model_file_name,
+            "--model_hash",
+            model_hash,
         ]
         job_name = "ml-prediction-" + str(uuid.uuid4())
         self._execute(

@@ -523,6 +523,7 @@ class CommonWarehouseConnector(Connector):
         lookahead_days: int,
         current_date: str,
         model_name: str,
+        model_hash: str,
         material_registry: str,
     ):
         past_predictions_end_date = utils.date_add(current_date, -lookahead_days)
@@ -531,7 +532,7 @@ class CommonWarehouseConnector(Connector):
         try:
             past_predictions_info = (
                 df[
-                    (df["model_name"] == model_name)
+                    (df["model_hash"] == model_hash)
                     & (df["model_type"] == "python_model")
                     & (
                         df["end_ts"].dt.date
@@ -543,7 +544,7 @@ class CommonWarehouseConnector(Connector):
             )
         except IndexError:
             raise Exception(
-                f"No past predictions found for model {model_name} before {past_predictions_end_date}"
+                f"No past predictions found with model hash {model_hash} before {past_predictions_end_date}"
             )
 
         predictions_table_name = (

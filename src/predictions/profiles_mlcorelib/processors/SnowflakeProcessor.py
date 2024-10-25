@@ -41,6 +41,7 @@ class SnowflakeProcessor(Processor):
         output_tablename,
         merged_config,
         site_config: dict,
+        model_hash: str,
     ):
         return preprocess_and_predict(
             creds,
@@ -51,4 +52,5 @@ class SnowflakeProcessor(Processor):
             output_tablename,
             connector=self.connector,
             trainer=self.trainer,
+            model_hash=model_hash,
         )

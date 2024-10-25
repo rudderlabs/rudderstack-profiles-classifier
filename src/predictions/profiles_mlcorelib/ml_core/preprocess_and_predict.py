@@ -38,6 +38,7 @@ def preprocess_and_predict(
     output_tablename,
     connector: Connector,
     trainer: MLTrainer,
+    model_hash: str,
 ):
     """
     This function is responsible for preprocessing
@@ -226,6 +227,7 @@ def preprocess_and_predict(
             trainer.prediction_horizon_days,
             str(end_ts.date()),
             trainer.output_profiles_ml_model,
+            model_hash,
             whtService.get_registry_table_name(),
         )
 
@@ -315,6 +317,7 @@ if __name__ == "__main__":
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
+    parser.add_argument("--model_hash", type=str)
     args = parser.parse_args()
 
     current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -354,6 +357,9 @@ if __name__ == "__main__":
         logger.get().error(f"Error while parsing inputs: {e}")
         raise Exception(f"Error while parsing inputs: {e}")
 
+    if args.model_hash is None:
+        raise Exception("model_hash is required")
+
     _ = preprocess_and_predict(
         wh_creds,
         args.s3_config,
@@ -363,6 +369,7 @@ if __name__ == "__main__":
         args.output_tablename,
         connector=connector,
         trainer=trainer,
+        model_hash=args.model_hash,
     )
 
     if args.mode == constants.RUDDERSTACK_MODE:

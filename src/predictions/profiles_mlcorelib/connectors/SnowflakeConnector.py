@@ -766,7 +766,6 @@ class SnowflakeConnector(Connector):
         try:
             past_predictions_info = (
                 registry_df.filter(col("model_hash") == model_hash)
-                .filter(col("model_type") == "python_model")
                 .filter(to_date(col("end_ts")) == past_predictions_end_date)
                 .sort(F.col("creation_ts").desc())
                 .collect()[0]

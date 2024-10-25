@@ -533,7 +533,6 @@ class CommonWarehouseConnector(Connector):
             past_predictions_info = (
                 df[
                     (df["model_hash"] == model_hash)
-                    & (df["model_type"] == "python_model")
                     & (
                         df["end_ts"].dt.date
                         == pd.to_datetime(past_predictions_end_date).date()

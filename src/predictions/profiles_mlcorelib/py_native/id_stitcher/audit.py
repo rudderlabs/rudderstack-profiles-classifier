@@ -83,16 +83,12 @@ class ModelRecipe(PyNativeRecipe):
             edge_source["input_model"] = input_material.model
         entity = self.id_stitcher_model.entity()
         yaml_report = YamlReport(edge_sources, entity)
-        table_report = TableReport(
-            this.wht_ctx.client, self.id_stitcher_model, entity, yaml_report
-        )
-        cluster_report = ClusterReport(
-            self.reader, this.wht_ctx.client, entity, table_report
-        )
+        table_report = TableReport(this, self.id_stitcher_model, entity, yaml_report)
+        cluster_report = ClusterReport(self.reader, this, entity, table_report)
         llm_report = LLMReport(
             self.reader,
+            this,
             self.build_spec["access_token"],
-            this.base_wht_project.warehouse_credentials(),
             table_report,
             entity,
         )

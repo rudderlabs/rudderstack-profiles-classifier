@@ -1,16 +1,20 @@
 import json
 from typing import Any, Dict, List
 from profiles_rudderstack.client import BaseClient
-from profiles_rudderstack.material import WhtModel
+from profiles_rudderstack.material import WhtMaterial, WhtModel
 
 from .yaml_report import YamlReport
+from ..warehouse import run_query
 
 
 class TableReport:
     def __init__(
-        self, wh_client: BaseClient, model: WhtModel, entity, yaml_report: YamlReport
+        self, this: WhtMaterial, model: WhtModel, entity, yaml_report: YamlReport
     ):
-        self.wh_client = wh_client
+        self.wh_client = this.wht_ctx.client
+        self.db = this.wht_ctx.client.db
+        self.schema = this.wht_ctx.client.schema
+        self.wh_type = this.wht_ctx.client.wh_type
         self.model = model
         self.edges_table = ""
         self.output_table = ""
@@ -20,24 +24,51 @@ class TableReport:
 
     def get_table_names(self):
         model_hash = self.model.hash()
+
+        if self.wh_type == "snowflake":
+            filter_dict_subquery = """metadata:"complete":"status" = 2"""
+        elif self.wh_type == "redshift":
+            filter_dict_subquery = "metadata.complete.status::integer = 2"
+        elif self.wh_type == "bigquery":
+            filter_dict_subquery = (
+                "cast(json_extract_scalar(metadata, '$.complete.status') as int) = 2"
+            )
+        elif self.wh_type == "databricks":
+            filter_dict_subquery = (
+                "cast(get_json_object(metadata, '$.complete.status') as int) = 2"
+            )
+        else:
+            raise Exception(
+                "Warehouses other than Snowflake, Redshift, BigQuery and Databricks are not supported yet."
+            )
+
         query = f"""
-            select * from material_registry_4
+            select * from {self.db}.{self.schema}.MATERIAL_REGISTRY_4
             where
             model_ref = '{self.model.model_ref()}' and
             model_hash = '{model_hash}' and
-            metadata:"complete":"status" = 2
+            {filter_dict_subquery}
             order by creation_ts desc
             LIMIT 1;
         """
-        result = self.wh_client.query_sql_with_result(query)
+        result = run_query(self.wh_client, query)
         if result.empty:
             raise ValueError(
                 f"no valid run found for the id stitcher model with hash {model_hash}"
             )
 
         def transform_row(row):
-            row_json = json.loads(row)
-            return row_json.get("material_objects", [])
+            # metadata in case of bigquery is not JSON
+            try:
+                row_json = json.loads(row)
+                return row_json.get("material_objects", [])
+            except:
+                try:
+                    return row.get("material_objects", [])
+                except:
+                    raise Exception(
+                        "Unable to fetch material objects from the metadata of material registry table."
+                    )
 
         material_objects = result["METADATA"].apply(transform_row)
         material_names = [object["material_name"] for object in material_objects[0]]
@@ -52,26 +83,30 @@ class TableReport:
                 self.output_table = name
 
     def get_node_types(self):
-        query = f"SELECT DISTINCT id1_type FROM {self.edges_table} UNION SELECT DISTINCT id2_type FROM {self.edges_table}"
-        result = self.wh_client.query_sql_with_result(query)
+        query = f"""
+        SELECT DISTINCT id1_type FROM {self.db}.{self.schema}.{self.edges_table} 
+        UNION DISTINCT 
+        SELECT DISTINCT id2_type FROM {self.db}.{self.schema}.{self.edges_table}
+        """
+        result = run_query(self.wh_client, query)
         return [row for row in result["ID1_TYPE"]]
 
     def get_unique_id_count(self, id_type: str) -> int:
         query = f"""
         SELECT COUNT(DISTINCT id) as count
         FROM (
-            SELECT id1 as id FROM {self.edges_table} WHERE id1_type = '{id_type}'
-            UNION
-            SELECT id2 as id FROM {self.edges_table} WHERE id2_type = '{id_type}'
+            SELECT id1 as id FROM {self.db}.{self.schema}.{self.edges_table} WHERE id1_type = '{id_type}'
+            UNION DISTINCT 
+            SELECT id2 as id FROM {self.db}.{self.schema}.{self.edges_table} WHERE id2_type = '{id_type}'
         )
         """
-        result = self.wh_client.query_sql_with_result(query)
+        result = run_query(self.wh_client, query)
         return 0 if result.empty else result["COUNT"][0]
 
     def get_total_main_ids(self) -> int:
         entity_key = self.entity["IdColumnName"]
-        query = f"select count(distinct {entity_key}) as count from {self.output_table}"
-        result = self.wh_client.query_sql_with_result(query)
+        query = f"select count(distinct {entity_key}) as count from {self.db}.{self.schema}.{self.output_table}"
+        result = run_query(self.wh_client, query)
         return result["COUNT"][0]
 
     def get_top_nodes_by_edges(
@@ -84,17 +119,17 @@ class TableReport:
         query = f"""
         SELECT id, id_type, COUNT(*) as edge_count
         FROM (
-            SELECT id1 as id, id1_type as id_type FROM {self.edges_table} where id1 != id2 {type_condition("id1_type", id_type)}
+            SELECT id1 as id, id1_type as id_type FROM {self.db}.{self.schema}.{self.edges_table} where id1 != id2 {type_condition("id1_type", id_type)}
             UNION ALL
-            SELECT id2 as id, id2_type as id_type FROM {self.edges_table} where id1 != id2 {type_condition("id2_type", id_type)}
+            SELECT id2 as id, id2_type as id_type FROM {self.db}.{self.schema}.{self.edges_table} where id1 != id2 {type_condition("id2_type", id_type)}
             UNION ALL
-            SELECT id1 as id, id1_type as id_type FROM {self.edges_table} where id1 = id2 {type_condition("id1_type", id_type)}
+            SELECT id1 as id, id1_type as id_type FROM {self.db}.{self.schema}.{self.edges_table} where id1 = id2 {type_condition("id1_type", id_type)}
         )
         GROUP BY id, id_type
         ORDER BY edge_count DESC
         LIMIT {limit}
         """
-        result = self.wh_client.query_sql_with_result(query)
+        result = run_query(self.wh_client, query)
         return [
             {
                 "id": row["ID"],
@@ -113,20 +148,50 @@ class TableReport:
         FROM (
             SELECT id, COUNT(*) as edge_count
             FROM (
-                SELECT id1 as id FROM {self.edges_table} WHERE id1 != id2 {type_condition}
+                SELECT id1 as id FROM {self.db}.{self.schema}.{self.edges_table} WHERE id1 != id2 {type_condition}
                 UNION ALL
-                SELECT id2 as id FROM {self.edges_table} WHERE id1 != id2 {type_condition}
+                SELECT id2 as id FROM {self.db}.{self.schema}.{self.edges_table} WHERE id1 != id2 {type_condition}
                 UNION ALL
-                SELECT id1 as id FROM {self.edges_table} WHERE id1 = id2 {type_condition}
+                SELECT id1 as id FROM {self.db}.{self.schema}.{self.edges_table} WHERE id1 = id2 {type_condition}
             )
             GROUP BY id
         )
         """
-        result = self.wh_client.query_sql_with_result(query)
+        result = run_query(self.wh_client, query)
         return 0 if result.empty else result["AVG_EDGE_COUNT"][0]
 
     def get_cluster_stats(self):
         main_id_key = self.entity["IdColumnName"]
+
+        if self.wh_type == "bigquery":
+            percentile_subquery = """
+                    approx_quantiles(cluster_size, 100)[offset(25)] as p25,
+                    approx_quantiles(cluster_size, 100)[offset(50)] as p50,
+                    approx_quantiles(cluster_size, 100)[offset(75)] as p75,
+                    approx_quantiles(cluster_size, 100)[offset(90)] as p90,
+                    approx_quantiles(cluster_size, 100)[offset(99)] as p99
+                    """
+        elif self.wh_type == "databricks":
+            percentile_subquery = """
+                    percentile(cluster_size, 0.25) as p25,
+                    percentile(cluster_size, 0.5) as p50,
+                    percentile(cluster_size, 0.75) as p75,
+                    percentile(cluster_size, 0.9) as p90,
+                    percentile(cluster_size, 0.99) as p99
+                    """
+        elif self.wh_type in ("snowflake", "redshift"):
+            percentile_subquery = """
+                    percentile_cont(0.25) within group (order by cluster_size) as p25,
+                    percentile_cont(0.5) within group (order by cluster_size) as p50, 
+                    percentile_cont(0.75) within group (order by cluster_size) as p75, 
+                    percentile_cont(0.9) within group (order by cluster_size) as p90, 
+                    percentile_cont(0.99) within group (order by cluster_size) as p99 
+                    """
+        else:
+            raise Exception(
+                "Warehouses other than Snowflake, Redshift, BigQuery and Databricks are not supported yet."
+            )
+
         # Output should indicate the cluster sizes - min, max, count of single, average, median , percentils - 25, 50, 75, 90, 99
         query = f"""
                 select 
@@ -134,27 +199,24 @@ class TableReport:
                 avg(cluster_size) as avg_cluster_size,
                 min(cluster_size) as min_cluster_size, 
                 max(cluster_size) as max_cluster_size, 
-                percentile_cont(0.25) within group (order by cluster_size) as p25,
-                percentile_cont(0.5) within group (order by cluster_size) as p50, 
-                percentile_cont(0.75) within group (order by cluster_size) as p75, 
-                percentile_cont(0.9) within group (order by cluster_size) as p90, 
-                percentile_cont(0.99) within group (order by cluster_size) as p99 from 
+                {percentile_subquery} 
+                from 
                 (
-                select {main_id_key}, count(*) as cluster_size from {self.output_table} group by {main_id_key}) a 
+                select {main_id_key}, count(*) as cluster_size from {self.db}.{self.schema}.{self.output_table} group by {main_id_key}) a 
                 """
-        result = self.wh_client.query_sql_with_result(query)
+        result = run_query(self.wh_client, query)
         return result.to_dict(orient="records")
 
     def get_top_clusters(self, limit: int) -> List[Dict[str, Any]]:
         main_id_key = self.entity["IdColumnName"]
         query = f"""
         SELECT {main_id_key}, COUNT(*) as cluster_size
-        FROM {self.output_table}
+        FROM {self.db}.{self.schema}.{self.output_table}
         GROUP BY {main_id_key}
         ORDER BY cluster_size DESC
         LIMIT {limit}
         """
-        result = self.wh_client.query_sql_with_result(query)
+        result = run_query(self.wh_client, query)
         return [
             {
                 "main_id": row[main_id_key.upper()],
@@ -168,27 +230,27 @@ class TableReport:
         query = f"""
         WITH singletons AS (
             SELECT {main_id_key}
-            FROM {self.output_table}
+            FROM {self.db}.{self.schema}.{self.output_table}
             GROUP BY {main_id_key}
             HAVING COUNT(*) = 1
         )
         SELECT other_id_type, COUNT(*) as singleton_count
-        FROM {self.output_table}
+        FROM {self.db}.{self.schema}.{self.output_table}
         WHERE {main_id_key} IN (SELECT {main_id_key} FROM singletons)
         GROUP BY other_id_type
         ORDER BY singleton_count DESC
         """
-        result = self.wh_client.query_sql_with_result(query).to_dict(orient="records")
+        result = run_query(self.wh_client, query).to_dict(orient="records")
         return {row["OTHER_ID_TYPE"]: row["SINGLETON_COUNT"] for row in result}
 
     def get_singleton_count(self, id_type: str) -> int:
         query = f"""
         SELECT COUNT(*) as count
-        FROM {self.output_table}
+        FROM {self.db}.{self.schema}.{self.output_table}
         GROUP BY {self.entity["IdColumnName"]}
         HAVING COUNT(*) = 1 AND MAX(other_id_type) = '{id_type}'
         """
-        result = self.wh_client.query_sql_with_result(query)
+        result = run_query(self.wh_client, query)
         return 0 if result.empty else result["COUNT"][0]
 
     def check_missing_connections(self, node_types: List[str]) -> List[str]:
@@ -203,11 +265,11 @@ class TableReport:
         for type1, type2 in valid_pairs:
             query = f"""
             SELECT COUNT(*) as count
-            FROM {self.edges_table}
+            FROM {self.db}.{self.schema}.{self.edges_table}
             WHERE (id1_type = '{type1}' AND id2_type = '{type2}')
                 OR (id1_type = '{type2}' AND id2_type = '{type1}')
             """
-            result = self.wh_client.query_sql_with_result(query)
+            result = run_query(self.wh_client, query)
             if not result.empty and result["COUNT"][0] == 0:
                 warn = True
                 issue = f"No direct edges found between {type1} and {type2}"
@@ -235,7 +297,7 @@ class TableReport:
                 {main_id_key},
                 other_id_type,
                 COUNT(*) as type_count
-            FROM {self.output_table}
+            FROM {self.db}.{self.schema}.{self.output_table}
             GROUP BY {main_id_key}, other_id_type
         ),
         pair_occurrences AS (
@@ -253,7 +315,7 @@ class TableReport:
         WHERE cooccurrence_count = 0
         """
 
-        result = self.wh_client.query_sql_with_result(query)
+        result = run_query(self.wh_client, query)
         if result.empty:
             print("No missing edges found between node types. GREAT!!")
             return missing_connections
@@ -383,10 +445,10 @@ class TableReport:
         query = f"""
         select other_id_type, avg(count) as avg_count from 
         (SELECT {main_id_key}, other_id_type, count(*) as count
-        FROM {self.output_table}
+        FROM {self.db}.{self.schema}.{self.output_table}
         GROUP BY {main_id_key}, other_id_type) a group by other_id_type
         """
-        result = self.wh_client.query_sql_with_result(query)
+        result = run_query(self.wh_client, query)
         print(
             "Average number of ids of different id types, per main id, after stitching:"
         )
@@ -397,10 +459,10 @@ class TableReport:
         query = f"""
         select other_id_type, max(count_value) as max_count from
         (SELECT {main_id_key}, other_id_type, count(*) as count_value
-        FROM {self.output_table}
+        FROM {self.db}.{self.schema}.{self.output_table}
         GROUP BY {main_id_key}, other_id_type) a group by other_id_type
         """
-        result = self.wh_client.query_sql_with_result(query)
+        result = run_query(self.wh_client, query)
         print("\nHighest count of other ids, for each id type, after stitching:")
         for row in result.to_dict(orient="records"):
             print(f"\t\t{row['OTHER_ID_TYPE']}: {row['MAX_COUNT']}")
@@ -414,11 +476,11 @@ class TableReport:
         for _, cluster in enumerate(top_clusters):
             print(f"\tMain ID: {cluster['main_id']}, Size: {cluster['cluster_size']}")
             query = f"""
-            SELECT other_id_type, count(*) as count FROM {self.output_table} WHERE {main_id_key} = '{cluster['main_id']}' GROUP BY 1 ORDER BY 2 DESC
+            SELECT other_id_type, count(*) as count 
+            FROM {self.db}.{self.schema}.{self.output_table} 
+            WHERE {main_id_key} = '{cluster['main_id']}' GROUP BY 1 ORDER BY 2 DESC
             """
-            result = self.wh_client.query_sql_with_result(query).to_dict(
-                orient="records"
-            )
+            result = run_query(self.wh_client, query).to_dict(orient="records")
             for row in result:
                 print(f"\t\t{row['OTHER_ID_TYPE']}: {row['COUNT']}")
 

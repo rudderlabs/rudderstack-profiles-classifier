@@ -40,15 +40,13 @@ class TutorialModel(BaseModelType):
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return TutorialRecipe(self.fast_mode)
+
     def validate(self) -> tuple[bool, str]:
         return super().validate()
 
 
 class TutorialRecipe(PyNativeRecipe):
     def __init__(self, fast_mode: bool) -> None:
-        if not os.path.exists("sample_data"):
-            print("Unzipping sample data...")
-            unzip_sample_data()
         self.profile_builder = ProfileBuilder(fast_mode)
 
     def describe(self, this: WhtMaterial) -> Tuple[str, str]:
@@ -57,10 +55,13 @@ class TutorialRecipe(PyNativeRecipe):
             "md",
         )
 
-    def register_dependencies(self, this: TutorialModel):
+    def register_dependencies(self, this: WhtMaterial):
         pass
 
-    def execute(self, this: TutorialModel):
+    def execute(self, this: WhtMaterial):
+        if not os.path.exists("sample_data"):
+            print("Unzipping sample data...")
+            unzip_sample_data()
         self.profile_builder.run()
 
 

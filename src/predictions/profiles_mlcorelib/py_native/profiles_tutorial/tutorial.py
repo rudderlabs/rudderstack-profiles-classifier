@@ -1,6 +1,4 @@
-
 import logging
-import time
 import re
 import sys
 import os
@@ -11,14 +9,60 @@ from input_handler import InputHandler, InputSteps
 from database_manager import DatabaseManager
 from file_generator import FileGenerator
 import pandas as pd
-import yaml
 from config import SAMPLE_DATA_DIR, TABLE_SUFFIX, CONFIG_FILE_PATH, INPUTS_FILE_PATH, ID_GRAPH_MODEL_SUFFIX
+
+from typing import Tuple
+from profiles_rudderstack.model import BaseModelType
+from profiles_rudderstack.recipe import PyNativeRecipe
+from profiles_rudderstack.material import WhtMaterial
+
 warnings.filterwarnings("ignore", category=UserWarning, module="snowflake.connector")
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 logging.getLogger("snowflake.connector").setLevel(logging.ERROR)
 logging.getLogger("snowflake.connector.network").setLevel(logging.ERROR)
+
+
+class TutorialModel(BaseModelType):
+    TypeName = "profiles_tutorial"
+    BuildSpecSchema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "fast_mode": {"type": "boolean"},
+        },
+    }
+
+    def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
+        self.fast_mode = build_spec.get("fast_mode", False)
+        super().__init__(build_spec, schema_version, pb_version)
+
+    def get_material_recipe(self) -> PyNativeRecipe:
+        return TutorialRecipe(self.fast_mode)
+    def validate(self) -> tuple[bool, str]:
+        return super().validate()
+
+
+class TutorialRecipe(PyNativeRecipe):
+    def __init__(self, fast_mode: bool) -> None:
+        if not os.path.exists("sample_data"):
+            print("Unzipping sample data...")
+            unzip_sample_data()
+        self.profile_builder = ProfileBuilder(fast_mode)
+
+    def describe(self, this: WhtMaterial) -> Tuple[str, str]:
+        return (
+            "This recipe is a guided interactive tutorial on Rudderstack Profiles. This tutorial will walk through key concepts of profiles and how it works. As a part of this tutorial, we will also build a basic project with an ID Stitcher Model ultimately producing an ID Graph in your warehouse.",
+            "md",
+        )
+
+    def register_dependencies(self, this: TutorialModel):
+        pass
+
+    def execute(self, this: TutorialModel):
+        self.profile_builder.run()
+
 
 class ProfileBuilder:
     def __init__(self, fast_mode: bool):
@@ -845,22 +889,22 @@ def unzip_sample_data():
     except Exception as e:
         raise Exception(f"An error occurred while extracting: {str(e)}")
 
-def main(fast_mode: bool):
-    if not os.path.exists("sample_data"):
-        print("Unzipping sample data...")
-        unzip_sample_data()
-    profile_builder = ProfileBuilder(fast_mode)
-    profile_builder.run()
+# def main(fast_mode: bool):
+#     if not os.path.exists("sample_data"):
+#         print("Unzipping sample data...")
+#         unzip_sample_data()
+#     profile_builder = ProfileBuilder(fast_mode)
+#     profile_builder.run()
 
-if __name__ == "__main__":
-    # Add a 'fast' flag that sets bypass = True and also removes input() step in multi line prints
-    import argparse
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--fast", help="Run the tutorial in fast mode", type=str, default='n')
-    args = parser.parse_args()
-    if args.fast == 'y':
-        print("Fast mode is enabled. Normally, we print one line at a time, but for fast mode we stop only for user inputs. Disable by running `python tutorial.py --fast n`\n")
-        bypass = True
-    else:
-        bypass = False
-    main(bypass)
+# if __name__ == "__main__":
+#     # Add a 'fast' flag that sets bypass = True and also removes input() step in multi line prints
+#     import argparse
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument("--fast", help="Run the tutorial in fast mode", type=str, default='n')
+#     args = parser.parse_args()
+#     if args.fast == 'y':
+#         print("Fast mode is enabled. Normally, we print one line at a time, but for fast mode we stop only for user inputs. Disable by running `python tutorial.py --fast n`\n")
+#         bypass = True
+#     else:
+#         bypass = False
+#     main(bypass)

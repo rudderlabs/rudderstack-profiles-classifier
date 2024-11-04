@@ -9,7 +9,13 @@ from input_handler import InputHandler, InputSteps
 from database_manager import DatabaseManager
 from file_generator import FileGenerator
 import pandas as pd
-from config import SAMPLE_DATA_DIR, TABLE_SUFFIX, CONFIG_FILE_PATH, INPUTS_FILE_PATH, ID_GRAPH_MODEL_SUFFIX
+from config import (
+    SAMPLE_DATA_DIR,
+    TABLE_SUFFIX,
+    CONFIG_FILE_PATH,
+    INPUTS_FILE_PATH,
+    ID_GRAPH_MODEL_SUFFIX,
+)
 
 from typing import Tuple
 from profiles_rudderstack.model import BaseModelType
@@ -82,7 +88,9 @@ class ProfileBuilder:
         relevant_tables = self.find_relevant_tables(new_table_names)
         self.display_about_project_files(connection_name)
         # pb_project.yaml
-        entity_name, id_types, id_graph_model = self.generate_pb_project(connection_name)
+        entity_name, id_types, id_graph_model = self.generate_pb_project(
+            connection_name
+        )
         # inputs.yaml
         self.map_tables_to_id_types(relevant_tables, id_types, entity_name)
         # profiles.yaml
@@ -115,9 +123,19 @@ class ProfileBuilder:
             But for this guided demo, you can just enter the command and the tutorial will execute it for you."""
         self.input_handler.display_multiline_message(about_pb_run)
         seq_no, id_stitcher_table_name = self.prompt_to_do_pb_run(id_graph_model)
-        distinct_main_ids = self.explain_pb_run_results(entity_name, id_stitcher_table_name)
-        seq_no, updated_id_stitcher_table_name = self.second_run(distinct_main_ids, entity_name, id_graph_model, id_stitcher_table_name)
-        self.third_run(entity_name, id_graph_model,id_stitcher_table_name, updated_id_stitcher_table_name, seq_no)
+        distinct_main_ids = self.explain_pb_run_results(
+            entity_name, id_stitcher_table_name
+        )
+        seq_no, updated_id_stitcher_table_name = self.second_run(
+            distinct_main_ids, entity_name, id_graph_model, id_stitcher_table_name
+        )
+        self.third_run(
+            entity_name,
+            id_graph_model,
+            id_stitcher_table_name,
+            updated_id_stitcher_table_name,
+            seq_no,
+        )
 
     def explain_pb_compile_results(self, pb_compile_output, id_graph_model):
         seq_no, _ = self.parse_pb_output_text(pb_compile_output, id_graph_model)
@@ -138,6 +156,7 @@ class ProfileBuilder:
         """
         self.input_handler.display_multiline_message(about_pb_compile)
         return seq_no
+
     def display_welcome_message(self):
         messages = """
         This is a guided interactive tutorial on Rudderstack Profiles. This tutorial will walk through key concepts of profiles and how it works. 
@@ -151,7 +170,9 @@ class ProfileBuilder:
         building a c360 degree view of this entity, and putting that data into action for the benefit of your business!
         """
         print(messages)
-        self.input_handler.display_multiline_message("Please read through the text in detail and press Enter to continue to each next step. Press “Enter” now")
+        self.input_handler.display_multiline_message(
+            "Please read through the text in detail and press Enter to continue to each next step. Press “Enter” now"
+        )
 
         fitional_business_overview = """
         In a moment, we will seed your warehouse with fictional business data to run the profiles project on during this tutorial. (Press Enter to continue)
@@ -166,7 +187,7 @@ class ProfileBuilder:
         Secure Solutions, LLC knows that they have around 319 customers. 171 of which represent known users and the remaining 148 are unknown.
         Meaning, they have not performed any sort of conversion yet."""
         self.input_handler.display_multiline_message(fitional_business_overview)
-        
+
     def get_entity_name(self):
         about_entity_message = """
         We are now going to define an entity in the pb_project.yaml file around which we want to model the input data. In every company there are business artifacts that are tracked across systems for the purpose of creating a complete data picture of the artifact.
@@ -175,7 +196,11 @@ class ProfileBuilder:
         Entities are the central concept that a profiles project is built around. The identity graphs and C360 tables will be built around an entity.
         """
         print(about_entity_message)
-        return self.input_handler.get_user_input("For the purpose of this tutorial, we will define a 'user' entity. Please enter `user`", default="user", options=['user'])
+        return self.input_handler.get_user_input(
+            "For the purpose of this tutorial, we will define a 'user' entity. Please enter `user`",
+            default="user",
+            options=["user"],
+        )
 
     def get_id_types(self, entity_name):
         about_id_types = """
@@ -203,7 +228,7 @@ class ProfileBuilder:
         """
         self.input_handler.display_multiline_message(about_id_types)
         id_types = self.input_handler.guide_id_type_input(entity_name)
-        
+
         conclusion = """
         We have now defined an entity called "user" along with the associated id_types that exist across our different source systems. 
         Now, let's move onto bringing in our data sources in order to run the ID Stitcher model and output an ID Graph."""
@@ -225,8 +250,10 @@ class ProfileBuilder:
         self.input_handler.display_multiline_message(connection_messages)
         if self.fast_mode:
             # get password from user
-            password = self.input_handler.get_user_input("Enter password for profiles_demo user", password=True)
-            self.config = {     
+            password = self.input_handler.get_user_input(
+                "Enter password for profiles_demo user", password=True
+            )
+            self.config = {
                 "account": "ina31471.us-east-1",
                 "output_database": "DREW_PB_TUTORIAL_DB",
                 "output_schema": "DILEEP_TEST",
@@ -237,7 +264,7 @@ class ProfileBuilder:
                 "role": "DEMO_ROLE",
                 "warehouse": "ADHOC_WH",
                 "user": "profiles_demo",
-                }
+            }
         else:
             inputs = {}
             inputs.update(self.input_handler.collect_user_inputs(InputSteps.common()))
@@ -253,23 +280,35 @@ class ProfileBuilder:
                 "input_database": inputs[InputSteps.OUTPUT_DATABASE],
                 "input_schema": inputs[InputSteps.OUTPUT_SCHEMA],
                 "output_database": inputs[InputSteps.OUTPUT_DATABASE],
-                "output_schema": inputs[InputSteps.OUTPUT_SCHEMA]
+                "output_schema": inputs[InputSteps.OUTPUT_SCHEMA],
             }
-        self.db_manager = DatabaseManager(self.config, self.input_handler, self.fast_mode)
-        
+        self.db_manager = DatabaseManager(
+            self.config, self.input_handler, self.fast_mode
+        )
+
     def upload_sample_data(self):
-        logger.info("Now, let's seed your warehouse with the sample data from Secure Solutions, LLC")
-        logger.info(f"We will add a suffix `{TABLE_SUFFIX}` to the table names to avoid conflicts and not overwrite any existing tables.")
+        logger.info(
+            "Now, let's seed your warehouse with the sample data from Secure Solutions, LLC"
+        )
+        logger.info(
+            f"We will add a suffix `{TABLE_SUFFIX}` to the table names to avoid conflicts and not overwrite any existing tables."
+        )
         return self.db_manager.upload_sample_data(SAMPLE_DATA_DIR, TABLE_SUFFIX)
 
     def find_relevant_tables(self, new_table_names):
-        logger.info(f"\n** Searching the `{self.config['input_schema']}` schema in `{self.config['input_database']}` database for uploaded sample tables, that will act as sources for profiles **\n")
+        logger.info(
+            f"\n** Searching the `{self.config['input_schema']}` schema in `{self.config['input_database']}` database for uploaded sample tables, that will act as sources for profiles **\n"
+        )
         try:
             relevant_tables = self.db_manager.find_relevant_tables(new_table_names)
             if not relevant_tables:
-                logger.error("No relevant tables found. Please check your inputs and try again.")
+                logger.error(
+                    "No relevant tables found. Please check your inputs and try again."
+                )
                 sys.exit(1)
-            logger.info(f"Found {len(relevant_tables)} relevant tables: {relevant_tables}")
+            logger.info(
+                f"Found {len(relevant_tables)} relevant tables: {relevant_tables}"
+            )
             return relevant_tables
         except Exception as e:
             logger.exception(f"An error occurred while fetching tables: {e}")
@@ -296,7 +335,9 @@ class ProfileBuilder:
         table_index = 0
         while table_index < len(relevant_tables):
             table = relevant_tables[table_index]
-            table_mappings, action = self.db_manager.map_columns_to_id_types(table, id_types, entity_name)
+            table_mappings, action = self.db_manager.map_columns_to_id_types(
+                table, id_types, entity_name
+            )
             if action == "back":
                 if table_index > 0:
                     table_index -= 1
@@ -308,18 +349,24 @@ class ProfileBuilder:
                 if table_mappings:
                     id_mappings[table] = {
                         "mappings": table_mappings,
-                        "full_table_name": f"{self.config['input_database']}.{self.config['input_schema']}.{table}"
+                        "full_table_name": f"{self.config['input_database']}.{self.config['input_schema']}.{table}",
                     }
                 table_index += 1
         self.file_generator.create_inputs_yaml(id_mappings)
-        print("Perfect! You can now examine your inputs.yaml file and see the input definitions.")
-    
+        print(
+            "Perfect! You can now examine your inputs.yaml file and see the input definitions."
+        )
+
     def build_id_stitcher_model(self, table_names, entity_name, id_graph_model):
         id_stitcher_spec = """
         Now, let's define an ID Stitcher Model. This model type will generate SQL which will run in your data warehouse and ultimately output an ID Graph. 
         Let's first define a name for the model. This will also be the name of the output view within your warehouse after the run is completed."""
         self.input_handler.display_multiline_message(id_stitcher_spec)
-        id_graph_model_name = self.input_handler.get_user_input(f"Enter a name for the model, Let's give the name `{id_graph_model}`", options=[id_graph_model], default=id_graph_model)
+        id_graph_model_name = self.input_handler.get_user_input(
+            f"Enter a name for the model, Let's give the name `{id_graph_model}`",
+            options=[id_graph_model],
+            default=id_graph_model,
+        )
         id_stitcher_spec2 = """
         The id stitcher model has a concept known as an “edge”. An Edge is simply a direct connection between two nodes. 
         In profiles, a single node is a combination of your id value, and id type. So a full edge record would have 2 nodes.
@@ -333,11 +380,19 @@ class ProfileBuilder:
         self.input_handler.display_multiline_message(id_stitcher_spec2)
         for table in table_names:
             table_name = "rs" + table.replace(f"_{TABLE_SUFFIX}", "").capitalize()
-            edge_source = self.input_handler.get_user_input(f"Enter `inputs/{table_name}` as an edge source", options=[f"inputs/{table_name}"], default=f"inputs/{table_name}")
+            edge_source = self.input_handler.get_user_input(
+                f"Enter `inputs/{table_name}` as an edge source",
+                options=[f"inputs/{table_name}"],
+                default=f"inputs/{table_name}",
+            )
             edge_sources.append(edge_source)
-        self.file_generator.create_profiles_yaml(entity_name, edge_sources, id_graph_model_name)
-        print("Perfect! You can now examine your profiles.yaml file and see the model spec for the ID Stitcher.")
-        
+        self.file_generator.create_profiles_yaml(
+            entity_name, edge_sources, id_graph_model_name
+        )
+        print(
+            "Perfect! You can now examine your profiles.yaml file and see the model spec for the ID Stitcher."
+        )
+
     def create_siteconfig(self):
         about_siteconfig = """
         We store the connection information in a file called `siteconfig.yaml`.
@@ -346,7 +401,7 @@ class ProfileBuilder:
         """
         print(about_siteconfig)
         return self.file_generator.create_siteconfig(self.config)
-            
+
     def display_about_project_files(self, connection_name):
         about_files = f"""
         Now let's create a profiles project. 
@@ -380,15 +435,21 @@ class ProfileBuilder:
         entity_name = self.get_entity_name()
         id_graph_model = f"{entity_name}_{ID_GRAPH_MODEL_SUFFIX}"
         id_types = self.get_id_types(entity_name)
-        self.file_generator.create_pb_project(entity_name, id_types, connection_name, id_graph_model)
-        print("We have updated the pb_project.yaml file with this info. Please check it out.")
+        self.file_generator.create_pb_project(
+            entity_name, id_types, connection_name, id_graph_model
+        )
+        print(
+            "We have updated the pb_project.yaml file with this info. Please check it out."
+        )
         return entity_name, id_types, id_graph_model
 
     def _subprocess_run(self, args):
         response = subprocess.run(
             args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
         )
-        assert response.returncode == 0, f"Command {args} failed with error: {response.stderr}"
+        assert (
+            response.returncode == 0
+        ), f"Command {args} failed with error: {response.stderr}"
         return response.stdout
 
     def parse_pb_output_text(self, pb_output_text: str, id_graph_name: str):
@@ -396,21 +457,28 @@ class ProfileBuilder:
         match = re.search(seq_no_pattern, pb_output_text)
         assert match, f"Failed to find seq_no in the pb  output {pb_output_text}"
         seq_no = match.group(1)
-        pattern = fr'(Material_{id_graph_name}_[a-f0-9]+_\d+)'
+        pattern = rf"(Material_{id_graph_name}_[a-f0-9]+_\d+)"
         match = re.search(pattern, pb_output_text)
-        assert match, f"Failed to find id_graph_table_name in the pb  output {pb_output_text}"
+        assert (
+            match
+        ), f"Failed to find id_graph_table_name in the pb  output {pb_output_text}"
         id_graph_table_name = match.group(1)
         return int(seq_no), id_graph_table_name
 
-    def prompt_to_do_pb_run(self, id_graph_name: str, command: str="pb run"):
-        self.input_handler.get_user_input(f"Enter `{command}` to continue", options=[command])
+    def prompt_to_do_pb_run(self, id_graph_name: str, command: str = "pb run"):
+        self.input_handler.get_user_input(
+            f"Enter `{command}` to continue", options=[command]
+        )
         logger.info("Running the profiles project...(This will take a few minutes)")
         os.chdir("profiles")
         pb_run_output = self._subprocess_run(command.split())
         os.chdir("..")
-        seq_no, id_graph_table_name = self.parse_pb_output_text(pb_run_output, id_graph_name)
+        seq_no, id_graph_table_name = self.parse_pb_output_text(
+            pb_run_output, id_graph_name
+        )
         logger.info("Done")
         return seq_no, id_graph_table_name
+
     # def get_latest_id_stitcher_table_name(self, entity_name: str) -> str:
     #     id_stitchers = []
     #     id_stitcher_model_name = f"{entity_name}_id_graph"
@@ -448,17 +516,17 @@ class ProfileBuilder:
         """
         self.input_handler.display_multiline_message(prompt)
 
-        distinct_ids = self._explain_first_run( entity_name, id_stitcher_table_name)
+        distinct_ids = self._explain_first_run(entity_name, id_stitcher_table_name)
         return distinct_ids
-    
+
     def id_stitcher_queries(self, entity_name: str, id_stitcher_table_name: str) -> int:
         query_distinct_main_ids = f"select count(distinct {entity_name}_main_id) from {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name}"
-        #logger.info("You can check the total number of entities in your project by running the following query in your warehouse account:")
+        # logger.info("You can check the total number of entities in your project by running the following query in your warehouse account:")
         print(query_distinct_main_ids)
         # run query
         result = self.db_manager.connector.run_query(query_distinct_main_ids)
         return result[0][0]
-        
+
     def _explain_first_run(self, entity_name: str, id_stitcher_table_name: str):
 
         user_main_ids_query = f"""
@@ -467,7 +535,6 @@ class ProfileBuilder:
         from {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name} 
         group by 1 order by 2 desc"""
 
-        
         intro_text = f"""
         Now, let's perform some QA on the ID graph and verify the output. 
         As mentioned above, there is a column called `{entity_name}_main_id` which is supposed to represent a unique key for a unique user with multiple IDs.
@@ -478,7 +545,9 @@ class ProfileBuilder:
         """
         self.input_handler.display_multiline_message(intro_text)
         print(user_main_ids_query)
-        user_main_ids = self.db_manager.connector.run_query(user_main_ids_query, output_type="pandas")
+        user_main_ids = self.db_manager.connector.run_query(
+            user_main_ids_query, output_type="pandas"
+        )
         distinct_ids = len(user_main_ids)
         assert distinct_ids == 3
         alerting_text = f"""
@@ -512,11 +581,18 @@ class ProfileBuilder:
         from the PAGES and IDENTIFIES input definitions underneath the `ids:` key in each definition. 
         """
         self.input_handler.display_multiline_message(prompt)
-        self.input_handler.get_user_input("Enter 'done' to continue once you have made the changes", options=["done"])
+        self.input_handler.get_user_input(
+            "Enter 'done' to continue once you have made the changes", options=["done"]
+        )
         # Validate whether the new yaml files have shopify_store_id
         while not self.file_generator.validate_shopify_store_id_is_removed():
-            logger.info("Please make sure to remove shopify_store_id from pb_project.yaml, inputs.yaml and try again")
-            self.input_handler.get_user_input("Enter 'done' to continue once you have made the changes", options=["done"])
+            logger.info(
+                "Please make sure to remove shopify_store_id from pb_project.yaml, inputs.yaml and try again"
+            )
+            self.input_handler.get_user_input(
+                "Enter 'done' to continue once you have made the changes",
+                options=["done"],
+            )
         return distinct_ids
 
     def cluster_size_analysis(self, entity_name: str, id_stitcher_table_name: str):
@@ -527,15 +603,23 @@ class ProfileBuilder:
                 order by 2 desc 
                 """
         logger.info(query)
-        res =  self.db_manager.connector.run_query(query, output_type="pandas")
+        res = self.db_manager.connector.run_query(query, output_type="pandas")
         res.columns = [col.lower() for col in res.columns]
         return res
 
-    def second_run(self, distinct_ids: int, entity_name: str, id_graph_model: str, id_stitcher_table_name: str):
+    def second_run(
+        self,
+        distinct_ids: int,
+        entity_name: str,
+        id_graph_model: str,
+        id_stitcher_table_name: str,
+    ):
         logger.info("Now let's run the updated profiles project")
-        seq_no, updated_id_stitcher_table_name = self.prompt_to_do_pb_run(id_graph_model)
+        seq_no, updated_id_stitcher_table_name = self.prompt_to_do_pb_run(
+            id_graph_model
+        )
         edge_table = f"{self.config['output_database']}.{self.config['output_schema']}.{updated_id_stitcher_table_name}_internal_edges"
-        #updated_id_stitcher_table_name = self.get_latest_id_stitcher_table_name(entity_name)
+        # updated_id_stitcher_table_name = self.get_latest_id_stitcher_table_name(entity_name)
         second_run_prompt = f"""
         Now that the second full run is complete lets QA the outputs. 
         Optionally, you can inspect and see that profiles appended an additional seq_no directory in the outputs folder on this run. 
@@ -553,12 +637,14 @@ class ProfileBuilder:
         # What's the number of distinct {entity_name}_main_ids now?
         # """
         # self.input_handler.display_multiline_message(prompt)
-        distinct_ids_upd = self.id_stitcher_queries(entity_name, updated_id_stitcher_table_name)
+        distinct_ids_upd = self.id_stitcher_queries(
+            entity_name, updated_id_stitcher_table_name
+        )
         # self.top_clusters_query = f"""
-        #         select {entity_name}_main_id, count(*) as cluster_size 
-        #         from {self.config['output_database']}.{self.config['output_schema']}.{updated_id_stitcher_table_name} 
-        #         group by 1 
-        #         order by 2 desc 
+        #         select {entity_name}_main_id, count(*) as cluster_size
+        #         from {self.config['output_database']}.{self.config['output_schema']}.{updated_id_stitcher_table_name}
+        #         group by 1
+        #         order by 2 desc
         #         """
         prompt = f"""
         Interesting, the number you should see is: {distinct_ids_upd}. This is much better than the earlier number {distinct_ids}!
@@ -569,24 +655,26 @@ class ProfileBuilder:
         """
 
         # It's always a good idea to do some sanity on the id stitcher table. Some common checks could be:
-        # - Size of the top clusters. If you see some clusters having significantly more number of ids than others, may be there's some over stitching. 
+        # - Size of the top clusters. If you see some clusters having significantly more number of ids than others, may be there's some over stitching.
         #   A common next step here is to look at the exact ids in those clusters to give some hints.
         #   Occasionally, there may be some test accounts or internal emails that stitch a lot of users together.
-        #   Or there may also be noisy data points - ex: a user_id called 'none', or a phone number with all zeros etc. 
+        #   Or there may also be noisy data points - ex: a user_id called 'none', or a phone number with all zeros etc.
         #   You can use these observations to exclude such ids from your id stitcher.
-        # - Size of singleton clusters - main_ids with just a single other_id. Often, these would be anonymous_ids - visitors that never converted to a user. 
+        # - Size of singleton clusters - main_ids with just a single other_id. Often, these would be anonymous_ids - visitors that never converted to a user.
         #   But of there are other id types too, say, emails that were never linked to user_id etc, that may be worth investigating. There may be some understitching happening here.
         #   There may be some tables tying different id types that you may have missed. This can help you spot those.
-        # - Also check the absolute numbers to see if they are in the ballpark you expect. 
-        #   This can be both the distinct main_ids after stitching, as well as the distinct other_ids within each other_id_type. 
+        # - Also check the absolute numbers to see if they are in the ballpark you expect.
+        #   This can be both the distinct main_ids after stitching, as well as the distinct other_ids within each other_id_type.
         # We have only a few hundreds of distinct main_ids, so we can check the count of all the clusters as the number is manageable.
         # We can use following query to check that:
         # """
         self.input_handler.display_multiline_message(prompt)
-        #logger.info(self.top_clusters_query)
-        logger.info("You can run this query in your warehouse account to check the size of all the clusters")
+        # logger.info(self.top_clusters_query)
+        logger.info(
+            "You can run this query in your warehouse account to check the size of all the clusters"
+        )
         result = self.cluster_size_analysis(entity_name, updated_id_stitcher_table_name)
-        #result = self.db_manager.connector.run_query(self.top_clusters_query, output_type="pandas")
+        # result = self.db_manager.connector.run_query(self.top_clusters_query, output_type="pandas")
         print(result.head(10))
         edge_table_intro = f"""
         This is a much more healthy id graph. But it does appear that we have 5 user_main_ids that have an unusually high ID count. All of the user_main_ids below the top 5 seem to be fine. 
@@ -609,24 +697,24 @@ class ProfileBuilder:
 
         # cluster_description = f"""
         # We should see the largest cluster having a count of {result.iloc[0]['num_of_other_ids']} and the smallest having a count of {result.iloc[-1]['num_of_other_ids']}
-        # The average cluster size is {result['num_of_other_ids'].mean()}. 
+        # The average cluster size is {result['num_of_other_ids'].mean()}.
         # The top 10 clusters are as follows:
         # {result.head(10)}
 
         # There are three patterns we should see here:
-        # 1. There are {len(result[result['num_of_other_ids']>100])} clusters which are huge. 
+        # 1. There are {len(result[result['num_of_other_ids']>100])} clusters which are huge.
         # 2. Then there are many clusters with around 20 ids
-        # 3. And there are {len(result[result['num_of_other_ids']==1])} clusters with just a single id. 
+        # 3. And there are {len(result[result['num_of_other_ids']==1])} clusters with just a single id.
 
         # We will now introduce a new table in the warehouse - `{updated_id_stitcher_table_name}_internal_edges` which can be used to debug some of these.
         # This table is the input table from which the id stitcher model is built. You can always find it by adding a `_internal_edges` suffix to the id stitcher table name.
-        # Each row in this table corresponds to two ids, id1 and id2, which come from different input tables. So these are the "direct edges" between various ids. 
+        # Each row in this table corresponds to two ids, id1 and id2, which come from different input tables. So these are the "direct edges" between various ids.
         # For example, if a user with anonymous_id 'a1' has signed in with a user_id 'u1' and this event is captured in the pages table, we see a corresponding row in this internal_edges table.
         # However, if this user 'u1' contacted us with a phone number 'p1' and this event is captured in some Salesforce table, we may not see a row having both 'a1' and 'p1' in the internal_edges table because they are from different tables. They are not "directly" related "yet"
         # So investigating this table often shows us noise in the input data. We can use following query to check the "bad" ids that stitched a lot of other ids in the top clusters:
-        # """      
+        # """
         # self.input_handler.display_multiline_message(cluster_description)
-        
+
         dense_edges_query = f"""
     WITH edge_table AS (    
         SELECT
@@ -655,7 +743,9 @@ class ProfileBuilder:
     ORDER BY count_of_edges DESC;"""
         print(dense_edges_query)
         print("Running the query...")
-        dense_edges = self.db_manager.connector.run_query(dense_edges_query, output_type="pandas")
+        dense_edges = self.db_manager.connector.run_query(
+            dense_edges_query, output_type="pandas"
+        )
         dense_edges.columns = [col.lower() for col in dense_edges.columns]
         print(dense_edges.head(20))
         explain_bad_anon_ids = f"""
@@ -713,10 +803,12 @@ class ProfileBuilder:
     order by email_count desc"""
         print(query_investigate_bad_anons)
         print("Running the query...")
-        bad_anons = self.db_manager.connector.run_query(query_investigate_bad_anons, output_type="pandas")
+        bad_anons = self.db_manager.connector.run_query(
+            query_investigate_bad_anons, output_type="pandas"
+        )
         bad_anons.columns = [col.lower() for col in bad_anons.columns]
-        pd.set_option('display.max_columns', None)
-        pd.set_option('display.width', None)
+        pd.set_option("display.max_columns", None)
+        pd.set_option("display.width", None)
         print(bad_anons.head(20))
         explain_bad_anon_ids2 = """
         We sorted the query on an id type (email) where we know there should only be one per user_main_id. 
@@ -734,11 +826,15 @@ class ProfileBuilder:
         This is done back in the pb_project.yaml.
         """
         self.input_handler.display_multiline_message(explain_bad_anon_ids2)
-        self.input_handler.display_multiline_message("Click enter so we update your `pb_project.yaml` file with the regex filter to the anonymous_id type in the background")
+        self.input_handler.display_multiline_message(
+            "Click enter so we update your `pb_project.yaml` file with the regex filter to the anonymous_id type in the background"
+        )
         self.file_generator.update_bad_anons_filter()
-        print("Now observe the filter in your pb_project.yaml file for anonymous_id. The ID stitcher model will now filter out these bad id values from the stitching process so these users will not be merged.")
+        print(
+            "Now observe the filter in your pb_project.yaml file for anonymous_id. The ID stitcher model will now filter out these bad id values from the stitching process so these users will not be merged."
+        )
         return seq_no, updated_id_stitcher_table_name
-        
+
         # query_debug_top_clusters = f"""
         #     WITH top_clusters AS
         #     (SELECT {entity_name}_main_id,
@@ -778,12 +874,12 @@ class ProfileBuilder:
         # results.columns = [col.lower() for col in results.columns]
         # logger.info(results)
         # explain_bad_anon_ids = f"""
-        # You can see 5 anon ids at the top, followed by many email ids. 
+        # You can see 5 anon ids at the top, followed by many email ids.
         # These anon ids are inserted in the seed data on purpose. They are connecting too many emails/other identifiers together.
-        # This is a scenario which often happens in real life. 
+        # This is a scenario which often happens in real life.
         # A single customer sales rep for example logs into their customer accounts using one browser, linking many emails together through their anon id
-        # We can exclude all these anonymous ids from the id stitcher. 
-        # This can be done by adding a 'filter' in the pb_project.yaml file, where we declare the id_types. 
+        # We can exclude all these anonymous ids from the id stitcher.
+        # This can be done by adding a 'filter' in the pb_project.yaml file, where we declare the id_types.
         # We can modify the `id_types` block for anonymous_id as follows:
         # """
         # self.input_handler.display_multiline_message(explain_bad_anon_ids)
@@ -804,7 +900,15 @@ class ProfileBuilder:
         # while not self.file_generator.validate_bad_anons_are_filtered():
         #     logger.info("That doesn't look right. Please make sure the above filters are added exactly as shown above, and try again")
         #     self.input_handler.get_user_input("Update your pb_project.yaml with above changes, and enter 'done' to continue once you have made the changes", options=["done"])
-    def third_run(self, entity_name: str, id_graph_model: str, id_stitcher_table_1: str, id_stitcher_table_2: str, seq_no2: int):
+
+    def third_run(
+        self,
+        entity_name: str,
+        id_graph_model: str,
+        id_stitcher_table_1: str,
+        id_stitcher_table_2: str,
+        seq_no2: int,
+    ):
         # Third run
         seq_no_intro = f"""
         Now that the anon ids are excluded in the project definition, let's re-run the profiles project. 
@@ -813,7 +917,9 @@ class ProfileBuilder:
         This results in a faster pb run, along with some cost savings on the warehouse. The previous run had a seq number of {seq_no2}, apparent from the id graph table name {id_stitcher_table_2}.
         We will use that seq no in the pb run."""
         self.input_handler.display_multiline_message(seq_no_intro)
-        seq_no3, id_stitcher_table_name_3 = self.prompt_to_do_pb_run(id_graph_model, command=f'pb run --seq_no {seq_no2}')
+        seq_no3, id_stitcher_table_name_3 = self.prompt_to_do_pb_run(
+            id_graph_model, command=f"pb run --seq_no {seq_no2}"
+        )
         prompt = f"""
         You can see that the id stitcher table name has changed again. It is now {id_stitcher_table_name_3} (from earlier {id_stitcher_table_2} and {id_stitcher_table_1}).
         The filter on anonymous_id resulted in the changing of the hash. But as we reused prev seq_no, the suffix seq_no did not change.
@@ -839,7 +945,7 @@ class ProfileBuilder:
     # def execute_pb_run(self, first_run=True):
     #     if first_run:
     #         prompt = """
-    #         Now let's run the generated profiles project. The command to run is `pb run`. 
+    #         Now let's run the generated profiles project. The command to run is `pb run`.
     #         You would normally do that in your terminal as a cli command.
     #         But for this guided demo, you can just enter the command and the tutorial will execute it for you.
     #         """
@@ -873,8 +979,6 @@ class ProfileBuilder:
     #     self.analyze_updated_results(entity_name, updated_id_stitcher_table_name, distinct_main_ids)
 
 
-
-
 def unzip_sample_data():
     zip_file_path = "sample_data.zip"
     # Ensure the zip file exists
@@ -882,13 +986,14 @@ def unzip_sample_data():
         raise Exception(f"Error: {zip_file_path} not found.")
     # Unzip the file
     try:
-        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+        with zipfile.ZipFile(zip_file_path, "r") as zip_ref:
             for file_info in zip_ref.infolist():
-                if not file_info.filename.startswith('__MACOSX'):
-                    zip_ref.extract(file_info, '.')
+                if not file_info.filename.startswith("__MACOSX"):
+                    zip_ref.extract(file_info, ".")
         print(f"Successfully extracted {zip_file_path} to the current directory")
     except Exception as e:
         raise Exception(f"An error occurred while extracting: {str(e)}")
+
 
 # def main(fast_mode: bool):
 #     if not os.path.exists("sample_data"):

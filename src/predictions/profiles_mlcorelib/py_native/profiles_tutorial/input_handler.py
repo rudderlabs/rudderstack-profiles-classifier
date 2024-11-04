@@ -3,6 +3,7 @@ from enum import Enum
 from typing import List, Dict
 
 from .config import PREDEFINED_ID_TYPES
+from profiles_rudderstack.reader import Reader
 
 
 class InputSteps(Enum):
@@ -38,7 +39,8 @@ class InputSteps(Enum):
 
 
 class InputHandler:
-    def __init__(self, fast_mode: bool):
+    def __init__(self, reader: Reader, fast_mode: bool):
+        self.reader = reader
         self.fast_mode = fast_mode
 
     def get_user_input(self, prompt, options=None, password=False, default=None):
@@ -48,10 +50,7 @@ class InputHandler:
         full_prompt += "\n> "
 
         while True:
-            if password:
-                user_input = getpass.getpass(full_prompt).strip()
-            else:
-                user_input = input(full_prompt).strip()
+            user_input = self.reader.get_input(full_prompt, password).strip()
 
             if not user_input:
                 if default:
@@ -90,7 +89,7 @@ class InputHandler:
             if line:
                 print(line)
             if not self.fast_mode:
-                input("")
+                self.reader.get_input("")
 
     # def print_and_wait(self, message: str, delay: int = 10):
     #     print(message)

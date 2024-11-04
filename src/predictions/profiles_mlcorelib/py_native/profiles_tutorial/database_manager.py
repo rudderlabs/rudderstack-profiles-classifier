@@ -254,7 +254,11 @@ class DatabaseManager:
             yaml.width = 4096  # Prevent line wrapping
             yaml.dump(summary, sys.stdout)
             logger.info("\n")
-            input(f"The above is the inputs yaml for table `{table}`")
+            self.input_handler.get_user_input(
+                f"The above is the inputs yaml for table `{table}`"
+            )
         else:
-            input("No id_type mappings were selected for this table.\n")
+            self.input_handler.get_user_input(
+                "No id_type mappings were selected for this table.\n"
+            )
         return table_mappings, "next"

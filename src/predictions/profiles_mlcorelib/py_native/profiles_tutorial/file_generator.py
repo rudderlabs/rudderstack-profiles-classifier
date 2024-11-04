@@ -41,7 +41,9 @@ class FileGenerator:
             )
             if replace == "yes":
                 break
-            connection_name = input("Enter a new connection name: ")
+            connection_name = self.input_handler.get_user_input(
+                "Enter a new connection name: "
+            )
 
         new_connection = {
             connection_name: {

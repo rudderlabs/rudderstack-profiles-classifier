@@ -5,15 +5,13 @@ import os
 import warnings
 import subprocess
 import zipfile
-from input_handler import InputHandler, InputSteps
-from database_manager import DatabaseManager
-from file_generator import FileGenerator
+from .input_handler import InputHandler, InputSteps
+from .database_manager import DatabaseManager
+from .file_generator import FileGenerator
 import pandas as pd
-from config import (
+from .config import (
     SAMPLE_DATA_DIR,
     TABLE_SUFFIX,
-    CONFIG_FILE_PATH,
-    INPUTS_FILE_PATH,
     ID_GRAPH_MODEL_SUFFIX,
 )
 
@@ -21,6 +19,7 @@ from typing import Tuple
 from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
+from profiles_rudderstack.logger import Logger
 
 warnings.filterwarnings("ignore", category=UserWarning, module="snowflake.connector")
 
@@ -54,6 +53,7 @@ class TutorialModel(BaseModelType):
 class TutorialRecipe(PyNativeRecipe):
     def __init__(self, fast_mode: bool) -> None:
         self.profile_builder = ProfileBuilder(fast_mode)
+        self.logger = Logger("TutorialRecipe")
 
     def describe(self, this: WhtMaterial) -> Tuple[str, str]:
         return (
@@ -66,7 +66,7 @@ class TutorialRecipe(PyNativeRecipe):
 
     def execute(self, this: WhtMaterial):
         if not os.path.exists("sample_data"):
-            print("Unzipping sample data...")
+            self.logger.info("unzipping sample data...")
             unzip_sample_data()
         self.profile_builder.run()
 

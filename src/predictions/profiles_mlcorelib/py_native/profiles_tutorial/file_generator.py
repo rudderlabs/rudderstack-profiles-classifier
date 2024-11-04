@@ -2,9 +2,10 @@ import os
 from pathlib import Path
 from ruamel.yaml import YAML
 import logging
-from config import TABLE_SUFFIX, CONFIG_FILE_PATH, INPUTS_FILE_PATH, PROFILES_FILE_PATH
 import yaml
-from input_handler import InputHandler
+
+from .config import TABLE_SUFFIX, CONFIG_FILE_PATH, INPUTS_FILE_PATH, PROFILES_FILE_PATH
+from .input_handler import InputHandler
 
 logger = logging.getLogger(__name__)
 

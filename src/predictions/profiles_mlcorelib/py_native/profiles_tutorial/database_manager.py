@@ -1,12 +1,12 @@
 import os
 import pandas as pd
 import logging
-import re
 from typing import List, Dict, Tuple
 from llm_core.wh.utils import SnowparkConnector
 from ruamel.yaml import YAML
 import sys
-from input_handler import InputHandler
+
+from .input_handler import InputHandler
 
 logger = logging.getLogger(__name__)
 

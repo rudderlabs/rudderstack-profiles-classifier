@@ -1,8 +1,8 @@
 import getpass
 from enum import Enum
 from typing import List, Dict
-from config import PREDEFINED_ID_TYPES
-import time
+
+from .config import PREDEFINED_ID_TYPES
 
 
 class InputSteps(Enum):

@@ -1,3 +1,4 @@
+import pkg_resources
 import logging
 import re
 import sys
@@ -57,7 +58,7 @@ class TutorialRecipe(PyNativeRecipe):
 
     def describe(self, this: WhtMaterial) -> Tuple[str, str]:
         return (
-            "This recipe is a guided interactive tutorial on Rudderstack Profiles. This tutorial will walk through key concepts of profiles and how it works. As a part of this tutorial, we will also build a basic project with an ID Stitcher Model ultimately producing an ID Graph in your warehouse.",
+            "# Profiles Tutorial\nThis recipe is a guided interactive tutorial on Rudderstack Profiles. This tutorial will walk through key concepts of profiles and how it works. As a part of this tutorial, we will also build a basic project with an ID Stitcher Model ultimately producing an ID Graph in your warehouse.",
             "md",
         )
 
@@ -979,8 +980,15 @@ class ProfileBuilder:
     #     self.analyze_updated_results(entity_name, updated_id_stitcher_table_name, distinct_main_ids)
 
 
+def get_sample_data_path():
+    """Returns the path to the data directory"""
+    return pkg_resources.resource_filename(
+        "profiles_mlcorelib", "py_native/profiles_tutorial/sample_data.zip"
+    )
+
+
 def unzip_sample_data():
-    zip_file_path = "sample_data.zip"
+    zip_file_path = get_sample_data_path()
     # Ensure the zip file exists
     if not os.path.exists(zip_file_path):
         raise Exception(f"Error: {zip_file_path} not found.")

@@ -31,7 +31,7 @@ install_requires = [
     "snowflake-snowpark-python[pandas]>=1.11.1",
     "networkx",
     "pyvis",
-    "ruamel-yaml>=0.18.6",
+    "ruamel.yaml>=0.18.6",
 ]
 
 setup(

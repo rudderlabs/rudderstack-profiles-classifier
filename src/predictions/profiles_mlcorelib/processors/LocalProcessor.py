@@ -1,6 +1,7 @@
 import os
 import json
 from typing import List
+from dataclasses import asdict
 import sys
 
 from ..utils import utils
@@ -68,6 +69,7 @@ class LocalProcessor(Processor):
         output_tablename,
         merged_config,
         site_config: dict,
+        model_hash: str,
     ):
         output_path = os.path.dirname(model_path)
         json_output_filename = model_path.split("/")[-1]
@@ -85,7 +87,7 @@ class LocalProcessor(Processor):
             "--json_output_filename",
             json_output_filename,
             "--inputs",
-            json.dumps(inputs),
+            json.dumps(inputs, default=asdict),
             "--end_ts",
             end_ts,
             "--output_tablename",
@@ -96,6 +98,8 @@ class LocalProcessor(Processor):
             output_path,
             "--mode",
             constants.LOCAL_MODE,
+            "--model_hash",
+            model_hash,
         ]
         response_for_predict = utils.subprocess_run(commands)
         if response_for_predict.returncode != 0:

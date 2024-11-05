@@ -43,5 +43,6 @@ class Processor(ABC):
         output_tablename,
         merged_config,
         site_config: dict,
+        model_hash: str,
     ):
         pass

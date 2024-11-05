@@ -86,6 +86,7 @@ SNOWFLAKE_TRAINING_PACKAGES = [
     "seaborn==0.12.0",
     "scikit-plot==0.3.7",
     "pycaret<=3.3.0",
+    "cryptography==42.0.2",
 ]
 
 

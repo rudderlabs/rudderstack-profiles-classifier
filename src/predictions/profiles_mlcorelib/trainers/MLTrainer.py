@@ -7,10 +7,6 @@ from abc import ABC, abstractmethod
 from typing import Any, List
 from hyperopt import hp
 
-
-from ..utils.constants import TrainTablesInfo, MATERIAL_DATE_FORMAT
-from ..wht.pythonWHT import PythonWHT
-
 from ..utils import utils
 from ..utils.logger import logger
 from ..connectors.Connector import Connector
@@ -229,6 +225,13 @@ class MLTrainer(ABC):
         fold_strategy = train_config["model_params"]["fold_strategy"]
 
         # Initialize PyCaret setup for the model with train and test data
+        #  system_log = True tries to write to a logs.log file in the current working directory.
+        # On snowflake, that's the root directory, which is not writable.
+        # This causes an error - this is not entirely reproducable, as this is gracefully handled by pycaret
+        # but some external libraries/access issues is causing error in some snowflake environments (likely when std.stderr is not writable/redirected to a file where write access is not allowed)
+        # So we disable logging. But this is not honored in tuned_model step below, because it launches parallel jobs and they are not picking this config. They work on default config
+        # By setting n_jobs = 1, tune_model step is forced to run in single thread, so this error doesn't happen.
+        # This may make training slower. We can revisit and find a better solution if that becomes an issue.
         setup = pycaret_model_setup(
             data=train_data,
             test_data=test_data,
@@ -238,6 +241,10 @@ class MLTrainer(ABC):
             date_features=timestamp_cols,
             fold=n_folds,
             fold_strategy=fold_strategy,
+            system_log=False,
+            verbose=False,
+            html=False,
+            n_jobs=1,
         )
 
         for custom_metric in custom_metrics:
@@ -252,7 +259,11 @@ class MLTrainer(ABC):
             sort=metric_to_optimize, include=models_to_include
         )
         tuned_model = pycaret_tune_model(
-            best_model, optimize=metric_to_optimize, return_train_score=True
+            best_model,
+            optimize=metric_to_optimize,
+            return_train_score=True,
+            verbose=False,
+            tuner_verbose=False,
         )
 
         model_class_name = tuned_model.__class__.__name__
@@ -303,140 +314,3 @@ class MLTrainer(ABC):
     @abstractmethod
     def predict(self, trained_model) -> Any:
         pass
-
-    def check_and_generate_more_materials(
-        self,
-        get_material_func: callable,
-        materials: List[TrainTablesInfo],
-        inputs: List[dict],
-        whtService: PythonWHT,
-        connector: Connector,
-    ):
-        met_data_requirement = self.check_min_data_requirement(connector, materials)
-
-        logger.get().debug(f"Min data requirement satisfied: {met_data_requirement}")
-        if met_data_requirement or self.materialisation_strategy == "":
-            return materials
-
-        model_refs = [input["model_ref"] for input in inputs]
-        feature_package_path = utils.get_feature_package_path(model_refs)
-        max_materializations = (
-            self.materialisation_max_no_dates
-            if self.materialisation_strategy == "auto"
-            else len(self.materialisation_dates)
-        )
-
-        logger.get().info(
-            f"""Generating snapshots of past data by doing a profiles run on input models, at different points of time in the past. 
-                                Expected to run max of {2 * max_materializations} runs."""
-        )
-        for i in range(max_materializations):
-            feature_date = None
-            label_date = None
-
-            if self.materialisation_strategy == "auto":
-                training_dates = [
-                    utils.datetime_to_date_string(m.feature_table_date)
-                    for m in materials
-                ]
-                training_dates = [
-                    date_str for date_str in training_dates if len(date_str) != 0
-                ]
-                logger.get().info(f"training_dates : {training_dates}")
-                training_dates = sorted(
-                    training_dates,
-                    key=lambda x: datetime.strptime(x, MATERIAL_DATE_FORMAT),
-                    reverse=True,
-                )
-
-                max_feature_date = training_dates[0]
-                min_feature_date = training_dates[-1]
-
-                feature_date, label_date = utils.generate_new_training_dates(
-                    max_feature_date,
-                    min_feature_date,
-                    training_dates,
-                    self.prediction_horizon_days,
-                    self.feature_data_min_date_diff,
-                )
-                logger.get().info(
-                    f"new generated dates for feature: {feature_date}, label: {label_date}"
-                )
-            elif self.materialisation_strategy == "manual":
-                dates = self.materialisation_dates[i].split(",")
-                if len(dates) >= 2:
-                    feature_date = dates[0]
-                    label_date = dates[1]
-
-                if feature_date is None or label_date is None:
-                    continue
-
-            logger.get().info(
-                f"Looking for past data on dates {feature_date} and {label_date}. Will do a profiles run if they are not present."
-            )
-            try:
-                # Check wether the materialisation is already present
-                existing_materials = get_material_func(
-                    start_date=feature_date,
-                    end_date=feature_date,
-                    return_partial_pairs=True,
-                )
-
-                if len(existing_materials) > 0:
-                    # Check if any full sequence is exist or not
-                    complete_sequences = [
-                        sequence
-                        for sequence in existing_materials
-                        if all(element is not None for element in sequence)
-                    ]
-
-                    if len(complete_sequences) < 1:
-                        existing_material = existing_materials[0]
-                        if existing_material.feature_table_date is None:
-                            whtService.run(feature_package_path, feature_date)
-
-                        if existing_material.label_table_date is None:
-                            whtService.run(feature_package_path, label_date)
-                else:
-                    for date in [feature_date, label_date]:
-                        whtService.run(feature_package_path, date)
-            except Exception as e:
-                logger.get().error(str(e))
-                logger.get().error("Stopped generating new material dates.")
-                break
-
-            logger.get().info(
-                "Materialised feature and label data successfully, "
-                f"for dates {feature_date} and {label_date}"
-            )
-
-            # Get materials with new feature start date
-            # and validate min data requirement again
-
-            # For manual strategy, we need to get the materials for the selected dates separately
-            # because the selected dates may not be in the search window. so searching for materials
-            # with "feature_date" as start and end date.
-
-            # This logic will be valid for "auto" strategy as well, so we are not handling it separately.
-            materials += get_material_func(
-                start_date=feature_date, end_date=feature_date
-            )
-
-            logger.get().debug(
-                f"new feature tables: {[m.feature_table_name for m in materials]}"
-            )
-            logger.get().debug(
-                f"new label tables: {[m.label_table_name for m in materials]}"
-            )
-            if (
-                self.materialisation_strategy == "auto"
-                and self.check_min_data_requirement(connector, materials)
-            ):
-                logger.get().info("Minimum data requirement satisfied.")
-                break
-        if not self.check_min_data_requirement(connector, materials):
-            logger.get().error(
-                "Minimum data requirement not satisfied. Model performance may suffer. Try adding more datapoints by including more dates or increasing max_no_of_dates in the config."
-            )
-
-        return materials

@@ -6,6 +6,7 @@ from typing import Tuple
 from profiles_rudderstack.schema import (
     EntityKeyBuildSpecSchema,
     FeatureDetailsBuildSpecSchema,
+    EntityIdsBuildSpecSchema,
 )
 
 from .warehouse import standardize_ref_name
@@ -28,6 +29,7 @@ class PredictionModel(BaseModelType):
             "occurred_at_col": {"type": "string"},
             **EntityKeyBuildSpecSchema["properties"],
             **FeatureDetailsBuildSpecSchema["properties"],
+            **EntityIdsBuildSpecSchema["properties"],
             "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
             "training_model": {"type": "string"},
             "ml_config": {
@@ -63,8 +65,9 @@ class PredictionModel(BaseModelType):
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
+        entity_key = build_spec["entity_key"]
         build_spec["contract"] = {
-            "with_entity_ids": [build_spec["entity_key"]],
+            "with_entity_ids": [entity_key],
             "with_columns": [
                 {
                     "name": build_spec["ml_config"]["outputs"]["column_names"][
@@ -74,6 +77,15 @@ class PredictionModel(BaseModelType):
                 {"name": build_spec["ml_config"]["outputs"]["column_names"]["score"]},
             ],
         }
+        if "ids" not in build_spec:
+            build_spec["ids"] = [
+                {
+                    "select": entity_key
+                    + "_main_id",  # FIXME: select should be computed from the entity object
+                    "type": "rudder_id",
+                    "entity": entity_key,
+                }
+            ]
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:

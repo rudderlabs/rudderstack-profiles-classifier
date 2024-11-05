@@ -4,10 +4,12 @@ from profiles_rudderstack.material import WhtFolder
 from typing import Tuple
 from profiles_rudderstack.schema import (
     EntityKeyBuildSpecSchema,
+    EntityIdsBuildSpecSchema,
 )
 
 PredictionColumnSpecSchema = {
     "type": "object",
+    "additionalProperties": False,
     "properties": {
         "name": {"type": "string"},
         "description": {"type": "string"},
@@ -24,6 +26,7 @@ class PropensityModel(BaseModelType):
         "additionalProperties": False,
         "properties": {
             **EntityKeyBuildSpecSchema["properties"],
+            **EntityIdsBuildSpecSchema["properties"],
             "inputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
             "training": {
                 "type": "object",
@@ -99,7 +102,9 @@ class PropensityModel(BaseModelType):
         parent_folder.add_child_specs(
             training_model_name, "training_model", training_spec
         )
-        training_model_ref = parent_folder.folder_ref() + training_model_name
+        # Fixme: Uncomment the following line once pb is released with the rpc method
+        # training_model_ref = parent_folder.folder_ref_from_level_root() + training_model_name
+        training_model_ref = "models/" + training_model_name
         prediction_spec = self._get_prediction_spec(training_model_ref, training_spec)
         parent_folder.add_child_specs(
             model_name + "_prediction",
@@ -163,7 +168,7 @@ class PropensityModel(BaseModelType):
                 )
         if self.build_spec["prediction"].get("eligible_users", None) is not None:
             data["eligible_users"] = self.build_spec["prediction"]["eligible_users"]
-        return {
+        spec = {
             "entity_key": self.build_spec["entity_key"],
             "training_model": training_model_ref,
             "inputs": self.build_spec["inputs"],
@@ -178,6 +183,9 @@ class PropensityModel(BaseModelType):
             },
             "features": features,
         }
+        if "ids" in self.build_spec:
+            spec["ids"] = self.build_spec["ids"]
+        return spec
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return NoOpRecipe()

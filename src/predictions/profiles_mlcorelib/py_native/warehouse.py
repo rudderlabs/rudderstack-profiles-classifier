@@ -1,3 +1,6 @@
+from profiles_rudderstack.material import WhtMaterial
+
+
 def standardize_ref_name(warehouse_type: str, ref_name: str):
     # This is the equivalent of the StandardizeRefName function in wht.
     # It is not being used by most of pynative models since they use "warehouse.CreateReplaceTableAs"
@@ -7,3 +10,12 @@ def standardize_ref_name(warehouse_type: str, ref_name: str):
     if warehouse_type == "redshift":
         return ref_name.lower()
     return ref_name
+
+
+def run_query(wh_client, query: str):
+    try:
+        result = wh_client.query_sql_with_result(query)
+    except:
+        raise Exception(f"""Unable to run the following query: {query}""")
+    result.columns = result.columns.str.upper()
+    return result

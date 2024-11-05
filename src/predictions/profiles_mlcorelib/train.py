@@ -41,7 +41,7 @@ model_file_name = constants.MODEL_FILE_NAME
 
 def _train(
     creds: dict,
-    inputs: List[dict],
+    inputs: List[utils.InputsConfig],
     output_filename: str,
     config: dict,
     site_config_path: str,
@@ -55,7 +55,7 @@ def _train(
 
     Args:
         creds (dict): credentials to access the data warehouse - in same format as site_config.yaml from profiles
-        inputs (List[dict]): list of input models
+        inputs (List[utils.InputsConfig]): list of input models
         output_filename (str): path to the file where the model details including model id etc are written. Used in prediction step.
         config (dict): configs from profiles.yaml which should overwrite corresponding values from model_configs.yaml file
 
@@ -298,12 +298,11 @@ def _train(
     train_table_pairs = get_material_names_partial(start_date=start_date)
     # Generate new materials for training data
     try:
-        train_table_pairs = trainer.check_and_generate_more_materials(
+        train_table_pairs = whtService.check_and_generate_more_materials(
             get_material_names_partial,
             train_table_pairs,
             inputs,
-            whtService,
-            connector,
+            trainer,
         )
     except Exception as e:
         logger.get().error(f"Error while generating new materials, {str(e)}")

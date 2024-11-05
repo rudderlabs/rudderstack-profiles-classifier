@@ -4,6 +4,7 @@ from collections import OrderedDict
 from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict, Set
 
 from ..utils.logger import logger
+from ..utils import utils
 
 
 class Connector(ABC):
@@ -11,6 +12,7 @@ class Connector(ABC):
         self.schema = None
         self.feature_table_name = None
         self.session = self.build_session(creds)
+        self.material_validity_cache = {}
 
     def remap_credentials(self, credentials: dict) -> dict:
         """Remaps credentials from profiles siteconfig to the expected format for connection to warehouses"""
@@ -58,11 +60,13 @@ class Connector(ABC):
                     f"Common columns are present in 2 or more inputs. Please correct the inputs in config."
                 )
 
-    def get_input_columns(self, trainer_obj, inputs):
+    def get_input_columns(
+        self, trainer_obj, inputs: List[utils.InputsConfig]
+    ) -> List[str]:
         columns_per_input = list()
 
         for input_ in inputs:
-            query = input_["selector_sql"] + " LIMIT 1"
+            query = input_.selector_sql + " LIMIT 1"
             ind_input_columns = set(self.run_query(query)[0]._fields)
             ind_input_columns.difference_update(
                 {
@@ -80,16 +84,16 @@ class Connector(ABC):
         input_columns = set.union(*columns_per_input)
         return list(input_columns)
 
-    def _get_table_info(self, inputs):
+    def _get_table_info(self, inputs: List[utils.InputsConfig]):
         tables = OrderedDict()
         for input_ in inputs:
-            table_name = input_["table_name"]
+            table_name = input_.table_name
             if table_name not in tables:
                 tables[table_name] = {
                     "column_name": [],
                 }
-            if input_["column_name"]:
-                tables[table_name]["column_name"].append(input_["column_name"])
+            if input_.column_name:
+                tables[table_name]["column_name"].append(input_.column_name)
 
         return tables
 
@@ -119,7 +123,7 @@ class Connector(ABC):
 
     def join_input_tables(
         self,
-        inputs: List[Dict],
+        inputs: List[utils.InputsConfig],
         input_columns: List[str],
         entity_column: str,
         temp_joined_input_table_name: str,
@@ -138,7 +142,7 @@ class Connector(ABC):
         self,
         trainer_obj,
         input_columns: List[str],
-        inputs: List[dict],
+        inputs: List[utils.InputsConfig],
         table_name: str,
     ) -> Tuple:
         """Returns a dictionary containing the input column types with keys (numeric, categorical, arraytype, timestamp, booleantype) for a given table."""
@@ -241,16 +245,18 @@ class Connector(ABC):
         trainer_obj.prep.ignore_features = ignore_features
         return updated_input_column_types
 
-    def check_arraytype_conflicts(self, updated_input_column_types, inputs):
+    def check_arraytype_conflicts(
+        self, updated_input_column_types, inputs: List[utils.InputsConfig]
+    ):
         arraytype_columns = updated_input_column_types.get("arraytype", [])
 
         for column in arraytype_columns:
             column_lower = column.lower()
 
-            for input in inputs:
+            for input_ in inputs:
                 if (
-                    input["column_name"] is not None
-                    and column_lower == input["column_name"].lower()
+                    input_.column_name is not None
+                    and column_lower == input_.column_name.lower()
                 ):
                     raise Exception(
                         f"Array type features are not supported. Please remove '{column_lower}' and any other array type features from inputs."
@@ -358,7 +364,10 @@ class Connector(ABC):
 
     @abstractmethod
     def check_table_entry_in_material_registry(
-        self, registry_table_name: str, material: dict
+        self,
+        registry_table_name: str,
+        material: dict,
+        material_registry_table=None,
     ) -> bool:
         pass
 
@@ -603,6 +612,7 @@ class Connector(ABC):
         start_time: str,
         end_time: str,
         prediction_horizon_days: int,
+        registry_table=None,
     ) -> Iterable:
         pass
 
@@ -612,6 +622,7 @@ class Connector(ABC):
         lookahead_days: int,
         current_date: str,
         model_name: str,
+        model_hash: str,
         material_registry: str,
     ):
         pass

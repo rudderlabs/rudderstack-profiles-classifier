@@ -1,10 +1,17 @@
 models:
+  - name: cohort
+    model_type: entity_cohort
+    model_spec:
+      extends: user/all
+      filter_pipeline:
+        - type: include
+          value: "{{ user.Var('is_churned_7_days') }} IS NOT NULL" # Will always be true
   - name: propensity_model
     model_type: propensity
     model_spec:
       entity_key: user
       training:
-        predict_var: packages/feature_table/entity/user/is_churned_7_days
+        predict_var: models/cohort/is_churned_7_days
         predict_window_days: 7
         eligible_users: '*'
         max_row_count: 500000
@@ -101,3 +108,10 @@ models:
         - name: percentile_regression_days_since_last_seen
           description: description
 
+var_groups:
+  - name: cohortVars
+    entity_cohort: models/cohort
+    vars:
+      - entity_var:
+          name: is_churned_7_days
+          select: case when {{user.Var("days_since_last_seen")}} > 7 then 1 else 0 end # Same condition as in the package project

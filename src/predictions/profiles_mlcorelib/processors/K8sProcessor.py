@@ -3,6 +3,7 @@ import json
 import uuid
 import time
 from typing import List
+from dataclasses import asdict
 from kubernetes import client, config, watch
 import base64
 import sys
@@ -12,6 +13,7 @@ from ..utils import constants
 from ..utils.logger import logger
 from ..utils.S3Utils import S3Utils
 from ..utils.constants import TrainTablesInfo
+from ..utils import utils
 
 
 class K8sProcessor(Processor):
@@ -269,12 +271,13 @@ class K8sProcessor(Processor):
         wh_creds: dict,
         s3_config: dict,
         model_path: str,
-        inputs: List[dict],
+        inputs: List[utils.InputsConfig],
         end_ts: str,
         output_tablename: str,
         merged_config: dict,
         site_config: dict,
         pkl_model_file_name: str,
+        model_hash: str,
     ):
         credentials_presets = site_config["py_models"]["credentials_presets"]
         k8s_config = credentials_presets["kubernetes"]
@@ -305,7 +308,7 @@ class K8sProcessor(Processor):
             "--json_output_filename",
             json_output_filename,
             "--inputs",
-            json.dumps(inputs),
+            json.dumps(inputs, default=asdict),
             "--end_ts",
             end_ts,
             "--output_tablename",
@@ -314,6 +317,8 @@ class K8sProcessor(Processor):
             json.dumps(merged_config),
             "--pkl_model_file_name",
             pkl_model_file_name,
+            "--model_hash",
+            model_hash,
         ]
         job_name = "ml-prediction-" + str(uuid.uuid4())
         self._execute(

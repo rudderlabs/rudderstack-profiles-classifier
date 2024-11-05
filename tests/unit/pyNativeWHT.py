@@ -3,6 +3,7 @@ from unittest.mock import Mock
 from datetime import datetime
 
 from src.predictions.profiles_mlcorelib.wht.pyNativeWHT import PyNativeWHT
+from src.predictions.profiles_mlcorelib.utils.utils import InputsConfig
 from .mocks import MockModel, MockMaterial
 
 
@@ -127,12 +128,15 @@ class TestPyNativeWHT(unittest.TestCase):
             "2021-10-10",
             "7",
             [
-                {
-                    "model_ref": "entity/user/is_churned",
-                    "table_name": "material_{model_name}_{hash}_{seq_no}",
-                    "model_name": "user_var_table",
-                    "model_hash": "f2345h",
-                }
+                InputsConfig(
+                    table_name="material_user_var_table_f2345h_0",
+                    model_ref="entity/user/is_churned",
+                    model_type="entity_var_item",
+                    selector_sql='SELECT is_churned FROM "schema"."material_user_var_table_f2345h_0"',
+                    model_name="is_churned",
+                    model_hash="f3345h",
+                    column_name="is_churned",
+                )
             ],
             ["is_churned"],
             "user_main_id",
@@ -143,12 +147,15 @@ class TestPyNativeWHT(unittest.TestCase):
             "2021-10-10",
             "7",
             [
-                {
-                    "model_ref": "entity/user/is_churned",
-                    "table_name": "material_{model_name}_{hash}_{seq_no}",
-                    "model_name": "user_var_table",
-                    "model_hash": "f2345h",
-                }
+                InputsConfig(
+                    table_name="material_user_var_table_f2345h_0",
+                    model_ref="entity/user/is_churned",
+                    model_type="entity_var_item",
+                    selector_sql='SELECT is_churned FROM "schema"."material_user_var_table_f2345h_0"',
+                    model_name="is_churned",
+                    model_hash="f3345h",
+                    column_name="is_churned",
+                )
             ],
             ["is_churned"],
             "user_main_id",
@@ -174,7 +181,17 @@ class TestPyNativeWHT(unittest.TestCase):
 
     def test_get_latest_seq_no(self):
         result = self.pyNativeWHT.get_latest_seq_no(
-            [{"table_name": "MATERIAL_model_hash_123"}]
+            [
+                InputsConfig(
+                    table_name="material_user_var_table_123",
+                    model_ref="user/all/model",
+                    model_type="entity_var_item",
+                    selector_sql='SELECT model FROM "schema"."material_user_var_table_123"',
+                    model_name="model",
+                    model_hash=None,
+                    column_name="model",
+                )
+            ]
         )
         self.assertEqual(result, 123)
 
@@ -192,41 +209,41 @@ class TestGetInputs(unittest.TestCase):
         self.assertEqual(
             result,
             [
-                {
-                    "column_name": "is_churned",
-                    "model_ref": "entity/user/is_churned",
-                    "model_type": "entity_var_item",
-                    "selector_sql": "SELECT is_churned FROM user_var_table",
-                    "table_name": "Material_user_var_table_hash_100",
-                    "model_name": "is_churned",
-                    "model_hash": "hash",
-                },
-                {
-                    "column_name": None,
-                    "model_ref": "entity/user/var_table",
-                    "model_type": "entity_var_table",
-                    "selector_sql": "SELECT * FROM user_var_table",
-                    "table_name": "Material_user_var_table_hash_100",
-                    "model_name": "user_var_table",
-                    "model_hash": "hash",
-                },
-                {
-                    "column_name": None,
-                    "model_ref": "models/shopify_user_features",
-                    "model_type": "feature_table",
-                    "selector_sql": "SELECT * FROM shopify_user_features",
-                    "table_name": "Material_shopify_user_features_hash_100",
-                    "model_name": "shopify_user_features",
-                    "model_hash": "hash",
-                },
-                {
-                    "column_name": None,
-                    "model_ref": "models/shopify_sql_model",
-                    "model_type": "sql_template",
-                    "selector_sql": "SELECT * FROM shopify_sql_model",
-                    "table_name": "Material_shopify_sql_model_hash_100",
-                    "model_name": "shopify_sql_model",
-                    "model_hash": "hash",
-                },
+                InputsConfig(
+                    table_name="Material_user_var_table_hash_100",
+                    model_ref="entity/user/is_churned",
+                    model_type="entity_var_item",
+                    selector_sql="SELECT is_churned FROM user_var_table",
+                    model_name="is_churned",
+                    model_hash="hash",
+                    column_name="is_churned",
+                ),
+                InputsConfig(
+                    table_name="Material_user_var_table_hash_100",
+                    model_ref="entity/user/var_table",
+                    model_type="entity_var_table",
+                    selector_sql="SELECT * FROM user_var_table",
+                    model_name="user_var_table",
+                    model_hash="hash",
+                    column_name=None,
+                ),
+                InputsConfig(
+                    table_name="Material_shopify_user_features_hash_100",
+                    model_ref="models/shopify_user_features",
+                    model_type="feature_table",
+                    selector_sql="SELECT * FROM shopify_user_features",
+                    model_name="shopify_user_features",
+                    model_hash="hash",
+                    column_name=None,
+                ),
+                InputsConfig(
+                    table_name="Material_shopify_sql_model_hash_100",
+                    model_ref="models/shopify_sql_model",
+                    model_type="sql_template",
+                    selector_sql="SELECT * FROM shopify_sql_model",
+                    model_name="shopify_sql_model",
+                    model_hash="hash",
+                    column_name=None,
+                ),
             ],
         )

@@ -212,13 +212,28 @@ class CommonWarehouseConnector(Connector):
             return False
 
     def check_table_entry_in_material_registry(
-        self, registry_table_name: str, material: dict
+        self,
+        registry_table_name: str,
+        material: dict,
+        material_registry_table: pd.DataFrame = None,
     ) -> bool:
         """
         Checks wether an entry is there in the material registry for the given
         material table name and wether its sucessfully materialised or not as well
         """
-        material_registry_table = self.get_material_registry_table(registry_table_name)
+        material_key = (
+            f"{material['model_name']}_{material['model_hash']}_{material['seq_no']}"
+        )
+        if material_key in self.material_validity_cache:
+            return self.material_validity_cache[material_key]
+
+        # TODO: We will never have the below scenario. But removing this, we also have a redundant parameter registry_table_name.
+        # Safely removing that, and the upstream functions all changes the function signature in multiple places.
+        # So leaving it for now. Need to be fixed in a separate PR.
+        if material_registry_table is None:
+            material_registry_table = self.get_material_registry_table(
+                registry_table_name
+            )
         result = material_registry_table.loc[
             (
                 material_registry_table["model_name"].str.lower()
@@ -230,8 +245,9 @@ class CommonWarehouseConnector(Connector):
             )
             & (material_registry_table["seq_no"] == material["seq_no"])
         ]
-        row_count = result.shape[0]
-        return row_count != 0
+        is_valid = result.shape[0] != 0
+        self.material_validity_cache[material_key] = is_valid
+        return is_valid
 
     def get_table(self, table_name: str, **kwargs) -> pd.DataFrame:
         """Fetches the table with the given name from the schema as a pandas Dataframe object."""
@@ -435,8 +451,8 @@ class CommonWarehouseConnector(Connector):
     ):
         filtered_df = (
             df.loc[
-                (df["model_name"] == model_name)
-                & (df["model_hash"] == model_hash)
+                (df["model_name"].str.lower() == model_name.lower())
+                & (df["model_hash"].str.lower() == model_hash.lower())
                 & (df["end_ts"].dt.date >= pd.to_datetime(start_time).date())
                 & (df["end_ts"].dt.date <= pd.to_datetime(end_time).date()),
                 columns.keys(),
@@ -454,10 +470,12 @@ class CommonWarehouseConnector(Connector):
         start_time: str,
         end_time: str,
         prediction_horizon_days: int,
+        registry_table: pd.DataFrame = None,
     ) -> Iterable:
-        df = self.get_material_registry_table(registry_table_name)
+        if registry_table is None:
+            registry_table = self.get_material_registry_table(registry_table_name)
         feature_df = self.fetch_filtered_table(
-            df,
+            registry_table,
             model_name,
             model_hash,
             start_time,
@@ -476,7 +494,7 @@ class CommonWarehouseConnector(Connector):
             end_time, constants.MATERIAL_DATE_FORMAT
         ) + timedelta(days=prediction_horizon_days)
         label_df = self.fetch_filtered_table(
-            df,
+            registry_table,
             model_name,
             model_hash,
             label_start_time,
@@ -505,6 +523,7 @@ class CommonWarehouseConnector(Connector):
         lookahead_days: int,
         current_date: str,
         model_name: str,
+        model_hash: str,
         material_registry: str,
     ):
         past_predictions_end_date = utils.date_add(current_date, -lookahead_days)
@@ -513,8 +532,7 @@ class CommonWarehouseConnector(Connector):
         try:
             past_predictions_info = (
                 df[
-                    (df["model_name"] == model_name)
-                    & (df["model_type"] == "python_model")
+                    (df["model_hash"] == model_hash)
                     & (
                         df["end_ts"].dt.date
                         == pd.to_datetime(past_predictions_end_date).date()
@@ -525,7 +543,7 @@ class CommonWarehouseConnector(Connector):
             )
         except IndexError:
             raise Exception(
-                f"No past predictions found for model {model_name} before {past_predictions_end_date}"
+                f"No past predictions found with model hash {model_hash} before {past_predictions_end_date}"
             )
 
         predictions_table_name = (
@@ -558,8 +576,8 @@ class CommonWarehouseConnector(Connector):
         redshift_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
-                redshift_df.query(f'model_hash == "{model_hash}"')
-                .query(f'entity_key == "{entity_key}"')
+                redshift_df.query(f'model_hash.str.lower() == "{model_hash.lower()}"')
+                .query(f'entity_key.str.lower() == "{entity_key.lower()}"')
                 .sort_values(by="creation_ts", ascending=False)
                 .reset_index(drop=True)[["creation_ts"]]
                 .iloc[0]
@@ -578,8 +596,8 @@ class CommonWarehouseConnector(Connector):
         redshift_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
-                redshift_df.query(f'model_hash == "{model_hash}"')
-                .query(f'model_name == "{model_name}"')
+                redshift_df.query(f'model_hash.str.lower() == "{model_hash.lower()}"')
+                .query(f'model_name.str.lower() == "{model_name.lower()}"')
                 .sort_values(by="creation_ts", ascending=False)
                 .reset_index(drop=True)[["seq_no"]]
                 .iloc[0]
@@ -597,7 +615,9 @@ class CommonWarehouseConnector(Connector):
         material_registry_df = self.get_material_registry_table(material_table)
         try:
             temp_hash_vector = (
-                material_registry_df.query(f'model_name == "{model_name}"')
+                material_registry_df.query(
+                    f'model_name.str.lower() == "{model_name.lower()}"'
+                )
                 .query(f"seq_no == {seq_no}")
                 .sort_values(by="creation_ts", ascending=False)
                 .reset_index(drop=True)[["model_hash"]]

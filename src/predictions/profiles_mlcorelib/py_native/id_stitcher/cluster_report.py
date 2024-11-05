@@ -124,6 +124,11 @@ class ClusterReport:
 
     def _analyse_cluster(self, node_id: str):
         edges_df = self.get_edges_data(node_id)
+        if len(edges_df) == 0:
+            print(
+                f"ID {node_id} is not found in the graph, either in other_ids or in the main_id. The ids are case-sensitive and do not do partial match. Please enter a valid ID."
+            )
+            return None, None
         G = self.create_graph_with_metadata(edges_df)
         cluster_summary = self.compute_graph_metrics(G)
         return cluster_summary, G
@@ -300,6 +305,8 @@ class ClusterReport:
                 break
             print("\n\n")
             metrics, G = self._analyse_cluster(user_input)
+            if metrics is None:
+                continue
             cluster_summary = self.get_cluster_summary(metrics)
             os.makedirs(output_dir, exist_ok=True)
             filename = f"{user_input}_graph.html"

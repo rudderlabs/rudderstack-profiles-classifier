@@ -61,7 +61,7 @@ class TutorialRecipe(PyNativeRecipe):
 
     def describe(self, this: WhtMaterial) -> Tuple[str, str]:
         return (
-            "# Profiles Tutorial\nThis recipe is a guided interactive tutorial on Rudderstack Profiles. This tutorial will walk through key concepts of profiles and how it works. As a part of this tutorial, we will also build a basic project with an ID Stitcher Model ultimately producing an ID Graph in your warehouse.",
+            "# Profiles Tutorial\nThis is a guided interactive tutorial on Rudderstack Profiles. This tutorial will walk through key concepts of profiles and how it works. As a part of this tutorial, we will also build a basic project with an ID Stitcher Model ultimately producing an ID Graph in your warehouse.",
             ".md",
         )
 

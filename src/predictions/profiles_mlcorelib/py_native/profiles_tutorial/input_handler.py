@@ -8,7 +8,7 @@ from .config import PREDEFINED_ID_TYPES
 
 
 class InputSteps(Enum):
-    ACCOUNT = "Account Name (ex: ina31471.us-east-1): "
+    ACCOUNT = "Account Name (ex: abc12345.us-east-1): "
     USERNAME = "Username: "
     PASSWORD = "Password: "
     ROLE = "Role: "

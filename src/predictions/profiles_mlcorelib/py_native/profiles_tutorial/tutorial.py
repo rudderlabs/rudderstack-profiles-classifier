@@ -21,7 +21,8 @@ from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
-from profiles_rudderstack.reader import Reader
+
+# from profiles_rudderstack.reader import Reader
 
 warnings.filterwarnings("ignore", category=UserWarning, module="snowflake.connector")
 
@@ -75,7 +76,7 @@ class TutorialRecipe(PyNativeRecipe):
 
 
 class ProfileBuilder:
-    def __init__(self, reader: Reader, fast_mode: bool):
+    def __init__(self, reader, fast_mode: bool):
         self.config = {}
         self.db_manager = None
         self.input_handler = InputHandler(reader, fast_mode)

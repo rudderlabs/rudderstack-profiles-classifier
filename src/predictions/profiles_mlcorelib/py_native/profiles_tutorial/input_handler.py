@@ -3,7 +3,8 @@ from enum import Enum
 from typing import List, Dict
 
 from .config import PREDEFINED_ID_TYPES
-from profiles_rudderstack.reader import Reader
+
+# from profiles_rudderstack.reader import Reader
 
 
 class InputSteps(Enum):
@@ -39,7 +40,7 @@ class InputSteps(Enum):
 
 
 class InputHandler:
-    def __init__(self, reader: Reader, fast_mode: bool):
+    def __init__(self, reader, fast_mode: bool):
         self.reader = reader
         self.fast_mode = fast_mode
 

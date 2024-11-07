@@ -276,7 +276,7 @@ def _train(
         inputs,
         joined_input_table_name,
     )
-    logger.get().debug(f"Input column types detected: {input_column_types}")
+    logger.get().info(f"Input column types detected: {input_column_types}")
 
     try:
         feature_data_min_date_diff = trainer.feature_data_min_date_diff

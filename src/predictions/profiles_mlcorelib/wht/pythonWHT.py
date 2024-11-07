@@ -151,7 +151,7 @@ class PythonWHT:
             else:
                 return False
         except AssertionError as e:
-            logger.get().debug(
+            logger.get().info(
                 f"{e}. Skipping the sequence {material_seq_no} as it is not valid."
             )
             return False
@@ -516,7 +516,7 @@ class PythonWHT:
         complete_sequences_materials = get_complete_sequences(materials)
         if len(complete_sequences_materials) == 0:
             raise Exception(
-                f"Tried to materialise past data but no materialized data found for given inputs between dates {start_date} and {end_date}"
+                f"Tried to materialise past data but no materialized data found for given inputs between dates {start_date} and {end_date}. Materials partial list: {materials}"
             )
 
         return self.get_past_materials_with_valid_date_range(
@@ -621,7 +621,7 @@ class PythonWHT:
             self.connector, materials
         )
 
-        logger.get().debug(f"Min data requirement satisfied: {met_data_requirement}")
+        logger.get().info(f"Min data requirement satisfied: {met_data_requirement}")
         if met_data_requirement or trainer.materialisation_strategy == "":
             return materials
 
@@ -729,10 +729,10 @@ class PythonWHT:
                 start_date=feature_date, end_date=feature_date
             )
 
-            logger.get().debug(
+            logger.get().info(
                 f"new feature tables: {[m.feature_table_name for m in materials]}"
             )
-            logger.get().debug(
+            logger.get().info(
                 f"new label tables: {[m.label_table_name for m in materials]}"
             )
             if (

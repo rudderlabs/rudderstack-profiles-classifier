@@ -5,10 +5,11 @@ from profiles_rudderstack.material import WhtMaterial
 from .config import LLM_SERVICE_URL, LLM_DIRECT_REQUEST_URL
 from .prompts import id_stitcher_static_report_prompt
 from .table_report import TableReport
+from .consent_manager import ConsentManager
+from profiles_rudderstack.logger import Logger
 
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
 # from profiles_rudderstack.reader import Reader
-
 from enum import Enum
 
 
@@ -22,6 +23,7 @@ class LLMReport:
         reader,
         this: WhtMaterial,
         access_token: str,
+        logger: Logger,
         table_report: TableReport,
         entity: Dict,
     ):
@@ -31,8 +33,21 @@ class LLMReport:
         self.reader = reader
         self.entity = entity
         self.session_id = ""
+        self.logger = logger
+
+    def check_consent(self):
+        consent_manager = ConsentManager(self.logger)
+        consent = consent_manager.get_stored_consent()
+        if consent is None:
+            consent = consent_manager.prompt_for_consent(self.reader)
+        return consent
 
     def run(self):
+        consent = self.check_consent()
+        if not consent:
+            print("LLM-based analysis is disabled. Skipping LLM-based analysis.")
+            return
+       
         print("\n\nGenerating id_stitcher analysis:")
         self._interpret_results_with_llm()
         print("You can now ask questions about the ID Stitcher analysis results.")

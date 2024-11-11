@@ -187,7 +187,7 @@ def preprocess_and_train(
     )
     logger.get().debug("Arraytype features have been transformed.")
 
-    logger.get().debug(f"Ignore features detected: {ignore_features}")
+    logger.get().info(f"Ignore features detected: {ignore_features}")
     feature_table = connector.drop_cols(feature_table, ignore_features)
 
     logger.get().debug("Fetching feature table column types")
@@ -200,7 +200,7 @@ def preprocess_and_train(
         transformed_booleantype_cols,
         connector.dtype_utils_mapping,
     )
-    logger.get().debug(
+    logger.get().info(
         f"Feature_table column types detected: {feature_table_column_types}"
     )
 

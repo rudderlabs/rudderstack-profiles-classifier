@@ -2,7 +2,8 @@ from typing import Dict
 import requests
 from profiles_rudderstack.material import WhtMaterial
 
-from .config import LLM_SERVICE_URL
+from .config import LLM_SERVICE_URL, LLM_DIRECT_REQUEST_URL
+from .prompts import id_stitcher_static_report_prompt
 from .table_report import TableReport
 
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
@@ -32,7 +33,12 @@ class LLMReport:
         self.session_id = ""
 
     def run(self):
+        print("\n\nGenerating id_stitcher analysis:")
+        self._interpret_results_with_llm()
         print("You can now ask questions about the ID Stitcher analysis results.")
+        self.run_interactive_session()
+
+    def run_interactive_session(self):
         if not self.access_token:
             state = self._prompt_for_access_token(
                 "We couldn't find RudderStack access token in your siteconfig file. To access the LLM analysis, please enter an access token (if you don't have one, you can create it from the RudderStack dashboard)."
@@ -40,14 +46,50 @@ class LLMReport:
             if state == ProgramState.STOP:
                 return
         while True:
-            user_input = self.reader.get_input(
+            user_input: str = self.reader.get_input(
                 "Enter your question. (or 'quit' to skip this step): \n"
             )
             if user_input.lower() in ["quit", "exit", "done"]:
                 break
-            state = self._request(user_input)
-            if state == ProgramState.STOP:
+            body = {
+                "prompt": user_input,
+                "session_id": self.session_id,
+                "tables": {
+                    "edges": self.table_report.edges_table,
+                    "id_graph": self.table_report.output_table,
+                },
+                "warehouse_credentials": self.warehouse_credentials,
+                "report": self._get_report(self.table_report.analysis_results),
+            }
+            response = self._request(LLM_SERVICE_URL, body)
+            if response == ProgramState.STOP:
                 break
+            message = response["result"]["message"]
+            self.session_id = response["session_id"]
+            print(f"\n\n{message}\n\n")
+
+    def _interpret_results_with_llm(self) -> str:
+        results = self.table_report.analysis_results
+        prompt = id_stitcher_static_report_prompt.format(
+            entity_name=self.entity["Name"],
+            node_types=results["node_types"],
+            unique_id_counts=results["unique_id_counts"],
+            top_nodes=results["top_nodes"],
+            average_edge_count=results["average_edge_count"],
+            potential_issues=results["potential_issues"],
+            clusters=results["clusters"],
+            top_clusters=results["top_clusters"],
+            singleton_analysis=results["singleton_analysis"],
+            cluster_stats=results["cluster_stats"],
+        )
+        body = {
+            "prompt": prompt,
+        }
+        response = self._request(LLM_DIRECT_REQUEST_URL, body)
+        if response == ProgramState.STOP:
+            return
+        message = response["message"]
+        print(f"\n{message}\n\n")
 
     def _prompt_for_access_token(self, prompt: str) -> ProgramState:
         user_input = self.reader.get_input(
@@ -76,28 +118,19 @@ class LLMReport:
             "average_edge_count": report["average_edge_count"],
             "node_types": report["node_types"],
             "top_nodes": report["top_nodes"],
+            "clusters": report["clusters"],
             "top_clusters": report["top_clusters"],
             "potential_issues": report["potential_issues"],
             "unique_id_counts": unique_id_counts,
             "singleton_node_analysis": singleton_node_analysis,
         }
 
-    def _request(self, prompt: str):
-        body = {
-            "prompt": prompt,
-            "session_id": self.session_id,
-            "tables": {
-                "edges": self.table_report.edges_table,
-                "id_graph": self.table_report.output_table,
-            },
-            "warehouse_credentials": self.warehouse_credentials,
-            "report": self._get_report(self.table_report.analysis_results),
-        }
+    def _request(self, URL, body):
         headers = {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
         }
-        response = requests.post(LLM_SERVICE_URL, json=body, headers=headers)
+        response = requests.post(URL, json=body, headers=headers)
         if not response.ok:
             status_code = response.status_code
             error_response = response.json()["message"]
@@ -108,6 +141,4 @@ class LLMReport:
             print(f"\n{status_code} {error_response}\n")
         else:
             data = response.json()
-            message = data["result"]["message"]
-            self.session_id = data["session_id"]
-            print(f"\n\n{message}\n\n")
+            return data

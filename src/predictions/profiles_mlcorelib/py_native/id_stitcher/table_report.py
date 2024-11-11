@@ -107,7 +107,7 @@ class TableReport:
         entity_key = self.entity["IdColumnName"]
         query = f"select count(distinct {entity_key}) as count from {self.db}.{self.schema}.{self.output_table}"
         result = run_query(self.wh_client, query)
-        return result["COUNT"][0]
+        return 0 if result.empty else int(result["COUNT"][0])
 
     def get_top_nodes_by_edges(
         self, limit: int, id_type: str = None
@@ -158,7 +158,7 @@ class TableReport:
         )
         """
         result = run_query(self.wh_client, query)
-        return 0 if result.empty else result["AVG_EDGE_COUNT"][0]
+        return 0 if result.empty else float(result["AVG_EDGE_COUNT"][0])
 
     def get_cluster_stats(self):
         main_id_key = self.entity["IdColumnName"]
@@ -370,6 +370,7 @@ class TableReport:
             "node_types": [],
             "unique_id_counts": {},
             "top_nodes": [],
+            "clusters": 0,
             "top_clusters": [],
             "average_edge_count": 0,
             "potential_issues": [],
@@ -388,6 +389,7 @@ class TableReport:
         print("Total Distinct IDs")
         print(f"\tBefore stitching: {total_distinct_ids}")
         clusters = self.get_total_main_ids()
+        self.analysis_results["clusters"] = clusters
         print(f"\tAfter stitching: {clusters}")
 
         top_nodes = self.get_top_nodes_by_edges(10)
@@ -408,17 +410,17 @@ class TableReport:
             for node in top_nodes:
                 print(f"\t\tID: {node['id']}, Edges: {node['edge_count']}")
 
-        avg_edge_count = self.get_average_edge_count()
-        self.analysis_results["avg_edge_count"] = avg_edge_count
+        average_edge_count = self.get_average_edge_count()
+        self.analysis_results["average_edge_count"] = average_edge_count
         print(
-            f"\n\nAverage edge count per node (before stitching): {avg_edge_count}\n\n"
+            f"\n\nAverage edge count per node (before stitching): {average_edge_count}\n\n"
         )
 
         # Average edge count by type
         print("\nAverage edge count by node type (before stitching):")
         for node_type in node_types:
-            avg_edge_count = self.get_average_edge_count(node_type)
-            print(f"\t\t{node_type}: {avg_edge_count}")
+            average_edge_count = self.get_average_edge_count(node_type)
+            print(f"\t\t{node_type}: {average_edge_count}")
 
         print("\n\t\tPOST ID STITCHING ANALYSIS\n\n")
         # Distribution stats for cluster size after stitching

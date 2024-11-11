@@ -103,6 +103,7 @@ class ModelRecipe(PyNativeRecipe):
             self.reader,
             this,
             self.build_spec["access_token"],
+            self.logger,
             table_report,
             entity,
         )

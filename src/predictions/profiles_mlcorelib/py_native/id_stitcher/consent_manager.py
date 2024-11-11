@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 from typing import Union
+from profiles_rudderstack.logger import Logger
 
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
 # from profiles_rudderstack.reader import Reader
@@ -10,11 +11,12 @@ class ConsentManager:
     LLM_CONSENT_KEY = "llm_consent"
     PREFERENCES_FILE = "preferences.json"
 
-    def __init__(self):
+    def __init__(self, logger: Logger):
         config_dir = Path.home() / ".pb"
         if not config_dir.exists():
             config_dir.mkdir(parents=True, exist_ok=True)
         self.consent_file = config_dir / self.PREFERENCES_FILE
+        self.logger = logger
 
     @property
     def consent_message(self) -> str:
@@ -37,8 +39,11 @@ class ConsentManager:
             # Delete existing file if it is corrupted
             self.consent_file.unlink(missing_ok=True)
             return None
-        except Exception:
+        except Exception as e:
             # For other exceptions, return None - assume prior consent doesn't exist
+            self.logger.warn(
+                f"Error reading consent file {self.consent_file}: {e}. Asking for new consent."
+            )
             return None
 
     def save_consent(self, consent: bool) -> None:

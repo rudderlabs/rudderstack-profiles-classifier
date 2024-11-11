@@ -5,6 +5,7 @@ from profiles_rudderstack.material import WhtMaterial
 from .config import LLM_SERVICE_URL
 from .table_report import TableReport
 from .consent_manager import ConsentManager
+from profiles_rudderstack.logger import Logger
 
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
 # from profiles_rudderstack.reader import Reader
@@ -21,6 +22,7 @@ class LLMReport:
         reader,
         this: WhtMaterial,
         access_token: str,
+        logger: Logger,
         table_report: TableReport,
         entity: Dict,
     ):
@@ -30,9 +32,10 @@ class LLMReport:
         self.reader = reader
         self.entity = entity
         self.session_id = ""
+        self.logger = logger
 
     def check_consent(self):
-        consent_manager = ConsentManager()
+        consent_manager = ConsentManager(self.logger)
         consent = consent_manager.get_stored_consent()
         if consent is None:
             consent = consent_manager.prompt_for_consent(self.reader)

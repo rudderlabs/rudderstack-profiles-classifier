@@ -2,7 +2,7 @@ from typing import Dict
 import requests
 from profiles_rudderstack.material import WhtMaterial
 
-from .config import LLM_SERVICE_URL, LLM_DIRECT_REQUEST_URL
+from .config import LLM_ID_DEBUG_URL, LLM_INVOKE_URL
 from .prompts import id_stitcher_static_report_prompt
 from .table_report import TableReport
 from .consent_manager import ConsentManager
@@ -76,7 +76,7 @@ class LLMReport:
                 "warehouse_credentials": self.warehouse_credentials,
                 "report": self._get_report(self.table_report.analysis_results),
             }
-            response = self._request(LLM_SERVICE_URL, body)
+            response = self._request(LLM_ID_DEBUG_URL, body)
             if response == ProgramState.STOP:
                 break
             message = response["result"]["message"]
@@ -100,7 +100,7 @@ class LLMReport:
         body = {
             "prompt": prompt,
         }
-        response = self._request(LLM_DIRECT_REQUEST_URL, body)
+        response = self._request(LLM_INVOKE_URL, body)
         if response == ProgramState.STOP:
             return
         message = response["message"]

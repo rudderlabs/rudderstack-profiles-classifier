@@ -8,7 +8,6 @@ from .consent_manager import ConsentManager
 
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
 # from profiles_rudderstack.reader import Reader
-from pathlib import Path
 from enum import Enum
 
 
@@ -31,11 +30,9 @@ class LLMReport:
         self.reader = reader
         self.entity = entity
         self.session_id = ""
-        # Get config directory from siteconfig path
-        self.config_dir = Path(this.wht_ctx.site_config().get("FilePath")).parent
 
     def check_consent(self):
-        consent_manager = ConsentManager(self.config_dir)
+        consent_manager = ConsentManager()
         consent = consent_manager.get_stored_consent()
         if consent is None:
             consent = consent_manager.prompt_for_consent(self.reader)

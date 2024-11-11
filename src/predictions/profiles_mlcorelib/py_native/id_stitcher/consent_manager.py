@@ -1,4 +1,3 @@
-import os
 import json
 from pathlib import Path
 from typing import Union
@@ -11,7 +10,10 @@ class ConsentManager:
     LLM_CONSENT_KEY = "llm_consent"
     PREFERENCES_FILE = "preferences.json"
 
-    def __init__(self, config_dir: Path):
+    def __init__(self):
+        config_dir = Path.home() / ".pb"
+        if not config_dir.exists():
+            config_dir.mkdir(parents=True, exist_ok=True)
         self.consent_file = config_dir / self.PREFERENCES_FILE
 
     @property
@@ -31,9 +33,12 @@ class ConsentManager:
             with open(self.consent_file, "r") as f:
                 data = json.load(f)
                 return data.get(self.LLM_CONSENT_KEY, None)
-        except Exception:
+        except json.JSONDecodeError:
             # Delete existing file if it is corrupted
             self.consent_file.unlink(missing_ok=True)
+            return None
+        except Exception:
+            # For other exceptions, return None - assume prior consent doesn't exist
             return None
 
     def save_consent(self, consent: bool) -> None:

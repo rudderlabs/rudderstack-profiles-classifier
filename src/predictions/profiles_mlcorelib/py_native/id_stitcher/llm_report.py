@@ -49,18 +49,19 @@ class LLMReport:
             print("LLM-based analysis is disabled. Skipping LLM-based analysis.")
             return
 
-        print("\n\nGenerating id_stitcher analysis:")
-        self._interpret_results_with_llm()
-        print("You can now ask questions about the ID Stitcher analysis results.")
-        self.run_interactive_session()
-
-    def run_interactive_session(self):
         if not self.access_token:
             state = self._prompt_for_access_token(
                 "We couldn't find RudderStack access token in your siteconfig file. To access the LLM analysis, please enter an access token (if you don't have one, you can create it from the RudderStack dashboard)."
             )
             if state == ProgramState.STOP:
                 return
+
+        print("\n\nGenerating id_stitcher analysis:")
+        self._interpret_results_with_llm()
+        print("You can now ask questions about the ID Stitcher analysis results.")
+        self.run_interactive_session()
+
+    def run_interactive_session(self):
         while True:
             user_input: str = self.reader.get_input(
                 "Enter your question. (or 'quit' to skip this step): \n"

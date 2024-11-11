@@ -617,8 +617,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         try:
             this.de_ref(model_ref)
         except Exception:
-            # Note: Customer will still see error logs from wht side
-            self.logger.info(f"Skipping {model_ref} as it does not exist")
+            # Skipping model_ref as it does not exist
             return
         self.inputs.add(model_ref)
 

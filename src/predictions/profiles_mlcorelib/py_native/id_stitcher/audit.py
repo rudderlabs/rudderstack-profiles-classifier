@@ -63,9 +63,23 @@ class ModelRecipe(PyNativeRecipe):
         for model in models:
             id_stitcher_models[model.name()] = model
         if len(id_stitcher_models) > 1:
-            selected_model_name = self.reader.get_input(
-                f"Multiple id_stitcher models found. Please select one {id_stitcher_models.keys()}"
-            )
+            max_retries = 5
+            retry_count = 0
+            while retry_count < max_retries:
+                selected_model_name = self.reader.get_input(
+                    f"Multiple id_stitcher models found. Please select one {id_stitcher_models.keys()}"
+                ).strip()
+                if selected_model_name in id_stitcher_models:
+                    break
+                retry_count += 1
+                if retry_count < max_retries:
+                    self.logger.warn(
+                        f"Invalid selection: '{selected_model_name}'. Please enter one of the following: {list(id_stitcher_models.keys())}"
+                    )
+                else:
+                    raise ValueError(
+                        f"Max retries exceeded. No valid id-stitcher model selected."
+                    )
         else:
             selected_model_name = list(id_stitcher_models.keys())[0]
         self.id_stitcher_model = id_stitcher_models[selected_model_name]
@@ -89,6 +103,7 @@ class ModelRecipe(PyNativeRecipe):
             self.reader,
             this,
             self.build_spec["access_token"],
+            self.logger,
             table_report,
             entity,
         )

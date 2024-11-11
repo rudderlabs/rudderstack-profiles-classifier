@@ -4,10 +4,11 @@ from profiles_rudderstack.material import WhtMaterial
 
 from .config import LLM_SERVICE_URL
 from .table_report import TableReport
+from .consent_manager import ConsentManager
 
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
 # from profiles_rudderstack.reader import Reader
-
+from pathlib import Path
 from enum import Enum
 
 
@@ -30,8 +31,21 @@ class LLMReport:
         self.reader = reader
         self.entity = entity
         self.session_id = ""
+        # Get config directory from siteconfig path
+        self.config_dir = Path(this.wht_ctx.site_config().get("FilePath")).parent
+
+    def check_consent(self):
+        consent_manager = ConsentManager(self.config_dir)
+        consent = consent_manager.get_stored_consent()
+        if consent is None:
+            consent = consent_manager.prompt_for_consent(self.reader)
+        return consent
 
     def run(self):
+        consent = self.check_consent()
+        if not consent:
+            print("LLM-based analysis is disabled. Skipping LLM-based analysis.")
+            return
         print("You can now ask questions about the ID Stitcher analysis results.")
         if not self.access_token:
             state = self._prompt_for_access_token(

@@ -1,8 +1,9 @@
+import os
 from typing import Dict
 import requests
 from profiles_rudderstack.material import WhtMaterial
 
-from .config import LLM_ID_DEBUG_URL, LLM_INVOKE_URL
+from .config import BASE_URL, LLM_ID_DEBUG_URL, LLM_INVOKE_URL
 from .prompts import id_stitcher_static_report_prompt
 from .table_report import TableReport
 from .consent_manager import ConsentManager
@@ -76,7 +77,7 @@ class LLMReport:
                 "warehouse_credentials": self.warehouse_credentials,
                 "report": self._get_report(self.table_report.analysis_results),
             }
-            response = self._request(LLM_ID_DEBUG_URL, body)
+            response = self._request(os.path.join(BASE_URL, LLM_ID_DEBUG_URL), body)
             if response == ProgramState.STOP:
                 break
             message = response["result"]["message"]
@@ -100,7 +101,7 @@ class LLMReport:
         body = {
             "prompt": prompt,
         }
-        response = self._request(LLM_INVOKE_URL, body)
+        response = self._request(os.path.join(BASE_URL, LLM_INVOKE_URL), body)
         if response == ProgramState.STOP:
             return
         message = response["message"]
@@ -130,22 +131,22 @@ class LLMReport:
         return {
             "entity": self.entity["Name"],
             "main_id_column_name": self.entity["IdColumnName"],
-            "average_edge_count": report["average_edge_count"],
+            "average_edge_count": float(report["average_edge_count"]),
             "node_types": report["node_types"],
             "top_nodes": report["top_nodes"],
-            "clusters": report["clusters"],
+            "clusters": int(report["clusters"]),
             "top_clusters": report["top_clusters"],
             "potential_issues": report["potential_issues"],
             "unique_id_counts": unique_id_counts,
             "singleton_node_analysis": singleton_node_analysis,
         }
 
-    def _request(self, URL, body):
+    def _request(self, url, body):
         headers = {
             "Authorization": f"Bearer {self.access_token}",
             "Content-Type": "application/json",
         }
-        response = requests.post(URL, json=body, headers=headers)
+        response = requests.post(url, json=body, headers=headers)
         if not response.ok:
             status_code = response.status_code
             error_response = response.json()["message"]

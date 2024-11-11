@@ -107,7 +107,7 @@ class TableReport:
         entity_key = self.entity["IdColumnName"]
         query = f"select count(distinct {entity_key}) as count from {self.db}.{self.schema}.{self.output_table}"
         result = run_query(self.wh_client, query)
-        return 0 if result.empty else int(result["COUNT"][0])
+        return 0 if result.empty else result["COUNT"][0]
 
     def get_top_nodes_by_edges(
         self, limit: int, id_type: str = None
@@ -158,7 +158,7 @@ class TableReport:
         )
         """
         result = run_query(self.wh_client, query)
-        return 0 if result.empty else float(result["AVG_EDGE_COUNT"][0])
+        return 0 if result.empty else result["AVG_EDGE_COUNT"][0]
 
     def get_cluster_stats(self):
         main_id_key = self.entity["IdColumnName"]

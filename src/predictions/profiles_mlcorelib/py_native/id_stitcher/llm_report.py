@@ -47,7 +47,7 @@ class LLMReport:
         if not consent:
             print("LLM-based analysis is disabled. Skipping LLM-based analysis.")
             return
-       
+
         print("\n\nGenerating id_stitcher analysis:")
         self._interpret_results_with_llm()
         print("You can now ask questions about the ID Stitcher analysis results.")

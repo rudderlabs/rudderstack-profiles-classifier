@@ -73,6 +73,9 @@ MIN_NUM_OF_SAMPLES = 5000
 # Material date format
 MATERIAL_DATE_FORMAT = "%Y-%m-%d"
 
+# timestamp format for null transformation
+NULL_TRANSFORMATION_TIMESTAMP_FORMAT = "%Y-%m-%d %H:%M:%S"
+
 from typing import NamedTuple
 
 SNOWFLAKE_TRAINING_PACKAGES = [

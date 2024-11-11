@@ -43,6 +43,10 @@ models:
         - packages/feature_table/entity/user/last_seen_category
         - packages/feature_table/entity/user/random_float_feature
         - packages/feature_table/models/rsRandomSQLModel
+        - packages/feature_table/entity/user/random_date_feature
+        - packages/feature_table/entity/user/random_timestamp_feature
+        - packages/feature_table/entity/user/random_tz_aware_feature
+        - packages/feature_table/entity/user/random_tz_unaware_feature
 
   - name: training_Regression_model
     model_type: training_model
@@ -52,7 +56,13 @@ models:
       inputs:
         - packages/feature_table/entity/user/is_churned_7_days
         - packages/feature_table/entity/user/days_since_last_seen
+        - packages/feature_table/entity/user/max_timestamp_pages
+        - packages/feature_table/entity/user/max_timestamp_tracks
         - packages/feature_table/models/rsRandomSQLModel
+        - packages/feature_table/entity/user/random_date_feature
+        - packages/feature_table/entity/user/random_timestamp_feature
+        - packages/feature_table/entity/user/random_tz_aware_feature
+        - packages/feature_table/entity/user/random_tz_unaware_feature
       ml_config:
         data:
           task: regression
@@ -76,7 +86,13 @@ models:
       inputs:
         - packages/feature_table/entity/user/is_churned_7_days
         - packages/feature_table/entity/user/days_since_last_seen
+        - packages/feature_table/entity/user/max_timestamp_pages
+        - packages/feature_table/entity/user/max_timestamp_tracks
         - packages/feature_table/models/rsRandomSQLModel
+        - packages/feature_table/entity/user/random_date_feature
+        - packages/feature_table/entity/user/random_timestamp_feature
+        - packages/feature_table/entity/user/random_tz_aware_feature
+        - packages/feature_table/entity/user/random_tz_unaware_feature
       ml_config:
         data:
           task: regression

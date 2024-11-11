@@ -173,7 +173,7 @@ def get_feature_table_column_types(
         input_column_types["numeric"][col] = dtype_mapping["numeric"]
 
     for col in input_column_types["timestamp"]:
-        input_column_types["numeric"][col] = dtype_mapping["numeric"]
+        input_column_types["timestamp"][col] = dtype_mapping["timestamp"]
 
     for col in feature_table.columns:
         if col.upper() in (label_column.upper(), entity_column.upper()):
@@ -241,15 +241,25 @@ def get_column_names(onehot_encoder: OneHotEncoder, col_names: List[str]) -> Lis
 
 
 def transform_null(
-    df: pd.DataFrame, numeric_columns: List[str], categorical_columns: List[str]
+    df: pd.DataFrame,
+    numeric_columns: List[str],
+    categorical_columns: List[str],
+    timestamp_columns: List[str],
 ) -> pd.DataFrame:
-    for col in numeric_columns:
-        df[col] = df[col].astype("float64")
     """Replaces the pd.NA values in the numeric and categorical columns of a pandas DataFrame with np.nan and None, respectively."""
+    current_time = pd.Timestamp.now().strftime(
+        constants.NULL_TRANSFORMATION_TIMESTAMP_FORMAT
+    )
+
     for col in numeric_columns:
         df[col] = df[col].astype("float64")
     df[numeric_columns] = df[numeric_columns].replace({pd.NA: 0})
     df[categorical_columns] = df[categorical_columns].replace({pd.NA: "unknown"})
+    for col in timestamp_columns:
+        df[col] = pd.to_datetime(df[col], errors="coerce", utc=True)
+        df[col] = df[col].dt.strftime(constants.NULL_TRANSFORMATION_TIMESTAMP_FORMAT)
+        df[col] = pd.to_datetime(df[col], errors="coerce")
+        df[col] = df[col].fillna(current_time)
     return df
 
 

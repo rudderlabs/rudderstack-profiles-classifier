@@ -202,8 +202,15 @@ class MLTrainer(ABC):
             for col in input_col_types["categorical"]
             if col.upper() in feature_df
         ]
+        timestamp_cols = [
+            col.upper()
+            for col in input_col_types["timestamp"]
+            if col.upper() in feature_df
+        ]
 
-        feature_df = utils.transform_null(feature_df, numeric_cols, categorical_cols)
+        feature_df = utils.transform_null(
+            feature_df, numeric_cols, categorical_cols, timestamp_cols
+        )
 
         (
             train_x,
@@ -213,17 +220,6 @@ class MLTrainer(ABC):
             train_data,
             test_data,
         ) = self.prepare_data(feature_df)
-
-        numeric_cols = [
-            col.upper()
-            for col in input_col_types["numeric"]
-            if col.upper() in feature_df
-        ]
-        categorical_cols = [
-            col.upper()
-            for col in input_col_types["categorical"]
-            if col.upper() in feature_df
-        ]
 
         n_folds = train_config["model_params"]["fold"]
         fold_strategy = train_config["model_params"]["fold_strategy"]
@@ -242,6 +238,7 @@ class MLTrainer(ABC):
             session_id=42,
             numeric_features=numeric_cols,
             categorical_features=categorical_cols,
+            date_features=timestamp_cols,
             fold=n_folds,
             fold_strategy=fold_strategy,
             system_log=False,

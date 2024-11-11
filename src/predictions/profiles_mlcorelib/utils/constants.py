@@ -1,3 +1,9 @@
+from pathlib import Path
+
+CONFIG_DIR = Path.home() / ".pb"
+PREFERENCES_FILE = "preferences.yaml"
+PREFERENCES_PATH = CONFIG_DIR / PREFERENCES_FILE
+
 MODEL_FILE_NAME = "rs_predictions_trained_model"
 CARDINAL_FEATURE_THRESHOLD = 0.01
 MIN_SAMPLES_FOR_TRAINING = 10

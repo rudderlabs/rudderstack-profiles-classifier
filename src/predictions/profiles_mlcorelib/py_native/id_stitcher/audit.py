@@ -1,8 +1,12 @@
 from typing import Optional
+import uuid
+from datetime import datetime
 from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial, WhtModel
 from profiles_rudderstack.logger import Logger
+
+from profiles_mlcorelib.utils.tracking import Analytics
 
 from .llm_report import LLMReport
 from .yaml_report import YamlReport
@@ -41,6 +45,7 @@ class ModelRecipe(PyNativeRecipe):
         # There is no guarantee that the register_dependencies will be called only once
         # So we need to keep track of whether the run has been completed
         self.run_completed = False
+        self.run_id = str(uuid.uuid4())
 
     def describe(self, this: WhtMaterial):
         pass
@@ -88,29 +93,57 @@ class ModelRecipe(PyNativeRecipe):
         if self.run_completed:
             return
 
-        edge_sources = self.id_stitcher_model.build_spec()["edge_sources"]
-        for edge_source in edge_sources:
-            input_model_ref = edge_source["from"]
-            input_material = this.de_ref(input_model_ref)
-            if input_material is None:
-                raise ValueError(f"Model {input_model_ref} not found")
-            edge_source["input_model"] = input_material.model
-        entity = self.id_stitcher_model.entity()
-        yaml_report = YamlReport(edge_sources, entity)
-        table_report = TableReport(this, self.id_stitcher_model, entity, yaml_report)
-        cluster_report = ClusterReport(self.reader, this, entity, table_report)
-        llm_report = LLMReport(
-            self.reader,
-            this,
-            self.build_spec["access_token"],
-            self.logger,
-            table_report,
-            entity,
+        analytics = Analytics()
+        analytics.show_consent_message(self.logger)
+        self.start_time = datetime.now()
+        analytics.track(
+            "audit_start", {"run_id": self.run_id, "model_type": "audit_id_stitcher"}
         )
-        reports = [yaml_report, table_report, cluster_report, llm_report]
-        for report in reports:
-            report.run()
-        self.run_completed = True
+        try:
+
+            edge_sources = self.id_stitcher_model.build_spec()["edge_sources"]
+            for edge_source in edge_sources:
+                input_model_ref = edge_source["from"]
+                input_material = this.de_ref(input_model_ref)
+                if input_material is None:
+                    raise ValueError(f"Model {input_model_ref} not found")
+                edge_source["input_model"] = input_material.model
+            entity = self.id_stitcher_model.entity()
+            yaml_report = YamlReport(edge_sources, entity)
+            table_report = TableReport(
+                this, self.id_stitcher_model, entity, yaml_report
+            )
+            cluster_report = ClusterReport(
+                self.reader, this, entity, table_report, self.logger
+            )
+            llm_report = LLMReport(
+                self.reader,
+                this,
+                self.build_spec["access_token"],
+                self.logger,
+                table_report,
+                entity,
+            )
+            reports = [yaml_report, table_report, cluster_report, llm_report]
+            for report in reports:
+                report.run()
+            self.run_completed = True
+            status = "success"
+            n_visualisations = cluster_report.counter
+        except Exception as e:
+            status = f"Exception: {str(e)}"
+            n_visualisations = None
+        duration = (datetime.now() - self.start_time).total_seconds()
+        analytics.track(
+            "audit_end",
+            {
+                "run_id": self.run_id,
+                "model_type": "audit_id_stitcher",
+                "duration_in_sec": duration,
+                "status": status,
+                "n_visualisations": n_visualisations,
+            },
+        )
 
     def execute(self, this: WhtMaterial):
         pass

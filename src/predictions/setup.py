@@ -31,6 +31,7 @@ install_requires = [
     "snowflake-snowpark-python[pandas]>=1.11.1",
     "networkx",
     "pyvis",
+    "rudder-sdk-python",
 ]
 
 setup(

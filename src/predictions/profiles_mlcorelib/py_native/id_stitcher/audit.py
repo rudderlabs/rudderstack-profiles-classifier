@@ -62,11 +62,15 @@ class ModelRecipe(PyNativeRecipe):
         if self.id_stitcher_model is not None:
             return
         id_stitcher_models = {}
-        models = this.base_wht_project.models(model_types=["id_stitcher"])
-        if len(models) == 0:
-            raise ValueError("No id_stitcher model found in the project")
+        # FIXME: Remove "identity" from the list once the ListModels bug is fixed in wht code
+        models = this.base_wht_project.models(model_types=["identity", "id_stitcher"])
         for model in models:
+            # FIXME: Remove "id_collator" check once "identity" model type filter is removed
+            if model.model_type() == "id_collator":
+                continue
             id_stitcher_models[model.name()] = model
+        if len(id_stitcher_models) == 0:
+            raise ValueError("No id_stitcher model found in the project")
         if len(id_stitcher_models) > 1:
             max_retries = 5
             retry_count = 0

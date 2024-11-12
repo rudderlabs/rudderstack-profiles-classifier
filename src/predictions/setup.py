@@ -33,6 +33,7 @@ install_requires = [
     "pyvis",
     "rudder-sdk-python",
     "ruamel.yaml>=0.18.6",
+    "pytest",
 ]
 
 setup(

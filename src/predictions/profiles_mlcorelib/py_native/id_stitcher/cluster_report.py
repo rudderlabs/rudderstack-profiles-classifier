@@ -3,6 +3,7 @@ from typing import Dict
 import pandas as pd
 from profiles_rudderstack.client import BaseClient
 from profiles_rudderstack.material import WhtMaterial
+from profiles_rudderstack.logger import Logger
 
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
 # from profiles_rudderstack.reader import Reader
@@ -40,11 +41,14 @@ class ClusterReport:
         this: WhtMaterial,
         entity: Dict,
         table_report: TableReport,
+        logger: Logger,
     ):
         self.reader = reader
         self.wh_client = this.wht_ctx.client
         self.entity = entity
         self.table_report = table_report
+        self.counter = 0
+        self.logger = logger
 
     def get_edges_data(self, node_id: str) -> pd.DataFrame:
         cluster_query_template = """
@@ -95,31 +99,33 @@ class ClusterReport:
         metrics["edge_count"] = {node: degree for node, degree in G.degree()}
 
         # Bridge Nodes (combining betweenness and articulation points)
-        if G.number_of_nodes() > 50:
-            print(
-                f"As there are too many ids ({G.number_of_nodes()}) in this cluster, we use an approximate betweenness centrality calculation to identify bridge nodes"
+        if G.number_of_nodes() > 100:
+            self.logger.warn(
+                f"Skipping complex metrics for large graph with {G.number_of_nodes()} nodes"
             )
-            betweenness_centrality = nx.betweenness_centrality(G, k=50)
+            metrics["top_bridge_nodes"] = []
+            metrics["betweenness_centrality"] = {}
+            metrics["diameter"] = -1
         else:
             betweenness_centrality = nx.betweenness_centrality(G)
-        articulation_points = set(nx.articulation_points(G))
-        bridge_nodes = sorted(
-            [
-                (node, score)
-                for node, score in betweenness_centrality.items()
-                if node in articulation_points
-            ],
-            key=lambda x: x[1],
-            reverse=True,
-        )
-        metrics["top_bridge_nodes"] = [
-            node for node, _ in bridge_nodes[:betweenness_top_n]
-        ]
-        metrics["betweenness_centrality"] = betweenness_centrality
-        # Diameter (of the largest component)
-        largest_cc = max(nx.connected_components(G), key=len)
-        largest_cc_subgraph = G.subgraph(largest_cc)
-        metrics["diameter"] = nx.diameter(largest_cc_subgraph)
+            articulation_points = set(nx.articulation_points(G))
+            bridge_nodes = sorted(
+                [
+                    (node, score)
+                    for node, score in betweenness_centrality.items()
+                    if node in articulation_points
+                ],
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            metrics["top_bridge_nodes"] = [
+                node for node, _ in bridge_nodes[:betweenness_top_n]
+            ]
+            metrics["betweenness_centrality"] = betweenness_centrality
+            # Diameter (of the largest component)
+            largest_cc = max(nx.connected_components(G), key=len)
+            largest_cc_subgraph = G.subgraph(largest_cc)
+            metrics["diameter"] = nx.diameter(largest_cc_subgraph)
         return metrics
 
     def _analyse_cluster(self, node_id: str):
@@ -308,8 +314,14 @@ class ClusterReport:
             if metrics is None:
                 continue
             cluster_summary = self.get_cluster_summary(metrics)
-            os.makedirs(output_dir, exist_ok=True)
-            filename = f"{user_input}_graph.html"
-            file_path = os.path.join(output_dir, filename)
-            self.create_interactive_graph(G, file_path)
+            self.counter += 1
+            if metrics.get("num_nodes", 0) > 1000:
+                self.logger.warn(
+                    f"Skipping visualization as it is connected to too many ({metrics['num_nodes']}) other ids."
+                )
+            else:
+                os.makedirs(output_dir, exist_ok=True)
+                filename = f"{user_input}_graph.html"
+                file_path = os.path.join(output_dir, filename)
+                self.create_interactive_graph(G, file_path)
             print(f"Cluster Summary:\n{cluster_summary}\n\n")

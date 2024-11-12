@@ -32,7 +32,7 @@ install_requires = [
     "networkx",
     "pyvis",
     "ruamel.yaml>=0.18.6",
-    "patsy",
+    "pytest",
 ]
 
 setup(

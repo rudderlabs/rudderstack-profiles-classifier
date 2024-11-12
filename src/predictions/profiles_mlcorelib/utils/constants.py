@@ -1,9 +1,18 @@
+# Pb Preferences related constants - around consent and telemetry
 from pathlib import Path
 
 CONFIG_DIR = Path.home() / ".pb"
 PREFERENCES_FILE = "preferences.yaml"
 PREFERENCES_PATH = CONFIG_DIR / PREFERENCES_FILE
+TELEMETRY_OPT_OUT_KEY = "telemetry_opt_out"
+TELEMETRY_CONSENT_SHOWN_KEY = "telemetry_consent_shown"
+LLM_CONSENT_KEY = "llm_consent"
+# TODO: Modify them to a prod settings. These are currently from a testing env
+WRITE_KEY = "2ohOAcLQ7PQaN2s7jNEPFc1elNW"
+DATA_PLANE_URL = "https://rudderstacjpoy.dataplane.rudderstack.com"
 
+
+# Propensity model related constants
 MODEL_FILE_NAME = "rs_predictions_trained_model"
 CARDINAL_FEATURE_THRESHOLD = 0.01
 MIN_SAMPLES_FOR_TRAINING = 10

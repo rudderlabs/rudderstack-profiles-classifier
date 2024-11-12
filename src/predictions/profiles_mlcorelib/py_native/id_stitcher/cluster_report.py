@@ -99,31 +99,33 @@ class ClusterReport:
         metrics["edge_count"] = {node: degree for node, degree in G.degree()}
 
         # Bridge Nodes (combining betweenness and articulation points)
-        if G.number_of_nodes() > 50:
-            print(
-                f"As there are too many ids ({G.number_of_nodes()}) in this cluster, we use an approximate betweenness centrality calculation to identify bridge nodes"
+        if G.number_of_nodes() > 100:
+            self.logger.warn(
+                f"Skipping complex metrics for large graph with {G.number_of_nodes()} nodes"
             )
-            betweenness_centrality = nx.betweenness_centrality(G, k=50)
+            metrics["top_bridge_nodes"] = []
+            metrics["betweenness_centrality"] = {}
+            metrics["diameter"] = -1
         else:
             betweenness_centrality = nx.betweenness_centrality(G)
-        articulation_points = set(nx.articulation_points(G))
-        bridge_nodes = sorted(
-            [
-                (node, score)
-                for node, score in betweenness_centrality.items()
-                if node in articulation_points
-            ],
-            key=lambda x: x[1],
-            reverse=True,
-        )
-        metrics["top_bridge_nodes"] = [
-            node for node, _ in bridge_nodes[:betweenness_top_n]
-        ]
-        metrics["betweenness_centrality"] = betweenness_centrality
-        # Diameter (of the largest component)
-        largest_cc = max(nx.connected_components(G), key=len)
-        largest_cc_subgraph = G.subgraph(largest_cc)
-        metrics["diameter"] = nx.diameter(largest_cc_subgraph)
+            articulation_points = set(nx.articulation_points(G))
+            bridge_nodes = sorted(
+                [
+                    (node, score)
+                    for node, score in betweenness_centrality.items()
+                    if node in articulation_points
+                ],
+                key=lambda x: x[1],
+                reverse=True,
+            )
+            metrics["top_bridge_nodes"] = [
+                node for node, _ in bridge_nodes[:betweenness_top_n]
+            ]
+            metrics["betweenness_centrality"] = betweenness_centrality
+            # Diameter (of the largest component)
+            largest_cc = max(nx.connected_components(G), key=len)
+            largest_cc_subgraph = G.subgraph(largest_cc)
+            metrics["diameter"] = nx.diameter(largest_cc_subgraph)
         return metrics
 
     def _analyse_cluster(self, node_id: str):
@@ -317,10 +319,9 @@ class ClusterReport:
                 self.logger.warn(
                     f"Skipping visualization as it is connected to too many ({metrics['num_nodes']}) other ids."
                 )
-                continue
             else:
                 os.makedirs(output_dir, exist_ok=True)
                 filename = f"{user_input}_graph.html"
                 file_path = os.path.join(output_dir, filename)
                 self.create_interactive_graph(G, file_path)
-                print(f"Cluster Summary:\n{cluster_summary}\n\n")
+            print(f"Cluster Summary:\n{cluster_summary}\n\n")

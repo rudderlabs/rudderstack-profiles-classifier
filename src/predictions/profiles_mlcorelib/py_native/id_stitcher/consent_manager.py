@@ -2,16 +2,17 @@ import yaml
 from pathlib import Path
 from typing import Union
 from profiles_rudderstack.logger import Logger
-from profiles_mlcorelib.utils.constants import PREFERENCES_PATH, CONFIG_DIR
+from profiles_mlcorelib.utils.constants import (
+    PREFERENCES_PATH,
+    CONFIG_DIR,
+    LLM_CONSENT_KEY,
+)
 
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
 # from profiles_rudderstack.reader import Reader
 
 
 class ConsentManager:
-    LLM_CONSENT_KEY = "llm_consent"
-    PREFERENCES_FILE = "preferences.yaml"
-
     def __init__(self, logger: Logger):
         if not CONFIG_DIR.exists():
             CONFIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -34,7 +35,7 @@ class ConsentManager:
                 return None
             with open(self.preferences_file, "r") as f:
                 data = yaml.safe_load(f) or {}
-                return data.get(self.LLM_CONSENT_KEY, None)
+                return data.get(LLM_CONSENT_KEY, None)
         except yaml.YAMLError:
             self.logger.warn(
                 f"Error reading preferences file {self.preferences_file}: YAML is corrupted. Creating new file."
@@ -56,7 +57,7 @@ class ConsentManager:
             with open(self.preferences_file, "r") as f:
                 existing_preferences = yaml.safe_load(f) or {}
 
-        existing_preferences[self.LLM_CONSENT_KEY] = consent
+        existing_preferences[LLM_CONSENT_KEY] = consent
         self.preferences_file.parent.mkdir(parents=True, exist_ok=True)
         with open(self.preferences_file, "w") as f:
             yaml.dump(existing_preferences, f)

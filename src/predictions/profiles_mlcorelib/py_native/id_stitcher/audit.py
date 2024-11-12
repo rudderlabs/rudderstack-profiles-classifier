@@ -97,7 +97,8 @@ class ModelRecipe(PyNativeRecipe):
         analytics.show_consent_message(self.logger)
         self.start_time = datetime.now()
         analytics.track(
-            "audit_start", {"run_id": self.run_id, "model_type": "audit_id_stitcher"}
+            "model_run_start",
+            {"run_id": self.run_id, "model_type": "audit_id_stitcher"},
         )
         try:
 
@@ -131,11 +132,11 @@ class ModelRecipe(PyNativeRecipe):
             status = "success"
             n_visualisations = cluster_report.counter
         except Exception as e:
-            status = f"Exception: {str(e)}"
+            status = "run_failed"
             n_visualisations = None
         duration = (datetime.now() - self.start_time).total_seconds()
         analytics.track(
-            "audit_end",
+            "model_run_end",
             {
                 "run_id": self.run_id,
                 "model_type": "audit_id_stitcher",

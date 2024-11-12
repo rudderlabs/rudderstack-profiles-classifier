@@ -129,10 +129,8 @@ class ModelRecipe(PyNativeRecipe):
             for report in reports:
                 report.run()
             self.run_completed = True
-            status = "success"
             n_visualisations = cluster_report.counter
         except Exception as e:
-            status = "run_failed"
             n_visualisations = None
         duration = (datetime.now() - self.start_time).total_seconds()
         analytics.track(
@@ -141,7 +139,7 @@ class ModelRecipe(PyNativeRecipe):
                 "run_id": self.run_id,
                 "model_type": "audit_id_stitcher",
                 "duration_in_sec": duration,
-                "status": status,
+                "is_run_completed": self.run_completed,
                 "n_visualisations": n_visualisations,
             },
         )

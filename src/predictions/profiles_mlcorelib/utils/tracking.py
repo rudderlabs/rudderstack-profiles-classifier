@@ -66,12 +66,16 @@ class Analytics:
             self.mark_consent_shown()
 
     def track(self, event_name: str, properties: dict = None):
-        if not self.opted_out:
-            if properties is None:
-                properties = {}
+        try:
+            if not self.opted_out:
+                if properties is None:
+                    properties = {}
 
-            rudder_analytics.track(
-                anonymous_id=self.properties["anonymous_id"],
-                event=event_name,
-                properties=properties,
-            )
+                rudder_analytics.track(
+                    anonymous_id=self.properties["anonymous_id"],
+                    event=event_name,
+                    properties=properties,
+                )
+        except Exception:
+            # Failed to track event - should not have any impact on the user
+            pass

@@ -30,7 +30,8 @@ jobs:
       run: black --check . 
 
     - name: Install dependencies
-      run: pip install -r tests/integration/requirements.txt
+      working-directory: src/predictions
+      run: pip3 install .
 
     - name: Compile core train
       run: python -m src.predictions.profiles_mlcorelib.ml_core.preprocess_and_train --mode ci

@@ -25,6 +25,6 @@ def register_extensions(project):
 
     project.register_model_type(AuditIdStitcherModel)
 
-    # from .py_native.profiles_tutorial.tutorial import TutorialModel
+    from .py_native.profiles_tutorial.tutorial import TutorialModel
 
-    # project.register_model_type(TutorialModel)
+    project.register_model_type(TutorialModel)

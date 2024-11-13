@@ -6,7 +6,7 @@ import os
 import warnings
 import subprocess
 import zipfile
-from .input_handler import InputHandler, InputSteps
+from .input_handler import IOHandler
 from .database_manager import DatabaseManager
 from .file_generator import FileGenerator
 import pandas as pd
@@ -22,7 +22,8 @@ from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
 
-# from profiles_rudderstack.reader import Reader
+from profiles_rudderstack.reader import Reader
+from profiles_rudderstack.client.client_base import BaseClient
 
 warnings.filterwarnings("ignore", category=UserWarning, module="snowflake.connector")
 
@@ -56,7 +57,7 @@ class TutorialModel(BaseModelType):
 class TutorialRecipe(PyNativeRecipe):
     def __init__(self, fast_mode: bool) -> None:
         super().__init__()
-        self.profile_builder = ProfileBuilder(self.reader, fast_mode)
+        self.fast_mode = fast_mode
         self.logger = Logger("TutorialRecipe")
 
     def describe(self, this: WhtMaterial) -> Tuple[str, str]:
@@ -71,25 +72,27 @@ class TutorialRecipe(PyNativeRecipe):
     def execute(self, this: WhtMaterial):
         if not os.path.exists("sample_data"):
             self.logger.info("unzipping sample data...")
-            unzip_sample_data()
-        self.profile_builder.run()
+            unzip_sample_data(self.logger)
+
+        profile_builder = ProfileBuilder(self.reader, self.fast_mode)
+        wh_client = this.wht_ctx.client
+        profile_builder.run(wh_client)
 
 
 class ProfileBuilder:
-    def __init__(self, reader, fast_mode: bool):
+    def __init__(self, reader: Reader, fast_mode: bool):
         self.config = {}
-        self.db_manager = None
-        self.input_handler = InputHandler(reader, fast_mode)
-        self.file_generator = FileGenerator(fast_mode, self.input_handler)
         self.fast_mode = fast_mode
+        self.io_handler = IOHandler(reader, fast_mode)
+        self.file_generator = FileGenerator(fast_mode, self.io_handler)
 
-    def run(self):
+    def run(self, client: BaseClient):
         self.display_welcome_message()
-        # Connection
-        self.connect_to_snowflake()
-        connection_name = self.create_siteconfig()
+        self.db_manager = DatabaseManager(client, self.io_handler, self.fast_mode)
         new_table_names = self.upload_sample_data()
         relevant_tables = self.find_relevant_tables(new_table_names)
+
+        connection_name, target = client.get_connection_and_target()
         self.display_about_project_files(connection_name)
         # pb_project.yaml
         entity_name, id_types, id_graph_model = self.generate_pb_project(
@@ -99,9 +102,9 @@ class ProfileBuilder:
         self.map_tables_to_id_types(relevant_tables, id_types, entity_name)
         # profiles.yaml
         self.build_id_stitcher_model(relevant_tables, entity_name, id_graph_model)
-        self.pb_runs(entity_name, id_graph_model)
+        self.pb_runs(entity_name, id_graph_model, target)
 
-    def pb_runs(self, entity_name, id_graph_model: str):
+    def pb_runs(self, entity_name, id_graph_model: str, target: str):
         about_pb_runs = """
             We have now defined a user entity, id types that belong to this entity, data sources from which to extract this data, and finally, a simple id stitcher model. 
             The next step is to run the project. 
@@ -115,23 +118,29 @@ class ProfileBuilder:
             This optional command is `pb compile` Let's run this first to see what happens.
             Paste the `pb compile` command below.
             """
-        self.input_handler.display_multiline_message(about_pb_runs)
-        self.input_handler.get_user_input("Enter `pb compile`", options=["pb compile"])
+        self.io_handler.display_multiline_message(about_pb_runs)
+        self.io_handler.get_user_input("Enter `pb compile`", options=["pb compile"])
         os.chdir("profiles")
-        pb_compile_output = self._subprocess_run(["pb", "compile"])
+        pb_compile_output = self._subprocess_run(["pb", "compile", "--target", target])
         os.chdir("..")
         _ = self.explain_pb_compile_results(pb_compile_output, id_graph_model)
         about_pb_run = """
             The command to run profiles project is `pb run`. 
             You would normally do that in your terminal as a cli command.
             But for this guided demo, you can just enter the command and the tutorial will execute it for you."""
-        self.input_handler.display_multiline_message(about_pb_run)
-        seq_no, id_stitcher_table_name = self.prompt_to_do_pb_run(id_graph_model)
+        self.io_handler.display_multiline_message(about_pb_run)
+        seq_no, id_stitcher_table_name = self.prompt_to_do_pb_run(
+            id_graph_model, target
+        )
         distinct_main_ids = self.explain_pb_run_results(
             entity_name, id_stitcher_table_name
         )
         seq_no, updated_id_stitcher_table_name = self.second_run(
-            distinct_main_ids, entity_name, id_graph_model, id_stitcher_table_name
+            distinct_main_ids,
+            entity_name,
+            id_graph_model,
+            id_stitcher_table_name,
+            target,
         )
         self.third_run(
             entity_name,
@@ -139,6 +148,7 @@ class ProfileBuilder:
             id_stitcher_table_name,
             updated_id_stitcher_table_name,
             seq_no,
+            target,
         )
 
     def explain_pb_compile_results(self, pb_compile_output, id_graph_model):
@@ -158,7 +168,7 @@ class ProfileBuilder:
         You can check out the output directory and sql files produced. 
         This `pb compile` command actually did not run the profiles project. It only 'compiled' the project, i.e., created these sql files. Now let's move on to actually running the project.
         """
-        self.input_handler.display_multiline_message(about_pb_compile)
+        self.io_handler.display_multiline_message(about_pb_compile)
         return seq_no
 
     def display_welcome_message(self):
@@ -174,7 +184,7 @@ class ProfileBuilder:
         building a c360 degree view of this entity, and putting that data into action for the benefit of your business!
         """
         print(messages)
-        self.input_handler.display_multiline_message(
+        self.io_handler.display_multiline_message(
             "Please read through the text in detail and press Enter to continue to each next step. Press “Enter” now"
         )
 
@@ -190,7 +200,7 @@ class ProfileBuilder:
         This tutorial will walk through how to setup a profiles project, bring in source data, and build a solid ID Graph around the customer. 
         Secure Solutions, LLC knows that they have around 319 customers. 171 of which represent known users and the remaining 148 are unknown.
         Meaning, they have not performed any sort of conversion yet."""
-        self.input_handler.display_multiline_message(fitional_business_overview)
+        self.io_handler.display_multiline_message(fitional_business_overview)
 
     def get_entity_name(self):
         about_entity_message = """
@@ -200,7 +210,7 @@ class ProfileBuilder:
         Entities are the central concept that a profiles project is built around. The identity graphs and C360 tables will be built around an entity.
         """
         print(about_entity_message)
-        return self.input_handler.get_user_input(
+        return self.io_handler.get_user_input(
             "For the purpose of this tutorial, we will define a 'user' entity. Please enter `user`",
             default="user",
             options=["user"],
@@ -230,8 +240,8 @@ class ProfileBuilder:
         
         We'll go through some common id types one by one. As this is a demo, please type the exact name as suggested.
         """
-        self.input_handler.display_multiline_message(about_id_types)
-        id_types = self.input_handler.guide_id_type_input(entity_name)
+        self.io_handler.display_multiline_message(about_id_types)
+        id_types = self.io_handler.guide_id_type_input(entity_name)
 
         conclusion = """
         We have now defined an entity called "user" along with the associated id_types that exist across our different source systems. 
@@ -239,68 +249,17 @@ class ProfileBuilder:
         print(conclusion)
         return id_types
 
-    def connect_to_snowflake(self):
-        connection_messages = """
-        Profiles is a SQL based tool that's setup using a yaml configuration. 
-        We will walk you through a basic profiles yaml configuration in order to generate the SQL that will run in your warehouse. 
-        But first, we must build a connection between your configuration and your warehouse.
-        RudderStack Profiles writes all the output tables and views to a single schema and database. 
-        But the inputs can come from multiple databases and schemas.
-        This is a very common scenario, given that your warehouse data can come from different sources and systems. 
-        Ex: you may have event stream data sitting in RudderStack database with schemas - mobile, web, server etc. Then Salesforce data may be in a different database called `SalesforceDB` and schema called `Salesforce`. 
-        Profiles can ingest data from any number of different input databases and schemas as long as the user has access to them.
-        For this demo though, we are ingesting the seed data into the same database and schema as the output. So you can create a sample schema in your warehouse and use that if you want to keep all your existing schemas clean.
-        We recommend creating a new schema for this purpose - a helpful name would be `profiles_tutorial`. If you prefer creating a new schema, please do that now and come back."""
-        self.input_handler.display_multiline_message(connection_messages)
-        if self.fast_mode:
-            # get password from user
-            password = self.input_handler.get_user_input(
-                "Enter password for profiles_demo user", password=True
-            )
-            self.config = {
-                "account": "ina31471.us-east-1",
-                "output_database": "DREW_PB_TUTORIAL_DB",
-                "output_schema": "DILEEP_TEST",
-                "input_database": "DREW_PB_TUTORIAL_DB",
-                "input_schema": "DILEEP_TEST",
-                "password": password,
-                "type": "snowflake",
-                "role": "DEMO_ROLE",
-                "warehouse": "ADHOC_WH",
-                "user": "profiles_demo",
-            }
-        else:
-            inputs = {}
-            inputs.update(self.input_handler.collect_user_inputs(InputSteps.common()))
-            # inputs.update(self.input_handler.collect_user_inputs(InputSteps.input()))
-            # inputs.update(self.input_handler.collect_user_inputs(InputSteps.output()))
-
-            self.config = {
-                "account": inputs[InputSteps.ACCOUNT],
-                "user": inputs[InputSteps.USERNAME],
-                "password": inputs[InputSteps.PASSWORD],
-                "role": inputs[InputSteps.ROLE],
-                "warehouse": inputs[InputSteps.WAREHOUSE],
-                "input_database": inputs[InputSteps.OUTPUT_DATABASE],
-                "input_schema": inputs[InputSteps.OUTPUT_SCHEMA],
-                "output_database": inputs[InputSteps.OUTPUT_DATABASE],
-                "output_schema": inputs[InputSteps.OUTPUT_SCHEMA],
-            }
-        self.db_manager = DatabaseManager(
-            self.config, self.input_handler, self.fast_mode
-        )
-
     def upload_sample_data(self):
-        logger.info(
+        print(
             "Now, let's seed your warehouse with the sample data from Secure Solutions, LLC"
         )
-        logger.info(
+        print(
             f"We will add a suffix `{TABLE_SUFFIX}` to the table names to avoid conflicts and not overwrite any existing tables."
         )
         return self.db_manager.upload_sample_data(SAMPLE_DATA_DIR, TABLE_SUFFIX)
 
     def find_relevant_tables(self, new_table_names):
-        logger.info(
+        print(
             f"\n** Searching the `{self.config['input_schema']}` schema in `{self.config['input_database']}` database for uploaded sample tables, that will act as sources for profiles **\n"
         )
         try:
@@ -310,9 +269,7 @@ class ProfileBuilder:
                     "No relevant tables found. Please check your inputs and try again."
                 )
                 sys.exit(1)
-            logger.info(
-                f"Found {len(relevant_tables)} relevant tables: {relevant_tables}"
-            )
+            print(f"Found {len(relevant_tables)} relevant tables: {relevant_tables}")
             return relevant_tables
         except Exception as e:
             logger.exception(f"An error occurred while fetching tables: {e}")
@@ -333,7 +290,7 @@ class ProfileBuilder:
         For example, you will notice that the anonymous_id in the input tables is called anonymous_id. 
         But the id type we defined in the pb project yaml is anon_id. So we need to connect those two for each identifier column in each input.
         """
-        self.input_handler.display_multiline_message(about_input_definitions)
+        self.io_handler.display_multiline_message(about_input_definitions)
 
         id_mappings = {}
         table_index = 0
@@ -348,7 +305,7 @@ class ProfileBuilder:
                     if relevant_tables[table_index] in id_mappings:
                         _ = id_mappings.pop(relevant_tables[table_index])
                 else:
-                    logger.info("You are already at the first table.")
+                    print("You are already at the first table.")
             else:
                 if table_mappings:
                     id_mappings[table] = {
@@ -365,8 +322,8 @@ class ProfileBuilder:
         id_stitcher_spec = """
         Now, let's define an ID Stitcher Model. This model type will generate SQL which will run in your data warehouse and ultimately output an ID Graph. 
         Let's first define a name for the model. This will also be the name of the output view within your warehouse after the run is completed."""
-        self.input_handler.display_multiline_message(id_stitcher_spec)
-        id_graph_model_name = self.input_handler.get_user_input(
+        self.io_handler.display_multiline_message(id_stitcher_spec)
+        id_graph_model_name = self.io_handler.get_user_input(
             f"Enter a name for the model, Let's give the name `{id_graph_model}`",
             options=[id_graph_model],
             default=id_graph_model,
@@ -381,10 +338,10 @@ class ProfileBuilder:
         Since we have already defined our input sources, we can refer to them directly in the model spec here. Let's add our edge sources:
         """
         edge_sources = []
-        self.input_handler.display_multiline_message(id_stitcher_spec2)
+        self.io_handler.display_multiline_message(id_stitcher_spec2)
         for table in table_names:
             table_name = "rs" + table.replace(f"_{TABLE_SUFFIX}", "").capitalize()
-            edge_source = self.input_handler.get_user_input(
+            edge_source = self.io_handler.get_user_input(
                 f"Enter `inputs/{table_name}` as an edge source",
                 options=[f"inputs/{table_name}"],
                 default=f"inputs/{table_name}",
@@ -396,15 +353,6 @@ class ProfileBuilder:
         print(
             "Perfect! You can now examine your profiles.yaml file and see the model spec for the ID Stitcher."
         )
-
-    def create_siteconfig(self):
-        about_siteconfig = """
-        We store the connection information in a file called `siteconfig.yaml`.
-        This file is stored in a folder called `.pb` in your home directory. 
-        This helps profile builder to connect to your warehouse account and run the project automatically.
-        """
-        print(about_siteconfig)
-        return self.file_generator.create_siteconfig(self.config)
 
     def display_about_project_files(self, connection_name):
         about_files = f"""
@@ -428,7 +376,7 @@ class ProfileBuilder:
         These files will be created in this tutorial, with the details you will provide in the next steps. 
         Also, for this tutorial, we will use a directory called `profiles` to store all the files. We will create it here in the current directory.
         """
-        self.input_handler.display_multiline_message(about_files)
+        self.io_handler.display_multiline_message(about_files)
 
     def generate_pb_project(self, connection_name):
         # create a directory called profiles if doesn't exist
@@ -469,18 +417,20 @@ class ProfileBuilder:
         id_graph_table_name = match.group(1)
         return int(seq_no), id_graph_table_name
 
-    def prompt_to_do_pb_run(self, id_graph_name: str, command: str = "pb run"):
-        self.input_handler.get_user_input(
+    def prompt_to_do_pb_run(
+        self, id_graph_name: str, target: str, command: str = "pb run"
+    ):
+        self.io_handler.get_user_input(
             f"Enter `{command}` to continue", options=[command]
         )
-        logger.info("Running the profiles project...(This will take a few minutes)")
+        print("Running the profiles project...(This will take a few minutes)")
         os.chdir("profiles")
-        pb_run_output = self._subprocess_run(command.split())
+        pb_run_output = self._subprocess_run([*command.split(), "--target", target])
         os.chdir("..")
         seq_no, id_graph_table_name = self.parse_pb_output_text(
             pb_run_output, id_graph_name
         )
-        logger.info("Done")
+        print("Done")
         return seq_no, id_graph_table_name
 
     # def get_latest_id_stitcher_table_name(self, entity_name: str) -> str:
@@ -518,7 +468,7 @@ class ProfileBuilder:
 
         `SELECT * FROM {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name} LIMIT 10;`
         """
-        self.input_handler.display_multiline_message(prompt)
+        self.io_handler.display_multiline_message(prompt)
 
         distinct_ids = self._explain_first_run(entity_name, id_stitcher_table_name)
         return distinct_ids
@@ -528,7 +478,7 @@ class ProfileBuilder:
         # logger.info("You can check the total number of entities in your project by running the following query in your warehouse account:")
         print(query_distinct_main_ids)
         # run query
-        result = self.db_manager.connector.run_query(query_distinct_main_ids)
+        result = self.db_manager.client.query_sql_with_result(query_distinct_main_ids)
         return result[0][0]
 
     def _explain_first_run(self, entity_name: str, id_stitcher_table_name: str):
@@ -547,17 +497,17 @@ class ProfileBuilder:
         Those user_main_ids should have a unique email, user_id, and shopify_customer_id associated with it. Any {entity_name}_main_id that solely has anonymous_ids would represent unknown users.
         Here's the query we will run: 
         """
-        self.input_handler.display_multiline_message(intro_text)
+        self.io_handler.display_multiline_message(intro_text)
         print(user_main_ids_query)
-        user_main_ids = self.db_manager.connector.run_query(
-            user_main_ids_query, output_type="pandas"
+        user_main_ids = self.db_manager.client.query_sql_with_result(
+            user_main_ids_query
         )
         distinct_ids = len(user_main_ids)
         assert distinct_ids == 3
         alerting_text = f"""
         Oh no!! Something looks off here. It appears there are only 3 {entity_name}_main_ids. Let's bring in the id_type column and aggregate again so we can get a count per id_type, per {entity_name}_main_id.
         """
-        self.input_handler.display_multiline_message(alerting_text)
+        self.io_handler.display_multiline_message(alerting_text)
 
         query = f"""
         select {entity_name}_main_id, 
@@ -567,9 +517,9 @@ class ProfileBuilder:
         order by 1,3"""
         print(query)
 
-        result = self.db_manager.connector.run_query(query, output_type="pandas")
+        result = self.db_manager.client.query_sql_with_result(query)
         result.columns = [col.lower() for col in result.columns]
-        logger.info(result)
+        print(result)
 
         prompt = f"""
         Notice the count of user_ids and emails within each user_main_id where you can see that there are many users. That means, these users have been merged in error. 
@@ -584,16 +534,16 @@ class ProfileBuilder:
         In our inputs.yaml we need to remove the id mappings we previously created for the shopify_store_id. You can remove the select, type, entity key/values 
         from the PAGES and IDENTIFIES input definitions underneath the `ids:` key in each definition. 
         """
-        self.input_handler.display_multiline_message(prompt)
-        self.input_handler.get_user_input(
+        self.io_handler.display_multiline_message(prompt)
+        self.io_handler.get_user_input(
             "Enter 'done' to continue once you have made the changes", options=["done"]
         )
         # Validate whether the new yaml files have shopify_store_id
         while not self.file_generator.validate_shopify_store_id_is_removed():
-            logger.info(
+            print(
                 "Please make sure to remove shopify_store_id from pb_project.yaml, inputs.yaml and try again"
             )
-            self.input_handler.get_user_input(
+            self.io_handler.get_user_input(
                 "Enter 'done' to continue once you have made the changes",
                 options=["done"],
             )
@@ -606,8 +556,8 @@ class ProfileBuilder:
                 group by 1 
                 order by 2 desc 
                 """
-        logger.info(query)
-        res = self.db_manager.connector.run_query(query, output_type="pandas")
+        print(query)
+        res = self.db_manager.client.query_sql_with_result(query)
         res.columns = [col.lower() for col in res.columns]
         return res
 
@@ -617,10 +567,11 @@ class ProfileBuilder:
         entity_name: str,
         id_graph_model: str,
         id_stitcher_table_name: str,
+        target: str,
     ):
-        logger.info("Now let's run the updated profiles project")
+        print("Now let's run the updated profiles project")
         seq_no, updated_id_stitcher_table_name = self.prompt_to_do_pb_run(
-            id_graph_model
+            id_graph_model, target
         )
         edge_table = f"{self.config['output_database']}.{self.config['output_schema']}.{updated_id_stitcher_table_name}_internal_edges"
         # updated_id_stitcher_table_name = self.get_latest_id_stitcher_table_name(entity_name)
@@ -632,7 +583,7 @@ class ProfileBuilder:
         That is because we edited the source data for the id_stitcher model. If you add, delete, or update any of the configuraton for a model, pb will generate a new hash for that model and run it fresh.
         Representing the fact that, though it is the same model type running again, the actual SQL will be slightly different due to the updated configuration. 
         Since we are already familiar with the contents of the ID Graph, let's go ahead and aggregate this table and see how many user_main_ids we get this time."""
-        self.input_handler.display_multiline_message(second_run_prompt)
+        self.io_handler.display_multiline_message(second_run_prompt)
 
         # prompt = f"""
         # You can see that the id stitcher table name has changed. It is now {updated_id_stitcher_table_name} (from earlier {id_stitcher_table_name}).
@@ -672,9 +623,9 @@ class ProfileBuilder:
         # We have only a few hundreds of distinct main_ids, so we can check the count of all the clusters as the number is manageable.
         # We can use following query to check that:
         # """
-        self.input_handler.display_multiline_message(prompt)
+        self.io_handler.display_multiline_message(prompt)
         # logger.info(self.top_clusters_query)
-        logger.info(
+        print(
             "You can run this query in your warehouse account to check the size of all the clusters"
         )
         result = self.cluster_size_analysis(entity_name, updated_id_stitcher_table_name)
@@ -697,7 +648,7 @@ class ProfileBuilder:
         Now, let's run a more advanced query in order to analyze what id values have possibly stitched multiple users together. 
         Here, we are analyzing the count of edges for each side of the nodes using the edge table as the source. 
         """
-        self.input_handler.display_multiline_message(edge_table_intro)
+        self.io_handler.display_multiline_message(edge_table_intro)
 
         # cluster_description = f"""
         # We should see the largest cluster having a count of {result.iloc[0]['num_of_other_ids']} and the smallest having a count of {result.iloc[-1]['num_of_other_ids']}
@@ -747,9 +698,7 @@ class ProfileBuilder:
     ORDER BY count_of_edges DESC;"""
         print(dense_edges_query)
         print("Running the query...")
-        dense_edges = self.db_manager.connector.run_query(
-            dense_edges_query, output_type="pandas"
-        )
+        dense_edges = self.db_manager.client.query_sql_with_result(dense_edges_query)
         dense_edges.columns = [col.lower() for col in dense_edges.columns]
         print(dense_edges.head(20))
         explain_bad_anon_ids = f"""
@@ -760,7 +709,7 @@ class ProfileBuilder:
         This is a clue to the bad values. The true test is to see if these anonymous_ids are connected to more than one email, user_id, or shopify_customer_id. 
         We will extend this query to see.
         """
-        self.input_handler.display_multiline_message(explain_bad_anon_ids)
+        self.io_handler.display_multiline_message(explain_bad_anon_ids)
         query_investigate_bad_anons = f"""
     WITH edge_table as (
             SELECT
@@ -807,8 +756,8 @@ class ProfileBuilder:
     order by email_count desc"""
         print(query_investigate_bad_anons)
         print("Running the query...")
-        bad_anons = self.db_manager.connector.run_query(
-            query_investigate_bad_anons, output_type="pandas"
+        bad_anons = self.db_manager.client.query_sql_with_result(
+            query_investigate_bad_anons
         )
         bad_anons.columns = [col.lower() for col in bad_anons.columns]
         pd.set_option("display.max_columns", None)
@@ -829,8 +778,8 @@ class ProfileBuilder:
         But to wrap up this tutorial, we will go ahead and add a regex filter on the anonymous_id type. 
         This is done back in the pb_project.yaml.
         """
-        self.input_handler.display_multiline_message(explain_bad_anon_ids2)
-        self.input_handler.display_multiline_message(
+        self.io_handler.display_multiline_message(explain_bad_anon_ids2)
+        self.io_handler.display_multiline_message(
             "Click enter so we update your `pb_project.yaml` file with the regex filter to the anonymous_id type in the background"
         )
         self.file_generator.update_bad_anons_filter()
@@ -912,6 +861,7 @@ class ProfileBuilder:
         id_stitcher_table_1: str,
         id_stitcher_table_2: str,
         seq_no2: int,
+        target: str,
     ):
         # Third run
         seq_no_intro = f"""
@@ -920,22 +870,22 @@ class ProfileBuilder:
         We can do a pb run with a seq_no param, so that profiles can reuse tables that already exist in the warehouse. If some model definition has changed, only those and the downstream queries are executed on the warehouse.
         This results in a faster pb run, along with some cost savings on the warehouse. The previous run had a seq number of {seq_no2}, apparent from the id graph table name {id_stitcher_table_2}.
         We will use that seq no in the pb run."""
-        self.input_handler.display_multiline_message(seq_no_intro)
+        self.io_handler.display_multiline_message(seq_no_intro)
         seq_no3, id_stitcher_table_name_3 = self.prompt_to_do_pb_run(
-            id_graph_model, command=f"pb run --seq_no {seq_no2}"
+            id_graph_model, target, command=f"pb run --seq_no {seq_no2}"
         )
         prompt = f"""
         You can see that the id stitcher table name has changed again. It is now {id_stitcher_table_name_3} (from earlier {id_stitcher_table_2} and {id_stitcher_table_1}).
         The filter on anonymous_id resulted in the changing of the hash. But as we reused prev seq_no, the suffix seq_no did not change.
         Let's check the number of distinct {entity_name}_main_ids now.
         """
-        self.input_handler.display_multiline_message(prompt)
+        self.io_handler.display_multiline_message(prompt)
         distinct_ids_3 = self.id_stitcher_queries(entity_name, id_stitcher_table_name_3)
         prompt = f"""
         The number of distinct {entity_name}_main_ids is now {distinct_ids_3}. Great! Remember at the beginning we expected to have 319 {entity_name}_main_ids.
         Let's quickly look at the count of other ids per {entity_name}_main_id
         """
-        self.input_handler.display_multiline_message(prompt)
+        self.io_handler.display_multiline_message(prompt)
 
         result = self.cluster_size_analysis(entity_name, id_stitcher_table_name_3)
         print(result.head(20))
@@ -944,7 +894,7 @@ class ProfileBuilder:
         Great! We can see that even the user_main_ids with the highest count are within the threshold that we would expect. 
         Now that Secure Solutions, LLC has a solid id graph, they can unlock future major value add projects for the business!! Like building an accurate 360 degree view of their customers, predicting accurate churn scores, model marketing attribution, etc.
         """
-        self.input_handler.display_multiline_message(prompt)
+        self.io_handler.display_multiline_message(prompt)
 
     # def execute_pb_run(self, first_run=True):
     #     if first_run:
@@ -990,7 +940,7 @@ def get_sample_data_path():
     )
 
 
-def unzip_sample_data():
+def unzip_sample_data(logger: Logger):
     zip_file_path = get_sample_data_path()
     # Ensure the zip file exists
     if not os.path.exists(zip_file_path):
@@ -1001,27 +951,6 @@ def unzip_sample_data():
             for file_info in zip_ref.infolist():
                 if not file_info.filename.startswith("__MACOSX"):
                     zip_ref.extract(file_info, ".")
-        print(f"Successfully extracted {zip_file_path} to the current directory")
+        logger.info(f"Successfully extracted {zip_file_path} to the current directory")
     except Exception as e:
         raise Exception(f"An error occurred while extracting: {str(e)}")
-
-
-# def main(fast_mode: bool):
-#     if not os.path.exists("sample_data"):
-#         print("Unzipping sample data...")
-#         unzip_sample_data()
-#     profile_builder = ProfileBuilder(fast_mode)
-#     profile_builder.run()
-
-# if __name__ == "__main__":
-#     # Add a 'fast' flag that sets bypass = True and also removes input() step in multi line prints
-#     import argparse
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument("--fast", help="Run the tutorial in fast mode", type=str, default='n')
-#     args = parser.parse_args()
-#     if args.fast == 'y':
-#         print("Fast mode is enabled. Normally, we print one line at a time, but for fast mode we stop only for user inputs. Disable by running `python tutorial.py --fast n`\n")
-#         bypass = True
-#     else:
-#         bypass = False
-#     main(bypass)

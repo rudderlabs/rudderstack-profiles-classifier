@@ -5,74 +5,19 @@ import logging
 import yaml
 
 from .config import TABLE_SUFFIX, CONFIG_FILE_PATH, INPUTS_FILE_PATH, PROFILES_FILE_PATH
-from .input_handler import InputHandler
+from .input_handler import IOHandler
 
 logger = logging.getLogger(__name__)
 
 
 class FileGenerator:
-    def __init__(self, fast_mode: bool, input_handler: InputHandler):
+    def __init__(self, fast_mode: bool, input_handler: IOHandler):
         self.fast_mode = fast_mode
         self.yaml = YAML()
         self.yaml.preserve_quotes = True
         self.yaml.indent(mapping=2, sequence=4, offset=2)
         self.yaml.width = 4096  # Prevent line wrapping
         self.input_handler = input_handler
-
-    def create_siteconfig(self, config: dict) -> str:
-        home_dir = str(Path.home())
-        pb_dir = os.path.join(home_dir, ".pb")
-        os.makedirs(pb_dir, exist_ok=True)
-        siteconfig_path = os.path.join(pb_dir, "siteconfig.yaml")
-
-        existing_siteconfig = {}
-        if os.path.exists(siteconfig_path):
-            logger.info(
-                f"Found existing siteconfig.yaml file at {siteconfig_path}. We will append the credentials to the existing file."
-            )
-            with open(siteconfig_path, "r") as f:
-                existing_siteconfig = self.yaml.load(f) or {}
-
-        connection_name = "test"
-        while connection_name in existing_siteconfig.get("connections", {}):
-            replace = self.input_handler.get_user_input(
-                f"Connection '{connection_name}' already exists. Should we replace it? (yes/no): ",
-                options=["yes", "no"],
-            )
-            if replace == "yes":
-                break
-            connection_name = self.input_handler.get_user_input(
-                "Enter a new connection name: "
-            )
-
-        new_connection = {
-            connection_name: {
-                "target": "prod",
-                "outputs": {
-                    "prod": {
-                        "account": config["account"],
-                        "dbname": config["output_database"],
-                        "password": config["password"],
-                        "role": config["role"],
-                        "schema": config["output_schema"],
-                        "type": "snowflake",
-                        "user": config["user"],
-                        "warehouse": config["warehouse"],
-                    }
-                },
-            }
-        }
-
-        if "connections" not in existing_siteconfig:
-            existing_siteconfig["connections"] = {}
-        existing_siteconfig["connections"][connection_name] = new_connection[
-            connection_name
-        ]
-
-        with open(siteconfig_path, "w") as f:
-            self.yaml.dump(existing_siteconfig, f)
-
-        return connection_name
 
     def create_pb_project(self, entity_name, id_types, connection_name, id_graph_model):
         pb_project = {

@@ -1,23 +1,21 @@
-import os
-from pathlib import Path
 from ruamel.yaml import YAML
 import logging
 import yaml
 
 from .config import TABLE_SUFFIX, CONFIG_FILE_PATH, INPUTS_FILE_PATH, PROFILES_FILE_PATH
-from .input_handler import IOHandler
+from .io_handler import IOHandler
 
 logger = logging.getLogger(__name__)
 
 
 class FileGenerator:
-    def __init__(self, fast_mode: bool, input_handler: IOHandler):
+    def __init__(self, fast_mode: bool, io_handler: IOHandler):
         self.fast_mode = fast_mode
         self.yaml = YAML()
         self.yaml.preserve_quotes = True
         self.yaml.indent(mapping=2, sequence=4, offset=2)
         self.yaml.width = 4096  # Prevent line wrapping
-        self.input_handler = input_handler
+        self.io_handler = io_handler
 
     def create_pb_project(self, entity_name, id_types, connection_name, id_graph_model):
         pb_project = {

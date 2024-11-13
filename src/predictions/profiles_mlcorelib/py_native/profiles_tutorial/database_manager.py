@@ -5,7 +5,7 @@ from typing import List, Dict, Tuple, Optional, Any
 from ruamel.yaml import YAML
 import sys
 
-from .input_handler import IOHandler
+from .io_handler import IOHandler
 from profiles_rudderstack.client.client_base import BaseClient
 
 logger = logging.getLogger(__name__)
@@ -15,13 +15,13 @@ class DatabaseManager:
     def __init__(
         self,
         client: BaseClient,
-        input_handler: IOHandler,
+        io_handler: IOHandler,
         fast_mode: bool,
     ):
         self.client = client
         self.schema = client.schema
         self.db = client.db
-        self.input_handler = input_handler
+        self.io_handler = io_handler
         self.fast_mode = fast_mode
 
     def upload_sample_data(self, sample_data_dir: str, table_suffix: str) -> dict:
@@ -45,7 +45,7 @@ class DatabaseManager:
 
             if table_name.lower() in existing_tables:
                 print(f"Table {table_name} already exists.")
-                action = self.input_handler.get_user_input(
+                action = self.io_handler.get_user_input(
                     "Do you want to skip uploading again, so we can reuse the tables? (yes/no) (yes - skips upload, no - uploads again): "
                 )
                 if action == "yes":
@@ -149,7 +149,7 @@ class DatabaseManager:
             f"Following are all the id types defined earlier: \n\t{','.join(id_types)}"
         )
         shortlisted_id_types = ",".join(list(shortlisted_columns.keys()))
-        applicable_id_types_input = self.input_handler.get_user_input(
+        applicable_id_types_input = self.io_handler.get_user_input(
             f"Enter the comma-separated list of id_types applicable to the `{table}` table: \n>",
             options=[shortlisted_id_types],
             default=shortlisted_id_types,
@@ -200,7 +200,7 @@ class DatabaseManager:
                 default = id_type_mapping.get(id_type, id_type)
                 # else:
                 #     default = None
-                user_input = self.input_handler.get_user_input(
+                user_input = self.io_handler.get_user_input(
                     f"Enter the column(s) to map the id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n> ",
                     default=default,
                     options=[default],
@@ -221,7 +221,7 @@ class DatabaseManager:
                     sample_data = self.get_sample_data(table, col)
                     print(f"- {col} (sample data: {sample_data})")
 
-                # confirm = self.input_handler.get_user_input("Is this correct? (yes/no): ", options=["yes", "no"])
+                # confirm = self.io_handler.get_user_input("Is this correct? (yes/no): ", options=["yes", "no"])
                 # if confirm.lower() == 'yes':
                 for col in selected_columns:
                     mapping = {"select": col, "type": id_type, "entity": entity_name}
@@ -239,11 +239,11 @@ class DatabaseManager:
             yaml.width = 4096  # Prevent line wrapping
             yaml.dump(summary, sys.stdout)
             print("\n")
-            self.input_handler.get_user_input(
+            self.io_handler.get_user_input(
                 f"The above is the inputs yaml for table `{table}`"
             )
         else:
-            self.input_handler.get_user_input(
+            self.io_handler.get_user_input(
                 "No id_type mappings were selected for this table.\n"
             )
         return table_mappings, "next"

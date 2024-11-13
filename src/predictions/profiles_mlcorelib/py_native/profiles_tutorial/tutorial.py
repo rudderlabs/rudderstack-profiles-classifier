@@ -6,7 +6,7 @@ import os
 import warnings
 import subprocess
 import zipfile
-from .input_handler import IOHandler
+from .io_handler import IOHandler
 from .database_manager import DatabaseManager
 from .file_generator import FileGenerator
 import pandas as pd
@@ -591,7 +591,7 @@ class ProfileBuilder:
         # The hash is a fingerprint of the definition, so it changes if the profiles project changes.
         # What's the number of distinct {entity_name}_main_ids now?
         # """
-        # self.input_handler.display_multiline_message(prompt)
+        # self.io_handler.display_multiline_message(prompt)
         distinct_ids_upd = self.id_stitcher_queries(
             entity_name, updated_id_stitcher_table_name
         )
@@ -668,7 +668,7 @@ class ProfileBuilder:
         # However, if this user 'u1' contacted us with a phone number 'p1' and this event is captured in some Salesforce table, we may not see a row having both 'a1' and 'p1' in the internal_edges table because they are from different tables. They are not "directly" related "yet"
         # So investigating this table often shows us noise in the input data. We can use following query to check the "bad" ids that stitched a lot of other ids in the top clusters:
         # """
-        # self.input_handler.display_multiline_message(cluster_description)
+        # self.io_handler.display_multiline_message(cluster_description)
 
         dense_edges_query = f"""
     WITH edge_table AS (    
@@ -835,7 +835,7 @@ class ProfileBuilder:
         # This can be done by adding a 'filter' in the pb_project.yaml file, where we declare the id_types.
         # We can modify the `id_types` block for anonymous_id as follows:
         # """
-        # self.input_handler.display_multiline_message(explain_bad_anon_ids)
+        # self.io_handler.display_multiline_message(explain_bad_anon_ids)
         # filter_bad_ids = """
         #                 ```
         #                         id_types:
@@ -848,11 +848,11 @@ class ProfileBuilder:
         #                 """
         # logger.info(filter_bad_ids)
         # logger.info("This is only a simple filter, and the id stitcher offers a lot more flexibility in different filters. You can check our docs for more details.")
-        # self.input_handler.get_user_input("Update your pb_project.yaml with above changes, and enter 'done' to continue once you have made the changes", options=["done"])
+        # self.io_handler.get_user_input("Update your pb_project.yaml with above changes, and enter 'done' to continue once you have made the changes", options=["done"])
         # # check the above change is done or not
         # while not self.file_generator.validate_bad_anons_are_filtered():
         #     logger.info("That doesn't look right. Please make sure the above filters are added exactly as shown above, and try again")
-        #     self.input_handler.get_user_input("Update your pb_project.yaml with above changes, and enter 'done' to continue once you have made the changes", options=["done"])
+        #     self.io_handler.get_user_input("Update your pb_project.yaml with above changes, and enter 'done' to continue once you have made the changes", options=["done"])
 
     def third_run(
         self,
@@ -903,8 +903,8 @@ class ProfileBuilder:
     #         You would normally do that in your terminal as a cli command.
     #         But for this guided demo, you can just enter the command and the tutorial will execute it for you.
     #         """
-    #         self.input_handler.display_multiline_message(prompt)
-    #     self.input_handler.get_user_input("Enter `pb run` to continue", options=["pb run"])
+    #         self.io_handler.display_multiline_message(prompt)
+    #     self.io_handler.get_user_input("Enter `pb run` to continue", options=["pb run"])
     #     logger.info("Running the profiles project...(This will take a few minutes)")
     #     os.chdir("profiles")
     #     self._subprocess_run(["pb", "run"])

@@ -11,18 +11,22 @@ from profiles_rudderstack.logger import Logger
 
 # TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
 # from profiles_rudderstack.reader import Reader
+
 from enum import Enum
+from colorama import init, Fore, Style
+
+init()  # Initialize colorama
+
+
+class Colors:
+    BLUE = Fore.BLUE
+    YELLOW = Fore.YELLOW
+    GREEN = Fore.GREEN
+    ENDC = Style.RESET_ALL
 
 
 class ProgramState(Enum):
     STOP = 1
-
-
-class Colors:
-    BLUE = "\033[94m"
-    YELLOW = "\033[93m"
-    GREEN = "\033[92m"
-    ENDC = "\033[0m"
 
 
 class LLMReport:

@@ -65,7 +65,7 @@ class ModelRecipe(PyNativeRecipe):
                 break
 
             user_input = self.reader.get_input(
-                "\n\nDo you want to run the audit again? (yes/no)"
+                "\n\nDo you want to run the audit on a different id_stitcher model? (yes/no)"
             )
             match user_input.lower():
                 case "yes":

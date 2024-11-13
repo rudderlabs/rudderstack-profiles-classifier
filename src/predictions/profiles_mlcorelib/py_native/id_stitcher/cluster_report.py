@@ -1,4 +1,5 @@
 import os
+import webbrowser
 from typing import Dict
 import pandas as pd
 from profiles_rudderstack.client import BaseClient
@@ -312,4 +313,6 @@ class ClusterReport:
             filename = f"{user_input}_graph.html"
             file_path = os.path.join(output_dir, filename)
             self.create_interactive_graph(G, file_path)
-            print(f"Cluster Summary:\n{cluster_summary}\n\n")
+            print(f"Cluster Summary:\n{cluster_summary}")
+            print(f"\nDisplaying Cluster Analysis Graph in the Browser.\n\n")
+            webbrowser.open_new_tab("file://" + file_path)

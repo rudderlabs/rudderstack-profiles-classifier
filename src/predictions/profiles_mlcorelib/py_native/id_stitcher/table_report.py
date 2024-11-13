@@ -282,7 +282,7 @@ class TableReport:
             for issue in missing_connections:
                 print(issue)
         print(
-            "\n Check for missing edges between id types (direct or indirect) after id-stitching:"
+            "\nCheck for missing edges between id types (direct or indirect) after id-stitching:"
         )
         missing_connections = []
 
@@ -360,9 +360,9 @@ class TableReport:
     def run(self):
         self.get_table_names()
         entity_key = self.entity["Name"]
-        print(f"Raw table for entity {entity_key}: {self.edges_table}")
+        print(f"Edges table name: {self.edges_table}")
         main_id_key = self.entity["IdColumnName"]
-        print(f"main id for entity {entity_key}: {main_id_key}")
+        print(f"main id: {main_id_key}")
 
         print(f"\n\nAnalyzing ID Stitcher for entity: {entity_key}")
 

@@ -18,6 +18,13 @@ class ProgramState(Enum):
     STOP = 1
 
 
+class Colors:
+    BLUE = "\033[94m"
+    YELLOW = "\033[93m"
+    GREEN = "\033[92m"
+    ENDC = "\033[0m"
+
+
 class LLMReport:
     def __init__(
         self,
@@ -81,9 +88,12 @@ class LLMReport:
             response = self._request(LLM_ID_DEBUG_URL, body)
             if response == ProgramState.STOP:
                 break
-            message = response["result"]["message"]
+            debug_info_message = response["debug_info"]["messages"][0]
+            response_message = response["result"]["message"]
             self.session_id = response["session_id"]
-            print(f"\n\n{message}\n\n")
+            print(
+                f"\n\n{Colors.BLUE}Question:{Colors.ENDC}\n\t{user_input}\n\n{Colors.YELLOW}Thought:{Colors.ENDC}\n\t{debug_info_message}\n\n{Colors.GREEN}Response:{Colors.ENDC}\n\t{response_message}\n\n"
+            )
 
     def _interpret_results_with_llm(self) -> str:
         results = self.table_report.analysis_results

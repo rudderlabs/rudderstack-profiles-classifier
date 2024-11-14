@@ -55,9 +55,11 @@ class LLMReport:
             )
             if state == ProgramState.STOP:
                 return
-
-        print("\n\nGenerating id_stitcher analysis:")
-        self._interpret_results_with_llm()
+        try:
+            self._interpret_results_with_llm()
+        except Exception:
+            # If the Analysis of the report fails, we don't want to stop the program.
+            pass
         print("You can now ask questions about the ID Stitcher analysis results.")
         self.run_interactive_session()
 

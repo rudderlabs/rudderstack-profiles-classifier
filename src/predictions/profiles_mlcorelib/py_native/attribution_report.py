@@ -819,7 +819,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                         {selector_sql}
                     {{% endwith %}}
                 {{% endmacro %}}
-                {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
+                {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this, selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}
             {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}"""
 

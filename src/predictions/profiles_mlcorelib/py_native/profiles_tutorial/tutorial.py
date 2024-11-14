@@ -441,6 +441,7 @@ class ProfileBuilder:
         self.io.display_message(dense_edges.head(20).to_string())
         self.io.display_multiline_message(messages.EXPLAIN_BAD_ANNOYMOUS_IDS)
 
+        # TODO: fix this query
         query_investigate_bad_anons = f"""
     WITH edge_table as (
             SELECT

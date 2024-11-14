@@ -9,7 +9,7 @@ import pandas as pd
 
 from .io_handler import IOHandler
 from .database_manager import DatabaseManager
-from .file_generator import YamlGenerator
+from .yaml_generator import YamlGenerator
 from . import messages
 from .config import (
     SAMPLE_DATA_DIR,

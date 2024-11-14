@@ -24,7 +24,13 @@ class DatabaseManager:
         self.io_handler = io_handler
         self.fast_mode = fast_mode
 
-    def upload_sample_data(self, sample_data_dir: str, table_suffix: str) -> dict:
+    def get_qualified_name(self, table: str) -> str:
+        """Returns the fully qualified name of the table"""
+        return f"{self.db}.{self.schema}.{table}"
+
+    def upload_sample_data(
+        self, sample_data_dir: str, table_suffix: str
+    ) -> Dict[str, str]:
         new_table_names = {}
         to_upload = True
         res = self.client.query_sql_with_result(
@@ -69,7 +75,7 @@ class DatabaseManager:
             )
         return new_table_names
 
-    def find_relevant_tables(self, new_table_names: dict) -> List[str]:
+    def find_relevant_tables(self, new_table_names: Dict[str, str]) -> List[str]:
         res = self.client.query_sql_with_result(
             f"SHOW TABLES IN SCHEMA {self.db}.{self.schema}"
         )

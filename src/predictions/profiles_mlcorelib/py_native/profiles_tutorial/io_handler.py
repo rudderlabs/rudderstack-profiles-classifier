@@ -31,6 +31,9 @@ class IOHandler:
             else:
                 return user_input
 
+    def display_message(self, message: str):
+        print(message)
+
     def display_multiline_message(self, message: str):
         for line in message.split("\n"):
             if line:

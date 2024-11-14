@@ -76,7 +76,7 @@ class ModelRecipe(PyNativeRecipe):
             retry_count = 0
             while retry_count < max_retries:
                 selected_model_name = self.reader.get_input(
-                    f"Multiple id_stitcher models found. Please select one {id_stitcher_models.keys()}"
+                    f"Multiple id_stitcher models found. Please select one of {list(id_stitcher_models.keys())}"
                 ).strip()
                 if selected_model_name in id_stitcher_models:
                     break
@@ -135,6 +135,7 @@ class ModelRecipe(PyNativeRecipe):
             self.run_completed = True
             n_visualisations = cluster_report.counter
         except Exception as e:
+            print(f"An error occurred while running the audit: {e}")
             n_visualisations = None
         duration = (datetime.now() - self.start_time).total_seconds()
         analytics.track(

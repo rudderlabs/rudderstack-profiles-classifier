@@ -9,8 +9,7 @@ from .table_report import TableReport
 from .consent_manager import ConsentManager
 from profiles_rudderstack.logger import Logger
 
-# TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
-# from profiles_rudderstack.reader import Reader
+from profiles_rudderstack.reader import Reader
 from enum import Enum
 
 

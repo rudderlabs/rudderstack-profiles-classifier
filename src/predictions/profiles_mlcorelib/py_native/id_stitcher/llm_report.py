@@ -9,8 +9,7 @@ from .table_report import TableReport
 from .consent_manager import ConsentManager
 from profiles_rudderstack.logger import Logger
 
-# TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
-# from profiles_rudderstack.reader import Reader
+from profiles_rudderstack.reader import Reader
 from enum import Enum
 
 
@@ -55,9 +54,11 @@ class LLMReport:
             )
             if state == ProgramState.STOP:
                 return
-
-        print("\n\nGenerating id_stitcher analysis:")
-        self._interpret_results_with_llm()
+        try:
+            self._interpret_results_with_llm()
+        except Exception:
+            # If the Analysis of the report fails, we don't want to stop the program.
+            pass
         print("You can now ask questions about the ID Stitcher analysis results.")
         self.run_interactive_session()
 

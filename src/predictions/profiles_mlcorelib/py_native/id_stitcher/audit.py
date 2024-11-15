@@ -51,12 +51,30 @@ class ModelRecipe(PyNativeRecipe):
         pass
 
     def register_dependencies(self, this: WhtMaterial):
-        self._set_id_stitcher_model(this)
-        edge_sources = self.id_stitcher_model.build_spec()["edge_sources"]
-        for edge_source in edge_sources:
-            input_model_ref = edge_source["from"]
-            this.de_ref(input_model_ref)
-        self._run(this)
+        num_id_stitcher_models = len(
+            this.base_wht_project.models(model_types=["id_stitcher"])
+        )
+        while True:
+            self._set_id_stitcher_model(this)
+            edge_sources = self.id_stitcher_model.build_spec()["edge_sources"]
+            for edge_source in edge_sources:
+                input_model_ref = edge_source["from"]
+                this.de_ref(input_model_ref)
+            self._run(this)
+            if num_id_stitcher_models == 1:
+                break
+
+            user_input = self.reader.get_input(
+                "\n\nDo you want to run the audit on a different id_stitcher model? (yes/no)"
+            )
+            if user_input.lower() == "yes":
+                continue
+            elif user_input.lower() == "no":
+                break
+            else:
+                print("\nInvalid input. Exiting.")
+                break
+        print("\n\nAudit Completed Successfully.\n")
 
     def _set_id_stitcher_model(self, this: WhtMaterial):
         if self.id_stitcher_model is not None:

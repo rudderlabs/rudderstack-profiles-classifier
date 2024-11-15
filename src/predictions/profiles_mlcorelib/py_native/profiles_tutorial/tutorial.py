@@ -41,7 +41,7 @@ class ProfileBuilder:
         new_table_names = self.upload_sample_data()
         relevant_tables = self.find_relevant_tables(new_table_names)
 
-        conn_name, target = client.get_connection_and_target()
+        conn_name, target = self.db_manager.get_connection_and_target()
         self.display_about_project_files(conn_name)
         # pb_project.yaml
         entity_name, id_types, id_graph_model = self.generate_pb_project(conn_name)

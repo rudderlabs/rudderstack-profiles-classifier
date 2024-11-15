@@ -24,6 +24,9 @@ class DatabaseManager:
         self.io = io_handler
         self.fast_mode = fast_mode
 
+    def get_connection_and_target(self) -> Tuple[str, str]:
+        return self.client.get_connection_and_target()
+
     def get_qualified_name(self, table: str) -> str:
         """Returns the fully qualified name of the table"""
         return f"{self.db}.{self.schema}.{table}"

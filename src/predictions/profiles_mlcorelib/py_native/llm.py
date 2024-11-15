@@ -277,7 +277,7 @@ class LLMModelRecipe(PyNativeRecipe):
                     -- attribute values with their corresponding predicted value.
                     LEFT JOIN predicted_attribute b ON {join_condition}
                 {{% endmacro %}}
-                {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}}}} {{% endexec %}}
+                {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this, selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}
             {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}"""
         return query_template

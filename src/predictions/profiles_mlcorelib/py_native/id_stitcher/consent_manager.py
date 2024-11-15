@@ -8,8 +8,7 @@ from profiles_mlcorelib.utils.constants import (
     LLM_CONSENT_KEY,
 )
 
-# TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
-# from profiles_rudderstack.reader import Reader
+from profiles_rudderstack.reader import Reader
 
 
 class ConsentManager:
@@ -62,7 +61,7 @@ class ConsentManager:
         with open(self.preferences_file, "w") as f:
             yaml.dump(existing_preferences, f)
 
-    def prompt_for_consent(self, reader) -> bool:
+    def prompt_for_consent(self, reader: Reader) -> bool:
         retry_count = 0
         while retry_count < 3:
             response = reader.get_input(self.consent_message).lower().strip()

@@ -7,8 +7,7 @@ from urllib.request import pathname2url
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
 
-# TODO: Uncomment the following line after adding the Reader class to the profiles_rudderstack package
-# from profiles_rudderstack.reader import Reader
+from profiles_rudderstack.reader import Reader
 import networkx as nx
 from pyvis.network import Network
 import plotly.graph_objects as go
@@ -39,7 +38,7 @@ cluster_analysis_prompt = """
 class ClusterReport:
     def __init__(
         self,
-        reader,
+        reader: Reader,
         this: WhtMaterial,
         entity: Dict,
         table_report: TableReport,

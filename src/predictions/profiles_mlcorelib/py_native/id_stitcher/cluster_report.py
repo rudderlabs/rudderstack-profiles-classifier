@@ -1,7 +1,9 @@
 import os
-from typing import Dict
+import webbrowser
 import pandas as pd
-from profiles_rudderstack.client import BaseClient
+from typing import Dict
+from urllib.parse import urljoin
+from urllib.request import pathname2url
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
 
@@ -324,3 +326,7 @@ class ClusterReport:
                 file_path = os.path.join(output_dir, filename)
                 self.create_interactive_graph(G, file_path)
             print(f"Cluster Summary:\n{cluster_summary}\n\n")
+
+            print(f"\nDisplaying Cluster Analysis Graph in the Browser.\n\n")
+            file_url = urljoin("file:", pathname2url(file_path))
+            webbrowser.open_new_tab(file_url)

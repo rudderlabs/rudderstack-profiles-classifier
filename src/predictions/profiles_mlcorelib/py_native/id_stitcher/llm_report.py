@@ -11,6 +11,16 @@ from profiles_rudderstack.logger import Logger
 
 from profiles_rudderstack.reader import Reader
 from enum import Enum
+from colorama import init, Fore, Style
+
+init()  # Initialize colorama
+
+
+class Colors:
+    BLUE = Fore.BLUE
+    YELLOW = Fore.YELLOW
+    GREEN = Fore.GREEN
+    ENDC = Style.RESET_ALL
 
 
 class ProgramState(Enum):
@@ -82,9 +92,12 @@ class LLMReport:
             response = self._request(LLM_ID_DEBUG_URL, body)
             if response == ProgramState.STOP:
                 break
-            message = response["result"]["message"]
+            debug_info_message = response["debug_info"]["messages"][0]
+            response_message = response["result"]["message"]
             self.session_id = response["session_id"]
-            print(f"\n\n{message}\n\n")
+            print(
+                f"\n\n{Colors.BLUE}Question:{Colors.ENDC}\n\t{user_input}\n\n{Colors.YELLOW}Thought:{Colors.ENDC}\n\t{debug_info_message}\n\n{Colors.GREEN}Response:{Colors.ENDC}\n\t{response_message}\n\n"
+            )
 
     def _interpret_results_with_llm(self) -> str:
         results = self.table_report.analysis_results

@@ -67,14 +67,13 @@ class ModelRecipe(PyNativeRecipe):
             user_input = self.reader.get_input(
                 "\n\nDo you want to run the audit on a different id_stitcher model? (yes/no)"
             )
-            match user_input.lower():
-                case "yes":
-                    continue
-                case "no":
-                    break
-                case _:
-                    print("\nInvalid input. Exiting.")
-                    break
+            if user_input.lower() == "yes":
+                continue
+            elif user_input.lower() == "no":
+                break
+            else:
+                print("\nInvalid input. Exiting.")
+                break
         print("\n\nAudit Completed Successfully.\n")
 
     def _set_id_stitcher_model(self, this: WhtMaterial):

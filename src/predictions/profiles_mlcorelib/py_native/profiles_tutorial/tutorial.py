@@ -29,15 +29,14 @@ logging.getLogger("snowflake.connector.network").setLevel(logging.ERROR)
 
 
 class ProfileBuilder:
-    def __init__(self, material: WhtMaterial, reader: Reader, fast_mode: bool):
+    def __init__(self, project_path: str, reader: Reader, fast_mode: bool):
         self.fast_mode = fast_mode
         self.io = IOHandler(reader, fast_mode)
-        self.material = material
-        self.project_path = material.base_wht_project.project_path()
+        self.project_path = project_path
         self.yaml_generator = YamlGenerator(self.project_path, fast_mode)
 
-    def run(self):
-        self.db_manager = DatabaseManager(self.material, self.io, self.fast_mode)
+    def run(self, material: WhtMaterial):
+        self.db_manager = DatabaseManager(material, self.io, self.fast_mode)
 
         self.display_welcome_message()
         new_table_names = self.upload_sample_data()

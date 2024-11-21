@@ -52,9 +52,8 @@ class TutorialRecipe(PyNativeRecipe):
             self.logger.info("unzipping sample data...")
             unzip_sample_data(self.logger)
 
-        profile_builder = ProfileBuilder(self.reader, self.fast_mode)
-        wh_client = this.wht_ctx.client
-        profile_builder.run(wh_client)
+        profile_builder = ProfileBuilder(this, self.reader, self.fast_mode)
+        profile_builder.run()
 
 
 def get_sample_data_path():

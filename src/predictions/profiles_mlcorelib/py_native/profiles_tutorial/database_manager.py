@@ -6,7 +6,7 @@ from ruamel.yaml import YAML
 import sys
 
 from .io_handler import IOHandler
-from profiles_rudderstack.client.client_base import BaseClient
+from profiles_rudderstack.material import WhtMaterial
 
 logger = logging.getLogger(__name__)
 
@@ -14,14 +14,15 @@ logger = logging.getLogger(__name__)
 class DatabaseManager:
     def __init__(
         self,
-        client: BaseClient,
-        io_handler: IOHandler,
+        material: WhtMaterial,
+        io: IOHandler,
         fast_mode: bool,
     ):
-        self.client = client
-        self.schema = client.schema
-        self.db = client.db
-        self.io = io_handler
+        self.material = material
+        self.client = material.wht_ctx.client
+        self.schema = self.client.schema
+        self.db = self.client.db
+        self.io = io
         self.fast_mode = fast_mode
 
     def get_connection_and_target(self) -> Tuple[str, str]:
@@ -31,18 +32,32 @@ class DatabaseManager:
         """Returns the fully qualified name of the table"""
         return f"{self.db}.{self.schema}.{table}"
 
+    def get_table_names(self) -> List[str]:
+        # Ref taken from sqlconnect-go
+        # TODO: Use wht client methods instead
+        template = f"""
+        {{% if warehouse.DatabaseType() == "snowflake" %}}
+            SHOW TABLES IN SCHEMA {self.db}.{self.schema}
+        {{% elif warehouse.DatabaseType() == "databricks" %}}
+            SHOW TABLES IN {self.db}.{self.schema}
+        {{% elif warehouse.DatabaseType() == "redshift" %}}
+            SELECT table_name FROM {self.db}.information_schema.tables WHERE table_schema = '{self.schema}'
+        {{% elif warehouse.DatabaseType() == "bigquery" %}}
+            SELECT table_name FROM {self.db}.{self.schema}.INFORMATION_SCHEMA.TABLES
+        {{% endif %}}"""
+        sql = self.material.execute_text_template(template, skip_material_wrapper=True)
+        res = self.client.query_sql_with_result(sql)
+        tables = [row[1].lower() for _, row in res.iterrows()]
+        return tables
+
     def upload_sample_data(
-        self, sample_data_dir: str, table_suffix: str
+        self, sample_data_path: str, table_suffix: str
     ) -> Dict[str, str]:
         new_table_names = {}
         to_upload = True
-        # TODO: Need to update this
-        res = self.client.query_sql_with_result(
-            f"SHOW TABLES IN SCHEMA {self.db}.{self.schema}"
-        )
-        existing_tables = [row[1].lower() for _, row in res.iterrows()]
+        existing_tables = self.get_table_names()
 
-        for filename in os.listdir(sample_data_dir):
+        for filename in os.listdir(sample_data_path):
             if not filename.endswith(".csv"):
                 continue
 
@@ -63,11 +78,12 @@ class DatabaseManager:
                     to_upload = False
                     continue
 
-                self.client.query_sql_without_result(
-                    f"DROP TABLE {self.db}.{self.schema}.{table_name}"
+                self.client.query_template_without_result(
+                    self.material,
+                    f"""{{% set tbl = warehouse.NamedWhObject(name={table_name}, type="TABLE") %}} {{% exec %}}{{{{warehouse.ForceDropTableStatement(tbl)}}}}{{% endexec %}}""",
                 )
 
-            df = pd.read_csv(os.path.join(sample_data_dir, filename))
+            df = pd.read_csv(os.path.join(sample_data_path, filename))
             self.io.display_message(
                 f"Uploading file {filename} as table {table_name} with {df.shape[0]} rows and {df.shape[1]} columns"
             )
@@ -80,21 +96,26 @@ class DatabaseManager:
         return new_table_names
 
     def find_relevant_tables(self, new_table_names: Dict[str, str]) -> List[str]:
-        # TODO: Need to update this
-        res = self.client.query_sql_with_result(
-            f"SHOW TABLES IN SCHEMA {self.db}.{self.schema}"
-        )
-        tables = [row[1] for _, row in res.iterrows()]
-        relevant_tables = [
-            table for table in tables if table in new_table_names.values()
-        ]
+        tables = self.get_table_names()
+        new_tables = [new_table.lower() for new_table in new_table_names.values()]
+        relevant_tables = [table for table in tables if table in new_tables]
         return relevant_tables
 
     def get_columns(self, table: str) -> List[str]:
         try:
-            # TODO: Need to update this
-            query = f"DESCRIBE TABLE {self.db}.{self.schema}.{table}"
-            result = self.client.query_sql_with_result(query)
+            template = f"""
+                {{% if warehouse.DatabaseType() == "snowflake" or warehouse.DatabaseType() == "databricks" %}}
+                    DESCRIBE TABLE {self.db}.{self.schema}.{table}
+                {{% elif warehouse.DatabaseType() == "bigquery" %}}
+                    SELECT column_name as name, data_type FROM {self.db}.{self.schema}.INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{table}'
+                {{% elif warehouse.DatabaseType() == "redshift" %}}
+                    SELECT column_name as name, data_type FROM {self.db}.information_schema.columns WHERE table_schema = '{self.schema}' AND table_name = '{table}'
+                {{% endif %}}
+            """
+            sql = self.material.execute_text_template(
+                template, skip_material_wrapper=True
+            )
+            result = self.client.query_sql_with_result(sql)
             columns = [row["name"] for _, row in result.iterrows()]
         except Exception as e:
             raise Exception(f"Error fetching columns for {table}: {e}")
@@ -210,8 +231,7 @@ class DatabaseManager:
                 #         logger.info(f" - {col} (sample data: {sample_data})")
                 # if self.fast_mode:
                 default = id_type_mapping.get(id_type, id_type)
-                # else:
-                #     default = None
+
                 user_input = self.io.get_user_input(
                     f"Enter the column(s) to map the id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n> ",
                     default=default,

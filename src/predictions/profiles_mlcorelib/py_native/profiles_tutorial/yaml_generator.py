@@ -8,8 +8,9 @@ logger = logging.getLogger(__name__)
 
 
 class YamlGenerator:
-    def __init__(self, fast_mode: bool):
+    def __init__(self, project_path: str, fast_mode: bool):
         self.fast_mode = fast_mode
+        self.project_path = project_path
         self.yaml = YAML()
         self.yaml.preserve_quotes = True
         self.yaml.indent(mapping=2, sequence=4, offset=2)

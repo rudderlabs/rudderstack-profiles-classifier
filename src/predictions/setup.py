@@ -50,4 +50,7 @@ setup(
     ],
     install_requires=install_requires,
     include_package_data=True,
+    package_data={
+        "profiles_mlcorelib": ["py_native/profiles_tutorial/sample_data.zip"]
+    },
 )

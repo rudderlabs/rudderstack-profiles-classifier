@@ -56,7 +56,7 @@ class TutorialModel(BaseModelType):
 class TutorialRecipe(PyNativeRecipe):
     def __init__(self, fast_mode: bool) -> None:
         super().__init__()
-        self.profile_builder = ProfileBuilder(self.reader, fast_mode)
+        self.fast_mode = fast_mode
         self.logger = Logger("TutorialRecipe")
 
     def describe(self, this: WhtMaterial) -> Tuple[str, str]:
@@ -69,18 +69,23 @@ class TutorialRecipe(PyNativeRecipe):
         pass
 
     def execute(self, this: WhtMaterial):
+        project_path = this.base_wht_project.project_path()
         if not os.path.exists("sample_data"):
             self.logger.info("unzipping sample data...")
-            unzip_sample_data()
-        self.profile_builder.run()
+            unzip_sample_data(project_path, self.logger)
+        profile_builder = ProfileBuilder(project_path, self.reader, self.fast_mode)
+        profile_builder.run()
 
 
 class ProfileBuilder:
-    def __init__(self, reader, fast_mode: bool):
+    def __init__(self, project_path: str, reader, fast_mode: bool):
+        self.project_path = project_path
         self.config = {}
         self.db_manager = None
         self.input_handler = InputHandler(reader, fast_mode)
-        self.file_generator = FileGenerator(fast_mode, self.input_handler)
+        self.file_generator = FileGenerator(
+            self.project_path, fast_mode, self.input_handler
+        )
         self.fast_mode = fast_mode
 
     def run(self):
@@ -990,18 +995,19 @@ def get_sample_data_path():
     )
 
 
-def unzip_sample_data():
+def unzip_sample_data(project_path: str, logger: Logger):
     zip_file_path = get_sample_data_path()
     # Ensure the zip file exists
     if not os.path.exists(zip_file_path):
         raise Exception(f"Error: {zip_file_path} not found.")
+
     # Unzip the file
     try:
         with zipfile.ZipFile(zip_file_path, "r") as zip_ref:
             for file_info in zip_ref.infolist():
                 if not file_info.filename.startswith("__MACOSX"):
                     zip_ref.extract(file_info, ".")
-        print(f"Successfully extracted {zip_file_path} to the current directory")
+        logger.info(f"Successfully extracted {zip_file_path} to {project_path}")
     except Exception as e:
         raise Exception(f"An error occurred while extracting: {str(e)}")
 

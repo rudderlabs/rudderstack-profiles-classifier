@@ -1,51 +1,58 @@
 import os
 import pandas as pd
 import logging
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Any, Optional
 from ruamel.yaml import YAML
 import sys
 
 from .input_handler import InputHandler
-from .utils import SnowparkConnector
+from profiles_rudderstack.material import WhtMaterial
 
 logger = logging.getLogger(__name__)
 
 
 class DatabaseManager:
-    def __init__(self, config: dict, input_handler: InputHandler, fast_mode: bool):
-        self.config = config
-        logger.info(f"Connecting to snowflake account: {self.config['account']}")
-        self.connector = self.connect_to_snowflake()
+    def __init__(
+        self, material: WhtMaterial, input_handler: InputHandler, fast_mode: bool
+    ):
+        self.material = material
+        self.client = material.wht_ctx.client
+        self.schema = self.client.schema
+        self.db = self.client.db
         self.input_handler = input_handler
         self.fast_mode = fast_mode
 
-    def connect_to_snowflake(self):
-        try:
-            return SnowparkConnector(
-                {
-                    "account": self.config["account"],
-                    "dbname": self.config["output_database"],
-                    "schema": self.config["output_schema"],
-                    "type": "snowflake",
-                    "user": self.config["user"],
-                    "password": self.config["password"],
-                    "role": self.config["role"],
-                    "warehouse": self.config["warehouse"],
-                }
-            )
-        except Exception as e:
-            logger.error(f"Failed to establish connection: {e}")
-            raise
+    def get_connection_and_target(self) -> Tuple[str, str]:
+        return self.client.get_connection_and_target()
 
-    def upload_sample_data(self, sample_data_dir: str, table_suffix: str) -> dict:
+    def get_qualified_name(self, table: str) -> str:
+        """Returns the fully qualified name of the table"""
+        return f"{self.db}.{self.schema}.{table}"
+
+    def get_table_names(self) -> List[str]:
+        # Ref taken from sqlconnect-go
+        # TODO: Use wht client methods instead
+        template = f"""
+        {{% if warehouse.DatabaseType() == "snowflake" %}}
+            SHOW TABLES IN SCHEMA {self.db}.{self.schema}
+        {{% elif warehouse.DatabaseType() == "databricks" %}}
+            SHOW TABLES IN {self.db}.{self.schema}
+        {{% elif warehouse.DatabaseType() == "redshift" %}}
+            SELECT table_name FROM {self.db}.information_schema.tables WHERE table_schema = '{self.schema}'
+        {{% elif warehouse.DatabaseType() == "bigquery" %}}
+            SELECT table_name FROM {self.db}.{self.schema}.INFORMATION_SCHEMA.TABLES
+        {{% endif %}}"""
+        sql = self.material.execute_text_template(template, skip_material_wrapper=True)
+        res = self.client.query_sql_with_result(sql)
+        tables = [row[1].lower() for _, row in res.iterrows()]
+        return tables
+
+    def upload_sample_data(self, sample_data_path: str, table_suffix: str) -> dict:
         new_table_names = {}
         to_upload = True
-        res = self.connector.run_query(
-            f"SHOW TABLES IN SCHEMA {self.config['input_database']}.{self.config['input_schema'].upper()}"
-        )
-        existing_tables = [row[1].lower() for row in res]
+        existing_tables = self.get_table_names()
 
-        for filename in os.listdir(sample_data_dir):
+        for filename in os.listdir(sample_data_path):
             if not filename.endswith(".csv"):
                 continue
 
@@ -66,39 +73,45 @@ class DatabaseManager:
                     to_upload = False
                     continue
 
-                _ = self.connector.run_query(
-                    f"DROP TABLE {self.config['input_database']}.{self.config['input_schema']}.{table_name}"
+                self.client.query_template_without_result(
+                    self.material,
+                    f"""{{% set tbl = warehouse.NamedWhObject(name={table_name}, type="TABLE") %}} {{% exec %}}{{{{warehouse.ForceDropTableStatement(tbl)}}}}{{% endexec %}}""",
                 )
 
-            df = pd.read_csv(os.path.join(sample_data_dir, filename))
+            df = pd.read_csv(os.path.join(sample_data_path, filename))
             logger.info(
                 f"Uploading file {filename} as table {table_name} with {df.shape[0]} rows and {df.shape[1]} columns"
             )
-            self.connector.session.write_pandas(
+            self.client.write_df_to_table(
                 df,
                 table_name,
-                database=self.config["input_database"].upper(),
-                schema=self.config["input_schema"].upper(),
-                auto_create_table=True,
-                overwrite=True,
+                schema=self.schema,
+                append_if_exists=False,
             )
         return new_table_names
 
     def find_relevant_tables(self, new_table_names: dict) -> List[str]:
-        res = self.connector.run_query(
-            f"SHOW TABLES IN SCHEMA {self.config['input_database']}.{self.config['input_schema']}"
-        )
-        tables = [row[1] for row in res]
-        relevant_tables = [
-            table for table in tables if table in new_table_names.values()
-        ]
+        tables = self.get_table_names()
+        new_tables = [new_table.lower() for new_table in new_table_names.values()]
+        relevant_tables = [table for table in tables if table in new_tables]
         return relevant_tables
 
     def get_columns(self, table: str) -> List[str]:
         try:
-            query = f"DESCRIBE TABLE {self.config['input_database']}.{self.config['input_schema']}.{table}"
-            result = self.connector.run_query(query, output_type="list")
-            columns = [row["name"] for row in result]
+            template = f"""
+                {{% if warehouse.DatabaseType() == "snowflake" or warehouse.DatabaseType() == "databricks" %}}
+                    DESCRIBE TABLE {self.db}.{self.schema}.{table}
+                {{% elif warehouse.DatabaseType() == "bigquery" %}}
+                    SELECT column_name as name, data_type FROM {self.db}.{self.schema}.INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{table}'
+                {{% elif warehouse.DatabaseType() == "redshift" %}}
+                    SELECT column_name as name, data_type FROM {self.db}.information_schema.columns WHERE table_schema = '{self.schema}' AND table_name = '{table}'
+                {{% endif %}}
+            """
+            sql = self.material.execute_text_template(
+                template, skip_material_wrapper=True
+            )
+            result = self.client.query_sql_with_result(sql)
+            columns = [row["name"] for _, row in result.iterrows()]
         except Exception as e:
             raise Exception(f"Error fetching columns for {table}: {e}")
         return columns
@@ -107,8 +120,8 @@ class DatabaseManager:
         self, table: str, column: str, num_samples: int = 5
     ) -> List[str]:
         try:
-            query = f"SELECT {column} FROM {self.config['input_database']}.{self.config['input_schema']}.{table} where {column} is not null LIMIT {num_samples}"
-            df: pd.DataFrame = self.connector.run_query(query, output_type="pandas")
+            query = f"SELECT {column} FROM {self.get_qualified_name(table)} where {column} is not null LIMIT {num_samples}"
+            df: pd.DataFrame = self.client.query_sql_with_result(query)
             if df.empty:
                 return []
             samples = df.iloc[:, 0].dropna().astype(str).tolist()
@@ -121,7 +134,7 @@ class DatabaseManager:
 
     def map_columns_to_id_types(
         self, table: str, id_types: List[str], entity_name: str
-    ) -> Tuple[List[Dict], str]:
+    ) -> Tuple[Optional[List[Dict[Any, Any]]], str]:
         try:
             columns = self.get_columns(table)
         except Exception as e:
@@ -195,7 +208,7 @@ class DatabaseManager:
             logger.info(
                 f"No valid id_types selected for `{table}` table. Skipping this table (it won't be part of id stitcher)"
             )
-            return {}, "next"
+            return [], "next"
 
         logger.info(
             f"\nNow let's map different id_types in table `{table}` to a column (you can also use SQL string operations on these columns: ex: LOWER(EMAIL_ID), in case you want to use email as an id_type while also treating them as case insensitive):\n"

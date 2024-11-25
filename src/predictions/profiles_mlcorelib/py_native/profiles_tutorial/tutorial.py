@@ -74,32 +74,27 @@ class TutorialRecipe(PyNativeRecipe):
             self.logger.info("unzipping sample data...")
             unzip_sample_data(project_path, self.logger)
         profile_builder = ProfileBuilder(project_path, self.reader, self.fast_mode)
-        profile_builder.run()
+        profile_builder.run(this)
 
 
 class ProfileBuilder:
     def __init__(self, project_path: str, reader, fast_mode: bool):
         self.project_path = project_path
-        self.config = {}
-        self.db_manager = None
         self.input_handler = InputHandler(reader, fast_mode)
         self.file_generator = FileGenerator(
             self.project_path, fast_mode, self.input_handler
         )
         self.fast_mode = fast_mode
 
-    def run(self):
+    def run(self, material: WhtMaterial):
+        self.db_manager = DatabaseManager(material, self.input_handler, self.fast_mode)
         self.display_welcome_message()
-        # Connection
-        self.connect_to_snowflake()
-        connection_name = self.create_siteconfig()
         new_table_names = self.upload_sample_data()
         relevant_tables = self.find_relevant_tables(new_table_names)
-        self.display_about_project_files(connection_name)
+        conn_name, target = self.db_manager.get_connection_and_target()
+        self.display_about_project_files(conn_name)
         # pb_project.yaml
-        entity_name, id_types, id_graph_model = self.generate_pb_project(
-            connection_name
-        )
+        entity_name, id_types, id_graph_model = self.generate_pb_project(conn_name)
         # inputs.yaml
         self.map_tables_to_id_types(relevant_tables, id_types, entity_name)
         # profiles.yaml
@@ -244,57 +239,6 @@ class ProfileBuilder:
         print(conclusion)
         return id_types
 
-    def connect_to_snowflake(self):
-        connection_messages = """
-        Profiles is a SQL based tool that's setup using a yaml configuration. 
-        We will walk you through a basic profiles yaml configuration in order to generate the SQL that will run in your warehouse. 
-        But first, we must build a connection between your configuration and your warehouse.
-        RudderStack Profiles writes all the output tables and views to a single schema and database. 
-        But the inputs can come from multiple databases and schemas.
-        This is a very common scenario, given that your warehouse data can come from different sources and systems. 
-        Ex: you may have event stream data sitting in RudderStack database with schemas - mobile, web, server etc. Then Salesforce data may be in a different database called `SalesforceDB` and schema called `Salesforce`. 
-        Profiles can ingest data from any number of different input databases and schemas as long as the user has access to them.
-        For this demo though, we are ingesting the seed data into the same database and schema as the output. So you can create a sample schema in your warehouse and use that if you want to keep all your existing schemas clean.
-        We recommend creating a new schema for this purpose - a helpful name would be `profiles_tutorial`. If you prefer creating a new schema, please do that now and come back."""
-        self.input_handler.display_multiline_message(connection_messages)
-        if self.fast_mode:
-            # get password from user
-            password = self.input_handler.get_user_input(
-                "Enter password for profiles_demo user", password=True
-            )
-            self.config = {
-                "account": "ina31471.us-east-1",
-                "output_database": "DREW_PB_TUTORIAL_DB",
-                "output_schema": "DILEEP_TEST",
-                "input_database": "DREW_PB_TUTORIAL_DB",
-                "input_schema": "DILEEP_TEST",
-                "password": password,
-                "type": "snowflake",
-                "role": "DEMO_ROLE",
-                "warehouse": "ADHOC_WH",
-                "user": "profiles_demo",
-            }
-        else:
-            inputs = {}
-            inputs.update(self.input_handler.collect_user_inputs(InputSteps.common()))
-            # inputs.update(self.input_handler.collect_user_inputs(InputSteps.input()))
-            # inputs.update(self.input_handler.collect_user_inputs(InputSteps.output()))
-
-            self.config = {
-                "account": inputs[InputSteps.ACCOUNT],
-                "user": inputs[InputSteps.USERNAME],
-                "password": inputs[InputSteps.PASSWORD],
-                "role": inputs[InputSteps.ROLE],
-                "warehouse": inputs[InputSteps.WAREHOUSE],
-                "input_database": inputs[InputSteps.OUTPUT_DATABASE],
-                "input_schema": inputs[InputSteps.OUTPUT_SCHEMA],
-                "output_database": inputs[InputSteps.OUTPUT_DATABASE],
-                "output_schema": inputs[InputSteps.OUTPUT_SCHEMA],
-            }
-        self.db_manager = DatabaseManager(
-            self.config, self.input_handler, self.fast_mode
-        )
-
     def upload_sample_data(self):
         logger.info(
             "Now, let's seed your warehouse with the sample data from Secure Solutions, LLC"
@@ -302,11 +246,13 @@ class ProfileBuilder:
         logger.info(
             f"We will add a suffix `{TABLE_SUFFIX}` to the table names to avoid conflicts and not overwrite any existing tables."
         )
-        return self.db_manager.upload_sample_data(SAMPLE_DATA_DIR, TABLE_SUFFIX)
+        return self.db_manager.upload_sample_data(
+            os.path.join(self.project_path, SAMPLE_DATA_DIR), TABLE_SUFFIX
+        )
 
     def find_relevant_tables(self, new_table_names):
         logger.info(
-            f"\n** Searching the `{self.config['input_schema']}` schema in `{self.config['input_database']}` database for uploaded sample tables, that will act as sources for profiles **\n"
+            f"\n** Searching the `{self.db_manager.schema}` schema in `{self.db_manager.db}` database for uploaded sample tables, that will act as sources for profiles **\n"
         )
         try:
             relevant_tables = self.db_manager.find_relevant_tables(new_table_names)
@@ -358,7 +304,7 @@ class ProfileBuilder:
                 if table_mappings:
                     id_mappings[table] = {
                         "mappings": table_mappings,
-                        "full_table_name": f"{self.config['input_database']}.{self.config['input_schema']}.{table}",
+                        "full_table_name": f"{self.db_manager.get_qualified_name(table)}",
                     }
                 table_index += 1
         self.file_generator.create_inputs_yaml(id_mappings)
@@ -401,15 +347,6 @@ class ProfileBuilder:
         print(
             "Perfect! You can now examine your profiles.yaml file and see the model spec for the ID Stitcher."
         )
-
-    def create_siteconfig(self):
-        about_siteconfig = """
-        We store the connection information in a file called `siteconfig.yaml`.
-        This file is stored in a folder called `.pb` in your home directory. 
-        This helps profile builder to connect to your warehouse account and run the project automatically.
-        """
-        print(about_siteconfig)
-        return self.file_generator.create_siteconfig(self.config)
 
     def display_about_project_files(self, connection_name):
         about_files = f"""
@@ -511,7 +448,7 @@ class ProfileBuilder:
         This should have created multiple tables in your warehouse account, and a new seq_no folder in the profiles/output folder - just like the prev output of `pb compile`. 
         These sql files were actually executed on your warehouse now. That's the difference from the compile command. Every new `pb run` or `pb compile` creates a new seq_no folder.
 
-        Lets observe the output ID Graph produced. The table that was created, which we will query now is {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name}.        
+        Lets observe the output ID Graph produced. The table that was created, which we will query now is {self.db_manager.get_qualified_name(id_stitcher_table_name)}.        
         There are three key columns in this table, along with some other timestamp meta-data columns we can ignore for now:
             - `{entity_name}_main_id` - This is an id that Profiles creates. It uniquely identifies an entity (ex: user) across systems.
             - `other_id` - These are the id value extracted from the edge sources stitched to the user_main_id
@@ -521,7 +458,7 @@ class ProfileBuilder:
 
         You can sample the data in this table by running following query in your warehouse:
 
-        `SELECT * FROM {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name} LIMIT 10;`
+        `SELECT * FROM {self.db_manager.get_qualified_name(id_stitcher_table_name)} LIMIT 10;`
         """
         self.input_handler.display_multiline_message(prompt)
 
@@ -529,11 +466,11 @@ class ProfileBuilder:
         return distinct_ids
 
     def id_stitcher_queries(self, entity_name: str, id_stitcher_table_name: str) -> int:
-        query_distinct_main_ids = f"select count(distinct {entity_name}_main_id) from {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name}"
+        query_distinct_main_ids = f"select count(distinct {entity_name}_main_id) from {self.db_manager.get_qualified_name(id_stitcher_table_name)}"
         # logger.info("You can check the total number of entities in your project by running the following query in your warehouse account:")
         print(query_distinct_main_ids)
         # run query
-        result = self.db_manager.connector.run_query(query_distinct_main_ids)
+        result = self.db_manager.client.query_sql_with_result(query_distinct_main_ids)
         return result[0][0]
 
     def _explain_first_run(self, entity_name: str, id_stitcher_table_name: str):
@@ -541,7 +478,7 @@ class ProfileBuilder:
         user_main_ids_query = f"""
         select {entity_name}_main_id, 
                 count(*) as num_of_other_ids 
-        from {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name} 
+        from {self.db_manager.get_qualified_name(id_stitcher_table_name)} 
         group by 1 order by 2 desc"""
 
         intro_text = f"""
@@ -554,8 +491,8 @@ class ProfileBuilder:
         """
         self.input_handler.display_multiline_message(intro_text)
         print(user_main_ids_query)
-        user_main_ids = self.db_manager.connector.run_query(
-            user_main_ids_query, output_type="pandas"
+        user_main_ids = self.db_manager.client.query_sql_with_result(
+            user_main_ids_query
         )
         distinct_ids = len(user_main_ids)
         assert distinct_ids == 3
@@ -567,12 +504,12 @@ class ProfileBuilder:
         query = f"""
         select {entity_name}_main_id, 
                other_id_type, count(*) as cnt 
-        from {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name} 
+        from {self.db_manager.get_qualified_name(id_stitcher_table_name)} 
         group by 1,2 
         order by 1,3"""
         print(query)
 
-        result = self.db_manager.connector.run_query(query, output_type="pandas")
+        result = self.db_manager.client.query_sql_with_result(query)
         result.columns = [col.lower() for col in result.columns]
         logger.info(result)
 
@@ -607,12 +544,12 @@ class ProfileBuilder:
     def cluster_size_analysis(self, entity_name: str, id_stitcher_table_name: str):
         query = f"""
                 select {entity_name}_main_id, count(*) as num_of_other_ids 
-                from {self.config['output_database']}.{self.config['output_schema']}.{id_stitcher_table_name} 
+                from {self.db_manager.get_qualified_name(id_stitcher_table_name)} 
                 group by 1 
                 order by 2 desc 
                 """
         logger.info(query)
-        res = self.db_manager.connector.run_query(query, output_type="pandas")
+        res = self.db_manager.client.query_sql_with_result(query)
         res.columns = [col.lower() for col in res.columns]
         return res
 
@@ -627,7 +564,7 @@ class ProfileBuilder:
         seq_no, updated_id_stitcher_table_name = self.prompt_to_do_pb_run(
             id_graph_model
         )
-        edge_table = f"{self.config['output_database']}.{self.config['output_schema']}.{updated_id_stitcher_table_name}_internal_edges"
+        edge_table = f"{self.db_manager.get_qualified_name(updated_id_stitcher_table_name)}_internal_edges"
         # updated_id_stitcher_table_name = self.get_latest_id_stitcher_table_name(entity_name)
         second_run_prompt = f"""
         Now that the second full run is complete lets QA the outputs. 
@@ -752,9 +689,7 @@ class ProfileBuilder:
     ORDER BY count_of_edges DESC;"""
         print(dense_edges_query)
         print("Running the query...")
-        dense_edges = self.db_manager.connector.run_query(
-            dense_edges_query, output_type="pandas"
-        )
+        dense_edges = self.db_manager.client.query_sql_with_result(dense_edges_query)
         dense_edges.columns = [col.lower() for col in dense_edges.columns]
         print(dense_edges.head(20))
         explain_bad_anon_ids = f"""
@@ -806,14 +741,27 @@ class ProfileBuilder:
         SUM(user_id) AS user_id_count,
         SUM(shopify_customer_id) AS shopify_customer_id_count,
         count(*) as total_count,
-        ARRAY_SORT(ARRAY_AGG(OBJECT_CONSTRUCT(other_id_type, id_other))) AS id_list
+        {{% if warehose.DatabaseType() == 'snowflake' %}}
+            ARRAY_SORT(ARRAY_AGG(OBJECT_CONSTRUCT(other_id_type, id_other))) AS id_list
+        {{% elif warehose.DatabaseType() == 'redhsift' %}}
+            JSON_PARSE('[' || LISTAGG('{{"' || other_id_type || '"' || ':' || id_other || '}}', ', ') WITHIN GROUP (ORDER BY other_id_type) || ']') as id_list
+        {{% elif warehose.DatabaseType() == 'databricks' %}}
+            COLLECT_LIST(map(other_id_type, id_other)) as id_list
+        {{% elif warehose.DatabaseType() == 'bigquery' %}}
+            ARRAY_AGG(STRUCT(other_id_type, id_other) ORDER BY other_id_type) as id_list
+        {{% endif %}}
     FROM id_value_counts
     group by 1,2
     order by email_count desc"""
-        print(query_investigate_bad_anons)
+        query_investigate_bad_anons_sql = (
+            self.db_manager.material.execute_text_template(
+                query_investigate_bad_anons, skip_material_wrapper=True
+            )
+        )
+        print(query_investigate_bad_anons_sql)
         print("Running the query...")
-        bad_anons = self.db_manager.connector.run_query(
-            query_investigate_bad_anons, output_type="pandas"
+        bad_anons = self.db_manager.client.query_sql_with_result(
+            query_investigate_bad_anons_sql
         )
         bad_anons.columns = [col.lower() for col in bad_anons.columns]
         pd.set_option("display.max_columns", None)

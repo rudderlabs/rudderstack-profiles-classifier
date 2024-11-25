@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 class FileGenerator:
-    def __init__(self, fast_mode: bool, input_handler: InputHandler):
+    def __init__(self, project_path: str, fast_mode: bool, input_handler: InputHandler):
         self.fast_mode = fast_mode
+        self.project_path = project_path
         self.yaml = YAML()
         self.yaml.preserve_quotes = True
         self.yaml.indent(mapping=2, sequence=4, offset=2)
@@ -90,7 +91,7 @@ class FileGenerator:
             "id_types": [{"name": id_type} for id_type in id_types],
         }
 
-        with open(CONFIG_FILE_PATH, "w") as f:
+        with open(os.path.join(self.project_path, CONFIG_FILE_PATH), "w") as f:
             self.yaml.dump(pb_project, f)
 
     def create_inputs_yaml(self, id_mappings):
@@ -109,7 +110,7 @@ class FileGenerator:
                 input_entry["app_defaults"]["ids"].append(id_info)
             inputs["inputs"].append(input_entry)
 
-        with open(INPUTS_FILE_PATH, "w") as f:
+        with open(os.path.join(self.project_path, INPUTS_FILE_PATH), "w") as f:
             self.yaml.dump(inputs, f)
 
     def create_profiles_yaml(self, entity_name, tables, model_name):
@@ -132,13 +133,13 @@ class FileGenerator:
             ]
         }
 
-        with open(PROFILES_FILE_PATH, "w") as f:
+        with open(os.path.join(self.project_path, PROFILES_FILE_PATH), "w") as f:
             self.yaml.dump(profiles, f)
 
     def validate_shopify_store_id_is_removed(self):
-        with open(CONFIG_FILE_PATH, "r") as file:
+        with open(os.path.join(self.project_path, CONFIG_FILE_PATH), "r") as file:
             pb_project = yaml.safe_load(file)
-        with open(INPUTS_FILE_PATH, "r") as file:
+        with open(os.path.join(self.project_path, INPUTS_FILE_PATH), "r") as file:
             inputs = yaml.safe_load(file)
         if "shopify_store_id" in pb_project["entities"][0][
             "id_types"
@@ -156,10 +157,10 @@ class FileGenerator:
 
     def update_bad_anons_filter(self):
         regex_pattern = "(c8bc33a0-7cb7-47f9-b24f-73e077346142|f0ed91a9-e1a9-46a5-9257-d590f45612fe|cbe0ea73-4878-4892-ac82-b9ad42797000|f4690568-e9e7-4182-abc6-6ea2791daba3|b369d6f5-c17a-457c-ab86-5649c1b53883)"
-        with open(CONFIG_FILE_PATH, "r") as file:
+        with open(os.path.join(self.project_path, CONFIG_FILE_PATH), "r") as file:
             pb_project = yaml.safe_load(file)
         for id_type in pb_project["id_types"]:
             if id_type["name"] == "anon_id":
                 id_type["filters"] = [{"type": "exclude", "regex": regex_pattern}]
-        with open(CONFIG_FILE_PATH, "w") as file:
+        with open(os.path.join(self.project_path, CONFIG_FILE_PATH), "w") as file:
             yaml.dump(pb_project, file)

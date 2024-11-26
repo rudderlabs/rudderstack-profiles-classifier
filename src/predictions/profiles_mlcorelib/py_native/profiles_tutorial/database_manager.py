@@ -22,9 +22,6 @@ class DatabaseManager:
         self.input_handler = input_handler
         self.fast_mode = fast_mode
 
-    def get_connection_and_target(self) -> Tuple[str, str]:
-        return self.client.get_connection_and_target()
-
     def get_qualified_name(self, table: str) -> str:
         """Returns the fully qualified name of the table"""
         return f"{self.db}.{self.schema}.{table}"
@@ -58,7 +55,7 @@ class DatabaseManager:
 
             base_name = os.path.splitext(filename)[0]
             table_name = f"{base_name}_{table_suffix}"
-            new_table_names[filename] = table_name
+            new_table_names[filename] = table_name.lower()
 
             if not to_upload:
                 continue

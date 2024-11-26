@@ -91,7 +91,7 @@ class ProfileBuilder:
         self.display_welcome_message()
         new_table_names = self.upload_sample_data()
         relevant_tables = self.find_relevant_tables(new_table_names)
-        conn_name, target = self.db_manager.get_connection_and_target()
+        conn_name, target = self.db_manager.client.get_connection_and_target()
         self.display_about_project_files(conn_name)
         # pb_project.yaml
         entity_name, id_types, id_graph_model = self.generate_pb_project(conn_name)
@@ -99,9 +99,9 @@ class ProfileBuilder:
         self.map_tables_to_id_types(relevant_tables, id_types, entity_name)
         # profiles.yaml
         self.build_id_stitcher_model(relevant_tables, entity_name, id_graph_model)
-        self.pb_runs(entity_name, id_graph_model)
+        self.pb_runs(entity_name, id_graph_model, target)
 
-    def pb_runs(self, entity_name, id_graph_model: str):
+    def pb_runs(self, entity_name, id_graph_model: str, target: str):
         about_pb_runs = """
             We have now defined a user entity, id types that belong to this entity, data sources from which to extract this data, and finally, a simple id stitcher model. 
             The next step is to run the project. 
@@ -118,7 +118,7 @@ class ProfileBuilder:
         self.input_handler.display_multiline_message(about_pb_runs)
         self.input_handler.get_user_input("Enter `pb compile`", options=["pb compile"])
         os.chdir("profiles")
-        pb_compile_output = self._subprocess_run(["pb", "compile"])
+        pb_compile_output = self._subprocess_run(["pb", "compile", "--target", target])
         os.chdir("..")
         _ = self.explain_pb_compile_results(pb_compile_output, id_graph_model)
         about_pb_run = """
@@ -126,12 +126,18 @@ class ProfileBuilder:
             You would normally do that in your terminal as a cli command.
             But for this guided demo, you can just enter the command and the tutorial will execute it for you."""
         self.input_handler.display_multiline_message(about_pb_run)
-        seq_no, id_stitcher_table_name = self.prompt_to_do_pb_run(id_graph_model)
+        seq_no, id_stitcher_table_name = self.prompt_to_do_pb_run(
+            id_graph_model, target
+        )
         distinct_main_ids = self.explain_pb_run_results(
             entity_name, id_stitcher_table_name
         )
         seq_no, updated_id_stitcher_table_name = self.second_run(
-            distinct_main_ids, entity_name, id_graph_model, id_stitcher_table_name
+            distinct_main_ids,
+            entity_name,
+            id_graph_model,
+            id_stitcher_table_name,
+            target,
         )
         self.third_run(
             entity_name,
@@ -139,6 +145,7 @@ class ProfileBuilder:
             id_stitcher_table_name,
             updated_id_stitcher_table_name,
             seq_no,
+            target,
         )
 
     def explain_pb_compile_results(self, pb_compile_output, id_graph_model):
@@ -411,13 +418,18 @@ class ProfileBuilder:
         id_graph_table_name = match.group(1)
         return int(seq_no), id_graph_table_name
 
-    def prompt_to_do_pb_run(self, id_graph_name: str, command: str = "pb run"):
+    def prompt_to_do_pb_run(
+        self,
+        id_graph_name: str,
+        target: str,
+        command: str = "pb run",
+    ):
         self.input_handler.get_user_input(
             f"Enter `{command}` to continue", options=[command]
         )
         logger.info("Running the profiles project...(This will take a few minutes)")
         os.chdir("profiles")
-        pb_run_output = self._subprocess_run(command.split())
+        pb_run_output = self._subprocess_run([*command.split(), "--target", target])
         os.chdir("..")
         seq_no, id_graph_table_name = self.parse_pb_output_text(
             pb_run_output, id_graph_name
@@ -559,10 +571,11 @@ class ProfileBuilder:
         entity_name: str,
         id_graph_model: str,
         id_stitcher_table_name: str,
+        target: str,
     ):
         logger.info("Now let's run the updated profiles project")
         seq_no, updated_id_stitcher_table_name = self.prompt_to_do_pb_run(
-            id_graph_model
+            id_graph_model, target
         )
         edge_table = f"{self.db_manager.get_qualified_name(updated_id_stitcher_table_name)}_internal_edges"
         # updated_id_stitcher_table_name = self.get_latest_id_stitcher_table_name(entity_name)
@@ -865,6 +878,7 @@ class ProfileBuilder:
         id_stitcher_table_1: str,
         id_stitcher_table_2: str,
         seq_no2: int,
+        target: str,
     ):
         # Third run
         seq_no_intro = f"""
@@ -875,7 +889,7 @@ class ProfileBuilder:
         We will use that seq no in the pb run."""
         self.input_handler.display_multiline_message(seq_no_intro)
         seq_no3, id_stitcher_table_name_3 = self.prompt_to_do_pb_run(
-            id_graph_model, command=f"pb run --seq_no {seq_no2}"
+            id_graph_model, target, command=f"pb run --seq_no {seq_no2}"
         )
         prompt = f"""
         You can see that the id stitcher table name has changed again. It is now {id_stitcher_table_name_3} (from earlier {id_stitcher_table_2} and {id_stitcher_table_1}).

@@ -1,7 +1,7 @@
 from typing import Tuple
 import os
-import pkg_resources
 import zipfile
+import importlib.resources as resources
 
 from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
@@ -58,17 +58,10 @@ class TutorialRecipe(PyNativeRecipe):
         profile_builder.run(this)
 
 
-def get_sample_data_path():
-    """Returns the path to the data directory"""
-    return pkg_resources.resource_filename(
-        "profiles_mlcorelib", "py_native/profiles_tutorial/sample_data.zip"
-    )
-
-
 def unzip_sample_data(logger: Logger):
     zip_file_path = get_sample_data_path()
     # Ensure the zip file exists
-    if not os.path.exists(zip_file_path):
+    if not zip_file_path:
         raise Exception(f"Error: {zip_file_path} not found.")
 
     # Unzip the file
@@ -80,3 +73,19 @@ def unzip_sample_data(logger: Logger):
         logger.info(f"Successfully extracted {zip_file_path}")
     except Exception as e:
         raise Exception(f"An error occurred while extracting: {str(e)}")
+
+
+def get_sample_data_path():
+    """Returns the path to the data directory"""
+    try:
+        zip_file = (
+            resources.files("profiles_mlcorelib")
+            / "py_native/profiles_tutorial/sample_data.zip"
+        )
+        if not zip_file.is_file():
+            return None
+
+        return str(zip_file)
+    except Exception as e:
+        print(f"Error locating zip file: {e}")
+        return None

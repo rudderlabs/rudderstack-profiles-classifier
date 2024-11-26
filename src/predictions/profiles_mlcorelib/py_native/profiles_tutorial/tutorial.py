@@ -29,10 +29,9 @@ logging.getLogger("snowflake.connector.network").setLevel(logging.ERROR)
 
 
 class ProfileBuilder:
-    def __init__(self, project_path: str, reader: Reader, fast_mode: bool):
-        self.project_path = project_path
+    def __init__(self, reader: Reader, fast_mode: bool):
         self.io = IOHandler(reader, fast_mode)
-        self.yaml_generator = YamlGenerator(self.project_path)
+        self.yaml_generator = YamlGenerator()
         self.fast_mode = fast_mode
 
     def run(self, material: WhtMaterial):
@@ -117,9 +116,7 @@ class ProfileBuilder:
         self.io.display_message(
             f"We will add a suffix `{TABLE_SUFFIX}` to the table names to avoid conflicts and not overwrite any existing tables."
         )
-        return self.db_manager.upload_sample_data(
-            os.path.join(self.project_path, SAMPLE_DATA_DIR), TABLE_SUFFIX
-        )
+        return self.db_manager.upload_sample_data(SAMPLE_DATA_DIR, TABLE_SUFFIX)
 
     def find_relevant_tables(self, new_table_names):
         self.io.display_message(

@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class YamlGenerator:
-    def __init__(self, project_path: str):
+    def __init__(self):
         self.yaml = YAML()
         self.yaml.preserve_quotes = True
         self.yaml.indent(mapping=2, sequence=4, offset=2)

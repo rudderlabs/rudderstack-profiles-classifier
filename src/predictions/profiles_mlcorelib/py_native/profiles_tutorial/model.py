@@ -48,13 +48,12 @@ class TutorialRecipe(PyNativeRecipe):
         pass
 
     def execute(self, this: WhtMaterial):
-        project_path = this.base_wht_project.project_path()
         if not os.path.exists(SAMPLE_DATA_DIR):
             self.logger.info("unzipping sample data...")
-            unzip_sample_data(project_path, self.logger)
+            unzip_sample_data(self.logger)
 
         profile_builder = ProfileBuilder(
-            project_path, self.reader, self.build_spec.get("fast_mode", False)
+            self.reader, self.build_spec.get("fast_mode", False)
         )
         profile_builder.run(this)
 
@@ -66,7 +65,7 @@ def get_sample_data_path():
     )
 
 
-def unzip_sample_data(project_path: str, logger: Logger):
+def unzip_sample_data(logger: Logger):
     zip_file_path = get_sample_data_path()
     # Ensure the zip file exists
     if not os.path.exists(zip_file_path):
@@ -78,6 +77,6 @@ def unzip_sample_data(project_path: str, logger: Logger):
             for file_info in zip_ref.infolist():
                 if not file_info.filename.startswith("__MACOSX"):
                     zip_ref.extract(file_info, ".")
-        logger.info(f"Successfully extracted {zip_file_path} to {project_path}")
+        logger.info(f"Successfully extracted {zip_file_path}")
     except Exception as e:
         raise Exception(f"An error occurred while extracting: {str(e)}")

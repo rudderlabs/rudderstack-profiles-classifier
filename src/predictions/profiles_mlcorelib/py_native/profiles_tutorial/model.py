@@ -78,9 +78,8 @@ def unzip_sample_data(logger: Logger):
 def get_sample_data_path():
     """Returns the path to the data directory"""
     try:
-        zip_file = (
-            resources.files("profiles_mlcorelib")
-            / "py_native/profiles_tutorial/sample_data.zip"
+        zip_file = resources.files("profiles_mlcorelib").joinpath(
+            "py_native", "profiles_tutorial", "sample_data.zip"
         )
         if not zip_file.is_file():
             return None

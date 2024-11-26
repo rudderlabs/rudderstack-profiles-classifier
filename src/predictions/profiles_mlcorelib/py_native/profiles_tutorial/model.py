@@ -9,6 +9,7 @@ from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
 
 from .tutorial import ProfileBuilder
+from .config import SAMPLE_DATA_DIR
 
 
 class TutorialModel(BaseModelType):
@@ -22,20 +23,19 @@ class TutorialModel(BaseModelType):
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
-        self.fast_mode = build_spec.get("fast_mode", False)
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:
-        return TutorialRecipe(self.fast_mode)
+        return TutorialRecipe(self.build_spec)
 
     def validate(self) -> tuple[bool, str]:
         return super().validate()
 
 
 class TutorialRecipe(PyNativeRecipe):
-    def __init__(self, fast_mode: bool) -> None:
+    def __init__(self, build_spec: dict) -> None:
         super().__init__()
-        self.fast_mode = fast_mode
+        self.build_spec = build_spec
         self.logger = Logger("TutorialRecipe")
 
     def describe(self, this: WhtMaterial) -> Tuple[str, str]:
@@ -49,11 +49,13 @@ class TutorialRecipe(PyNativeRecipe):
 
     def execute(self, this: WhtMaterial):
         project_path = this.base_wht_project.project_path()
-        if not os.path.exists("sample_data"):
+        if not os.path.exists(SAMPLE_DATA_DIR):
             self.logger.info("unzipping sample data...")
             unzip_sample_data(project_path, self.logger)
 
-        profile_builder = ProfileBuilder(project_path, self.reader, self.fast_mode)
+        profile_builder = ProfileBuilder(
+            project_path, self.reader, self.build_spec.get("fast_mode", False)
+        )
         profile_builder.run(this)
 
 

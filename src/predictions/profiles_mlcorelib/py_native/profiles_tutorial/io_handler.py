@@ -1,48 +1,15 @@
-import getpass
-from enum import Enum
-from typing import List, Dict
+from profiles_rudderstack.reader import Reader
 
 from .config import PREDEFINED_ID_TYPES
 
-# from profiles_rudderstack.reader import Reader
 
-
-class InputSteps(Enum):
-    ACCOUNT = "Account Name (ex: abc12345.us-east-1): "
-    USERNAME = "Username: "
-    PASSWORD = "Password: "
-    ROLE = "Role: "
-    WAREHOUSE = "Warehouse: "
-    # INPUT_DATABASE = "Input Database name: "
-    # INPUT_SCHEMA = "Input Schema name: "
-    OUTPUT_DATABASE = "Database name (this is where the seed data will be uploaded, and also the profiles output tables will be created): "
-    OUTPUT_SCHEMA = "Schema name (this is where the seed data will be uploaded, and also the profiles output tables will be created): "
-
-    @classmethod
-    def common(cls):
-        return [
-            cls.ACCOUNT,
-            cls.USERNAME,
-            cls.PASSWORD,
-            cls.ROLE,
-            cls.WAREHOUSE,
-            cls.OUTPUT_DATABASE,
-            cls.OUTPUT_SCHEMA,
-        ]
-
-    # @classmethod
-    # def input(cls):
-    #     return [cls.INPUT_DATABASE, cls.INPUT_SCHEMA]
-
-    # @classmethod
-    # def output(cls):
-    #     return [cls.OUTPUT_DATABASE, cls.OUTPUT_SCHEMA]
-
-
-class InputHandler:
-    def __init__(self, reader, fast_mode: bool):
+class IOHandler:
+    def __init__(self, reader: Reader, fast_mode: bool):
         self.reader = reader
         self.fast_mode = fast_mode
+
+    def display_message(self, message: str):
+        print(message)
 
     def get_user_input(self, prompt, options=None, password=False, default=None):
         full_prompt = f"{prompt} "
@@ -67,34 +34,12 @@ class InputHandler:
             else:
                 return user_input
 
-    def collect_user_inputs(self, steps: List[InputSteps]) -> Dict[InputSteps, str]:
-        inputs = {}
-        current_step = 0
-        while current_step < len(steps):
-            step = steps[current_step]
-            user_input = self.get_user_input(
-                step.value, password=step == InputSteps.PASSWORD
-            )
-            if user_input.lower() == "back":
-                if current_step > 0:
-                    current_step -= 1
-                else:
-                    print("You are already at the first step.")
-            else:
-                inputs[step] = user_input
-                current_step += 1
-        return inputs
-
     def display_multiline_message(self, message: str):
         for line in message.split("\n"):
             if line:
                 print(line)
             if not self.fast_mode:
                 self.reader.get_input("")
-
-    # def print_and_wait(self, message: str, delay: int = 10):
-    #     print(message)
-    #     time.sleep(delay)
 
     def guide_id_type_input(self, entity_name):
         about_id_types = {

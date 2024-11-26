@@ -5,21 +5,19 @@ from typing import List, Dict, Tuple, Any, Optional
 from ruamel.yaml import YAML
 import sys
 
-from .input_handler import InputHandler
+from .io_handler import IOHandler
 from profiles_rudderstack.material import WhtMaterial
 
 logger = logging.getLogger(__name__)
 
 
 class DatabaseManager:
-    def __init__(
-        self, material: WhtMaterial, input_handler: InputHandler, fast_mode: bool
-    ):
+    def __init__(self, material: WhtMaterial, io: IOHandler, fast_mode: bool):
         self.material = material
         self.client = material.wht_ctx.client
         self.schema = self.client.schema
         self.db = self.client.db
-        self.input_handler = input_handler
+        self.io = io
         self.fast_mode = fast_mode
 
     def get_qualified_name(self, table: str) -> str:
@@ -62,7 +60,7 @@ class DatabaseManager:
 
             if table_name.lower() in existing_tables:
                 logger.info(f"Table {table_name} already exists.")
-                action = self.input_handler.get_user_input(
+                action = self.io.get_user_input(
                     "Do you want to skip uploading again, so we can reuse the tables? (yes/no) (yes - skips upload, no - uploads again): "
                 )
                 if action == "yes":
@@ -176,7 +174,7 @@ class DatabaseManager:
             f"Following are all the id types defined earlier: \n\t{','.join(id_types)}"
         )
         shortlisted_id_types = ",".join(list(shortlisted_columns.keys()))
-        applicable_id_types_input = self.input_handler.get_user_input(
+        applicable_id_types_input = self.io.get_user_input(
             f"Enter the comma-separated list of id_types applicable to the `{table}` table: \n>",
             options=[shortlisted_id_types],
             default=shortlisted_id_types,
@@ -227,7 +225,7 @@ class DatabaseManager:
                 default = id_type_mapping.get(id_type, id_type)
                 # else:
                 #     default = None
-                user_input = self.input_handler.get_user_input(
+                user_input = self.io.get_user_input(
                     f"Enter the column(s) to map the id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n> ",
                     default=default,
                     options=[default],
@@ -266,11 +264,9 @@ class DatabaseManager:
             yaml.width = 4096  # Prevent line wrapping
             yaml.dump(summary, sys.stdout)
             logger.info("\n")
-            self.input_handler.get_user_input(
-                f"The above is the inputs yaml for table `{table}`"
-            )
+            self.io.get_user_input(f"The above is the inputs yaml for table `{table}`")
         else:
-            self.input_handler.get_user_input(
+            self.io.get_user_input(
                 "No id_type mappings were selected for this table.\n"
             )
         return table_mappings, "next"

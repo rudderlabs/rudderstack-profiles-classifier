@@ -90,7 +90,9 @@ class DatabaseManager:
     def find_relevant_tables(self, new_table_names: dict) -> List[str]:
         tables = self.get_table_names()
         new_tables = [new_table.lower() for new_table in new_table_names.values()]
-        relevant_tables = [table for table in tables if table in new_tables]
+        relevant_tables = [
+            table.lower() for table in tables if table.lower() in new_tables
+        ]
         return relevant_tables
 
     def get_columns(self, table: str) -> List[str]:

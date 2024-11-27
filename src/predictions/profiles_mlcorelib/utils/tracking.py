@@ -3,13 +3,21 @@ import yaml
 import uuid
 from pathlib import Path
 import rudderstack.analytics as rudder_analytics
+from src.predictions.profiles_mlcorelib.utils.logger import logger
 from profiles_mlcorelib.utils.constants import (
     PREFERENCES_PATH,
     TELEMETRY_OPT_OUT_KEY,
     TELEMETRY_CONSENT_SHOWN_KEY,
-    WRITE_KEY,
-    DATA_PLANE_URL,
 )
+
+try:
+    from profiles_mlcorelib.utils.tracking_constants import (
+        WRITE_KEY,
+        DATA_PLANE_URL,
+    )
+except:
+    logger.get().warning("Tracking constants not found. Tracking will not be enabled.")
+    WRITE_KEY, DATA_PLANE_URL = None, None
 
 
 class Analytics:

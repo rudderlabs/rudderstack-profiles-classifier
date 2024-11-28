@@ -53,7 +53,9 @@ class ProfileBuilder:
         self.io.display_multiline_message(messages.ABOUT_PB_COMPILE)
         self.io.get_user_input("Enter `pb compile`", options=["pb compile"])
         os.chdir("profiles")
-        pb_compile_output = self._subprocess_run(["pb", "compile", "--target", target])
+        pb_compile_output = self._subprocess_run(
+            ["pb", "compile", "--target", target, "--migrate_on_load"]
+        )
         os.chdir("..")
         _ = self.explain_pb_compile_results(pb_compile_output, id_graph_model)
         self.io.display_multiline_message(messages.ABOUT_PB_RUN)
@@ -243,7 +245,9 @@ class ProfileBuilder:
         self.io.get_user_input(f"Enter `{command}` to continue", options=[command])
         logger.info("Running the profiles project...(This will take a few minutes)")
         os.chdir("profiles")
-        pb_run_output = self._subprocess_run([*command.split(), "--target", target])
+        pb_run_output = self._subprocess_run(
+            [*command.split(), "--target", target, "--migrate_on_load"]
+        )
         os.chdir("..")
         seq_no, id_graph_table_name = self.parse_pb_output_text(
             pb_run_output, id_graph_name

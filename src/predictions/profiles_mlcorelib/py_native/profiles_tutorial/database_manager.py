@@ -70,7 +70,7 @@ class DatabaseManager:
 
                 self.client.query_template_without_result(
                     self.material,
-                    f"""{{% set tbl = warehouse.NamedWhObject(name={table_name}, type="TABLE") %}} {{% exec %}}{{{{warehouse.ForceDropTableStatement(tbl)}}}}{{% endexec %}}""",
+                    f"""{{% set tbl = warehouse.NamedWhObject(name='{table_name}', type="TABLE") %}} {{% exec %}}{{{{warehouse.ForceDropTableStatement(tbl)}}}}{{% endexec %}}""",
                 )
 
             df = pd.read_csv(os.path.join(sample_data_path, filename))

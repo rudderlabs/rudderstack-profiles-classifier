@@ -272,7 +272,7 @@ class ProfileBuilder:
         self.io.display_message(query_distinct_main_ids)
         # run query
         result = self.db_manager.client.query_sql_with_result(query_distinct_main_ids)
-        return result[0][0]
+        return result.iloc[0][0]
 
     def _explain_first_run(self, entity_name: str, id_stitcher_table_name: str):
         self.io.display_multiline_message(messages.EXPLAIN_FIRST_RUN_INTRO(entity_name))
@@ -437,13 +437,13 @@ class ProfileBuilder:
         SUM(user_id) AS user_id_count,
         SUM(shopify_customer_id) AS shopify_customer_id_count,
         count(*) as total_count,
-        {{% if warehose.DatabaseType() == 'snowflake' %}}
+        {{% if warehouse.DatabaseType() == 'snowflake' %}}
             ARRAY_SORT(ARRAY_AGG(OBJECT_CONSTRUCT(other_id_type, id_other))) AS id_list
-        {{% elif warehose.DatabaseType() == 'redhsift' %}}
+        {{% elif warehouse.DatabaseType() == 'redhsift' %}}
             JSON_PARSE('[' || LISTAGG('{{"' || other_id_type || '"' || ':' || id_other || '}}', ', ') WITHIN GROUP (ORDER BY other_id_type) || ']') as id_list
-        {{% elif warehose.DatabaseType() == 'databricks' %}}
+        {{% elif warehouse.DatabaseType() == 'databricks' %}}
             COLLECT_LIST(map(other_id_type, id_other)) as id_list
-        {{% elif warehose.DatabaseType() == 'bigquery' %}}
+        {{% elif warehouse.DatabaseType() == 'bigquery' %}}
             ARRAY_AGG(STRUCT(other_id_type, id_other) ORDER BY other_id_type) as id_list
         {{% endif %}}
     FROM id_value_counts

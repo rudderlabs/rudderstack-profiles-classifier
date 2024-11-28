@@ -3,7 +3,7 @@ import yaml
 import uuid
 from pathlib import Path
 import rudderstack.analytics as rudder_analytics
-from src.predictions.profiles_mlcorelib.utils.logger import logger
+from profiles_mlcorelib.utils.logger import logger
 from profiles_mlcorelib.utils.constants import (
     PREFERENCES_PATH,
     TELEMETRY_OPT_OUT_KEY,

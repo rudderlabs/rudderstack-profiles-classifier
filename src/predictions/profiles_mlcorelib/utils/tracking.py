@@ -10,14 +10,18 @@ from profiles_mlcorelib.utils.constants import (
     TELEMETRY_CONSENT_SHOWN_KEY,
 )
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 try:
     from profiles_mlcorelib.utils.tracking_constants import (
         WRITE_KEY,
         DATA_PLANE_URL,
     )
 except:
-    logger.get().warning("Tracking constants not found. Tracking will not be enabled.")
-    WRITE_KEY, DATA_PLANE_URL = None, None
+    WRITE_KEY = os.getenv("WRITE_KEY", None)
+    DATA_PLANE_URL = os.getenv("DATA_PLANE_URL", None)
 
 
 class Analytics:

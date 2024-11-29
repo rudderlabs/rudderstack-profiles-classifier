@@ -17,5 +17,7 @@ def run_query(wh_client, query: str):
         result = wh_client.query_sql_with_result(query)
     except:
         raise Exception(f"""Unable to run the following query: {query}""")
+    if result is None or result.empty:
+        return result
     result.columns = result.columns.str.upper()
     return result

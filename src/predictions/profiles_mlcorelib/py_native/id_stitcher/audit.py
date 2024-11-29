@@ -151,8 +151,7 @@ class ModelRecipe(PyNativeRecipe):
             run_completed = True
             n_visualisations = cluster_report.counter
         except Exception as e:
-            tb = traceback.format_exc()
-            self.logger.debug(tb)
+            self.logger.debug(traceback.format_exc())
             self.logger.warn(f"An error occurred while running the audit: {e}")
             n_visualisations = None
 

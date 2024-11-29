@@ -1,6 +1,7 @@
 import os
 import webbrowser
 import pandas as pd
+import numpy as np
 from typing import Dict
 from urllib.parse import urljoin
 from urllib.request import pathname2url
@@ -50,6 +51,7 @@ class ClusterReport:
         self.table_report = table_report
         self.counter = 0
         self.logger = logger
+        self.color_map = {}
 
     def get_edges_data(self, node_id: str) -> pd.DataFrame:
         cluster_query_template = """
@@ -174,41 +176,23 @@ class ClusterReport:
         # Removing self-loops from the graph
         G.remove_edges_from(nx.selfloop_edges(G))
 
-        def generate_colors(n):
-            HSV_tuples = [(x * 1.0 / n, 0.7, 0.7) for x in range(n)]
-            return [
-                "#%02x%02x%02x" % tuple(int(i * 255) for i in colorsys.hsv_to_rgb(*hsv))
-                for hsv in HSV_tuples
-            ]
+        # Determine visualization strategy based on graph size
+        if len(G) <= 200:
+            return self._visualize_small_graph(G, file_path)
+        else:
+            return self._visualize_large_graph(G, file_path)
 
-        def get_opacity(degree, max_degree):
-            return 0.3 + (degree / max_degree) * 0.7
-
-        id_types = set(nx.get_node_attributes(G, "id_type").values())
-        colors = generate_colors(len(id_types))
-        color_map = dict(zip(id_types, colors))
-
-        degrees = dict(G.degree())
-        max_degree = max(degrees.values()) if degrees else 0
-
-        net = Network(
-            notebook=False,
-            height="1000px",
-            width="100%",
-            bgcolor="#ffffff",
-            font_color="black",
-        )
+    def _visualize_small_graph(self, G: nx.Graph, file_path: str):
+        net = self._initialise_network()
+        degrees, max_degree = self._pre_compute_graph_info(G)
 
         # Add nodes and edges for the visualization graph
         for node, attrs in G.nodes(data=True):
-            color = color_map.get(attrs["id_type"], "#808080")
-            degree = degrees[node]
-            opacity = get_opacity(degree, max_degree)
-            rgba_color = f'rgba{tuple(int(color.lstrip("#")[i:i+2], 16) for i in (0, 2, 4)) + (opacity,)}'
+            color = self._get_node_color(attrs["id_type"], degrees[node], max_degree)
             net.add_node(
                 node,
-                color=rgba_color,
-                title=f"ID: {node}\nID-Type: {attrs['id_type']}\nDegree: {degree}",
+                color=color,
+                title=f"ID: {node}\nID-Type: {attrs['id_type']}\nDegree: {degrees[node]}",
             )
 
         for source, target in G.edges():
@@ -246,19 +230,122 @@ class ClusterReport:
             }
         """
         )
-        net.save_graph(file_path)
 
-        # Create legend HTML
-        legend_items = []
-        for id_type, color in color_map.items():
-            legend_items.append(
-                f"""
-                <div style="display: flex; align-items: center; margin-bottom: 5px;">
-                    <div style="width: 20px; height: 20px; background-color: {color}; margin-right: 10px; border-radius: 3px;"></div>
-                    <div>{id_type}</div>
-                </div>
-            """
+        net.save_graph(file_path)
+        self._add_legend_to_file(file_path)
+        return file_path
+
+    def _visualize_large_graph(self, G: nx.Graph, file_path: str):
+        net = self._initialise_network()
+        degrees, max_degree = self._pre_compute_graph_info(G)
+
+        # Pre-calculate layout using NetworkX
+        print("Computing initial layout...")
+        layout = nx.spring_layout(
+            G,
+            k=1 / np.sqrt(len(G)),  # Optimal distance between nodes
+            iterations=50,  # Reduce iterations for large graphs
+            seed=42,  # For consistency
+        )
+
+        # Scale layout to reasonable coordinates
+        scale_factor = 1000
+        layout = {
+            node: (coord[0] * scale_factor, coord[1] * scale_factor)
+            for node, coord in layout.items()
+        }
+
+        # Add nodes and edges for the visualization graph
+        print("Adding nodes...")
+        for node, attrs in G.nodes(data=True):
+            x, y = layout[node]
+            color = self._get_node_color(attrs["id_type"], degrees[node], max_degree)
+            size = 5 + (degrees[node] / max_degree) * 15  # Smaller node sizes
+            net.add_node(
+                node,
+                x=int(x),
+                y=int(y),
+                physics=False,  # Disable physics for pre-positioned nodes
+                size=size,
+                color=color,
+                title=f"ID: {node}\nID-Type: {attrs['id_type']}\nDegree: {degrees[node]}",
             )
+
+        print("Adding edges...")
+        for source, target in G.edges():
+            net.add_edge(source, target, color="#88888844", width=0.5)
+
+        net.set_options(
+            """
+            var options = {
+                "physics": {
+                    "enabled": false
+                },
+                "nodes": {
+                    "fixed": true,
+                    "shape": "dot",
+                    "font": {
+                        "size": 8,
+                        "color": "black",
+                        "face": "arial"
+                    },
+                    "scaling": {
+                        "min": 5,
+                        "max": 20
+                    },
+                    "shadow": false,
+                    "borderWidth": 2,
+                    "borderWidthSelected": 4
+                },
+                "edges": {
+                    "smooth": false,
+                    "shadow": false,
+                    "width": 0.5,
+                    "selectionWidth": 2,
+                    "color": {
+                        "opacity": 0.25
+                    }
+                }
+            }
+        """
+        )
+
+        net.save_graph(file_path)
+        self._add_legend_to_file(file_path)
+        return file_path
+
+    def _pre_compute_graph_info(self, G: nx.Graph):
+        degrees = dict(G.degree())
+        max_degree = max(degrees.values()) if degrees else 0
+        id_types = set(nx.get_node_attributes(G, "id_type").values())
+
+        if not self.color_map:
+            self.color_map = self._generate_color_map(id_types)
+        return degrees, max_degree
+
+    def _initialise_network(self):
+        # Initialize network
+        net = Network(
+            notebook=False,
+            height="1000px",
+            width="100%",
+            bgcolor="#ffffff",
+            font_color="black",
+            directed=False,
+        )
+        return net
+
+    def _add_legend_to_file(self, file_path):
+        legend_items = [
+            f"""
+            <div style="display: flex; align-items: center; margin-bottom: 5px;">
+                <div style="width: 20px; height: 20px; background-color: {color}; 
+                     margin-right: 10px; border-radius: 3px;"></div>
+                <div>{id_type}</div>
+            </div>
+            """
+            for id_type, color in self.color_map.items()
+        ]
 
         legend_html = f"""
         <div style="position: fixed; top: 20px; right: 20px; background-color: rgba(255, 255, 255, 0.9); 
@@ -268,34 +355,27 @@ class ClusterReport:
         </div>
         """
 
-        # Add the legend HTML in saved file
-        with open(file_path, "r") as file:
+        with open(file_path, "r", encoding="utf-8") as file:
             content = file.read()
 
         modified_content = content.replace("<body>", f"<body>{legend_html}")
 
-        with open(file_path, "w") as file:
+        with open(file_path, "w", encoding="utf-8") as file:
             file.write(modified_content)
 
-        print(
-            f"Your network visualization is ready! We've saved an interactive map of your data connections here:\n{file_path}"
-        )
-        print(
-            "You can open this file in your web browser to explore the network visually."
-        )
+    def _generate_color_map(self, id_types):
+        HSV_tuples = [(x * 1.0 / len(id_types), 0.7, 0.7) for x in range(len(id_types))]
+        colors = [
+            "#%02x%02x%02x" % tuple(int(i * 255) for i in colorsys.hsv_to_rgb(*hsv))
+            for hsv in HSV_tuples
+        ]
+        return dict(zip(id_types, colors))
 
-    def _generate_color_scheme(self, id_types):
-        # Generate a color for each unique ID type
-        num_colors = len(id_types)
-        color_scheme = {}
-        for i, id_type in enumerate(id_types):
-            hue = i / num_colors
-            rgb = colorsys.hsv_to_rgb(hue, 0.7, 0.9)  # Saturation: 0.7, Value: 0.9
-            hex_color = "#{:02x}{:02x}{:02x}".format(
-                int(rgb[0] * 255), int(rgb[1] * 255), int(rgb[2] * 255)
-            )
-            color_scheme[id_type] = hex_color
-        return color_scheme
+    def _get_node_color(self, id_type, degree, max_degree):
+        base_color = self.color_map.get(id_type, "#808080")
+        opacity = 0.3 + (degree / max_degree) * 0.7 if max_degree > 0 else 1
+        rgb = tuple(int(base_color.lstrip("#")[i : i + 2], 16) for i in (0, 2, 4))
+        return f"rgba{rgb + (opacity,)}"
 
     def run(self):
         print(
@@ -324,9 +404,16 @@ class ClusterReport:
                 os.makedirs(output_dir, exist_ok=True)
                 filename = f"{user_input}_graph.html"
                 file_path = os.path.join(output_dir, filename)
+                print(
+                    f"\nVisualising all ids and their connections in the cluster as a graph.\n\n"
+                )
                 self.create_interactive_graph(G, file_path)
+                print(
+                    f"Your network visualization is ready! We've saved a map of your data connections here:\n{file_path}"
+                )
+                try:
+                    file_url = urljoin("file:", pathname2url(file_path))
+                    webbrowser.open_new_tab(file_url)
+                except:
+                    self.logger.warn("Unable to open the visualisation.")
             print(f"Cluster Summary:\n{cluster_summary}\n\n")
-
-            print(f"\nDisplaying Cluster Analysis Graph in the Browser.\n\n")
-            file_url = urljoin("file:", pathname2url(file_path))
-            webbrowser.open_new_tab(file_url)

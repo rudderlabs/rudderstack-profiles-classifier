@@ -183,8 +183,8 @@ class ClusterReport:
             return self._visualize_large_graph(G, file_path)
 
     def _visualize_small_graph(self, G: nx.Graph, file_path: str):
-        net = self._get_network()
-        degrees, max_degree = self._pre_compute_info(G)
+        net = self._initialise_network()
+        degrees, max_degree = self._pre_compute_graph_info(G)
 
         # Add nodes and edges for the visualization graph
         for node, attrs in G.nodes(data=True):
@@ -236,8 +236,8 @@ class ClusterReport:
         return file_path
 
     def _visualize_large_graph(self, G: nx.Graph, file_path: str):
-        net = self._get_network()
-        degrees, max_degree = self._pre_compute_info(G)
+        net = self._initialise_network()
+        degrees, max_degree = self._pre_compute_graph_info(G)
 
         # Pre-calculate layout using NetworkX
         print("Computing initial layout...")
@@ -314,7 +314,7 @@ class ClusterReport:
         self._add_legend_to_file(file_path)
         return file_path
 
-    def _pre_compute_info(self, G: nx.Graph):
+    def _pre_compute_graph_info(self, G: nx.Graph):
         degrees = dict(G.degree())
         max_degree = max(degrees.values()) if degrees else 0
         id_types = set(nx.get_node_attributes(G, "id_type").values())
@@ -323,7 +323,7 @@ class ClusterReport:
             self.color_map = self._generate_color_map(id_types)
         return degrees, max_degree
 
-    def _get_network(self):
+    def _initialise_network(self):
         # Initialize network
         net = Network(
             notebook=False,
@@ -336,7 +336,6 @@ class ClusterReport:
         return net
 
     def _add_legend_to_file(self, file_path):
-        # Add legend to small graph visualization
         legend_items = [
             f"""
             <div style="display: flex; align-items: center; margin-bottom: 5px;">
@@ -405,11 +404,16 @@ class ClusterReport:
                 os.makedirs(output_dir, exist_ok=True)
                 filename = f"{user_input}_graph.html"
                 file_path = os.path.join(output_dir, filename)
-                print(f"\nDisplaying Cluster Analysis Graph in the Browser.\n\n")
+                print(
+                    f"\nVisualising all ids and their connections in the cluster as a graph.\n\n"
+                )
                 self.create_interactive_graph(G, file_path)
                 print(
                     f"Your network visualization is ready! We've saved a map of your data connections here:\n{file_path}"
                 )
-                file_url = urljoin("file:", pathname2url(file_path))
-                webbrowser.open_new_tab(file_url)
+                try:
+                    file_url = urljoin("file:", pathname2url(file_path))
+                    webbrowser.open_new_tab(file_url)
+                except:
+                    self.logger.warn("Unable to open the visualisation.")
             print(f"Cluster Summary:\n{cluster_summary}\n\n")

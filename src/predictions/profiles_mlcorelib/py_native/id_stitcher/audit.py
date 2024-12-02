@@ -26,6 +26,7 @@ class AuditIdStitcherModel(BaseModelType):
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
+        # FIXME: We should remove this after we introduce a new output type
         build_spec["materialization"] = {"output_type": "ephemeral"}
         super().__init__(build_spec, schema_version, pb_version)
         self.recipe = ModelRecipe(self.build_spec)

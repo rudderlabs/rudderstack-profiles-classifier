@@ -34,25 +34,25 @@ FICTIONAL_BUSINESS_OVERVIEW: Final[
 
 ABOUT_PROFILES_FILES: Callable[[str], str] = (
     lambda connection_name: f"""
-        Now let's create a profiles project. 
-        A profiles project contains a few yaml files, of following structure:
-        ```
-        .
-        └── <project_directory>
-            ├── pb_project.yaml
-            └── models
-                └── inputs.yaml
-                └── profiles.yaml
-        
-        Here's a brief description of what each file is:
+    Now let's create a profiles project. 
+    A profiles project contains a few yaml files, of following structure:
+    ```
+    .
+    └── <project_directory>
+        ├── pb_project.yaml
+        └── models
+            └── inputs.yaml
+            └── profiles.yaml
+    ```
+    Here's a brief description of what each file is:
 
-        - `pb_project.yaml`: This file contains the project declaration. The name of the project, entity, and the entity's defined id types etc.
-            It also includes the warehouse connection name - `{connection_name}`, which calls the connection config we created in the previous step (the same name as in siteconfig.yaml). 
-        - `models/inputs.yaml`: This file will contain the input data sources - the tables and columns that map to the entity and their id types. We will explain this in more detail in the subsequent steps.
-        - `models/profiles.yaml`: This is where we define the model configurations for the id stitcher and any features/traits you want to build for your defined entity. For the tutorial, we will only build an ID Graph using the ID Stitcher Model Type. 
+    - `pb_project.yaml`: This file contains the project declaration. The name of the project, entity, and the entity's defined id types etc.
+        It also includes the warehouse connection name - `{connection_name}`, which calls the connection config we created in the previous step (the same name as in siteconfig.yaml). 
+    - `models/inputs.yaml`: This file will contain the input data sources - the tables and columns that map to the entity and their id types. We will explain this in more detail in the subsequent steps.
+    - `models/profiles.yaml`: This is where we define the model configurations for the id stitcher and any features/traits you want to build for your defined entity. For the tutorial, we will only build an ID Graph using the ID Stitcher Model Type. 
 
-        These files will be created in this tutorial, with the details you will provide in the next steps. 
-        Also, for this tutorial, we will use a directory called `profiles` to store all the files. We will create it here in the current directory.
+    These files will be created in this tutorial, with the details you will provide in the next steps. 
+    Also, for this tutorial, we will use a directory called `profiles` to store all the files. We will create it here in the current directory.
 """
 )
 
@@ -149,7 +149,6 @@ ABOUT_PB_COMPILE: Final[
     2. You can observe the generated SQL before it is run in your warehouse. 
 
     This optional command is `pb compile` Let's run this first to see what happens.
-    Paste the `pb compile` command below.
 """
 
 ABOUT_PB_RUN: Final[

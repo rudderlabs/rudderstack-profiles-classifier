@@ -59,9 +59,8 @@ class DatabaseManager:
                 continue
 
             if table_name.lower() in existing_tables:
-                self.io.display_message(f"Table {table_name} already exists.")
                 action = self.io.get_user_input(
-                    "Do you want to skip uploading again, so we can reuse the tables? (yes/no) (yes - skips upload, no - uploads again): "
+                    f"Table {table_name} already exists. Do you want to skip uploading again, so we can reuse the tables? (yes/no) (yes - skips upload, no - uploads again): "
                 )
                 if action == "yes":
                     self.io.display_message("Skipping upload of all csv files.")
@@ -268,7 +267,7 @@ class DatabaseManager:
             yaml.width = 4096  # Prevent line wrapping
             yaml.dump(summary, sys.stdout)
             self.io.display_message("\n")
-            self.io.get_user_input(f"The above is the inputs yaml for table `{table}`")
+            self.io.display_message(f"The above is the inputs yaml for table `{table}`")
         else:
             self.io.get_user_input(
                 "No id_type mappings were selected for this table.\n"

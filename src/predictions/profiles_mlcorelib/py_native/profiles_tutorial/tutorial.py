@@ -31,7 +31,7 @@ logging.getLogger("snowflake.connector.network").setLevel(logging.ERROR)
 class ProfileBuilder:
     def __init__(self, reader: Reader, fast_mode: bool):
         self.io = IOHandler(reader, fast_mode)
-        self.yaml_generator = YamlGenerator()
+        self.yaml_generator = YamlGenerator(self.io)
         self.fast_mode = fast_mode
 
     def run(self, material: WhtMaterial):
@@ -103,12 +103,12 @@ class ProfileBuilder:
 
     def get_id_types(self, entity_name):
         self.io.display_multiline_message(messages.ABOUT_ID_TYPES)
-        id_types = self.io.guide_id_type_input(entity_name)
+        id_types = self.yaml_generator.guide_id_type_input(entity_name)
 
         conclusion = """
         We have now defined an entity called "user" along with the associated id_types that exist across our different source systems. 
         Now, let's move onto bringing in our data sources in order to run the ID Stitcher model and output an ID Graph."""
-        print(conclusion)
+        self.io.display_message(conclusion)
         return id_types
 
     def upload_sample_data(self):
@@ -131,7 +131,7 @@ class ProfileBuilder:
                     "No relevant tables found. Please check your inputs and try again."
                 )
                 sys.exit(1)
-            logger.info(
+            self.io.display_message(
                 f"Found {len(relevant_tables)} relevant tables: {relevant_tables}"
             )
             return relevant_tables
@@ -171,9 +171,7 @@ class ProfileBuilder:
     def build_id_stitcher_model(self, table_names, entity_name, id_graph_model):
         self.io.display_multiline_message(messages.ABOUT_ID_STITCHER_1)
         id_graph_model_name = self.io.get_user_input(
-            f"Enter a name for the model, Let's give the name `{id_graph_model}`",
-            options=[id_graph_model],
-            default=id_graph_model,
+            f"Enter a name for the model, for example: `{id_graph_model}`",
         )
         self.io.display_multiline_message(messages.ABOUT_ID_STITCHER_2)
         edge_sources = []
@@ -181,8 +179,6 @@ class ProfileBuilder:
             table_name = "rs" + table.replace(f"_{TABLE_SUFFIX}", "").capitalize()
             edge_source = self.io.get_user_input(
                 f"Enter `inputs/{table_name}` as an edge source",
-                options=[f"inputs/{table_name}"],
-                default=f"inputs/{table_name}",
             )
             edge_sources.append(edge_source)
         self.yaml_generator.create_profiles_yaml(
@@ -243,7 +239,9 @@ class ProfileBuilder:
         command: str = "pb run",
     ):
         self.io.get_user_input(f"Enter `{command}` to continue", options=[command])
-        logger.info("Running the profiles project...(This will take a few minutes)")
+        self.io.display_message(
+            "Running the profiles project...(This will take a few minutes)"
+        )
         os.chdir("profiles")
         pb_run_output = self._subprocess_run(
             [*command.split(), "--target", target, "--migrate_on_load"]
@@ -252,7 +250,7 @@ class ProfileBuilder:
         seq_no, id_graph_table_name = self.parse_pb_output_text(
             pb_run_output, id_graph_name
         )
-        logger.info("Done")
+        self.io.display_message("Done")
         return seq_no, id_graph_table_name
 
     def explain_pb_run_results(self, entity_name: str, id_stitcher_table_name: str):

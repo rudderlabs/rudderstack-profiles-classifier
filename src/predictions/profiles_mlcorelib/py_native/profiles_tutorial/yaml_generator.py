@@ -137,27 +137,24 @@ One store id may be linked to many users.  And so for the user entity, we should
 But for the purposes of this tutorial, we will go ahead and bring it in to show you what happens and how to troubleshoot when a resolved profile id has merged multiple users together.""",
         }
         selected_id_types = []
-        print(
+        self.io.display_message(
             "We'll go through some common id types one by one. As this is a demo, please type the exact name as suggested"
         )
         for n, expected_id_type in enumerate(PREDEFINED_ID_TYPES):
             if n == 0:
-                print(f"The first id type is {expected_id_type}.")
+                self.io.display_message(f"The first id type is {expected_id_type}.")
             else:
-                print(f"Now, the next id: {expected_id_type}.")
+                self.io.display_message(f"Now, the next id: {expected_id_type}.")
             self.io.display_multiline_message(about_id_types[expected_id_type])
 
             user_input = self.io.get_user_input(
                 f"\nLet's add '{expected_id_type}' as an id type for {entity_name}: ",
             )
-            # if user_input.lower() == expected_id_type.lower():
             selected_id_types.append(user_input)
-            #     break
-            # else:
-            #     print(
-            #         f"Please enter the exact name '{expected_id_type}'. Let's try again."
-            #     )
-        print(f"\nGreat. So, the id types associated with entity {entity_name} are:")
+
+        self.io.display_message(
+            f"\nGreat. So, the id types associated with entity {entity_name} are:"
+        )
         for id_type in selected_id_types:
-            print(f"\t - {id_type}")
+            self.io.display_message(f"\t - {id_type}")
         return selected_id_types

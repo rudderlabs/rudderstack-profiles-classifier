@@ -613,21 +613,19 @@ class AttributionModelRecipe(PyNativeRecipe):
             counter += 1
         return journey_query, set_jouney_ref
 
-    def try_deref(self, this: WhtMaterial, model_ref: str):
-        try:
-            this.de_ref(model_ref)
-        except Exception:
-            # Skipping model_ref as it does not exist
-            return
-        self.inputs.add(model_ref)
-
     def _define_input_dependency(
         self, this: WhtMaterial, user_journeys, campaign_details, campaign_vars
     ):
+        entity_column_mapping = {
+            ENTITY_KEY: self.entity_id_column_name,
+            self.campaign_entity: self.campaign_id_column_name,
+        }
+
         self.inputs.add(f"{self.conversion_entity}/all/var_table")
         for obj in user_journeys:
             tbl = obj["from"]
-            column = this.de_ref(tbl).model.time_filtering_column()
+            de_ref_tbl = this.de_ref(tbl)
+            column = de_ref_tbl.model.time_filtering_column()
             if not column:
                 raise Exception(f"occurred_at_col field not found in {tbl} yaml")
             self.inputs.update(
@@ -636,9 +634,14 @@ class AttributionModelRecipe(PyNativeRecipe):
                     f"{tbl}/var_table",
                 )
             )
-            # FIXME: Once pb 0.19 is released, remove the try_deref and check for model ids to decide if the model ref exists
-            self.try_deref(this, f"{tbl}/var_table/{self.campaign_id_column_name}")
-            self.try_deref(this, f"{tbl}/var_table/{self.entity_id_column_name}")
+
+            model_ids = de_ref_tbl.model.ids()
+            unique_entities: set = {model_id.entity() for model_id in model_ids}
+
+            for entity in unique_entities & entity_column_mapping.keys():
+                model_ref = f"{tbl}/var_table/{entity_column_mapping[entity]}"
+                this.de_ref(model_ref)
+                self.inputs.add(model_ref)
 
         for campaign_detail in campaign_details:
             for _, values in campaign_detail.items():

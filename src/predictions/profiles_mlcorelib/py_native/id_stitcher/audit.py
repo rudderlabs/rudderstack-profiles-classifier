@@ -1,6 +1,7 @@
-from typing import Optional
+from typing import Dict
 import uuid
 from datetime import datetime
+import traceback
 from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial, WhtModel
@@ -41,27 +42,25 @@ class ModelRecipe(PyNativeRecipe):
         super().__init__()
         self.build_spec = build_spec
         self.logger = Logger("AuditIdStitcherModelRecipe")
-        self.id_stitcher_model: Optional[WhtModel] = None
-        # There is no guarantee that the register_dependencies will be called only once
-        # So we need to keep track of whether the run has been completed
-        self.run_completed = False
         self.run_id = str(uuid.uuid4())
 
     def describe(self, this: WhtMaterial):
-        pass
+        return "", ""
 
     def register_dependencies(self, this: WhtMaterial):
-        num_id_stitcher_models = len(
-            this.base_wht_project.models(model_types=["id_stitcher"])
-        )
+        if this.wht_ctx.is_null_ctx:
+            return
+
+        ids_model_count = len(this.base_wht_project.models(model_types=["id_stitcher"]))
         while True:
-            self._set_id_stitcher_model(this)
-            edge_sources = self.id_stitcher_model.build_spec()["edge_sources"]
+            id_stitcher_model = self.select_id_stitcher_model(this)
+            edge_sources = id_stitcher_model.build_spec()["edge_sources"]
             for edge_source in edge_sources:
                 input_model_ref = edge_source["from"]
                 this.de_ref(input_model_ref)
-            self._run(this)
-            if num_id_stitcher_models == 1:
+
+            self._run(id_stitcher_model, this)
+            if ids_model_count == 1:
                 break
 
             user_input = self.reader.get_input(
@@ -76,10 +75,11 @@ class ModelRecipe(PyNativeRecipe):
                 break
         print("\n\nAudit Completed Successfully.\n")
 
-    def _set_id_stitcher_model(self, this: WhtMaterial):
-        if self.id_stitcher_model is not None:
-            return
-        id_stitcher_models = {}
+    def select_id_stitcher_model(self, this: WhtMaterial):
+        """
+        Prompt the user to select an id_stitcher model from the list of available models
+        """
+        id_stitcher_models: Dict[str, WhtModel] = {}
         # FIXME: Remove "identity" from the list once the ListModels bug is fixed in wht code
         models = this.base_wht_project.models(model_types=["identity", "id_stitcher"])
         for model in models:
@@ -109,33 +109,31 @@ class ModelRecipe(PyNativeRecipe):
                     )
         else:
             selected_model_name = list(id_stitcher_models.keys())[0]
-        self.id_stitcher_model = id_stitcher_models[selected_model_name]
 
-    def _run(self, this: WhtMaterial):
-        if self.run_completed:
-            return
+        return id_stitcher_models[selected_model_name]  # type: ignore
 
+    def _run(self, ids_model: WhtModel, this: WhtMaterial):
         analytics = Analytics()
         analytics.show_consent_message(self.logger)
-        self.start_time = datetime.now()
+        start_time = datetime.now()
         analytics.track(
             "model_run_start",
             {"run_id": self.run_id, "model_type": "audit_id_stitcher"},
         )
+        run_completed = False
         try:
-
-            edge_sources = self.id_stitcher_model.build_spec()["edge_sources"]
+            edge_sources = ids_model.build_spec()["edge_sources"]
             for edge_source in edge_sources:
                 input_model_ref = edge_source["from"]
                 input_material = this.de_ref(input_model_ref)
                 if input_material is None:
                     raise ValueError(f"Model {input_model_ref} not found")
                 edge_source["input_model"] = input_material.model
-            entity = self.id_stitcher_model.entity()
+            entity = ids_model.entity()
+            assert entity is not None, f"Entity not found in model {ids_model.name()}"
+
             yaml_report = YamlReport(edge_sources, entity)
-            table_report = TableReport(
-                this, self.id_stitcher_model, entity, yaml_report
-            )
+            table_report = TableReport(this, ids_model, entity, yaml_report)
             cluster_report = ClusterReport(
                 self.reader, this, entity, table_report, self.logger
             )
@@ -150,19 +148,21 @@ class ModelRecipe(PyNativeRecipe):
             reports = [yaml_report, table_report, cluster_report, llm_report]
             for report in reports:
                 report.run()
-            self.run_completed = True
+            run_completed = True
             n_visualisations = cluster_report.counter
         except Exception as e:
+            self.logger.debug(traceback.format_exc())
             self.logger.warn(f"An error occurred while running the audit: {e}")
             n_visualisations = None
-        duration = (datetime.now() - self.start_time).total_seconds()
+
+        duration = (datetime.now() - start_time).total_seconds()
         analytics.track(
             "model_run_end",
             {
                 "run_id": self.run_id,
                 "model_type": "audit_id_stitcher",
                 "duration_in_sec": duration,
-                "is_run_completed": self.run_completed,
+                "is_run_completed": run_completed,
                 "n_visualisations": n_visualisations,
             },
         )

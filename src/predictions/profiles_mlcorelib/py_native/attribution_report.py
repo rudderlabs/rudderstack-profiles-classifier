@@ -624,8 +624,8 @@ class AttributionModelRecipe(PyNativeRecipe):
         self.inputs.add(f"{self.conversion_entity}/all/var_table")
         for obj in user_journeys:
             tbl = obj["from"]
-            de_ref_tbl = this.de_ref(tbl)
-            column = de_ref_tbl.model.time_filtering_column()
+            touchpoint_mat = this.de_ref(tbl)
+            column = touchpoint_mat.model.time_filtering_column()
             if not column:
                 raise Exception(f"occurred_at_col field not found in {tbl} yaml")
             self.inputs.update(
@@ -635,12 +635,11 @@ class AttributionModelRecipe(PyNativeRecipe):
                 )
             )
 
-            model_ids = de_ref_tbl.model.ids()
+            model_ids = touchpoint_mat.model.ids()
             unique_entities: set = {model_id.entity() for model_id in model_ids}
 
             for entity in unique_entities & entity_column_mapping.keys():
                 model_ref = f"{tbl}/var_table/{entity_column_mapping[entity]}"
-                this.de_ref(model_ref)
                 self.inputs.add(model_ref)
 
         for campaign_detail in campaign_details:

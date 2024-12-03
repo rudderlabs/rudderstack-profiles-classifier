@@ -137,9 +137,6 @@ One store id may be linked to many users.  And so for the user entity, we should
 But for the purposes of this tutorial, we will go ahead and bring it in to show you what happens and how to troubleshoot when a resolved profile id has merged multiple users together.""",
         }
         selected_id_types = []
-        self.io.display_message(
-            "We'll go through some common id types one by one. As this is a demo, please type the exact name as suggested"
-        )
         for n, expected_id_type in enumerate(PREDEFINED_ID_TYPES):
             if n == 0:
                 self.io.display_message(f"The first id type is {expected_id_type}.")

@@ -15,10 +15,9 @@ WELCOME_MESSAGE: Final[
     building a c360 degree view of this entity, and putting that data into action for the benefit of your business!
 """
 
-FICTIONAL_BUSINESS_OVERVIEW: Final[
-    str
-] = """
-    In a moment, we will seed your warehouse with fictional business data to run the profiles project on during this tutorial. (Press Enter to continue)
+FICTIONAL_BUSINESS_OVERVIEW: Callable[[bool], str] = (
+    lambda fast_mode: f"""
+    In a moment, we will seed your warehouse with fictional business data to run the profiles project on during this tutorial. {'(Press Enter to continue)' if not fast_mode else ''}
     The business in this tutorial is `Secure Solutions, LLC`. This fictional business sells security IOT devices as well as a security management subscription service. 
     They have a number of Shopify stores and a subscription management service, and one brick and mortar store where customers can buy security equipment and checkout at a Kiosk. 
     But their pre and post sale messaging to their current and prospective customers are limited because they do not have a great view of their customers and how they interact within their business ecosystem. 
@@ -30,6 +29,7 @@ FICTIONAL_BUSINESS_OVERVIEW: Final[
     Secure Solutions, LLC knows that they have around 319 customers. 171 of which represent known users and the remaining 148 are unknown.
     Meaning, they have not performed any sort of conversion yet.
 """
+)
 
 
 ABOUT_PROFILES_FILES: Callable[[str], str] = (

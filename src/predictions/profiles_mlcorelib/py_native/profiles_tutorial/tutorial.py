@@ -89,9 +89,11 @@ class ProfileBuilder:
     def display_welcome_message(self):
         self.io.display_message(messages.WELCOME_MESSAGE)
         self.io.display_multiline_message(
-            "Please read through the text in detail and press Enter to continue to each next step. Press “Enter” now"
+            f"Please read through the text in detail{'.' if self.fast_mode else ' and press Enter to continue to each next step. Press “Enter” now'}"
         )
-        self.io.display_multiline_message(messages.FICTIONAL_BUSINESS_OVERVIEW)
+        self.io.display_multiline_message(
+            messages.FICTIONAL_BUSINESS_OVERVIEW(self.fast_mode)
+        )
 
     def get_entity_name(self):
         self.io.display_message(messages.ABOUT_ENTITY)
@@ -104,11 +106,7 @@ class ProfileBuilder:
     def get_id_types(self, entity_name):
         self.io.display_multiline_message(messages.ABOUT_ID_TYPES)
         id_types = self.yaml_generator.guide_id_type_input(entity_name)
-
-        conclusion = """
-        We have now defined an entity called "user" along with the associated id_types that exist across our different source systems. 
-        Now, let's move onto bringing in our data sources in order to run the ID Stitcher model and output an ID Graph."""
-        self.io.display_message(conclusion)
+        self.io.display_message(messages.ABOUT_ID_TYPES_CONCLUSSION)
         return id_types
 
     def upload_sample_data(self):

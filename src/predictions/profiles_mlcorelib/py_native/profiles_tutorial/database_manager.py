@@ -39,7 +39,8 @@ class DatabaseManager:
         {{% endif %}}"""
         sql = self.material.execute_text_template(template, skip_material_wrapper=True)
         res = self.client.query_sql_with_result(sql)
-        tables = [row["name"].lower() for _, row in res.iterrows()]
+        table_name_col = "tableName" if "tableName" in res.columns else "name"
+        tables = [row[table_name_col].lower() for _, row in res.iterrows()]
         return tables
 
     def upload_sample_data(self, sample_data_path: str, table_suffix: str) -> dict:

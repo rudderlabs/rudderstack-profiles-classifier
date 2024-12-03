@@ -57,7 +57,7 @@ class ProfileBuilder:
             ["pb", "compile", "--target", target, "--migrate_on_load"]
         )
         os.chdir("..")
-        _ = self.explain_pb_compile_results(pb_compile_output, id_graph_model)
+        _ = self.explain_pb_compile_results(pb_compile_output, target, id_graph_model)
         self.io.display_multiline_message(messages.ABOUT_PB_RUN)
         seq_no, id_stitcher_table_name = self.prompt_to_do_pb_run(
             id_graph_model, target
@@ -81,9 +81,13 @@ class ProfileBuilder:
             target,
         )
 
-    def explain_pb_compile_results(self, pb_compile_output, id_graph_model):
+    def explain_pb_compile_results(
+        self, target: str, pb_compile_output: str, id_graph_model: str
+    ):
         seq_no, _ = self.parse_pb_output_text(pb_compile_output, id_graph_model)
-        self.io.display_multiline_message(messages.EXPLAIN_PB_COMPILE_RESULTS(seq_no))
+        self.io.display_multiline_message(
+            messages.EXPLAIN_PB_COMPILE_RESULTS(target, seq_no)
+        )
         return seq_no
 
     def display_welcome_message(self):
@@ -254,8 +258,8 @@ class ProfileBuilder:
     def explain_pb_run_results(self, entity_name: str, id_stitcher_table_name: str):
         self.io.display_multiline_message(
             messages.EXPLAIN_PB_RUN_RESULTS(
-                entity_name,
                 id_stitcher_table_name,
+                entity_name,
                 self.db_manager.schema,
                 self.db_manager.db,
             )

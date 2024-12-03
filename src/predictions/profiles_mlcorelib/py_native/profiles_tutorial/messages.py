@@ -160,14 +160,14 @@ ABOUT_PB_RUN: Final[
 """
 
 
-EXPLAIN_PB_COMPILE_RESULTS: Callable[[int], str] = (
-    lambda seq_no: f"""
+EXPLAIN_PB_COMPILE_RESULTS: Callable[[str, int], str] = (
+    lambda target, seq_no: f"""
     The profiles project is compiled successfully. This would have created a new folder called `outputs` within the `profiles` folder. In that you should see following folder structure:
     ```
     .
     └── profiles
-        ├── outputs
-        │   └── prod
+        ├── output
+        │   └── {target}
         │       └── seq_no
         │           └── {seq_no}
         │              └── compile

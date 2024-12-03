@@ -617,7 +617,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         self, this: WhtMaterial, user_journeys, campaign_details, campaign_vars
     ):
         entity_column_mapping = {
-            ENTITY_KEY: self.entity_id_column_name,
+            self.conversion_entity: self.entity_id_column_name,
             self.campaign_entity: self.campaign_id_column_name,
         }
 

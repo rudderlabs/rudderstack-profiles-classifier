@@ -57,7 +57,7 @@ class ProfileBuilder:
             ["pb", "compile", "--target", target, "--migrate_on_load"]
         )
         os.chdir("..")
-        _ = self.explain_pb_compile_results(pb_compile_output, target, id_graph_model)
+        _ = self.explain_pb_compile_results(target, pb_compile_output, id_graph_model)
         self.io.display_multiline_message(messages.ABOUT_PB_RUN)
         seq_no, id_stitcher_table_name = self.prompt_to_do_pb_run(
             id_graph_model, target

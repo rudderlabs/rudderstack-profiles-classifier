@@ -174,6 +174,8 @@ class ProfileBuilder:
         self.io.display_multiline_message(messages.ABOUT_ID_STITCHER_1)
         id_graph_model_name = self.io.get_user_input(
             f"Enter a name for the model, for example: `{id_graph_model}`",
+            options=[id_graph_model],
+            default=id_graph_model,
         )
         self.io.display_multiline_message(messages.ABOUT_ID_STITCHER_2)
         edge_sources = []
@@ -181,6 +183,8 @@ class ProfileBuilder:
             table_name = "rs" + table.replace(f"_{TABLE_SUFFIX}", "").capitalize()
             edge_source = self.io.get_user_input(
                 f"Enter `inputs/{table_name}` as an edge source",
+                options=[f"inputs/{table_name}"],
+                default=f"inputs/{table_name}",
             )
             edge_sources.append(edge_source)
         self.yaml_generator.create_profiles_yaml(

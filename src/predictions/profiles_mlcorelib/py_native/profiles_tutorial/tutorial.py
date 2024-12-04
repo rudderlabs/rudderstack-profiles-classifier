@@ -31,7 +31,7 @@ logging.getLogger("snowflake.connector.network").setLevel(logging.ERROR)
 class ProfileBuilder:
     def __init__(self, reader: Reader, fast_mode: bool):
         self.io = IOHandler(reader, fast_mode)
-        self.yaml_generator = YamlGenerator()
+        self.yaml_generator = YamlGenerator(self.io)
         self.fast_mode = fast_mode
 
     def run(self, material: WhtMaterial):
@@ -57,7 +57,7 @@ class ProfileBuilder:
             ["pb", "compile", "--target", target, "--migrate_on_load"]
         )
         os.chdir("..")
-        _ = self.explain_pb_compile_results(pb_compile_output, id_graph_model)
+        _ = self.explain_pb_compile_results(target, pb_compile_output, id_graph_model)
         self.io.display_multiline_message(messages.ABOUT_PB_RUN)
         seq_no, id_stitcher_table_name = self.prompt_to_do_pb_run(
             id_graph_model, target
@@ -81,17 +81,23 @@ class ProfileBuilder:
             target,
         )
 
-    def explain_pb_compile_results(self, pb_compile_output, id_graph_model):
+    def explain_pb_compile_results(
+        self, target: str, pb_compile_output: str, id_graph_model: str
+    ):
         seq_no, _ = self.parse_pb_output_text(pb_compile_output, id_graph_model)
-        self.io.display_multiline_message(messages.EXPLAIN_PB_COMPILE_RESULTS(seq_no))
+        self.io.display_multiline_message(
+            messages.EXPLAIN_PB_COMPILE_RESULTS(target, seq_no)
+        )
         return seq_no
 
     def display_welcome_message(self):
         self.io.display_message(messages.WELCOME_MESSAGE)
         self.io.display_multiline_message(
-            "Please read through the text in detail and press Enter to continue to each next step. Press “Enter” now"
+            f"Please read through the text in detail{'.' if self.fast_mode else ' and press Enter to continue to each next step. Press “Enter” now'}"
         )
-        self.io.display_multiline_message(messages.FICTIONAL_BUSINESS_OVERVIEW)
+        self.io.display_multiline_message(
+            messages.FICTIONAL_BUSINESS_OVERVIEW(self.fast_mode)
+        )
 
     def get_entity_name(self):
         self.io.display_message(messages.ABOUT_ENTITY)
@@ -103,12 +109,8 @@ class ProfileBuilder:
 
     def get_id_types(self, entity_name):
         self.io.display_multiline_message(messages.ABOUT_ID_TYPES)
-        id_types = self.io.guide_id_type_input(entity_name)
-
-        conclusion = """
-        We have now defined an entity called "user" along with the associated id_types that exist across our different source systems. 
-        Now, let's move onto bringing in our data sources in order to run the ID Stitcher model and output an ID Graph."""
-        print(conclusion)
+        id_types = self.yaml_generator.guide_id_type_input(entity_name)
+        self.io.display_message(messages.ABOUT_ID_TYPES_CONCLUSSION)
         return id_types
 
     def upload_sample_data(self):
@@ -131,7 +133,7 @@ class ProfileBuilder:
                     "No relevant tables found. Please check your inputs and try again."
                 )
                 sys.exit(1)
-            logger.info(
+            self.io.display_message(
                 f"Found {len(relevant_tables)} relevant tables: {relevant_tables}"
             )
             return relevant_tables
@@ -171,7 +173,7 @@ class ProfileBuilder:
     def build_id_stitcher_model(self, table_names, entity_name, id_graph_model):
         self.io.display_multiline_message(messages.ABOUT_ID_STITCHER_1)
         id_graph_model_name = self.io.get_user_input(
-            f"Enter a name for the model, Let's give the name `{id_graph_model}`",
+            f"Enter a name for the model, for example: `{id_graph_model}`",
             options=[id_graph_model],
             default=id_graph_model,
         )
@@ -243,7 +245,9 @@ class ProfileBuilder:
         command: str = "pb run",
     ):
         self.io.get_user_input(f"Enter `{command}` to continue", options=[command])
-        logger.info("Running the profiles project...(This will take a few minutes)")
+        self.io.display_message(
+            "Running the profiles project...(This will take a few minutes)"
+        )
         os.chdir("profiles")
         pb_run_output = self._subprocess_run(
             [*command.split(), "--target", target, "--migrate_on_load"]
@@ -252,14 +256,14 @@ class ProfileBuilder:
         seq_no, id_graph_table_name = self.parse_pb_output_text(
             pb_run_output, id_graph_name
         )
-        logger.info("Done")
+        self.io.display_message("Done")
         return seq_no, id_graph_table_name
 
     def explain_pb_run_results(self, entity_name: str, id_stitcher_table_name: str):
         self.io.display_multiline_message(
             messages.EXPLAIN_PB_RUN_RESULTS(
-                entity_name,
                 id_stitcher_table_name,
+                entity_name,
                 self.db_manager.schema,
                 self.db_manager.db,
             )

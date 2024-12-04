@@ -51,9 +51,7 @@ class PyNativeWHT:
         return str(start_date), str(end_date)
 
     def get_model_hash(self) -> str:
-        # FIXME: Replace this method with model_hash function after pb 0.19 release
-        material_split = self.pythonWHT.split_material_name(self.whtMaterial.name())
-        return material_split["model_hash"]
+        return self.whtMaterial.model.hash()
 
     def get_latest_entity_var_table(self, entity_key: str) -> Tuple[str, str, str]:
         model_ref = f"entity/{entity_key}/var_table"

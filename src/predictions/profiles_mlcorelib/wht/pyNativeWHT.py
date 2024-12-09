@@ -139,7 +139,9 @@ class PyNativeWHT:
             column_name = None
             if material.model.materialization()["output_type"] == "column":
                 column_name = material.model.db_object_name_prefix()
-                table_material_ref = material.model.encapsulating_model().model_ref()
+                table_material_ref = (
+                    material.model.encapsulating_model().model_ref_from_level_root()
+                )
                 table_material = self.whtMaterial.de_ref(table_material_ref)
             else:
                 table_material = material

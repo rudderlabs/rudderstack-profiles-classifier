@@ -94,8 +94,7 @@ class PropensityModel(BaseModelType):
         parent_folder: WhtFolder,
         model_name: str,
     ) -> None:
-        # FIXME: change output_type to "none" once pb 0.20.0 is released
-        build_spec["materialization"] = {"output_type": "ephemeral"}
+        build_spec["materialization"] = {"output_type": "none"}
         super().__init__(build_spec, schema_version, pb_version)
         training_model_name = model_name + "_training"
         training_spec = self._get_training_spec()

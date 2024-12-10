@@ -26,8 +26,7 @@ class AuditIdStitcherModel(BaseModelType):
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
-        # FIXME: change output_type to "shell" once pb 0.20.0 is released
-        build_spec["materialization"] = {"output_type": "ephemeral"}
+        build_spec["materialization"] = {"output_type": "shell"}
         super().__init__(build_spec, schema_version, pb_version)
         self.recipe = ModelRecipe(self.build_spec)
 

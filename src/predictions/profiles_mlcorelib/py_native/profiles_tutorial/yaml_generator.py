@@ -113,7 +113,46 @@ class YamlGenerator:
         with open(CONFIG_FILE_PATH, "w") as file:
             yaml.dump(pb_project, file)
 
-    def guide_id_type_input(self, entity_name):
+    def add_features(self, entity_name: str, features: list[dict]):
+        vars = []
+        for feature in features:
+            entity_var = {
+                "name": feature["name"],
+                "select": feature["select"],
+            }
+            if "from" in feature:
+                entity_var["from"] = feature["from"]
+            if "description" in feature:
+                entity_var["description"] = feature["description"]
+            if "window" in feature:
+                entity_var["window"] = feature["window"]
+            if "where" in feature:
+                entity_var["where"] = feature["where"]
+
+            vars.append({"entity_var": entity_var})
+
+        with open(PROFILES_FILE_PATH, "r") as file:
+            profiles = yaml.safe_load(file)
+
+        profiles["var_groups"] = [
+            {"name": f"{entity_name}_features", "entity_key": entity_name, "vars": vars}
+        ]
+        with open(PROFILES_FILE_PATH, "w") as file:
+            yaml.dump(profiles, file)
+
+    def add_feature_views(self, entity_name: str, using_ids: list[dict]):
+        with open(CONFIG_FILE_PATH, "r") as file:
+            pb_project = yaml.safe_load(file)
+
+        entities = pb_project["entities"]
+        for entity in entities:
+            if entity["name"] == entity_name:
+                entity["feature_views"] = {"using_ids": using_ids}
+
+        with open(CONFIG_FILE_PATH, "w") as file:
+            yaml.dump(pb_project, file)
+
+    def guide_id_type_input(self, entity_name) -> list[str]:
         about_id_types = {
             "anon_id": """
 RudderStack creates a cookie for each user when they visit your site.

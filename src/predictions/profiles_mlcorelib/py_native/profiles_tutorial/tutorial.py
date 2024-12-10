@@ -14,6 +14,8 @@ from .config import (
     SAMPLE_DATA_DIR,
     TABLE_SUFFIX,
     ID_GRAPH_MODEL_SUFFIX,
+    PRE_DEFINED_FEATURES,
+    USER_DEFINED_FEATURES,
 )
 
 
@@ -47,9 +49,11 @@ class ProfileBuilder:
         self.map_tables_to_id_types(relevant_tables, id_types, entity_name)
         # profiles.yaml
         self.build_id_stitcher_model(relevant_tables, entity_name, id_graph_model)
-        self.pb_runs(entity_name, id_graph_model, target)
+        self.pb_runs(entity_name, id_types, id_graph_model, target)
 
-    def pb_runs(self, entity_name, id_graph_model: str, target: str):
+    def pb_runs(
+        self, entity_name, id_types: list[str], id_graph_model: str, target: str
+    ):
         self.io.display_multiline_message(messages.ABOUT_PB_COMPILE)
         self.io.get_user_input("Enter `pb compile`", options=["pb compile"])
         os.chdir("profiles")
@@ -80,11 +84,13 @@ class ProfileBuilder:
             seq_no,
             target,
         )
+        # Add features and create feature views
+        self.fourth_run(entity_name, id_types, target)
 
     def explain_pb_compile_results(
         self, target: str, pb_compile_output: str, id_graph_model: str
     ):
-        seq_no, _ = self.parse_pb_output_text(pb_compile_output, id_graph_model)
+        seq_no, _ = self.parse_material_name(pb_compile_output, id_graph_model)
         self.io.display_multiline_message(
             messages.EXPLAIN_PB_COMPILE_RESULTS(target, seq_no)
         )
@@ -225,22 +231,22 @@ class ProfileBuilder:
         ), f"Command {args} failed with error: {response.stderr}"
         return response.stdout
 
-    def parse_pb_output_text(self, pb_output_text: str, id_graph_name: str):
+    def parse_material_name(self, pb_output_text: str, model_name: str):
         seq_no_pattern = r"--seq_no (\d+)"
         match = re.search(seq_no_pattern, pb_output_text)
         assert match, f"Failed to find seq_no in the pb  output {pb_output_text}"
         seq_no = match.group(1)
-        pattern = rf"(Material_{id_graph_name}_[a-f0-9]+_\d+)"
+        pattern = rf"(Material_{model_name}_[a-f0-9]+_\d+)"
         match = re.search(pattern, pb_output_text)
         assert (
             match
         ), f"Failed to find id_graph_table_name in the pb  output {pb_output_text}"
-        id_graph_table_name = match.group(1)
-        return int(seq_no), id_graph_table_name
+        material_name = match.group(1)
+        return int(seq_no), material_name
 
     def prompt_to_do_pb_run(
         self,
-        id_graph_name: str,
+        model_name: str,
         target: str,
         command: str = "pb run",
     ):
@@ -253,11 +259,9 @@ class ProfileBuilder:
             [*command.split(), "--target", target, "--migrate_on_load"]
         )
         os.chdir("..")
-        seq_no, id_graph_table_name = self.parse_pb_output_text(
-            pb_run_output, id_graph_name
-        )
+        seq_no, material_name = self.parse_material_name(pb_run_output, model_name)
         self.io.display_message("Done")
-        return seq_no, id_graph_table_name
+        return seq_no, material_name
 
     def explain_pb_run_results(self, entity_name: str, id_stitcher_table_name: str):
         self.io.display_multiline_message(
@@ -508,4 +512,74 @@ class ProfileBuilder:
 
         result = self.cluster_size_analysis(entity_name, id_stitcher_table_name_3)
         self.io.display_message(result.head(20).to_string())
-        self.io.display_multiline_message(messages.CONCLUSION_MESSAGE)
+        self.io.display_multiline_message(messages.THIRD_RUN_CONCLUSION_MESSAGE)
+
+    def fourth_run(
+        self,
+        entity_name: str,
+        id_types: list[str],
+        target: str,
+    ):
+        self.io.display_multiline_message(messages.FEATURE_CREATION_INTRO(entity_name))
+
+        for feature in USER_DEFINED_FEATURES:
+            self.io.display_message(feature["user_prompt"])
+            self.io.get_user_input(
+                "Let's input the name of this feature for our c360 view:\n>",
+                options=[feature["name"]],
+                default=feature["name"],
+            )
+            self.io.get_user_input(
+                "Enter the aggregation function to use as well as the column to select from:\n>",
+                options=[feature["select"]],
+                default=feature["select"],
+            )
+            if "order_by_prompt" in feature:
+                self.io.get_user_input(
+                    f"{feature['order_by_prompt']}\n>",
+                    options=[feature["window"]["order_by"][0]],
+                    default=feature["window"]["order_by"][0],
+                )
+
+            self.io.get_user_input(
+                "Now, let's enter the data source for this feature:\n>",
+                options=[feature["from"]],
+                default=feature["from"],
+            )
+
+        self.yaml_generator.add_features(
+            entity_name, [*USER_DEFINED_FEATURES, *PRE_DEFINED_FEATURES]
+        )
+        self.io.display_multiline_message(messages.FEATURES_ADDED)
+        self.io.display_multiline_message(messages.DEFINE_FEATURE_VIEW)
+
+        feature_view_name = self.io.get_user_input(
+            "Let's define this customer feature view with a name as well as the id_type we want to use as our primary key:\n>",
+            options=[f"customers_by_{id_type}" for id_type in id_types],
+            default=f"customers_by_email",
+        )
+        feature_view_using_id = self.io.get_user_input(
+            "Now, let's choose what id_type we want to use for the primary key:\n>",
+            options=id_types,
+            default="email",
+        )
+        self.yaml_generator.add_feature_views(
+            entity_name,
+            [{"id": feature_view_using_id, "name": feature_view_name}],
+        )
+        self.io.display_message(
+            "You can now look at your pb_project.yaml and see the defined feature view. Again, this will output 2 views. The default view created automatically, and the customer one you defined here. "
+        )
+
+        seq_no, feature_view_table_name = self.prompt_to_do_pb_run(
+            feature_view_name, target
+        )
+        self.io.display_message(
+            "Great job! You have now created two feature views. Let's query the custom feature view you created."
+        )
+
+        sql = f"select * from {self.db_manager.get_qualified_name(feature_view_table_name)}"
+        res = self.db_manager.client.query_sql_with_result(sql)
+        self.io.display_message(res.head(10).to_string())
+
+        self.io.display_multiline_message(messages.CONCLUSSION)

@@ -52,6 +52,7 @@ class ClusterReport:
         self.counter = 0
         self.logger = logger
         self.color_map = {}
+        self.cluster_specific_id_types = None
 
     def get_edges_data(self, node_id: str) -> pd.DataFrame:
         cluster_query_template = """
@@ -317,10 +318,6 @@ class ClusterReport:
     def _pre_compute_graph_info(self, G: nx.Graph):
         degrees = dict(G.degree())
         max_degree = max(degrees.values()) if degrees else 0
-        id_types = set(nx.get_node_attributes(G, "id_type").values())
-
-        if not self.color_map:
-            self.color_map = self._generate_color_map(id_types)
         return degrees, max_degree
 
     def _initialise_network(self):
@@ -345,6 +342,7 @@ class ClusterReport:
             </div>
             """
             for id_type, color in self.color_map.items()
+            if id_type in self.cluster_specific_id_types
         ]
 
         legend_html = f"""
@@ -382,6 +380,9 @@ class ClusterReport:
             "You can explore specific clusters by entering an ID to see how the other ids are all connected and the cluster is formed."
         )
         print("The ID can be either the main ID or any other ID type.")
+        self.color_map = self._generate_color_map(
+            self.table_report.analysis_results["node_types"]
+        )
         output_dir = os.path.join(os.getcwd(), "graph_outputs")
         while True:
             user_input = self.reader.get_input(
@@ -392,6 +393,9 @@ class ClusterReport:
                 break
             print("\n\n")
             metrics, G = self._analyse_cluster(user_input)
+            self.cluster_specific_id_types = set(
+                nx.get_node_attributes(G, "id_type").values()
+            )
             if metrics is None:
                 continue
             cluster_summary = self.get_cluster_summary(metrics)

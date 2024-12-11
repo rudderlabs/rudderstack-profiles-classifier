@@ -315,7 +315,7 @@ def _train(
         user_preference_order_infra, is_rudder_backend
     )
     processor = ProcessorFactory.create(mode, trainer, connector, ml_core_path)
-    logger.get().debug(f"Using {mode} processor for training")
+    logger.get().debug(f"Using {mode} processor for training.")
     train_results = processor.train(
         train_procedure,
         train_table_pairs,

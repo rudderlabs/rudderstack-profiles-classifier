@@ -21,6 +21,9 @@ class MockModel:
     def model_ref(self):
         return self._model_ref
 
+    def model_ref_from_level_root(self):
+        return self._model_ref
+
     def db_object_name_prefix(self):
         return self.db_object_name
 

@@ -43,10 +43,7 @@ jobs:
       
       - name: build wheel
         working-directory: src/predictions
-        run:
-          echo "WRITE_KEY = \"${{vars.WRITE_KEY}}\"" >> ./profiles_mlcorelib/utils/tracking_constants.py && echo "DATA_PLANE_URL = \"${{vars.DATA_PLANE_URL}}\"" >> ./profiles_mlcorelib/utils/tracking_constants.py
-          python setup.py bdist_wheel
-          rm ./profiles_mlcorelib/utils/tracking_constants.py
+        run: python setup.py bdist_wheel
       
       - name: prepare dist archives
         shell: bash

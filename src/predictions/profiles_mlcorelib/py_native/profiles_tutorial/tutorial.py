@@ -445,18 +445,19 @@ class ProfileBuilder:
         SUM(user_id) AS user_id_count,
         SUM(shopify_customer_id) AS shopify_customer_id_count,
         count(*) as total_count,
-        {{% if warehouse.DatabaseType() == 'snowflake' %}}
-            ARRAY_SORT(ARRAY_AGG(OBJECT_CONSTRUCT(other_id_type, id_other))) AS id_list
-        {{% elif warehouse.DatabaseType() == 'redhsift' %}}
-            JSON_PARSE('[' || LISTAGG('{{"' || other_id_type || '"' || ':' || id_other || '}}', ', ') WITHIN GROUP (ORDER BY other_id_type) || ']') as id_list
-        {{% elif warehouse.DatabaseType() == 'databricks' %}}
-            COLLECT_LIST(map(other_id_type, id_other)) as id_list
-        {{% elif warehouse.DatabaseType() == 'bigquery' %}}
-            ARRAY_AGG(STRUCT(other_id_type, id_other) ORDER BY other_id_type) as id_list
-        {{% endif %}}
     FROM id_value_counts
     group by 1,2
     order by email_count desc"""
+        # Id Lists
+        # {{% if warehouse.DatabaseType() == 'snowflake' %}}
+        #     ARRAY_SORT(ARRAY_AGG(OBJECT_CONSTRUCT(other_id_type, id_other))) AS id_list
+        # {{% elif warehouse.DatabaseType() == 'redhsift' %}}
+        #     JSON_PARSE('[' || LISTAGG('{{"' || other_id_type || '"' || ':' || id_other || '}}', ', ') WITHIN GROUP (ORDER BY other_id_type) || ']') as id_list
+        # {{% elif warehouse.DatabaseType() == 'databricks' %}}
+        #     COLLECT_LIST(map(other_id_type, id_other)) as id_list
+        # {{% elif warehouse.DatabaseType() == 'bigquery' %}}
+        #     ARRAY_AGG(STRUCT(other_id_type, id_other) ORDER BY other_id_type) as id_list
+        # {{% endif %}}
         query_investigate_bad_anons_sql = (
             self.db_manager.material.execute_text_template(
                 query_investigate_bad_anons, skip_material_wrapper=True

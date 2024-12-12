@@ -38,6 +38,8 @@ class LocalProcessor(Processor):
             json.dumps(input_column_types),
             "--input_columns",
             json.dumps(input_columns),
+            "--connector_feature_table_name",
+            self.connector.feature_table_name,
             "--wh_creds",
             json.dumps(wh_creds),
             "--output_path",

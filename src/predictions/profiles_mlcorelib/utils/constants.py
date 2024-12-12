@@ -7,6 +7,9 @@ PREFERENCES_PATH = CONFIG_DIR / PREFERENCES_FILE
 TELEMETRY_OPT_OUT_KEY = "telemetry_opt_out"
 TELEMETRY_CONSENT_SHOWN_KEY = "telemetry_consent_shown"
 LLM_CONSENT_KEY = "llm_consent"
+# TODO: Modify them to a prod settings. These are currently from a testing env
+WRITE_KEY = "2oqUj9oDjSSp5dGpiCr5Q5IGZk6"
+DATA_PLANE_URL = "https://rudderstack-dataplane.rudderstack.com"
 
 
 # Propensity model related constants

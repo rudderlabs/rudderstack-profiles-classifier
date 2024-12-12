@@ -185,6 +185,8 @@ But for the purposes of this tutorial, we will go ahead and bring it in to show 
 
             user_input = self.io.get_user_input(
                 f"\nLet's add '{expected_id_type}' as an id type for {entity_name}: ",
+                default=expected_id_type,
+                options=[expected_id_type],
             )
             selected_id_types.append(user_input)
 

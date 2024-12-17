@@ -21,7 +21,7 @@ PRE_DEFINED_FEATURES = [
     },
     {
         "name": "last_order_date",
-        "select": "max(timestamp)",
+        "select": "max(event_timestamp)",
         "from": "inputs/rsTracks_pb_tutorial",
         "description": "timestamp of most recent order per customer",
     },
@@ -34,17 +34,17 @@ PRE_DEFINED_FEATURES = [
 USER_DEFINED_FEATURES = [
     {
         "name": "account_creation_date",
-        "select": "min(TIMESTAMP)",
+        "select": "min(event_timestamp)",
         "from": "inputs/rsIdentifies_pb_tutorial",
         "description": "account creation date for each customer",
         "user_prompt": "From our source data, we know that the account creation is coming from inputs/rsIdentifies_pb_tutorial. We want to select the first timestamp per user from this source table. We will use a min() function in order to do this. ",
     },
     {
         "name": "last_seen_timestamp",
-        "select": "last_value(timestamp)",
+        "select": "last_value(event_timestamp)",
         "from": "inputs/rsPages_pb_tutorial",
         "window": {
-            "order_by": ["timestamp asc"],
+            "order_by": ["event_timestamp asc"],
         },
         "user_prompt": "We will now create a feature that uses a window function to show you the structure. Let's now create the last_seen_date.",
         "order_by_prompt": "Given that profiles will automatically partion the user by the user_main_id, let's now order this partition in the correct order so that we can ensure that the timestamp we are selecting within this partition is indeed the last event record with the last timestamp, per user.",

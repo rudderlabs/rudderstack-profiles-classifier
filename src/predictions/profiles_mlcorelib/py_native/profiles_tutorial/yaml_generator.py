@@ -50,7 +50,7 @@ class YamlGenerator:
                 "name": table_name,
                 "app_defaults": {
                     "table": mapping["full_table_name"],
-                    "occurred_at_col": "timestamp",
+                    "occurred_at_col": "event_timestamp",
                     "ids": [],
                 },
             }

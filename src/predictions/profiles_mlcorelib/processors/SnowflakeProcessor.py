@@ -1,7 +1,7 @@
 from typing import List
 
-from predictions.profiles_mlcorelib.connectors.Connector import Connector
-from predictions.profiles_mlcorelib.trainers.MLTrainer import MLTrainer
+from ..connectors.Connector import Connector
+from ..trainers.MLTrainer import MLTrainer
 
 from ..processors.Processor import Processor
 from ..utils.constants import TrainTablesInfo

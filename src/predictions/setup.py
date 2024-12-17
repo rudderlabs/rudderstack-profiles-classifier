@@ -28,7 +28,7 @@ install_requires = [
     "google-auth-oauthlib>=1.0.0",
     "cryptography>=42.0.2",
     "plotly>=5.24.1",
-    "snowflake-snowpark-python[pandas]>=1.11.1",
+    "snowflake-snowpark-python[pandas]>=1.11.1,<1.26.0",
     "networkx",
     "pyvis",
     "rudder-sdk-python",

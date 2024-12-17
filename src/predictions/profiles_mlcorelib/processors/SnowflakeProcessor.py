@@ -1,5 +1,8 @@
 from typing import List
 
+from predictions.profiles_mlcorelib.connectors.Connector import Connector
+from predictions.profiles_mlcorelib.trainers.MLTrainer import MLTrainer
+
 from ..processors.Processor import Processor
 from ..utils.constants import TrainTablesInfo
 from ..ml_core.preprocess_and_train import preprocess_and_train
@@ -7,6 +10,9 @@ from ..ml_core.preprocess_and_predict import preprocess_and_predict
 
 
 class SnowflakeProcessor(Processor):
+    def __init__(self, trainer: MLTrainer, connector: Connector, ml_core_path: str):
+        super().__init__(trainer, connector, ml_core_path)
+
     def train(
         self,
         train_procedure,

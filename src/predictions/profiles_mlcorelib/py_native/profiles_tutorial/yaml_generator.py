@@ -113,6 +113,14 @@ class YamlGenerator:
         with open(CONFIG_FILE_PATH, "w") as file:
             yaml.dump(pb_project, file)
 
+    def add_macros(self, macros: list[dict]):
+        with open(PROFILES_FILE_PATH, "r") as file:
+            profiles = yaml.safe_load(file)
+
+        profiles["macros"] = macros
+        with open(PROFILES_FILE_PATH, "w") as file:
+            yaml.dump(profiles, file)
+
     def add_features(self, entity_name: str, features: list[dict]):
         vars = []
         for feature in features:

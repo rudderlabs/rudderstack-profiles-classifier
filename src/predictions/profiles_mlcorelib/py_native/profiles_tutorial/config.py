@@ -12,6 +12,13 @@ PREDEFINED_ID_TYPES = [
     "shopify_customer_id",
 ]
 ID_GRAPH_MODEL_SUFFIX = "id_graph"
+PRE_DEFINED_MACROS = [
+    {
+        "name": "macro_datediff",
+        "inputs": ["column"],
+        "value": "{% if warehouse.DatabaseType() == 'bigquery' %}date_diff(CURRENT_DATE(), date({{column}}), day){% else %}datediff(day, date({{column}}), GETDATE()){% endif %}",
+    }
+]
 PRE_DEFINED_FEATURES = [
     {
         "name": "number_of_devices_purchased",
@@ -27,7 +34,7 @@ PRE_DEFINED_FEATURES = [
     },
     {
         "name": "days_since_last_order",
-        "select": "datediff(day, {{user.last_order_date}}, current_date)",
+        "select": "{{macro_datediff('{{user.last_order_date}}')}}",
         "description": "timestamp of most recent order per customer",
     },
 ]
@@ -45,6 +52,7 @@ USER_DEFINED_FEATURES = [
         "from": "inputs/rsPages_pb_tutorial",
         "window": {
             "order_by": ["event_timestamp asc"],
+            "frame_clause": "rows between unbounded preceding and unbounded following",
         },
         "user_prompt": "We will now create a feature that uses a window function to show you the structure. Let's now create the last_seen_date.",
         "order_by_prompt": "Given that profiles will automatically partion the user by the user_main_id, let's now order this partition in the correct order so that we can ensure that the timestamp we are selecting within this partition is indeed the last event record with the last timestamp, per user.",

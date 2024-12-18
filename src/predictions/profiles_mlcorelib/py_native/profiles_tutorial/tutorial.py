@@ -16,6 +16,7 @@ from .config import (
     ID_GRAPH_MODEL_SUFFIX,
     PRE_DEFINED_FEATURES,
     USER_DEFINED_FEATURES,
+    PRE_DEFINED_MACROS,
 )
 
 
@@ -373,7 +374,7 @@ class ProfileBuilder:
         self.io.display_message(result.head(10).to_string())
         self.io.display_multiline_message(messages.EXPLAIN_EDGES_TABLE(edge_table))
 
-        dense_edges_query = f"""
+        dense_edges_query_template = f"""
     WITH edge_table AS (    
         SELECT
         id1 AS id_val,
@@ -397,8 +398,15 @@ class ProfileBuilder:
         id_type,
         COUNT(*) as count_of_edges
     FROM edge_table
+{{% if warehouse.DatabaseType() == 'redshift' %}}
+    GROUP BY id_val, id_type
+{{% else %}}
     GROUP BY ALL
+{{% endif %}}
     ORDER BY count_of_edges DESC;"""
+        dense_edges_query = self.db_manager.material.execute_text_template(
+            dense_edges_query_template, skip_material_wrapper=True
+        )
         self.io.display_message(dense_edges_query)
         self.io.display_message("Running the query...")
         dense_edges = self.db_manager.client.query_sql_with_result(dense_edges_query)
@@ -444,7 +452,7 @@ class ProfileBuilder:
         SUM(email) AS email_count,
         SUM(user_id) AS user_id_count,
         SUM(shopify_customer_id) AS shopify_customer_id_count,
-        count(*) as total_count,
+        count(*) as total_count
     FROM id_value_counts
     group by 1,2
     order by email_count desc"""
@@ -548,6 +556,7 @@ class ProfileBuilder:
                 default=feature["from"],
             )
 
+        self.yaml_generator.add_macros(PRE_DEFINED_MACROS)
         self.yaml_generator.add_features(
             entity_name, [*USER_DEFINED_FEATURES, *PRE_DEFINED_FEATURES]
         )
@@ -580,6 +589,7 @@ class ProfileBuilder:
         )
 
         sql = f"select * from {self.db_manager.get_qualified_name(feature_view_table_name)}"
+        self.io.display_message(sql)
         res = self.db_manager.client.query_sql_with_result(sql)
         self.io.display_message(res.head(10).to_string())
 

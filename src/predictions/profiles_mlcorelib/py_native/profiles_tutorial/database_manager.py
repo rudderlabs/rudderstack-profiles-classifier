@@ -22,7 +22,9 @@ class DatabaseManager:
 
     def get_qualified_name(self, table: str) -> str:
         """Returns the fully qualified name of the table"""
-        return f"{self.db}.{self.schema}.{table}"
+        # TODO: Use wht function here
+        table_name = table.upper() if self.client.wh_type == "bigquery" else table
+        return f"{self.db}.{self.schema}.{table_name}"
 
     def get_table_names(self) -> List[str]:
         # Ref taken from sqlconnect-go
@@ -99,7 +101,7 @@ class DatabaseManager:
                 {{% if warehouse.DatabaseType() == "snowflake" or warehouse.DatabaseType() == "databricks" %}}
                     DESCRIBE TABLE {self.db}.{self.schema}.{table}
                 {{% elif warehouse.DatabaseType() == "bigquery" %}}
-                    SELECT column_name as name, data_type FROM {self.db}.{self.schema}.INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{table}'
+                    SELECT column_name as name, data_type FROM {self.db}.{self.schema}.INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{table.upper()}'
                 {{% elif warehouse.DatabaseType() == "redshift" %}}
                     SELECT column_name as name, data_type FROM {self.db}.information_schema.columns WHERE table_schema = '{self.schema}' AND table_name = '{table}'
                 {{% endif %}}

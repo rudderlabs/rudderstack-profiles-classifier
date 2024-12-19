@@ -20,10 +20,13 @@ class DatabaseManager:
         self.io = io
         self.fast_mode = fast_mode
 
-    def get_qualified_name(self, table: str) -> str:
+    def get_qualified_name(self, table: str, respect_case=False) -> str:
         """Returns the fully qualified name of the table"""
         # TODO: Use wht function here
-        table_name = table.upper() if self.client.wh_type == "bigquery" else table
+        table_name = table
+        if not respect_case and self.client.wh_type == "bigquery":
+            table_name = table.lower().capitalize()
+
         return f"{self.db}.{self.schema}.{table_name}"
 
     def get_table_names(self) -> List[str]:
@@ -55,13 +58,13 @@ class DatabaseManager:
                 continue
 
             base_name = os.path.splitext(filename)[0]
-            table_name = f"{base_name}_{table_suffix}"
-            new_table_names[filename] = table_name.lower()
+            table_name = f"{base_name}_{table_suffix}".lower()
+            new_table_names[filename] = table_name
 
             if not to_upload:
                 continue
 
-            if table_name.lower() in existing_tables:
+            if table_name in existing_tables:
                 action = self.io.get_user_input(
                     f"Table {table_name} already exists. Do you want to skip uploading again, so we can reuse the tables? (yes/no) (yes - skips upload, no - uploads again): "
                 )
@@ -101,7 +104,7 @@ class DatabaseManager:
                 {{% if warehouse.DatabaseType() == "snowflake" or warehouse.DatabaseType() == "databricks" %}}
                     DESCRIBE TABLE {self.db}.{self.schema}.{table}
                 {{% elif warehouse.DatabaseType() == "bigquery" %}}
-                    SELECT column_name as name, data_type FROM {self.db}.{self.schema}.INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{table.upper()}'
+                    SELECT column_name as name, data_type FROM {self.db}.{self.schema}.INFORMATION_SCHEMA.COLUMNS WHERE table_name = '{table}'
                 {{% elif warehouse.DatabaseType() == "redshift" %}}
                     SELECT column_name as name, data_type FROM {self.db}.information_schema.columns WHERE table_schema = '{self.schema}' AND table_name = '{table}'
                 {{% endif %}}
@@ -119,7 +122,7 @@ class DatabaseManager:
         self, table: str, column: str, num_samples: int = 5
     ) -> List[str]:
         try:
-            query = f"SELECT {column} FROM {self.get_qualified_name(table)} where {column} is not null LIMIT {num_samples}"
+            query = f"SELECT {column} FROM {self.get_qualified_name(table.lower(), True)} where {column} is not null LIMIT {num_samples}"
             df: pd.DataFrame = self.client.query_sql_with_result(query)
             if df.empty:
                 return []

@@ -169,7 +169,7 @@ class ProfileBuilder:
                 if table_mappings:
                     id_mappings[table] = {
                         "mappings": table_mappings,
-                        "full_table_name": f"{self.db_manager.get_qualified_name(table)}",
+                        "full_table_name": f"{self.db_manager.get_qualified_name(table, True)}",
                     }
                 table_index += 1
         self.yaml_generator.create_inputs_yaml(id_mappings)

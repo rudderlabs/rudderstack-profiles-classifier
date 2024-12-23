@@ -425,9 +425,10 @@ def subprocess_run(args):
         raise Exception(
             f"Error occurred while running subprocess with params {args}: {e}"
         )
+    indented_output = "\n    ".join(response.stdout.splitlines())
+    logger.get().debug(f"Subprocess Output:\n{indented_output}")
     if response.returncode != 0:
         logger.get().error(f"Error occurred. Exit code:{response.returncode}")
-        logger.get().debug(f"Subprocess Output: {response.stdout}")
         raise Exception(f"Subprocess Error: {response.stderr}")
     return response
 

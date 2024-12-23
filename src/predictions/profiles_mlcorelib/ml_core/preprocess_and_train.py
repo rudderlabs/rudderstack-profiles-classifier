@@ -267,6 +267,7 @@ if __name__ == "__main__":
     parser.add_argument("--merged_config", type=json.loads)
     parser.add_argument("--input_column_types", type=json.loads)
     parser.add_argument("--input_columns", type=json.loads)
+    parser.add_argument("--connector_feature_table_name", type=str)
     parser.add_argument("--wh_creds", type=json.loads)
     parser.add_argument("--output_path", type=str)
     parser.add_argument("--mode", type=str)
@@ -298,6 +299,7 @@ if __name__ == "__main__":
     warehouse = wh_creds["type"]
     train_procedure = train_and_store_model_results
     connector = ConnectorFactory.create(wh_creds, output_dir)
+    connector.feature_table_name = args.connector_feature_table_name
     local_folder = connector.get_local_dir()
 
     material_info_ = args.material_names

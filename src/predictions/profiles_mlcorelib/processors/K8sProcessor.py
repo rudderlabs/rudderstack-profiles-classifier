@@ -210,6 +210,8 @@ class K8sProcessor(Processor):
             json.dumps(input_column_types),
             "--input_columns",
             json.dumps(input_columns),
+            "--connector_feature_table_name",
+            self.connector.feature_table_name,
             "--metrics_table",
             metrics_table,
         ]

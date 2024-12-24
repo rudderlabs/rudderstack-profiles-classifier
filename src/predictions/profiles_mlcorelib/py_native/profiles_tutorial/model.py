@@ -23,6 +23,10 @@ class TutorialModel(BaseModelType):
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
+        build_spec["materialization"] = {
+            "output_type": "shell",
+            "run_type": "interactive",
+        }
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:

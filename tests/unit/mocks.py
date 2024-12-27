@@ -90,3 +90,6 @@ class MockProject:
 class MockCtx:
     def time_info(self):
         return ["2021-01-01", "2021-01-31"]
+
+    def client(self):
+        return None

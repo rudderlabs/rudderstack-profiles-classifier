@@ -39,6 +39,9 @@ class LLMReport:
     ):
         self.access_token = access_token
         self.warehouse_credentials = this.base_wht_project.warehouse_credentials()
+        # TODO: This is a temporary fix. permanent fix will be from wht.
+        if "port" in self.warehouse_credentials:
+            self.warehouse_credentials["port"] = int(self.warehouse_credentials["port"])
         self.table_report = table_report
         self.reader = reader
         self.entity = entity

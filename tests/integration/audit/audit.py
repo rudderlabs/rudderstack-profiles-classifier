@@ -30,7 +30,7 @@ def run_audit():
     ]
     response = subprocess.run(
         pb_args,
-        input="skip\n how many uniques id_types are present?\n quit\n",
+        input="skip\n yes\n how many uniques id_types are present?\n quit\n",
         text=True,
         capture_output=True,
     )

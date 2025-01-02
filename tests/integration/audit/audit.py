@@ -4,6 +4,7 @@ import subprocess
 
 input_schema = "classifier_integration_test"
 creds = json.loads(os.environ["SITE_CONFIG"])
+
 if creds["type"] in ("snowflake", "redshift"):
     creds["schema"] = input_schema
 elif creds["type"] in ("bigquery"):
@@ -62,6 +63,8 @@ def run_project():
         ):
             run_generate_material()
             response = run_audit()
+        else:
+            print(response.stdout)
     except Exception as e:
         raise e
     finally:

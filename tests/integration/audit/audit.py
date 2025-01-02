@@ -22,7 +22,9 @@ def run_audit():
         "--migrate_on_load",
     ]
     response = subprocess.run(
-        pb_args, input="skip\n how many uniques id_types are present?\n quit\n".encode()
+        pb_args,
+        input="skip\n how many uniques id_types are present?\n quit\n",
+        text=True,
     )
     if response.returncode != 0:
         raise Exception(f"Subprocess Error")

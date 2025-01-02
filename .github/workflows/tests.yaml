@@ -85,7 +85,7 @@ jobs:
     permissions:
       pull-requests: read
     outputs:
-      attribution: ${{ steps.filter.outputs.audit }}
+      audit: ${{ steps.filter.outputs.audit }}
     steps:
     - uses: dorny/paths-filter@v3
       id: filter

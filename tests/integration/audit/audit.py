@@ -2,8 +2,14 @@ from tests.integration.utils import *
 import os
 import subprocess
 
+input_schema = "classifier_integration_test"
 creds = json.loads(os.environ["SITE_CONFIG"])
-creds["schema"] = "classifier_integration_test"
+if creds["type"] in ("snowflake", "redshift"):
+    creds["schema"] = input_schema
+elif creds["type"] in ("bigquery"):
+    creds["schema"] = input_schema.upper()
+else:
+    raise Exception("Unsupported warehouse for audit test.")
 
 project_directory = os.path.join("samples", "integration_test_project")
 siteconfig_path = os.path.join(project_directory, "siteconfig.yaml")
@@ -25,9 +31,11 @@ def run_audit():
         pb_args,
         input="skip\n how many uniques id_types are present?\n quit\n",
         text=True,
+        capture_output=True,
     )
     if response.returncode != 0:
         raise Exception(f"Subprocess Error")
+    return response
 
 
 def run_generate_material():
@@ -47,13 +55,15 @@ def run_generate_material():
 
 def run_project():
     try:
-        run_audit()
-    except:
-        try:
+        response = run_audit()
+        if (
+            "An error occurred while running the audit: no valid run found for the id stitcher model"
+            in response.stdout
+        ):
             run_generate_material()
-            run_audit()
-        except Exception as e:
-            raise e
+            response = run_audit()
+    except Exception as e:
+        raise e
     finally:
         cleanup_cmd = pb_cleanup_warehouse_tables(project_directory, siteconfig_path)
         subprocess.run(f"yes | {cleanup_cmd}", shell=True, text=True)

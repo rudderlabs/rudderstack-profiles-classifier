@@ -103,6 +103,27 @@ class YamlGenerator:
                     return False
         return True
 
+    def remove_shopify_store_id(self):
+        with open(CONFIG_FILE_PATH, "r") as file:
+            pb_project = yaml.safe_load(file)
+        with open(INPUTS_FILE_PATH, "r") as file:
+            inputs = yaml.safe_load(file)
+        for id_type in pb_project["id_types"]:
+            if id_type["name"] == "shopify_store_id":
+                pb_project["id_types"].remove(id_type)
+        for entity in pb_project["entities"]:
+            for id_type in entity["id_types"]:
+                if id_type == "shopify_store_id":
+                    entity["id_types"].remove(id_type)
+        for input_table in inputs["inputs"]:
+            for id_info in input_table["app_defaults"]["ids"]:
+                if id_info["type"] == "shopify_store_id":
+                    input_table["app_defaults"]["ids"].remove(id_info)
+        with open(CONFIG_FILE_PATH, "w") as file:
+            yaml.dump(pb_project, file)
+        with open(INPUTS_FILE_PATH, "w") as file:
+            yaml.dump(inputs, file)
+
     def update_bad_anons_filter(self):
         regex_pattern = "(c8bc33a0-7cb7-47f9-b24f-73e077346142|f0ed91a9-e1a9-46a5-9257-d590f45612fe|cbe0ea73-4878-4892-ac82-b9ad42797000|f4690568-e9e7-4182-abc6-6ea2791daba3|b369d6f5-c17a-457c-ab86-5649c1b53883)"
         with open(CONFIG_FILE_PATH, "r") as file:

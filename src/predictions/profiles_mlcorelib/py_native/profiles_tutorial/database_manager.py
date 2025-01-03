@@ -180,7 +180,7 @@ class DatabaseManager:
         )
         shortlisted_id_types = ",".join(list(shortlisted_columns.keys()))
         applicable_id_types_input = self.io.get_user_input(
-            f"Enter the comma-separated list of id_types applicable to the `{table}` table: \n>",
+            f"Enter the comma-separated list of id_types applicable to the `{table}` table: \n",
             options=[shortlisted_id_types],
             default=shortlisted_id_types,
         )
@@ -231,7 +231,7 @@ class DatabaseManager:
                 # else:
                 #     default = None
                 user_input = self.io.get_user_input(
-                    f"Enter the column(s) to map the id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n> ",
+                    f"Enter the column(s) to map the id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n",
                     default=default,
                     options=[default],
                 )

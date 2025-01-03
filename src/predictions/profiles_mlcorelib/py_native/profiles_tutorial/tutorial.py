@@ -150,11 +150,11 @@ class ProfileBuilder:
 
     def map_tables_to_id_types(self, relevant_tables, id_types, entity_name):
         self.io.display_multiline_message(messages.ABOUT_INPUTS)
-
+        sorted_relevant_tables = sorted(relevant_tables)
         id_mappings = {}
         table_index = 0
-        while table_index < len(relevant_tables):
-            table = relevant_tables[table_index]
+        while table_index < len(sorted_relevant_tables):
+            table = sorted_relevant_tables[table_index]
             table_mappings, action = self.db_manager.map_columns_to_id_types(
                 table, id_types, entity_name
             )
@@ -186,7 +186,8 @@ class ProfileBuilder:
         )
         self.io.display_multiline_message(messages.ABOUT_ID_STITCHER_2)
         edge_sources = []
-        for table in table_names:
+        sorted_table_names = sorted(table_names)
+        for table in sorted_table_names:
             table_name = "rs" + table.replace(f"_{TABLE_SUFFIX}", "").capitalize()
             edge_source = self.io.get_user_input(
                 f"Enter `inputs/{table_name}` as an edge source",
@@ -250,8 +251,13 @@ class ProfileBuilder:
         model_name: str,
         target: str,
         command: str = "pb run",
+        include_default: bool = False,
     ):
-        self.io.get_user_input(f"Enter `{command}` to continue", options=[command])
+        self.io.get_user_input(
+            f"Enter `{command}` to continue",
+            options=[command],
+            default=command if include_default else None,
+        )
         self.io.display_message(
             "Running the profiles project...(This will take a few minutes)"
         )
@@ -512,7 +518,10 @@ class ProfileBuilder:
             messages.EXPLAIN_SEQ_NO(seq_no2, id_stitcher_table_2)
         )
         _, id_stitcher_table_name_3 = self.prompt_to_do_pb_run(
-            id_graph_model, target, command=f"pb run --seq_no {seq_no2}"
+            id_graph_model,
+            target,
+            command=f"pb run --seq_no {seq_no2}",
+            include_default=True,
         )
         self.io.display_multiline_message(
             messages.EXPLAIN_THIRD_RUN_1(
@@ -542,24 +551,24 @@ class ProfileBuilder:
         for feature in USER_DEFINED_FEATURES:
             self.io.display_message(feature["user_prompt"])
             self.io.get_user_input(
-                "Let's input the name of this feature for our c360 view:\n>",
+                "Let's input the name of this feature for our c360 view:\n",
                 options=[feature["name"]],
                 default=feature["name"],
             )
             self.io.get_user_input(
-                "Enter the aggregation function to use as well as the column to select from:\n>",
+                "Enter the aggregation function to use as well as the column to select from:\n",
                 options=[feature["select"]],
                 default=feature["select"],
             )
             if "order_by_prompt" in feature:
                 self.io.get_user_input(
-                    f"{feature['order_by_prompt']}\n>",
+                    f"{feature['order_by_prompt']}\n",
                     options=[feature["window"]["order_by"][0]],
                     default=feature["window"]["order_by"][0],
                 )
 
             self.io.get_user_input(
-                "Now, let's enter the data source for this feature:\n>",
+                "Now, let's enter the data source for this feature:\n",
                 options=[feature["from"]],
                 default=feature["from"],
             )
@@ -572,12 +581,12 @@ class ProfileBuilder:
         self.io.display_multiline_message(messages.DEFINE_FEATURE_VIEW)
 
         feature_view_name = self.io.get_user_input(
-            "Let's define this customer feature view with a name as well as the id_type we want to use as our primary key:\n>",
+            "Let's define this customer feature view with a name as well as the id_type we want to use as our primary key:\n",
             options=[f"customers_by_{id_type}" for id_type in id_types],
             default=f"customers_by_email",
         )
         feature_view_using_id = self.io.get_user_input(
-            "Now, let's choose what id_type we want to use for the primary key:\n>",
+            "Now, let's choose what id_type we want to use for the primary key:\n",
             options=id_types,
             default="email",
         )

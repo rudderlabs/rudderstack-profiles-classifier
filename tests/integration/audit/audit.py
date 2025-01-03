@@ -62,17 +62,11 @@ def run_audit():
         child.expect("Audit Completed Successfully.", timeout=TIMEOUT)
 
     except pexpect.TIMEOUT as e:
-        print("\nTimeout occurred!")
-        print("Complete output:")
-        print(output_buffer.getvalue())
+        raise Exception(f"Timeout error occurred: {e}")
     except pexpect.EOF as e:
-        print("\nEOF occurred!")
-        print("Complete output:")
-        print(output_buffer.getvalue())
+        raise Exception(f"EOF error occurred: {e}")
     except Exception as e:
-        print(f"\nUnexpected error: {type(e).__name__}: {str(e)}")
-        print("Complete output:")
-        print(output_buffer.getvalue())
+        raise Exception(f"Unexpected error occurred: {type(e).__name__}: {str(e)}")
     finally:
         process_output = output_buffer.getvalue()
         child.close()
@@ -107,6 +101,8 @@ def run_project():
 
         if "error" in response.lower():
             raise Exception(f"Audit failed with error: {response}")
+        else:
+            print(response)
     except Exception as e:
         raise e
     finally:

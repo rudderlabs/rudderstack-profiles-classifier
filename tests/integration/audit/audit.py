@@ -1,5 +1,7 @@
 from tests.integration.utils import *
 import os
+import sys
+import pexpect
 import subprocess
 
 input_schema = "classifier_integration_test"
@@ -18,7 +20,7 @@ create_site_config_file(creds, siteconfig_path)
 
 
 def run_audit():
-    pb_args = [
+    pb_audit_args = [
         "pb",
         "audit",
         "id_stitcher",
@@ -28,15 +30,47 @@ def run_audit():
         siteconfig_path,
         "--migrate_on_load",
     ]
-    response = subprocess.run(
-        pb_args,
-        input="skip\n yes\n how many uniques id_types are present?\n quit\n",
-        text=True,
-        capture_output=True,
-    )
-    if response.returncode != 0:
-        raise Exception(f"Subprocess Error")
-    return response
+    pb_audit_cmd = " ".join(pb_audit_args)
+    TIMEOUT = 60
+
+    child = pexpect.spawn(pb_audit_cmd, encoding="utf-8")
+    child.logfile_read = sys.stdout
+
+    try:
+        # Wait for visualization prompt
+        child.expect("Enter an ID to visualize.*skip.*", timeout=TIMEOUT)
+        child.sendline("skip")
+
+        # give consent for LLM usage
+        child.expect("Do you consent to LLM usage?*yes*", timeout=TIMEOUT)
+        child.sendline("yes")
+
+        # Wait for LLM interactive mode
+        child.expect("Enter your question.*", timeout=TIMEOUT)
+        child.sendline("how many uniques id_types are present?")
+
+        # quit from LLM interactive mode
+        child.expect("Enter your question.*quit*", timeout=TIMEOUT)
+        child.sendline("quit")
+
+        # Wait for completion
+        child.expect("Audit Completed Successfully.", timeout=TIMEOUT)
+        print("Process completed successfully!")
+
+    except pexpect.TIMEOUT as e:
+        print("\nTimeout occurred!")
+        print("Last received output:")
+        print(child.before)
+    except pexpect.EOF as e:
+        print("\nEOF occurred!")
+        print("Last received output:")
+        print(child.before)
+    except Exception as e:
+        print(f"\nUnexpected error: {type(e).__name__}: {str(e)}")
+        print("Last received output:")
+        print(child.before)
+    finally:
+        child.close()
 
 
 def run_generate_material():
@@ -56,17 +90,13 @@ def run_generate_material():
 
 def run_project():
     try:
-        response = run_audit()
-        if (
-            "An error occurred while running the audit: no valid run found for the id stitcher model"
-            in response.stdout
-        ):
+        run_audit()
+    except:
+        try:
             run_generate_material()
-            response = run_audit()
-        else:
-            print(response.stdout)
-    except Exception as e:
-        raise e
+            run_audit()
+        except Exception as e:
+            raise e
     finally:
         cleanup_cmd = pb_cleanup_warehouse_tables(project_directory, siteconfig_path)
         subprocess.run(f"yes | {cleanup_cmd}", shell=True, text=True)

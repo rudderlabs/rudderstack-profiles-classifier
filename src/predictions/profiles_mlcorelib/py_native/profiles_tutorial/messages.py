@@ -322,9 +322,78 @@ EXPLAIN_PB_RUN_RESULTS: Callable[[str, str, str, str], str] = (
 """
 )
 
-CONCLUSION_MESSAGE: Final[
+THIRD_RUN_CONCLUSION_MESSAGE: Final[
     str
 ] = """
     Great! We can see that even the user_main_ids with the highest count are within the threshold that we would expect. 
     Now that Secure Solutions, LLC has a solid id graph, they can unlock future major value add projects for the business!! Like building an accurate 360 degree view of their customers, predicting accurate churn scores, model marketing attribution, etc.
+    Let's move on to the final section to build a handful of useful features for our user entity.
+"""
+
+
+FEATURE_CREATION_INTRO: Callable[[str], str] = (
+    lambda entity: f"""In this final section, we will walk through feature creation:
+Now that we have a solid id graph, we can now build accurate features(or attributes) on your users. Generally, when building features for users you are either aggregating data or performing window functions across your tables. In either case, you would use an identifier to either `group by` or `partition by` the user. 
+Given that you may have many different data tables across many different sources, each one having multiple different identifiers for a single instance of a customer, a single customer identifier column that you would use to group or partition by will not suffice. That is why we build the ID Graph first. Building an ID Graph was really a means to an end. The end being to generate a unifying key that connects all identifiers for each customer instance across all sources. Now that we have generated a key (`{entity}_main_id`) that unifies the users across disparate sources, we will now use that user_main_id to `group by` or `partition by`. 
+
+Within profiles, each customer feature has it's own definition called an entity_var. These definitions are structured similar to select SQL queries so you have a lot of flexibility on the structure and the output. You can derive simple values like timestamps, integers, strings, as well as more complex features using array, json , or variant SQL functions. The exact SQL syntax will differ depending on what warehouse platform you are using. 
+
+Within the profiles project configuration, each entity_var definition will have the following structure:
+
+1. NAME: This will be the column alias in the output c360 feature view
+2. SELECT: This is a select statement that tells profiles what column or combination of columns to select from an input source along with what aggregate or window function to use.
+3. FROM: The input source for profiles to query in order to derive the values
+
+Note: It is implicit that you will be aggregating or partitioning data from your sources, so you have to either use an aggregation or window function within the select of an entity var definition. When profiles runs the sql query on the source table, it will automatically group by or partition by the {entity}_main_id. You will be able to observe the sql generated from your configuration within our outputs directory after we build the entity vars and perform a pb run. 
+
+entity_var definitions can be really flexible and there are many optional keys to add in order to fine tune the sql query and derive the desired output for your customers. You can visit our docs in order to learn more about how to create features. (ref: https://www.rudderstack.com/docs/profiles/core-concepts/feature-development/#define-features)"""
+)
+
+
+FEATURE_DETAILS: Final[
+    str
+] = """
+To start, Secure Solutions, LLC wants to build 6 features for their customers in order to power personalized content across their email and ad marketing efforts. 
+
+The 6 features they want to build are:
+
+1. Account Creation Date: We want to know the date customers created their account
+2. Last Seen Date: We want to know the timestamp of the last sight visit for each customer
+3. Total Revenue: We want to know the total dollars spent per customer, if any
+4. Number of Devices Purchased: We want to know how many devices each customer has purchased and enrolled in the security subscription app
+5. Last Order Date: The last date each customer placed an order
+6. Days Since Last Order: The number of days since a customer has placed an order.
+
+Let's build the first few features from the list above and then we will auto fill the last 3 for reference.
+"""
+
+FEATURES_ADDED: Final[
+    str
+] = """
+Great!! You have now build 3 features. For the sake of time, we auto filled the final 3 entity_vars within the profiles.yaml file. You can check this file out now to see the yaml structure of the ones you created as well as the last 3 we auto filled.  
+
+Take note of the entity_vars we auto filled to learn more about the structure of entity vars and how you can perform different sql functions. 
+
+One entity_var definition we want to point out is the days_since_last_order var. Notice how that entity_var does not have a FROM key within the definition. That is because the data source where we are performing the calculation is not in any of the input sources. Rather, we are performing a date calculation on the underlying c360 table which is generated during each run. You can also see that we are referencing another previously defined entity_var within the select statement in order to perform our date calculation. This is an important concept to know and familiarize your self with because it creates more flexibility on what features you can build for your entities.
+"""
+
+
+DEFINE_FEATURE_VIEW: Final[
+    str
+] = """
+This is the final step! 
+
+Now that we have defined 6 entity_vars, we want to now create a view in the warehouse that will output these features for each user. Profiles has a concept known as a feature_view and it is defined on the entity level within the pb_project.yaml. A feature view is meant to output one record per user. And each column will be a feature on that user. The features being the entity_vars we defined in the previous step.
+
+We will create two feature views in this section. One is known as the default feature view which will be created automatically. This default feature view will then serve as a base view that you can then generate custom feature views from. 
+
+The default feature view will have the generated user_main_id as the primary key. Because this key is strictly internal to profiles, meaning you will not use it for downstream systems, you can also create a custom feature view using any of the id types from your entity id type list as the primary key.
+"""
+
+CONCLUSSION: Final[
+    str
+] = """
+Great!
+Secure Solutions, LLC now has a solid and accurate ID Graph modeled around their user entity. We then built a feature view on top of the id graph that has accurate and helpful traits for our users that we can then user to power our personalization efforts. 
+We hope that you can take this knowledge and apply it with your own customer data!!
 """

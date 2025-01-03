@@ -5,6 +5,6 @@ model_folders:
   - models
 packages:
   - name: feature_table
-    url: https://github.com/rudderlabs/profiles-features-integration-test
+    url: ../integration_test_project
 python_requirements:
   - profiles_mlcorelib

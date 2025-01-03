@@ -1,0 +1,16 @@
+macros:
+  - name: array_agg
+    inputs:
+      - column_name
+    value: "array_agg( distinct {{column_name}})"
+  - name: array_size
+    inputs:
+      - column_name
+    value: "
+      {% if warehouse.DatabaseType() == \"bigquery\" %}
+        array_length( {{column_name}} )
+      {% else %}
+        array_size( parse_json({{column_name}}) )
+      {% endif %}"
+  - name: frame_clause
+    value: "frame_condition = 'rows between unbounded preceding and unbounded following'"

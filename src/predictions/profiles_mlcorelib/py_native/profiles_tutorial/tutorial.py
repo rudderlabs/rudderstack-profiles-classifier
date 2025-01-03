@@ -315,18 +315,26 @@ class ProfileBuilder:
         self.io.display_multiline_message(
             messages.EXPLAIN_FIRST_RUN_PROMPT(entity_name)
         )
-        self.io.get_user_input(
-            "Enter 'done' to continue once you have made the changes", options=["done"]
-        )
-        # Validate whether the new yaml files have shopify_store_id
-        while not self.yaml_generator.validate_shopify_store_id_is_removed():
+
+        if self.fast_mode:
             self.io.display_message(
-                "Please make sure to remove shopify_store_id from pb_project.yaml, inputs.yaml and try again"
+                "Removing shopify_store_id from pb_project.yaml and inputs.yaml"
             )
+            self.yaml_generator.remove_shopify_store_id()
+        else:
             self.io.get_user_input(
                 "Enter 'done' to continue once you have made the changes",
                 options=["done"],
             )
+            # Validate whether the new yaml files have shopify_store_id
+            while not self.yaml_generator.validate_shopify_store_id_is_removed():
+                self.io.display_message(
+                    "Please make sure to remove shopify_store_id from pb_project.yaml, inputs.yaml and try again"
+                )
+                self.io.get_user_input(
+                    "Enter 'done' to continue once you have made the changes",
+                    options=["done"],
+                )
         return distinct_ids
 
     def cluster_size_analysis(self, entity_name: str, id_stitcher_table_name: str):

@@ -39,18 +39,22 @@ def run_audit():
     try:
         # Wait for visualization prompt
         child.expect("Enter an ID to visualize.*skip.*", timeout=TIMEOUT)
+        print("Sending skip...")
         child.sendline("skip")
 
         # give consent for LLM usage
         child.expect("Do you consent to LLM usage?*yes*", timeout=TIMEOUT)
+        print("Sending yes...")
         child.sendline("yes")
 
         # Wait for LLM interactive mode
         child.expect("Enter your question.*", timeout=TIMEOUT)
+        print("Sending LLM query...")
         child.sendline("how many uniques id_types are present?")
 
         # quit from LLM interactive mode
         child.expect("Enter your question.*quit*", timeout=TIMEOUT)
+        print("Sending quit...")
         child.sendline("quit")
 
         # Wait for completion

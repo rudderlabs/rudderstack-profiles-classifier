@@ -42,7 +42,7 @@ class Connector(ABC):
 
     def _create_get_table_query(self, table_name, **kwargs):
         filter_condition = kwargs.get("filter_condition", "")
-        query = f"SELECT * FROM {table_name}"
+        query = f"SELECT * FROM {self.schema}.{table_name}"
         if filter_condition and filter_condition != "*":
             query += f" WHERE {filter_condition}"
         return query

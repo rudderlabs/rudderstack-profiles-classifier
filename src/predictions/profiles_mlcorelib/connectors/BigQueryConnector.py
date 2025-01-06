@@ -71,7 +71,7 @@ class BigQueryConnector(CommonWarehouseConnector):
         try:
             query_run_obj = self._run_query(query)
             if response:
-                if return_type == "pandas":
+                if return_type == "dataframe":
                     return query_run_obj.to_dataframe()
                 else:
                     return list(query_run_obj.to_dataframe().itertuples(index=False))

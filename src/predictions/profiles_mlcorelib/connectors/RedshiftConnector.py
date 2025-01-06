@@ -70,7 +70,7 @@ class RedshiftConnector(CommonWarehouseConnector):
 
         if response:
             query_run_obj = self._run_query(query)
-            if return_type == "pandas":
+            if return_type == "dataframe":
                 return query_run_obj.fetch_dataframe()
 
             if query_run_obj.description:
@@ -84,7 +84,7 @@ class RedshiftConnector(CommonWarehouseConnector):
                     "No result set is present for given query. Please check the query."
                 )
         else:
-            return self._run_query(query, **kwargs)
+            return self._run_query(query)
 
     def get_entity_var_table_ref(self, table_name: str) -> str:
         return f'"{self.schema}"."{table_name.lower()}"'

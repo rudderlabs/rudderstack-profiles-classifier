@@ -100,7 +100,11 @@ class SnowflakeConnector(Connector):
 
     def run_query(self, query: str, **kwargs) -> List:
         """Runs the given query on the snowpark session and returns a List with Named indices."""
-        return self.session.sql(query).collect()
+        return_type = kwargs.get("return_type", "sequence")
+        query_run_obj = self.session.sql(query)
+        if return_type == "dataframe":
+            return query_run_obj
+        return query_run_obj.collect()
 
     def call_procedure(self, *args, **kwargs):
         """Calls the given procedure on the snowpark session and returns the results of the procedure call."""

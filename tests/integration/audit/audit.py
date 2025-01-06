@@ -89,7 +89,7 @@ def run_generate_material():
         raise Exception(f"Subprocess Error")
 
 
-def run_project():
+def run_audit_integration_test():
     try:
         response = run_audit()
         if (
@@ -111,4 +111,4 @@ def run_project():
         cleanup_pb_project(project_directory, siteconfig_path)
 
 
-run_project()
+run_audit_integration_test()

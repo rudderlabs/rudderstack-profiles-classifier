@@ -60,17 +60,26 @@ class BigQueryConnector(CommonWarehouseConnector):
         )
         return session
 
-    def run_query(self, query: str, response=True) -> Optional[List]:
+    def _run_query(
+        self, query: str, **kwargs
+    ) -> google.cloud.bigquery.table.RowIterator:
+        query = self._create_get_table_query(query, **kwargs)
+        return self.session.query_and_wait(query)
+
+    def run_query(self, query: str, **kwargs) -> Optional[List]:
         """Runs the given query on the bigquery connection and returns a list with Named indices."""
+        response = kwargs.get("response", True)
+        return_type = kwargs.get("return_type", "sequence")
+
         try:
+            query_run_obj = self._run_query(query, **kwargs)
             if response:
-                return list(
-                    self.session.query_and_wait(query)
-                    .to_dataframe()
-                    .itertuples(index=False)
-                )
+                if return_type == "pandas":
+                    return query_run_obj.to_dataframe()
+                else:
+                    return list(query_run_obj.to_dataframe().itertuples(index=False))
             else:
-                return self.session.query_and_wait(query)
+                return query_run_obj
         except Exception as e:
             raise Exception(f"Couldn't run the query: {query}. Error: {str(e)}")
 
@@ -80,12 +89,12 @@ class BigQueryConnector(CommonWarehouseConnector):
     def get_table_as_dataframe(
         self, _: google.cloud.bigquery.client.Client, table_name: str, **kwargs
     ) -> pd.DataFrame:
-        query = self._create_get_table_query(table_name, **kwargs)
-        return self.session.query_and_wait(query).to_dataframe()
+        query = f"SELECT * FROM {table_name}"
+        return self._run_query(query, **kwargs).to_dataframe()
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT table_name as tablename FROM `{self.project_id}.{self.schema}.INFORMATION_SCHEMA.TABLES`;"
-        return self.session.query_and_wait(query).to_dataframe()
+        return self._run_query(query).to_dataframe()
 
     def fetch_table_metadata(self, table_name: str) -> List:
         """Fetches the schema fields of the given table from the BigQuery schema."""

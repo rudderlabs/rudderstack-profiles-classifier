@@ -55,7 +55,8 @@ class RedshiftConnector(CommonWarehouseConnector):
         session.execute(f"SET search_path TO {self.schema};")
         return session
 
-    def _run_query(self, query: str) -> redshift_connector.cursor.Cursor:
+    def _run_query(self, query: str, **kwargs) -> redshift_connector.cursor.Cursor:
+        query = self._create_get_table_query(query, **kwargs)
         try:
             return self.session.execute(query)
         except:
@@ -63,10 +64,16 @@ class RedshiftConnector(CommonWarehouseConnector):
             self.session = self.build_session(self.creds)
             return self.session.execute(query)
 
-    def run_query(self, query: str, response=True) -> Optional[List]:
+    def run_query(self, query: str, **kwargs) -> Optional[List]:
         """Runs the given query on the redshift connection and returns a Named Tuple."""
+        response = kwargs.get("response", True)
+        return_type = kwargs.get("return_type", "sequence")
+
         if response:
-            query_run_obj = self._run_query(query)
+            query_run_obj = self._run_query(query, **kwargs)
+            if return_type == "pandas":
+                return query_run_obj.fetch_dataframe()
+
             if query_run_obj.description:
                 column_names = [desc[0] for desc in query_run_obj.description]
                 row_outputs = query_run_obj.fetchall()
@@ -78,7 +85,7 @@ class RedshiftConnector(CommonWarehouseConnector):
                     "No result set is present for given query. Please check the query."
                 )
         else:
-            return self._run_query(query)
+            return self._run_query(query, **kwargs)
 
     def get_entity_var_table_ref(self, table_name: str) -> str:
         return f'"{self.schema}"."{table_name.lower()}"'
@@ -89,8 +96,8 @@ class RedshiftConnector(CommonWarehouseConnector):
     def get_table_as_dataframe(
         self, _: redshift_connector.cursor.Cursor, table_name: str, **kwargs
     ) -> pd.DataFrame:
-        query = self._create_get_table_query(table_name, **kwargs)
-        return self._run_query(query).fetch_dataframe()
+        query = f"SELECT * FROM {table_name}"
+        return self._run_query(query, **kwargs).fetch_dataframe()
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';"

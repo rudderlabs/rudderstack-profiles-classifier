@@ -304,7 +304,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def run_query(self, query: str, response: bool) -> Optional[Sequence]:
+    def run_query(self, query: str, **kwargs) -> Optional[Sequence]:
         pass
 
     @abstractmethod

@@ -253,9 +253,8 @@ class CommonWarehouseConnector(Connector):
         """Fetches the table with the given name from the schema as a pandas Dataframe object."""
         return self.get_table_as_dataframe(self.session, table_name, **kwargs)
 
-    def _create_get_table_query(self, table_name, **kwargs):
+    def _create_get_table_query(self, query, **kwargs):
         filter_condition = kwargs.get("filter_condition", "")
-        query = f"SELECT * FROM {table_name}"
         if filter_condition and filter_condition != "*":
             query += f" WHERE {filter_condition}"
         query += ";"
@@ -1057,7 +1056,7 @@ class CommonWarehouseConnector(Connector):
         pass
 
     @abstractmethod
-    def run_query(self, query: str, response: bool) -> Optional[Sequence]:
+    def run_query(self, query: str, **kwargs) -> Optional[Sequence]:
         pass
 
     @abstractmethod

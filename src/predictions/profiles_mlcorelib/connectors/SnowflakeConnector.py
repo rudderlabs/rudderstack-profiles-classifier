@@ -98,7 +98,7 @@ class SnowflakeConnector(Connector):
         """Joins the given file name to the local temp folder path."""
         return os.path.join(local_folder, file_name)
 
-    def run_query(self, query: str, **args) -> List:
+    def run_query(self, query: str, **kwargs) -> List:
         """Runs the given query on the snowpark session and returns a List with Named indices."""
         return self.session.sql(query).collect()
 

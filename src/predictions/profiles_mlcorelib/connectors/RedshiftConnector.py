@@ -55,8 +55,7 @@ class RedshiftConnector(CommonWarehouseConnector):
         session.execute(f"SET search_path TO {self.schema};")
         return session
 
-    def _run_query(self, query: str, **kwargs) -> redshift_connector.cursor.Cursor:
-        query = self._create_get_table_query(query, **kwargs)
+    def _run_query(self, query: str) -> redshift_connector.cursor.Cursor:
         try:
             return self.session.execute(query)
         except:
@@ -70,7 +69,7 @@ class RedshiftConnector(CommonWarehouseConnector):
         return_type = kwargs.get("return_type", "sequence")
 
         if response:
-            query_run_obj = self._run_query(query, **kwargs)
+            query_run_obj = self._run_query(query)
             if return_type == "pandas":
                 return query_run_obj.fetch_dataframe()
 
@@ -96,8 +95,8 @@ class RedshiftConnector(CommonWarehouseConnector):
     def get_table_as_dataframe(
         self, _: redshift_connector.cursor.Cursor, table_name: str, **kwargs
     ) -> pd.DataFrame:
-        query = f"SELECT * FROM {table_name}"
-        return self._run_query(query, **kwargs).fetch_dataframe()
+        query = self._create_get_table_query(table_name, **kwargs)
+        return self._run_query(query).fetch_dataframe()
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';"

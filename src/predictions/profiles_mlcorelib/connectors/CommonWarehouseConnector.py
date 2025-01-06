@@ -253,13 +253,6 @@ class CommonWarehouseConnector(Connector):
         """Fetches the table with the given name from the schema as a pandas Dataframe object."""
         return self.get_table_as_dataframe(self.session, table_name, **kwargs)
 
-    def _create_get_table_query(self, query, **kwargs):
-        filter_condition = kwargs.get("filter_condition", "")
-        if filter_condition and filter_condition != "*":
-            query += f" WHERE {filter_condition}"
-        query += ";"
-        return query
-
     def load_and_delete_json(self, json_file_name: str) -> dict:
         file_path = os.path.join(self.local_dir, json_file_name)
         with open(file_path, "r") as file:

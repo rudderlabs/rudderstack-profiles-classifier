@@ -60,10 +60,7 @@ class BigQueryConnector(CommonWarehouseConnector):
         )
         return session
 
-    def _run_query(
-        self, query: str, **kwargs
-    ) -> google.cloud.bigquery.table.RowIterator:
-        query = self._create_get_table_query(query, **kwargs)
+    def _run_query(self, query: str) -> google.cloud.bigquery.table.RowIterator:
         return self.session.query_and_wait(query)
 
     def run_query(self, query: str, **kwargs) -> Optional[List]:
@@ -72,7 +69,7 @@ class BigQueryConnector(CommonWarehouseConnector):
         return_type = kwargs.get("return_type", "sequence")
 
         try:
-            query_run_obj = self._run_query(query, **kwargs)
+            query_run_obj = self._run_query(query)
             if response:
                 if return_type == "pandas":
                     return query_run_obj.to_dataframe()
@@ -89,8 +86,8 @@ class BigQueryConnector(CommonWarehouseConnector):
     def get_table_as_dataframe(
         self, _: google.cloud.bigquery.client.Client, table_name: str, **kwargs
     ) -> pd.DataFrame:
-        query = f"SELECT * FROM {table_name}"
-        return self._run_query(query, **kwargs).to_dataframe()
+        query = self._create_get_table_query(table_name, **kwargs)
+        return self._run_query(query).to_dataframe()
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT table_name as tablename FROM `{self.project_id}.{self.schema}.INFORMATION_SCHEMA.TABLES`;"

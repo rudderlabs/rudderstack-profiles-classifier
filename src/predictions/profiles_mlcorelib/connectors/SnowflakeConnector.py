@@ -183,13 +183,8 @@ class SnowflakeConnector(Connector):
         return has_entry
 
     def get_table(self, table_name: str, **kwargs) -> snowflake.snowpark.Table:
-        filter_condition = kwargs.get("filter_condition", None)
-        if not self.is_valid_table(table_name):
-            raise Exception(f"Table {table_name} does not exist or not authorized")
-        table = self.session.table(table_name)
-        if filter_condition and filter_condition != "*":
-            table = self.filter_table(table, filter_condition)
-        return table
+        query = self._create_get_table_query(table_name, **kwargs)
+        return self.session.sql(query)
 
     def get_table_as_dataframe(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs

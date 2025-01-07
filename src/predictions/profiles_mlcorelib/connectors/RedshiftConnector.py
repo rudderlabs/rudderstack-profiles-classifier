@@ -2,7 +2,7 @@ import json
 import inspect
 import pandas as pd
 from collections import namedtuple
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 
 import redshift_connector
 import redshift_connector.cursor
@@ -63,7 +63,7 @@ class RedshiftConnector(CommonWarehouseConnector):
             self.session = self.build_session(self.creds)
             return self.session.execute(query)
 
-    def run_query(self, query: str, **kwargs) -> Optional[List]:
+    def run_query(self, query: str, **kwargs) -> Optional[Union[List, pd.DataFrame]]:
         """Runs the given query on the redshift connection and returns a Named Tuple."""
         response = kwargs.get("response", True)
         return_type = kwargs.get("return_type", "sequence")

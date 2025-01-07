@@ -1049,7 +1049,7 @@ class CommonWarehouseConnector(Connector):
         pass
 
     @abstractmethod
-    def run_query(self, query: str, **kwargs) -> Optional[Sequence]:
+    def run_query(self, query: str, **kwargs) -> Optional[Union[List, pd.DataFrame]]:
         pass
 
     @abstractmethod

@@ -98,7 +98,9 @@ class SnowflakeConnector(Connector):
         """Joins the given file name to the local temp folder path."""
         return os.path.join(local_folder, file_name)
 
-    def run_query(self, query: str, **kwargs) -> List:
+    def run_query(
+        self, query: str, **kwargs
+    ) -> Union[List, snowflake.snowpark.DataFrame]:
         """Runs the given query on the snowpark session and returns a List with Named indices."""
         return_type = kwargs.get("return_type", "sequence")
         query_run_obj = self.session.sql(query)
@@ -191,16 +193,13 @@ class SnowflakeConnector(Connector):
         return self.run_query(query, return_type="dataframe")
 
     def get_table_as_dataframe(
-        self, session: snowflake.snowpark.Session, table_name: str, **kwargs
+        self, _: snowflake.snowpark.Session, table_name: str, **kwargs
     ) -> pd.DataFrame:
-        # Duplicating "self.get_table()" function code here.
-        # This is because "get_table()"" uses "self.session" which is not available in case of Snowpark
-        # and I prefer duplicating 3 lines of code over changing the signature of multiple functions
-        try:
-            session.sql(f"select * from {table_name} limit 1").collect()
-        except:
+        if self.is_valid_table(table_name):
+            query = self._create_get_table_query(table_name, **kwargs)
+            return self.run_query(query, return_type="dataframe").toPandas()
+        else:
             raise Exception(f"Table {table_name} does not exist or not authorized")
-        return session.table(table_name).toPandas()
 
     def send_table_to_train_env(self, table: snowflake.snowpark.Table, **kwargs) -> Any:
         """Sends the given snowpark table to the training env(ie. snowflake warehouse in this case) with the name as given"""

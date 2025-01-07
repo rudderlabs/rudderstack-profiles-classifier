@@ -1,7 +1,7 @@
 import json
 import pandas as pd
 from collections import namedtuple
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 
 import google.cloud
 from google.cloud import bigquery
@@ -63,7 +63,7 @@ class BigQueryConnector(CommonWarehouseConnector):
     def _run_query(self, query: str) -> google.cloud.bigquery.table.RowIterator:
         return self.session.query_and_wait(query)
 
-    def run_query(self, query: str, **kwargs) -> Optional[List]:
+    def run_query(self, query: str, **kwargs) -> Optional[Union[List, pd.DataFrame]]:
         """Runs the given query on the bigquery connection and returns a list with Named indices."""
         response = kwargs.get("response", True)
         return_type = kwargs.get("return_type", "sequence")

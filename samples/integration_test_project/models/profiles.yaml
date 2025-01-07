@@ -1,0 +1,106 @@
+models:
+  - name: shopify_user_id_stitcher
+    model_type: id_stitcher
+    model_spec:
+      validity_time: 24h # 1 day
+      entity_key: user
+      edge_sources:
+        - from: inputs/rsIdentifies
+        - from: inputs/rsTracks
+        - from: inputs/rsPages
+        - from: inputs/rsOrderCompleted
+  # Remove the section below, if you don't want to generate a feature table
+  - name: shopify_user_features
+    model_type: feature_table_model
+    model_spec:
+      validity_time: 24h # 1 day
+      entity_key: user
+      features:
+        - max_timestamp_tracks
+        - max_timestamp_pages
+        - max_timestamp_bw_tracks_pages
+        - n_orders_completed
+        - gross_amt_spent_in_past_90_days
+        - days_since_last_seen
+        - is_churned_7_days
+        - has_seen_recently
+        - last_seen_category
+        - random_agg_event
+        - random_float_feature
+        - random_date_feature
+        - random_timestamp_feature
+        - random_tz_aware_feature
+        - random_tz_unaware_feature
+var_groups:
+  - name: user_vars
+    entity_key: user
+    vars:
+      - entity_var:
+          name: max_timestamp_tracks
+          select: max(timestamp)
+          from: inputs/rsTracks
+          is_feature: false
+      - entity_var:
+          name: max_timestamp_pages
+          select: max(timestamp)
+          from: inputs/rsPages
+          description: The total value of products that are part of the last transaction.
+          is_feature: false
+      - entity_var:
+          name: max_timestamp_bw_tracks_pages
+          select: CASE WHEN {{user.Var("max_timestamp_tracks")}}>={{user.Var("max_timestamp_pages")}} THEN {{user.Var("max_timestamp_tracks")}} ELSE {{user.Var("max_timestamp_pages")}} END
+          is_feature: false
+      # LTV features
+      - entity_var:
+          name: n_orders_completed
+          default: 0
+          select: count(*)
+          from: inputs/rsOrderCompleted
+          description: Total number of orders completed till date.
+      - entity_var:
+          name: gross_amt_spent_in_past_90_days
+          default: 0
+          select: sum(REVENUE)
+          from: inputs/rsOrderCompleted
+          where: "{{macro_datediff_n('timestamp','90')}}"
+          description: Total amount spent in past 90 days.
+      - entity_var:
+          name: days_since_last_seen
+          select: "{{macro_datediff('{{user.Var(\"max_timestamp_bw_tracks_pages\")}}')}}"
+          default: 0
+      - entity_var:
+          name: is_churned_7_days
+          select: case when {{user.Var("days_since_last_seen")}} > 7 then 1 else 0 end
+          description: it specifies if there is any activity observed in the last n days. It is dependent on days_since_last_seen
+      # New boolean feature based on days_since_last_seen
+      - entity_var:
+          name: has_seen_recently
+          select: "{{macro_has_seen_recently('{{user.Var(\"days_since_last_seen\")}}')}}"
+          description: Whether the user has added a product to seen recently (within the last 7 days).
+      # New categorical feature based on days_since_last_seen
+      - entity_var:
+          name: last_seen_category
+          select: "{{macro_last_seen_category('{{user.Var(\"days_since_last_seen\")}}')}}"
+          description: Categorical variable indicating seen activity.
+      # New array type feature based on event
+      - entity_var:
+          name: random_agg_event
+          select: "{{macro_random_agg_event('event')}}"
+          from: inputs/rsTracks
+          description: Array type variable containing event
+      - entity_var:
+          name: random_float_feature
+          select: "{{macro_random_float()}}"
+          description: This feature contains values that are in decimal format.
+      - entity_var:
+          name: random_date_feature
+          select: "{{macro_random_date_feature()}}"
+      - entity_var:
+          name: random_timestamp_feature
+          select: TIMESTAMP '2023-11-04 12:34:56'
+      - entity_var:
+          name: random_tz_aware_feature
+          select: "{{macro_random_tz_aware_feature()}}"
+      - entity_var:
+          name: random_tz_unaware_feature
+          select: "{{macro_random_tz_unaware_feature()}}"

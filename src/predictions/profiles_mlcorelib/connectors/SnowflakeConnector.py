@@ -186,9 +186,9 @@ class SnowflakeConnector(Connector):
         self.material_validity_cache[material_key] = has_entry
         return has_entry
 
-    def get_table(self, table_name: str, **kwargs) -> snowflake.snowpark.Table:
+    def get_table(self, table_name: str, **kwargs) -> snowflake.snowpark.DataFrame:
         query = self._create_get_table_query(table_name, **kwargs)
-        return self.session.sql(query)
+        return self.run_query(query, return_type="dataframe")
 
     def get_table_as_dataframe(
         self, session: snowflake.snowpark.Session, table_name: str, **kwargs

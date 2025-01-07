@@ -96,7 +96,7 @@ class RedshiftConnector(CommonWarehouseConnector):
         self, _: redshift_connector.cursor.Cursor, table_name: str, **kwargs
     ) -> pd.DataFrame:
         query = self._create_get_table_query(table_name, **kwargs)
-        return self._run_query(query).fetch_dataframe()
+        return self.run_query(query, return_type="dataframe")
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';"

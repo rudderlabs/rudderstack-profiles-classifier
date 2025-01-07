@@ -193,13 +193,17 @@ class SnowflakeConnector(Connector):
         return self.run_query(query, return_type="dataframe")
 
     def get_table_as_dataframe(
-        self, _: snowflake.snowpark.Session, table_name: str, **kwargs
+        self, session: snowflake.snowpark.Session, table_name: str, **kwargs
     ) -> pd.DataFrame:
-        if self.is_valid_table(table_name):
-            query = self._create_get_table_query(table_name, **kwargs)
-            return self.run_query(query, return_type="dataframe").toPandas()
-        else:
+        # Duplicating "self.get_table()" function code here.
+        # This is because "get_table()"" uses "self.session" which is not available in case of Snowpark
+        # and I prefer duplicating 3 lines of code over changing the signature of multiple functions
+        try:
+            session.sql(f"select * from {table_name} limit 1").collect()
+        except:
             raise Exception(f"Table {table_name} does not exist or not authorized")
+        query = self._create_get_table_query(table_name, **kwargs)
+        return session.sql(query).toPandas()
 
     def send_table_to_train_env(self, table: snowflake.snowpark.Table, **kwargs) -> Any:
         """Sends the given snowpark table to the training env(ie. snowflake warehouse in this case) with the name as given"""

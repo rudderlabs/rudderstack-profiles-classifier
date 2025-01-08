@@ -1,5 +1,21 @@
+import sys
+import platform
+
 from setuptools import setup, find_packages
 from version import version
+
+
+def check_architecture():
+    """Check if the current Python environment is running on x86_64 architecture."""
+    current_arch = platform.machine().lower()
+    if current_arch not in ["x86_64", "amd64"]:
+        sys.stderr.write(
+            f"Error: x86_64 environment is required for installation.\nCurrent architecture: {current_arch}"
+        )
+        sys.exit(1)
+
+
+check_architecture()
 
 install_requires = [
     "profiles_rudderstack>=0.19.0",

@@ -1,0 +1,29 @@
+models:
+  - name: rsRandomSQLModel
+    model_type: sql_template
+    model_spec:
+      validity_time: 24h # 1 day
+      single_sql: |
+        {% with entity_id = this.DeRef("inputs/rsTracks/var_table/user_main_id") Tracks = this.DeRef("inputs/rsTracks/var_table") %}
+            select user_main_id, dummy_int_1, dummy_int_2, dummy_bool_1, dummy_bool_2 from (
+              select 
+                distinct user_main_id,
+                1 as dummy_int_1, 
+                0 as dummy_int_2, 
+                true as dummy_bool_1, 
+                false as dummy_bool_2 
+              from {{Tracks}}
+            )
+        {% endwith %}
+      ids:
+        - select: "user_id"
+          type: user_id
+          entity: user
+          to_default_stitcher: true
+      contract:
+        is_optional: false
+        is_event_stream: false
+        with_entity_ids:
+          - user
+        with_columns:
+          - name: user_id

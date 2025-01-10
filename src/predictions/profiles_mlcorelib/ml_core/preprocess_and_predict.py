@@ -60,6 +60,9 @@ def preprocess_and_predict(
     timestamp_columns = results["column_names"]["input_column_types"]["timestamp"]
     booleantype_columns = results["column_names"]["input_column_types"]["booleantype"]
     ignore_features = results["column_names"]["ignore_features"]
+    required_features_upper_case = set(
+        [col.upper() for col in results["column_names"]["feature_table_column_types"]]
+    )
 
     input_columns = utils.extract_unique_values(input_column_types)
     transformed_arraytype_columns = {
@@ -100,9 +103,6 @@ def preprocess_and_predict(
 
     predict_data = connector.drop_cols(raw_data, ignore_features)
 
-    required_features_upper_case = set(
-        [col.upper() for col in results["column_names"]["feature_table_column_types"]]
-    )
     input_df = connector.select_relevant_columns(
         predict_data, required_features_upper_case
     )

@@ -52,9 +52,8 @@ class TutorialRecipe(PyNativeRecipe):
         pass
 
     def execute(self, this: WhtMaterial):
-        if not os.path.exists(SAMPLE_DATA_DIR):
-            self.logger.info("unzipping sample data...")
-            unzip_sample_data(self.logger)
+        self.logger.info("unzipping sample data...")
+        unzip_sample_data(self.logger)
 
         profile_builder = ProfileBuilder(
             self.reader, self.build_spec.get("fast_mode", False)

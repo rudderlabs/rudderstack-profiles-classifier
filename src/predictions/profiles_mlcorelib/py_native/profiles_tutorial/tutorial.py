@@ -150,11 +150,10 @@ class ProfileBuilder:
 
     def map_tables_to_id_types(self, relevant_tables, id_types, entity_name):
         self.io.display_multiline_message(messages.ABOUT_INPUTS)
-        sorted_relevant_tables = sorted(relevant_tables)
         id_mappings = {}
         table_index = 0
-        while table_index < len(sorted_relevant_tables):
-            table = sorted_relevant_tables[table_index]
+        while table_index < len(relevant_tables):
+            table = relevant_tables[table_index]
             table_mappings, action = self.db_manager.map_columns_to_id_types(
                 table, id_types, entity_name
             )
@@ -186,8 +185,7 @@ class ProfileBuilder:
         )
         self.io.display_multiline_message(messages.ABOUT_ID_STITCHER_2)
         edge_sources = []
-        sorted_table_names = sorted(table_names)
-        for table in sorted_table_names:
+        for table in table_names:
             table_name = "rs" + table.replace(f"_{TABLE_SUFFIX}", "").capitalize()
             edge_source = self.io.get_user_input(
                 f"Enter `inputs/{table_name}` as an edge source",

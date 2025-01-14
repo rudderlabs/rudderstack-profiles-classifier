@@ -33,3 +33,6 @@ pycaret==3.3.0
 # Additional imports
 google-auth-oauthlib>=1.0.0
 boto3>=1.34.153
+
+# Testing 
+pexpect>=4.9.0

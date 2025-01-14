@@ -68,7 +68,9 @@ class DatabaseManager:
                 continue
 
             base_name = os.path.splitext(filename)[0]
-            table_name = self.get_case_sensitive_name(f"{base_name}_{table_suffix}".lower())
+            table_name = self.get_case_sensitive_name(
+                f"{base_name}_{table_suffix}".lower()
+            )
             new_table_names[filename] = table_name
 
             if not to_upload:
@@ -103,9 +105,9 @@ class DatabaseManager:
     def find_relevant_tables(self, new_table_names: dict) -> List[str]:
         tables = self.get_table_names()
         new_tables = [new_table.lower() for new_table in new_table_names.values()]
-        relevant_tables = sorted([
-            table.lower() for table in tables if table.lower() in new_tables
-        ])
+        relevant_tables = sorted(
+            [table.lower() for table in tables if table.lower() in new_tables]
+        )
         return relevant_tables
 
     def get_columns(self, table: str) -> List[str]:

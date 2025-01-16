@@ -87,7 +87,22 @@ class BigQueryConnector(CommonWarehouseConnector):
         self, _: google.cloud.bigquery.client.Client, table_name: str, **kwargs
     ) -> pd.DataFrame:
         query = self._create_get_table_query(table_name, **kwargs)
-        return self.run_query(query, return_type="dataframe")
+        result = self.run_query(query, response=False)
+
+        try:
+            return result.to_dataframe()
+        except:
+            try:
+                return result.to_dataframe(
+                    create_bqstorage_client=True,
+                    dtypes=None,
+                    progress_bar_type=None,
+                    arrow_options={"pyarrow_schema": None},
+                )
+            except Exception as e:
+                raise Exception(
+                    f"Failed to run query {query} on BigQuery. Error: {str(e)}"
+                )
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT table_name as tablename FROM `{self.project_id}.{self.schema}.INFORMATION_SCHEMA.TABLES`;"

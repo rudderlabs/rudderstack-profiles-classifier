@@ -386,15 +386,19 @@ class TableReport:
             self.analysis_results["unique_id_counts"][node_type] = count
             print(f"\t\t{node_type}: {count}")
         total_distinct_ids = sum(self.analysis_results["unique_id_counts"].values())
-        print("Total Distinct IDs")
+
+        print("\nTotal Distinct IDs:")
         print(f"\tBefore stitching: {total_distinct_ids}")
         clusters = self.get_total_main_ids()
         self.analysis_results["clusters"] = clusters
         print(f"\tAfter stitching: {clusters}")
 
+        consolidation_rate = (1 - (clusters / total_distinct_ids)) * 100
+        print(f"\nConsolidation rate: {consolidation_rate:.2f}% consolidation")
+
         top_nodes = self.get_top_nodes_by_edges(10)
         self.analysis_results["top_nodes"] = top_nodes
-        print("\n\nTop 10 nodes by edge count:")
+        print("\nTop 10 nodes by edge count:")
         for node in top_nodes:
             print(
                 f"\t\tID: {node['id']}, Type: {node['id_type']}, Edges: {node['edge_count']}"

@@ -101,7 +101,7 @@ class BigQueryConnector(CommonWarehouseConnector):
                 )
             except Exception as e:
                 raise Exception(
-                    f"Couldn't convert the result to a dataframe. Error: {str(e)}"
+                    f"Failed to run query {query} on BigQuery. Error: {str(e)}"
                 )
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:

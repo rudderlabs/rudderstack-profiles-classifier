@@ -196,7 +196,7 @@ class ClusterReport:
                 f"{node[0]}<br>{node[1]}",  # complex nodes can't be used as ids in pyvis but they can be used in networkx
                 label=node[0],
                 color=color,
-                title=f"ID: {node[0]}\nID-Type: {attrs['id_type']}\nDegree: {degrees[node]}",
+                title=f"ID: {node[0]}\nID-Type: {attrs['id_type']}\nNo. of connections: {degrees[node]}",
             )
 
         for source, target in G.edges():
@@ -277,7 +277,7 @@ class ClusterReport:
                 physics=False,  # Disable physics for pre-positioned nodes
                 size=size,
                 color=color,
-                title=f"ID: {node[0]}\nID-Type: {attrs['id_type']}\nDegree: {degrees[node]}",
+                title=f"ID: {node[0]}\nID-Type: {attrs['id_type']}\nNo. of connections: {degrees[node]}",
             )
 
         print("Adding edges...")

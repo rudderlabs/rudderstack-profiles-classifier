@@ -129,21 +129,21 @@ class BigQueryConnector(CommonWarehouseConnector):
                 metrics_df[col].dtype == "object"
             ):  # can't find a str using "in" keyword as it's numpy dtype
                 metrics_df[col] = metrics_df[col].apply(lambda x: json.dumps(x))
-                metrics_table_query += f"{col} STRING NULLABLE,"
+                metrics_table_query += f"{col} STRING,"
             elif (
                 metrics_df[col].dtype == "float64"
                 or metrics_df[col].dtype == "int64"
                 or metrics_df[col].dtype == "Float64"
                 or metrics_df[col].dtype == "Int64"
             ):
-                metrics_table_query += f"{col} INTEGER NULLABLE,"
+                metrics_table_query += f"{col} INTEGER,"
             elif metrics_df[col].dtype == "bool":
-                metrics_table_query += f"{col} BOOL NULLABLE,"
+                metrics_table_query += f"{col} BOOL,"
             elif (
                 metrics_df[col].dtype == "datetime64[ns]"
                 or metrics_df[col].dtype == "datetime64[ns, UTC]"
             ):
-                metrics_table_query += f"{col} TIMESTAMP NULLABLE,"
+                metrics_table_query += f"{col} TIMESTAMP,"
 
         metrics_table_query = metrics_table_query[:-1]
         create_metrics_table_query = f"CREATE TABLE IF NOT EXISTS `{self.project_id}.{self.schema}.{table_name}` ({metrics_table_query});"

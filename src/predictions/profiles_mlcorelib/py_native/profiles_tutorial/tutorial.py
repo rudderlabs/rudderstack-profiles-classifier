@@ -17,6 +17,7 @@ from .config import (
     PRE_DEFINED_FEATURES,
     USER_DEFINED_FEATURES,
     PRE_DEFINED_MACROS,
+    PROFILES_TUTORIAL_CLI_DIR,
 )
 
 
@@ -57,7 +58,7 @@ class ProfileBuilder:
     ):
         self.io.display_multiline_message(messages.ABOUT_PB_COMPILE)
         self.io.get_user_input("Enter `pb compile`", options=["pb compile"])
-        os.chdir("profiles")
+        os.chdir(PROFILES_TUTORIAL_CLI_DIR)
         pb_compile_output = self._subprocess_run(
             ["pb", "compile", "--target", target, "--migrate_on_load"]
         )
@@ -207,10 +208,10 @@ class ProfileBuilder:
 
     def generate_pb_project(self, connection_name):
         # create a directory called profiles if doesn't exist
-        if not os.path.exists("profiles"):
-            os.makedirs("profiles")
-        if not os.path.exists("profiles/models"):
-            os.makedirs("profiles/models")
+        if not os.path.exists(PROFILES_TUTORIAL_CLI_DIR):
+            os.makedirs(PROFILES_TUTORIAL_CLI_DIR)
+        if not os.path.exists(f"{PROFILES_TUTORIAL_CLI_DIR}/models"):
+            os.makedirs(f"{PROFILES_TUTORIAL_CLI_DIR}/models")
         entity_name = self.get_entity_name()
         id_graph_model = f"{entity_name}_{ID_GRAPH_MODEL_SUFFIX}"
         id_types = self.get_id_types(entity_name)
@@ -259,7 +260,7 @@ class ProfileBuilder:
         self.io.display_message(
             "Running the profiles project...(This will take a few minutes)"
         )
-        os.chdir("profiles")
+        os.chdir(PROFILES_TUTORIAL_CLI_DIR)
         pb_run_output = self._subprocess_run(
             [*command.split(), "--target", target, "--migrate_on_load"]
         )

@@ -2,7 +2,7 @@ import json
 import inspect
 import pandas as pd
 from collections import namedtuple
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 
 import redshift_connector
 import redshift_connector.cursor
@@ -63,10 +63,16 @@ class RedshiftConnector(CommonWarehouseConnector):
             self.session = self.build_session(self.creds)
             return self.session.execute(query)
 
-    def run_query(self, query: str, response=True) -> Optional[List]:
+    def run_query(self, query: str, **kwargs) -> Optional[Union[List, pd.DataFrame]]:
         """Runs the given query on the redshift connection and returns a Named Tuple."""
+        response = kwargs.get("response", True)
+        return_type = kwargs.get("return_type", "sequence")
+
         if response:
             query_run_obj = self._run_query(query)
+            if return_type == "dataframe":
+                return query_run_obj.fetch_dataframe()
+
             if query_run_obj.description:
                 column_names = [desc[0] for desc in query_run_obj.description]
                 row_outputs = query_run_obj.fetchall()
@@ -90,7 +96,7 @@ class RedshiftConnector(CommonWarehouseConnector):
         self, _: redshift_connector.cursor.Cursor, table_name: str, **kwargs
     ) -> pd.DataFrame:
         query = self._create_get_table_query(table_name, **kwargs)
-        return self._run_query(query).fetch_dataframe()
+        return self.run_query(query, return_type="dataframe")
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT tablename FROM PG_TABLE_DEF WHERE schemaname = '{self.schema}';"

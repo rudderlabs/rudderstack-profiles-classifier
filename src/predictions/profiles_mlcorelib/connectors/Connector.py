@@ -40,6 +40,13 @@ class Connector(ABC):
                 f"SQL model table {table_name} has duplicate values in entity column {entity_column}. Please make sure that the column {entity_column} in all SQL model has unique values only."
             )
 
+    def _create_get_table_query(self, table_name, **kwargs):
+        filter_condition = kwargs.get("filter_condition", "")
+        query = f"SELECT * FROM {self.schema}.{table_name}"
+        if filter_condition and filter_condition != "*":
+            query += f" WHERE {filter_condition}"
+        return query
+
     def _validate_common_columns(
         self,
         columns_per_input: List[Set[str]],
@@ -304,7 +311,7 @@ class Connector(ABC):
         pass
 
     @abstractmethod
-    def run_query(self, query: str, response: bool) -> Optional[Sequence]:
+    def run_query(self, query: str, **kwargs):
         pass
 
     @abstractmethod

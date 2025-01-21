@@ -250,17 +250,8 @@ def _train(
         connector.delete_local_data_folder()
         connector.make_local_dir()
 
-    latest_seq_no = whtService.get_latest_seq_no(inputs)
-    latest_entity_var_table = whtService.compute_material_name(
-        entity_var_model_name, model_hash, latest_seq_no
-    )
-
     start_date, end_date = whtService.get_date_range(
         creation_ts, trainer.prediction_horizon_days
-    )
-
-    logger.get().info(
-        f"Getting input column types from table: {latest_entity_var_table}"
     )
 
     input_columns = connector.get_input_columns(trainer, inputs)

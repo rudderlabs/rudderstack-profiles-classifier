@@ -1,7 +1,7 @@
 import json
 import pandas as pd
 from collections import namedtuple
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Union
 
 import google.cloud
 from google.cloud import bigquery
@@ -60,17 +60,23 @@ class BigQueryConnector(CommonWarehouseConnector):
         )
         return session
 
-    def run_query(self, query: str, response=True) -> Optional[List]:
+    def _run_query(self, query: str) -> google.cloud.bigquery.table.RowIterator:
+        return self.session.query_and_wait(query)
+
+    def run_query(self, query: str, **kwargs) -> Optional[Union[List, pd.DataFrame]]:
         """Runs the given query on the bigquery connection and returns a list with Named indices."""
+        response = kwargs.get("response", True)
+        return_type = kwargs.get("return_type", "sequence")
+
         try:
+            query_run_obj = self._run_query(query)
             if response:
-                return list(
-                    self.session.query_and_wait(query)
-                    .to_dataframe()
-                    .itertuples(index=False)
-                )
+                if return_type == "dataframe":
+                    return query_run_obj.to_dataframe()
+                else:
+                    return list(query_run_obj.to_dataframe().itertuples(index=False))
             else:
-                return self.session.query_and_wait(query)
+                return query_run_obj
         except Exception as e:
             raise Exception(f"Couldn't run the query: {query}. Error: {str(e)}")
 
@@ -81,11 +87,26 @@ class BigQueryConnector(CommonWarehouseConnector):
         self, _: google.cloud.bigquery.client.Client, table_name: str, **kwargs
     ) -> pd.DataFrame:
         query = self._create_get_table_query(table_name, **kwargs)
-        return self.session.query_and_wait(query).to_dataframe()
+        result = self.run_query(query, response=False)
+
+        try:
+            return result.to_dataframe()
+        except:
+            try:
+                return result.to_dataframe(
+                    create_bqstorage_client=True,
+                    dtypes=None,
+                    progress_bar_type=None,
+                    arrow_options={"pyarrow_schema": None},
+                )
+            except Exception as e:
+                raise Exception(
+                    f"Failed to run query {query} on BigQuery. Error: {str(e)}"
+                )
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT table_name as tablename FROM `{self.project_id}.{self.schema}.INFORMATION_SCHEMA.TABLES`;"
-        return self.session.query_and_wait(query).to_dataframe()
+        return self._run_query(query).to_dataframe()
 
     def fetch_table_metadata(self, table_name: str) -> List:
         """Fetches the schema fields of the given table from the BigQuery schema."""

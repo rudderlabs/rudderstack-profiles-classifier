@@ -20,7 +20,7 @@ install_requires = [
     "sqlalchemy-redshift>=0.8.14",
     "sqlalchemy>=1.4.51,<2.0.0",
     "snowflake_connector_python>=3.6.0",
-    "google-cloud-bigquery>=3.17.2",
+    "google-cloud-bigquery>=3.17.2,<3.28.0",
     "sqlalchemy-bigquery>=1.9.0",
     "db-dtypes>=1.2.0",
     "pycaret==3.3.1",

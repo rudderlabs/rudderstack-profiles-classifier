@@ -1,6 +1,6 @@
 name: py_native
 schema_version: 67
-connection: test_sf
+connection: test
 model_folders:
   - models
 # packages:

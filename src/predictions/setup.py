@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 from version import version
 
 install_requires = [
-    "profiles_rudderstack>=0.19.0",
+    "profiles_rudderstack>=0.19.0,<0.20.0",
     "cachetools>=5.3.2",
     "hyperopt>=0.2.7",
     "joblib>=1.3.2",

@@ -160,9 +160,9 @@ ABOUT_PB_RUN: Final[
 """
 
 
-EXPLAIN_PB_COMPILE_RESULTS: Callable[[str, int], str] = (
-    lambda target, seq_no: f"""
-    The profiles project is compiled successfully. This would have created a new folder called `outputs` within the `profiles` folder. In that you should see following folder structure:
+EXPLAIN_PB_COMPILE_RESULTS: Callable[[str, int, str], str] = (
+    lambda target, seq_no, profiles_dir: f"""
+    The profiles project is compiled successfully. This would have created a new folder called `outputs` within the `{profiles_dir}` folder. In that you should see following folder structure:
     ```
     .
     └── profiles
@@ -302,10 +302,10 @@ EXPLAIN_THIRD_RUN_2: Callable[[int, str], str] = (
 )
 
 
-EXPLAIN_PB_RUN_RESULTS: Callable[[str, str, str, str], str] = (
-    lambda id_stitcher_table_name, entity_name, schema, database: f"""
+EXPLAIN_PB_RUN_RESULTS: Callable[[str, str, str, str, str], str] = (
+    lambda id_stitcher_table_name, entity_name, schema, database, profiles_dir: f"""
     Congrats! You have completed your first profiles run.
-    This should have created multiple tables in your warehouse account, and a new seq_no folder in the profiles/output folder - just like the prev output of `pb compile`. 
+    This should have created multiple tables in your warehouse account, and a new seq_no folder in the {profiles_dir}/output folder - just like the prev output of `pb compile`. 
     These sql files were actually executed on your warehouse now. That's the difference from the compile command. Every new `pb run` or `pb compile` creates a new seq_no folder.
 
     Lets observe the output ID Graph produced. The table that was created, which we will query now is {database}.{schema}.{id_stitcher_table_name}.        

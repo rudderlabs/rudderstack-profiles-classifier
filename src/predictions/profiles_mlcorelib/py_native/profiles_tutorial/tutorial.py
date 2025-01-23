@@ -94,7 +94,9 @@ class ProfileBuilder:
     ):
         seq_no, _ = self.parse_material_name(pb_compile_output, id_graph_model)
         self.io.display_multiline_message(
-            messages.EXPLAIN_PB_COMPILE_RESULTS(target, seq_no)
+            messages.EXPLAIN_PB_COMPILE_RESULTS(
+                target, seq_no, PROFILES_TUTORIAL_CLI_DIR
+            )
         )
         return seq_no
 
@@ -111,7 +113,6 @@ class ProfileBuilder:
         self.io.display_message(messages.ABOUT_ENTITY)
         return self.io.get_user_input(
             "For the purpose of this tutorial, we will define a 'user' entity. Please enter `user`",
-            default="user",
             options=["user"],
         )
 
@@ -182,7 +183,6 @@ class ProfileBuilder:
         id_graph_model_name = self.io.get_user_input(
             f"Enter a name for the model, for example: `{id_graph_model}`",
             options=[id_graph_model],
-            default=id_graph_model,
         )
         self.io.display_multiline_message(messages.ABOUT_ID_STITCHER_2)
         edge_sources = []
@@ -276,6 +276,7 @@ class ProfileBuilder:
                 entity_name,
                 self.db_manager.schema,
                 self.db_manager.db,
+                PROFILES_TUTORIAL_CLI_DIR,
             )
         )
         distinct_ids = self._explain_first_run(entity_name, id_stitcher_table_name)
@@ -520,7 +521,7 @@ class ProfileBuilder:
             id_graph_model,
             target,
             command=f"pb run --seq_no {seq_no2}",
-            include_default=True,
+            # include_default=True,
         )
         self.io.display_multiline_message(
             messages.EXPLAIN_THIRD_RUN_1(

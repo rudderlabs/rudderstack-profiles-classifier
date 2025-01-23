@@ -36,7 +36,7 @@ class IOHandler:
 
     def display_multiline_message(self, message: str):
         for line in message.split("\n"):
+            if not self.fast_mode and line:
+                self.reader.get_input("")
             if line:
                 print(line)
-            if not self.fast_mode:
-                self.reader.get_input("")

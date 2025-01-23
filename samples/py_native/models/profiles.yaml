@@ -49,67 +49,67 @@ models:
         - packages/feature_table/entity/user/random_tz_unaware_feature
         - packages/feature_table/entity/user/random_high_cardinal_feature
 
-  - name: training_Regression_model
-    model_type: training_model
-    model_spec:
-      occurred_at_col: insert_ts
-      entity_key: user
-      inputs:
-        - packages/feature_table/entity/user/is_churned_7_days
-        - packages/feature_table/entity/user/days_since_last_seen
-        - packages/feature_table/entity/user/max_timestamp_pages
-        - packages/feature_table/entity/user/max_timestamp_tracks
-        - packages/feature_table/models/rsRandomSQLModel
-        - packages/feature_table/entity/user/random_date_feature
-        - packages/feature_table/entity/user/random_timestamp_feature
-        - packages/feature_table/entity/user/random_tz_aware_feature
-        - packages/feature_table/entity/user/random_tz_unaware_feature
-        - packages/feature_table/entity/user/random_high_cardinal_feature
-      ml_config:
-        data:
-          task: regression
-          label_column: packages/feature_table/entity/user/days_since_last_seen
-          prediction_horizon_days: 7
-          eligible_users: '*'
-          output_profiles_ml_model: ltv_regression_integration_test
-          new_materialisations_config:
-            strategy: "manual"
-            dates:
-              - '2024-08-01,2024-08-07'
-              - '2024-08-02,2024-08-08'
-              - '2024-08-03,2024-08-09'
+#   - name: training_Regression_model
+#     model_type: training_model
+#     model_spec:
+#       occurred_at_col: insert_ts
+#       entity_key: user
+#       inputs:
+#         - packages/feature_table/entity/user/is_churned_7_days
+#         - packages/feature_table/entity/user/days_since_last_seen
+#         - packages/feature_table/entity/user/max_timestamp_pages
+#         - packages/feature_table/entity/user/max_timestamp_tracks
+#         - packages/feature_table/models/rsRandomSQLModel
+#         - packages/feature_table/entity/user/random_date_feature
+#         - packages/feature_table/entity/user/random_timestamp_feature
+#         - packages/feature_table/entity/user/random_tz_aware_feature
+#         - packages/feature_table/entity/user/random_tz_unaware_feature
+#         - packages/feature_table/entity/user/random_high_cardinal_feature
+#       ml_config:
+#         data:
+#           task: regression
+#           label_column: packages/feature_table/entity/user/days_since_last_seen
+#           prediction_horizon_days: 7
+#           eligible_users: '*'
+#           output_profiles_ml_model: ltv_regression_integration_test
+#           new_materialisations_config:
+#             strategy: "manual"
+#             dates:
+#               - '2024-08-01,2024-08-07'
+#               - '2024-08-02,2024-08-08'
+#               - '2024-08-03,2024-08-09'
 
-  - name: prediction_regression_model
-    model_type: prediction_model
-    model_spec:
-      occurred_at_col: insert_ts
-      entity_key: user
-      training_model: models/training_regression_model
-      inputs:
-        - packages/feature_table/entity/user/is_churned_7_days
-        - packages/feature_table/entity/user/days_since_last_seen
-        - packages/feature_table/entity/user/max_timestamp_pages
-        - packages/feature_table/entity/user/max_timestamp_tracks
-        - packages/feature_table/models/rsRandomSQLModel
-        - packages/feature_table/entity/user/random_date_feature
-        - packages/feature_table/entity/user/random_timestamp_feature
-        - packages/feature_table/entity/user/random_tz_aware_feature
-        - packages/feature_table/entity/user/random_tz_unaware_feature
-        - packages/feature_table/entity/user/random_high_cardinal_feature
-      ml_config:
-        data:
-          task: regression
-          label_column: packages/feature_table/entity/user/days_since_last_seen
-          prediction_horizon_days: 7
-          eligible_users: '*'
-          output_profiles_ml_model: ltv_regression_integration_test
-        outputs:
-          column_names:
-            percentile: percentile_regression_days_since_last_seen
-            score: regression_days_since_last_seen
-      features:
-        - name: percentile_regression_days_since_last_seen
-          description: description
+#   - name: prediction_regression_model
+#     model_type: prediction_model
+#     model_spec:
+#       occurred_at_col: insert_ts
+#       entity_key: user
+#       training_model: models/training_regression_model
+#       inputs:
+#         - packages/feature_table/entity/user/is_churned_7_days
+#         - packages/feature_table/entity/user/days_since_last_seen
+#         - packages/feature_table/entity/user/max_timestamp_pages
+#         - packages/feature_table/entity/user/max_timestamp_tracks
+#         - packages/feature_table/models/rsRandomSQLModel
+#         - packages/feature_table/entity/user/random_date_feature
+#         - packages/feature_table/entity/user/random_timestamp_feature
+#         - packages/feature_table/entity/user/random_tz_aware_feature
+#         - packages/feature_table/entity/user/random_tz_unaware_feature
+#         - packages/feature_table/entity/user/random_high_cardinal_feature
+#       ml_config:
+#         data:
+#           task: regression
+#           label_column: packages/feature_table/entity/user/days_since_last_seen
+#           prediction_horizon_days: 7
+#           eligible_users: '*'
+#           output_profiles_ml_model: ltv_regression_integration_test
+#         outputs:
+#           column_names:
+#             percentile: percentile_regression_days_since_last_seen
+#             score: regression_days_since_last_seen
+#       features:
+#         - name: percentile_regression_days_since_last_seen
+#           description: description
 
 var_groups:
   - name: cohortVars

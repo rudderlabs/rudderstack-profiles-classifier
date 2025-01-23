@@ -26,7 +26,10 @@ class AuditIdStitcherModel(BaseModelType):
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
-        build_spec["materialization"] = {"output_type": "ephemeral"}
+        build_spec["materialization"] = {
+            "output_type": "shell",
+            "run_type": "interactive",
+        }
         super().__init__(build_spec, schema_version, pb_version)
         self.recipe = ModelRecipe(self.build_spec)
 

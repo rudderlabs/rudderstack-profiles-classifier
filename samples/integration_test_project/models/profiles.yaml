@@ -31,6 +31,7 @@ models:
         - random_timestamp_feature
         - random_tz_aware_feature
         - random_tz_unaware_feature
+        - random_high_cardinal_feature
 var_groups:
   - name: user_vars
     entity_key: user
@@ -104,3 +105,7 @@ var_groups:
       - entity_var:
           name: random_tz_unaware_feature
           select: "{{macro_random_tz_unaware_feature()}}"
+      - entity_var:
+          name: random_high_cardinal_feature
+          select: any_value(user_id)
+          from: inputs/rsPages

@@ -87,7 +87,40 @@ class BigQueryConnector(CommonWarehouseConnector):
         self, _: google.cloud.bigquery.client.Client, table_name: str, **kwargs
     ) -> pd.DataFrame:
         query = self._create_get_table_query(table_name, **kwargs)
-        return self.run_query(query, return_type="dataframe")
+        result = self.run_query(query, response=False)
+
+        try:
+            return result.to_dataframe()
+        except Exception as e1:
+            try:
+                schema = self._get_table_schema(table_name)
+                return result.to_dataframe(
+                    create_bqstorage_client=True,
+                    dtypes=schema,
+                    progress_bar_type=None,
+                )
+            except Exception as e2:
+                raise Exception(
+                    f"Failed to load table {table_name} from BigQuery. "
+                    f"First attempt error: {str(e1)}. "
+                    f"Second attempt error: {str(e2)}"
+                )
+
+    def _get_table_schema(self, table_name):
+        schema_fields = self.fetch_table_metadata(table_name)
+        schema = {}
+        for field in schema_fields:
+            if field.field_type in self.data_type_mapping["numeric"]:
+                schema[field.name] = "float64"
+            elif field.field_type in self.data_type_mapping["categorical"]:
+                schema[field.name] = "string"
+            elif field.field_type in self.data_type_mapping["timestamp"]:
+                schema[field.name] = "datetime64[ns]"
+            elif field.field_type in self.data_type_mapping["booleantype"]:
+                schema[field.name] = "boolean"
+            else:
+                schema[field.name] = "string"  # Default to string for unknown types
+        return schema
 
     def get_tablenames_from_schema(self) -> pd.DataFrame:
         query = f"SELECT DISTINCT table_name as tablename FROM `{self.project_id}.{self.schema}.INFORMATION_SCHEMA.TABLES`;"

@@ -1,2 +1,2 @@
 include profiles_mlcorelib/config/model_configs.yaml
-include profiles_mlcorelib/py_native/profiles_tutorial/sample_data.zip
+include profiles_mlcorelib/py_native/profiles_tutorial/profiles_tutorial_cli_sample_data.zip

@@ -1,8 +1,11 @@
-SAMPLE_DATA_DIR = "sample_data"
+SAMPLE_DATA_DIR = (
+    "profiles_tutorial_cli_sample_data"  # This should be the same in manifest.in
+)
 TABLE_SUFFIX = "PB_TUTORIAL"  # ToDo: Make it human readable, or let user modify it
-CONFIG_FILE_PATH = "profiles/pb_project.yaml"
-INPUTS_FILE_PATH = "profiles/models/inputs.yaml"
-PROFILES_FILE_PATH = "profiles/models/profiles.yaml"
+PROFILES_TUTORIAL_CLI_DIR = "profiles_tutorial_cli"
+CONFIG_FILE_PATH = f"{PROFILES_TUTORIAL_CLI_DIR}/pb_project.yaml"
+INPUTS_FILE_PATH = f"{PROFILES_TUTORIAL_CLI_DIR}/models/inputs.yaml"
+PROFILES_FILE_PATH = f"{PROFILES_TUTORIAL_CLI_DIR}/models/profiles.yaml"
 PREDEFINED_ID_TYPES = [
     "anon_id",
     "email",

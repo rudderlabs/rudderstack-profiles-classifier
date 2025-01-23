@@ -160,9 +160,9 @@ ABOUT_PB_RUN: Final[
 """
 
 
-EXPLAIN_PB_COMPILE_RESULTS: Callable[[str, int], str] = (
-    lambda target, seq_no: f"""
-    The profiles project is compiled successfully. This would have created a new folder called `outputs` within the `profiles` folder. In that you should see following folder structure:
+EXPLAIN_PB_COMPILE_RESULTS: Callable[[str, int, str], str] = (
+    lambda target, seq_no, profiles_dir: f"""
+    The profiles project is compiled successfully. This would have created a new folder called `outputs` within the `{profiles_dir}` folder. In that you should see following folder structure:
     ```
     .
     └── profiles
@@ -263,7 +263,6 @@ EXPLAIN_BAD_ANNOYMOUS_IDS_2: Final[
 ] = """
     We sorted the query on an id type (email) where we know there should only be one per user_main_id. 
     And we can see that each of the 5 anonymous_ids seen in the previous query have 12 emails, user_ids, and shopify_customer_is linked to them. 
-    You can also expand the array column to get a full list of the other ids that were directly linked to each single id value. 
     You can see for the first anonymous_id for example, that there are many users merged together. 
     These 5 anonymous_ids are the clear culprit as to what has caused some of these users to merge. 
     Recalling the beginning of this tutorial, Secure Solutions, LLC has 1 brick and mortar store where customers can purchase IoT security devices from where they can checkout from an in store Kiosk. 
@@ -289,7 +288,7 @@ EXPLAIN_SEQ_NO: Callable[[int, str], str] = (
 EXPLAIN_THIRD_RUN_1: Callable[[str, str, str, str], str] = (
     lambda id_stitcher_table_1, id_stitcher_table_2, id_stitcher_table_name_3, entity_name: f"""
     You can see that the id stitcher table name has changed again. It is now {id_stitcher_table_name_3} (from earlier {id_stitcher_table_2} and {id_stitcher_table_1}).
-    The filter on anonymous_id resulted in the changing of the hash. But as we reused prev seq_no, the suffix seq_no did not change.
+    The filter on anonymous_id resulted in the changing of the hash.
     Let's check the number of distinct {entity_name}_main_ids now.
 """
 )
@@ -302,10 +301,10 @@ EXPLAIN_THIRD_RUN_2: Callable[[int, str], str] = (
 )
 
 
-EXPLAIN_PB_RUN_RESULTS: Callable[[str, str, str, str], str] = (
-    lambda id_stitcher_table_name, entity_name, schema, database: f"""
+EXPLAIN_PB_RUN_RESULTS: Callable[[str, str, str, str, str], str] = (
+    lambda id_stitcher_table_name, entity_name, schema, database, profiles_dir: f"""
     Congrats! You have completed your first profiles run.
-    This should have created multiple tables in your warehouse account, and a new seq_no folder in the profiles/output folder - just like the prev output of `pb compile`. 
+    This should have created multiple tables in your warehouse account, and a new seq_no folder in the {profiles_dir}/output folder - just like the prev output of `pb compile`. 
     These sql files were actually executed on your warehouse now. That's the difference from the compile command. Every new `pb run` or `pb compile` creates a new seq_no folder.
 
     Lets observe the output ID Graph produced. The table that was created, which we will query now is {database}.{schema}.{id_stitcher_table_name}.        

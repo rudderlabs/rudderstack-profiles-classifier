@@ -42,6 +42,7 @@ class RudderPB:
             "-m",
             arg["feature_package_path"],
             "--migrate_on_load=True",
+            "--disable_registry_cache",
             "--end_time",
             str(features_valid_time_unix),
             "-c",

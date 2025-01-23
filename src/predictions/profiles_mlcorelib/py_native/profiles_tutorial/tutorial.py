@@ -17,6 +17,7 @@ from .config import (
     PRE_DEFINED_FEATURES,
     USER_DEFINED_FEATURES,
     PRE_DEFINED_MACROS,
+    PROFILES_TUTORIAL_CLI_DIR,
 )
 
 
@@ -57,7 +58,7 @@ class ProfileBuilder:
     ):
         self.io.display_multiline_message(messages.ABOUT_PB_COMPILE)
         self.io.get_user_input("Enter `pb compile`", options=["pb compile"])
-        os.chdir("profiles")
+        os.chdir(PROFILES_TUTORIAL_CLI_DIR)
         pb_compile_output = self._subprocess_run(
             ["pb", "compile", "--target", target, "--migrate_on_load"]
         )
@@ -93,7 +94,9 @@ class ProfileBuilder:
     ):
         seq_no, _ = self.parse_material_name(pb_compile_output, id_graph_model)
         self.io.display_multiline_message(
-            messages.EXPLAIN_PB_COMPILE_RESULTS(target, seq_no)
+            messages.EXPLAIN_PB_COMPILE_RESULTS(
+                target, seq_no, PROFILES_TUTORIAL_CLI_DIR
+            )
         )
         return seq_no
 
@@ -110,7 +113,6 @@ class ProfileBuilder:
         self.io.display_message(messages.ABOUT_ENTITY)
         return self.io.get_user_input(
             "For the purpose of this tutorial, we will define a 'user' entity. Please enter `user`",
-            default="user",
             options=["user"],
         )
 
@@ -181,7 +183,6 @@ class ProfileBuilder:
         id_graph_model_name = self.io.get_user_input(
             f"Enter a name for the model, for example: `{id_graph_model}`",
             options=[id_graph_model],
-            default=id_graph_model,
         )
         self.io.display_multiline_message(messages.ABOUT_ID_STITCHER_2)
         edge_sources = []
@@ -207,10 +208,10 @@ class ProfileBuilder:
 
     def generate_pb_project(self, connection_name):
         # create a directory called profiles if doesn't exist
-        if not os.path.exists("profiles"):
-            os.makedirs("profiles")
-        if not os.path.exists("profiles/models"):
-            os.makedirs("profiles/models")
+        if not os.path.exists(PROFILES_TUTORIAL_CLI_DIR):
+            os.makedirs(PROFILES_TUTORIAL_CLI_DIR)
+        if not os.path.exists(f"{PROFILES_TUTORIAL_CLI_DIR}/models"):
+            os.makedirs(f"{PROFILES_TUTORIAL_CLI_DIR}/models")
         entity_name = self.get_entity_name()
         id_graph_model = f"{entity_name}_{ID_GRAPH_MODEL_SUFFIX}"
         id_types = self.get_id_types(entity_name)
@@ -228,7 +229,7 @@ class ProfileBuilder:
         )
         assert (
             response.returncode == 0
-        ), f"Command {args} failed with error: {response.stderr}"
+        ), f"Command {args} failed with error: {response.stderr}\nMore info: {response.stdout}"
         return response.stdout
 
     def parse_material_name(self, pb_output_text: str, model_name: str):
@@ -259,7 +260,7 @@ class ProfileBuilder:
         self.io.display_message(
             "Running the profiles project...(This will take a few minutes)"
         )
-        os.chdir("profiles")
+        os.chdir(PROFILES_TUTORIAL_CLI_DIR)
         pb_run_output = self._subprocess_run(
             [*command.split(), "--target", target, "--migrate_on_load"]
         )
@@ -275,6 +276,7 @@ class ProfileBuilder:
                 entity_name,
                 self.db_manager.schema,
                 self.db_manager.db,
+                PROFILES_TUTORIAL_CLI_DIR,
             )
         )
         distinct_ids = self._explain_first_run(entity_name, id_stitcher_table_name)
@@ -512,14 +514,16 @@ class ProfileBuilder:
         target: str,
     ):
         # Third run
-        self.io.display_multiline_message(
-            messages.EXPLAIN_SEQ_NO(seq_no2, id_stitcher_table_2)
-        )
+        # ToDo :Removing seq no from the prompt temporarily till the bug is fixed in pb
+        # self.io.display_multiline_message(
+        #     messages.EXPLAIN_SEQ_NO(seq_no2, id_stitcher_table_2)
+        # )
         _, id_stitcher_table_name_3 = self.prompt_to_do_pb_run(
             id_graph_model,
             target,
-            command=f"pb run --seq_no {seq_no2}",
-            include_default=True,
+            command="pb run",
+            # command=f"pb run --seq_no {seq_no2}",
+            # include_default=True,
         )
         self.io.display_multiline_message(
             messages.EXPLAIN_THIRD_RUN_1(

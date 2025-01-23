@@ -6,31 +6,5 @@ model_folders:
 packages:
   - name: feature_table
     url: ../integration_test_project
-# # Entities in this project and their ids.
-# entities:
-#   - name: user
-#     id_stitcher: models/shopify_user_id_stitcher
-#     id_types:
-#       - anonymous_id
-#       - user_id
-#       - email
-#       - cart_token
-# id_types:
-#   - name: user_id
-#   - name: cart_token
-#   - name: anonymous_id
-#     filters:
-#       - type: exclude
-#         value: ""
-#       - type: exclude
-#         value: "unknown"
-#       - type: exclude
-#         value: "NaN"
-#   - name: email
-#     filters:
-#       - type: include
-#         regex: ".+@.+"
-#       - type: exclude
-#         value: "test@company.com"
 python_requirements:
   - profiles_mlcorelib

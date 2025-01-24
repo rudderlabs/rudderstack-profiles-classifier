@@ -115,9 +115,9 @@ jobs:
           - test: tests/integration/snowflake/pynative.py
             site_config: SNOWFLAKE_SITE_CONFIG
             python_version: 3.10.13
-          # - test: tests/integration/snowflake/pynative.py
-          #   site_config: SNOWFLAKE_SITE_CONFIG
-          #   python_version: 3.9
+          - test: tests/integration/snowflake/pynative.py
+            site_config: SNOWFLAKE_SITE_CONFIG
+            python_version: 3.9
           - test: tests/integration/redshift/pynative.py
             site_config: REDSHIFT_SITE_CONFIG_V2
             python_version: 3.10.13

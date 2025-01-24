@@ -184,7 +184,6 @@ class PropensityModel(BaseModelType):
         }
         if "ids" in self.build_spec:
             spec["ids"] = self.build_spec["ids"]
-        print("Prediction spec: ", spec)
         return spec
 
     def get_material_recipe(self) -> PyNativeRecipe:

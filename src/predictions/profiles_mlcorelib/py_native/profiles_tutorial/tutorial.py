@@ -14,6 +14,9 @@ from .config import (
     SAMPLE_DATA_DIR,
     TABLE_SUFFIX,
     ID_GRAPH_MODEL_SUFFIX,
+    PRE_DEFINED_FEATURES,
+    USER_DEFINED_FEATURES,
+    PRE_DEFINED_MACROS,
 )
 
 
@@ -47,9 +50,11 @@ class ProfileBuilder:
         self.map_tables_to_id_types(relevant_tables, id_types, entity_name)
         # profiles.yaml
         self.build_id_stitcher_model(relevant_tables, entity_name, id_graph_model)
-        self.pb_runs(entity_name, id_graph_model, target)
+        self.pb_runs(entity_name, id_types, id_graph_model, target)
 
-    def pb_runs(self, entity_name, id_graph_model: str, target: str):
+    def pb_runs(
+        self, entity_name, id_types: list[str], id_graph_model: str, target: str
+    ):
         self.io.display_multiline_message(messages.ABOUT_PB_COMPILE)
         self.io.get_user_input("Enter `pb compile`", options=["pb compile"])
         os.chdir("profiles")
@@ -80,11 +85,13 @@ class ProfileBuilder:
             seq_no,
             target,
         )
+        # Add features and create feature views
+        self.fourth_run(entity_name, id_types, target)
 
     def explain_pb_compile_results(
         self, target: str, pb_compile_output: str, id_graph_model: str
     ):
-        seq_no, _ = self.parse_pb_output_text(pb_compile_output, id_graph_model)
+        seq_no, _ = self.parse_material_name(pb_compile_output, id_graph_model)
         self.io.display_multiline_message(
             messages.EXPLAIN_PB_COMPILE_RESULTS(target, seq_no)
         )
@@ -143,7 +150,6 @@ class ProfileBuilder:
 
     def map_tables_to_id_types(self, relevant_tables, id_types, entity_name):
         self.io.display_multiline_message(messages.ABOUT_INPUTS)
-
         id_mappings = {}
         table_index = 0
         while table_index < len(relevant_tables):
@@ -162,7 +168,7 @@ class ProfileBuilder:
                 if table_mappings:
                     id_mappings[table] = {
                         "mappings": table_mappings,
-                        "full_table_name": f"{self.db_manager.get_qualified_name(table)}",
+                        "full_table_name": f"{self.db_manager.get_qualified_name(table, True)}",
                     }
                 table_index += 1
         self.yaml_generator.create_inputs_yaml(id_mappings)
@@ -225,26 +231,31 @@ class ProfileBuilder:
         ), f"Command {args} failed with error: {response.stderr}"
         return response.stdout
 
-    def parse_pb_output_text(self, pb_output_text: str, id_graph_name: str):
+    def parse_material_name(self, pb_output_text: str, model_name: str):
         seq_no_pattern = r"--seq_no (\d+)"
         match = re.search(seq_no_pattern, pb_output_text)
         assert match, f"Failed to find seq_no in the pb  output {pb_output_text}"
         seq_no = match.group(1)
-        pattern = rf"(Material_{id_graph_name}_[a-f0-9]+_\d+)"
+        pattern = rf"(Material_{model_name}_[a-f0-9]+_\d+)"
         match = re.search(pattern, pb_output_text)
         assert (
             match
         ), f"Failed to find id_graph_table_name in the pb  output {pb_output_text}"
-        id_graph_table_name = match.group(1)
-        return int(seq_no), id_graph_table_name
+        material_name = match.group(1)
+        return int(seq_no), material_name
 
     def prompt_to_do_pb_run(
         self,
-        id_graph_name: str,
+        model_name: str,
         target: str,
         command: str = "pb run",
+        include_default: bool = False,
     ):
-        self.io.get_user_input(f"Enter `{command}` to continue", options=[command])
+        self.io.get_user_input(
+            f"Enter `{command}` to continue",
+            options=[command],
+            default=command if include_default else None,
+        )
         self.io.display_message(
             "Running the profiles project...(This will take a few minutes)"
         )
@@ -253,11 +264,9 @@ class ProfileBuilder:
             [*command.split(), "--target", target, "--migrate_on_load"]
         )
         os.chdir("..")
-        seq_no, id_graph_table_name = self.parse_pb_output_text(
-            pb_run_output, id_graph_name
-        )
+        seq_no, material_name = self.parse_material_name(pb_run_output, model_name)
         self.io.display_message("Done")
-        return seq_no, id_graph_table_name
+        return seq_no, material_name
 
     def explain_pb_run_results(self, entity_name: str, id_stitcher_table_name: str):
         self.io.display_multiline_message(
@@ -310,18 +319,26 @@ class ProfileBuilder:
         self.io.display_multiline_message(
             messages.EXPLAIN_FIRST_RUN_PROMPT(entity_name)
         )
-        self.io.get_user_input(
-            "Enter 'done' to continue once you have made the changes", options=["done"]
-        )
-        # Validate whether the new yaml files have shopify_store_id
-        while not self.yaml_generator.validate_shopify_store_id_is_removed():
+
+        if self.fast_mode:
             self.io.display_message(
-                "Please make sure to remove shopify_store_id from pb_project.yaml, inputs.yaml and try again"
+                "Removing shopify_store_id from pb_project.yaml and inputs.yaml"
             )
+            self.yaml_generator.remove_shopify_store_id()
+        else:
             self.io.get_user_input(
                 "Enter 'done' to continue once you have made the changes",
                 options=["done"],
             )
+            # Validate whether the new yaml files have shopify_store_id
+            while not self.yaml_generator.validate_shopify_store_id_is_removed():
+                self.io.display_message(
+                    "Please make sure to remove shopify_store_id from pb_project.yaml, inputs.yaml and try again"
+                )
+                self.io.get_user_input(
+                    "Enter 'done' to continue once you have made the changes",
+                    options=["done"],
+                )
         return distinct_ids
 
     def cluster_size_analysis(self, entity_name: str, id_stitcher_table_name: str):
@@ -369,7 +386,7 @@ class ProfileBuilder:
         self.io.display_message(result.head(10).to_string())
         self.io.display_multiline_message(messages.EXPLAIN_EDGES_TABLE(edge_table))
 
-        dense_edges_query = f"""
+        dense_edges_query_template = f"""
     WITH edge_table AS (    
         SELECT
         id1 AS id_val,
@@ -393,8 +410,15 @@ class ProfileBuilder:
         id_type,
         COUNT(*) as count_of_edges
     FROM edge_table
+{{% if warehouse.DatabaseType() == 'redshift' %}}
+    GROUP BY id_val, id_type
+{{% else %}}
     GROUP BY ALL
+{{% endif %}}
     ORDER BY count_of_edges DESC;"""
+        dense_edges_query = self.db_manager.material.execute_text_template(
+            dense_edges_query_template, skip_material_wrapper=True
+        )
         self.io.display_message(dense_edges_query)
         self.io.display_message("Running the query...")
         dense_edges = self.db_manager.client.query_sql_with_result(dense_edges_query)
@@ -440,19 +464,20 @@ class ProfileBuilder:
         SUM(email) AS email_count,
         SUM(user_id) AS user_id_count,
         SUM(shopify_customer_id) AS shopify_customer_id_count,
-        count(*) as total_count,
-        {{% if warehouse.DatabaseType() == 'snowflake' %}}
-            ARRAY_SORT(ARRAY_AGG(OBJECT_CONSTRUCT(other_id_type, id_other))) AS id_list
-        {{% elif warehouse.DatabaseType() == 'redhsift' %}}
-            JSON_PARSE('[' || LISTAGG('{{"' || other_id_type || '"' || ':' || id_other || '}}', ', ') WITHIN GROUP (ORDER BY other_id_type) || ']') as id_list
-        {{% elif warehouse.DatabaseType() == 'databricks' %}}
-            COLLECT_LIST(map(other_id_type, id_other)) as id_list
-        {{% elif warehouse.DatabaseType() == 'bigquery' %}}
-            ARRAY_AGG(STRUCT(other_id_type, id_other) ORDER BY other_id_type) as id_list
-        {{% endif %}}
+        count(*) as total_count
     FROM id_value_counts
     group by 1,2
     order by email_count desc"""
+        # Id Lists
+        # {{% if warehouse.DatabaseType() == 'snowflake' %}}
+        #     ARRAY_SORT(ARRAY_AGG(OBJECT_CONSTRUCT(other_id_type, id_other))) AS id_list
+        # {{% elif warehouse.DatabaseType() == 'redhsift' %}}
+        #     JSON_PARSE('[' || LISTAGG('{{"' || other_id_type || '"' || ':' || id_other || '}}', ', ') WITHIN GROUP (ORDER BY other_id_type) || ']') as id_list
+        # {{% elif warehouse.DatabaseType() == 'databricks' %}}
+        #     COLLECT_LIST(map(other_id_type, id_other)) as id_list
+        # {{% elif warehouse.DatabaseType() == 'bigquery' %}}
+        #     ARRAY_AGG(STRUCT(other_id_type, id_other) ORDER BY other_id_type) as id_list
+        # {{% endif %}}
         query_investigate_bad_anons_sql = (
             self.db_manager.material.execute_text_template(
                 query_investigate_bad_anons, skip_material_wrapper=True
@@ -491,7 +516,10 @@ class ProfileBuilder:
             messages.EXPLAIN_SEQ_NO(seq_no2, id_stitcher_table_2)
         )
         _, id_stitcher_table_name_3 = self.prompt_to_do_pb_run(
-            id_graph_model, target, command=f"pb run --seq_no {seq_no2}"
+            id_graph_model,
+            target,
+            command=f"pb run --seq_no {seq_no2}",
+            include_default=True,
         )
         self.io.display_multiline_message(
             messages.EXPLAIN_THIRD_RUN_1(
@@ -508,4 +536,76 @@ class ProfileBuilder:
 
         result = self.cluster_size_analysis(entity_name, id_stitcher_table_name_3)
         self.io.display_message(result.head(20).to_string())
-        self.io.display_multiline_message(messages.CONCLUSION_MESSAGE)
+        self.io.display_multiline_message(messages.THIRD_RUN_CONCLUSION_MESSAGE)
+
+    def fourth_run(
+        self,
+        entity_name: str,
+        id_types: list[str],
+        target: str,
+    ):
+        self.io.display_multiline_message(messages.FEATURE_CREATION_INTRO(entity_name))
+
+        for feature in USER_DEFINED_FEATURES:
+            self.io.display_message(feature["user_prompt"])
+            self.io.get_user_input(
+                "Let's input the name of this feature for our c360 view:\n",
+                options=[feature["name"]],
+                default=feature["name"],
+            )
+            self.io.get_user_input(
+                "Enter the aggregation function to use as well as the column to select from:\n",
+                options=[feature["select"]],
+                default=feature["select"],
+            )
+            if "order_by_prompt" in feature:
+                self.io.get_user_input(
+                    f"{feature['order_by_prompt']}\n",
+                    options=[feature["window"]["order_by"][0]],
+                    default=feature["window"]["order_by"][0],
+                )
+
+            self.io.get_user_input(
+                "Now, let's enter the data source for this feature:\n",
+                options=[feature["from"]],
+                default=feature["from"],
+            )
+
+        self.yaml_generator.add_macros(PRE_DEFINED_MACROS)
+        self.yaml_generator.add_features(
+            entity_name, [*USER_DEFINED_FEATURES, *PRE_DEFINED_FEATURES]
+        )
+        self.io.display_multiline_message(messages.FEATURES_ADDED)
+        self.io.display_multiline_message(messages.DEFINE_FEATURE_VIEW)
+
+        feature_view_name = self.io.get_user_input(
+            "Let's define this customer feature view with a name as well as the id_type we want to use as our primary key:\n",
+            options=[f"customers_by_{id_type}" for id_type in id_types],
+            default=f"customers_by_email",
+        )
+        feature_view_using_id = self.io.get_user_input(
+            "Now, let's choose what id_type we want to use for the primary key:\n",
+            options=id_types,
+            default="email",
+        )
+        self.yaml_generator.add_feature_views(
+            entity_name,
+            [{"id": feature_view_using_id, "name": feature_view_name}],
+        )
+        self.io.display_message(
+            "You can now look at your pb_project.yaml and see the defined feature view. Again, this will output 2 views. The default view created automatically, and the customer one you defined here. "
+        )
+
+        seq_no, feature_view_table_name = self.prompt_to_do_pb_run(
+            feature_view_name, target
+        )
+        self.io.display_message(
+            "Great job! You have now created two feature views. Let's query the custom feature view you created."
+        )
+
+        sql = f"select * from {self.db_manager.get_qualified_name(feature_view_table_name)}"
+        self.io.display_message(sql)
+        res = self.db_manager.client.query_sql_with_result(sql)
+        self.io.display_message(res.head(10).to_string())
+
+        self.io.display_multiline_message(messages.CONCLUSSION)

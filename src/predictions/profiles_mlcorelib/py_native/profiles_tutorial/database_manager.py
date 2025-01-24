@@ -20,9 +20,24 @@ class DatabaseManager:
         self.io = io
         self.fast_mode = fast_mode
 
-    def get_qualified_name(self, table: str) -> str:
+    def get_case_sensitive_name(self, table_name: str, respect_case=False) -> str:
+        # Returns a table name that is case-sensitive according to the warehouse defaults
+        # TODO: Use wht client methods instead
+        if respect_case:
+            return table_name
+        if self.client.wh_type == "snowflake":
+            return table_name.upper()
+        else:
+            return table_name
+
+    def get_qualified_name(self, table: str, respect_case=False) -> str:
         """Returns the fully qualified name of the table"""
-        return f"{self.db}.{self.schema}.{table}"
+        # TODO: Use wht function here
+        table_name = table
+        if not respect_case and self.client.wh_type == "bigquery":
+            table_name = table.lower().capitalize()
+
+        return f"{self.db}.{self.schema}.{table_name}"
 
     def get_table_names(self) -> List[str]:
         # Ref taken from sqlconnect-go
@@ -53,13 +68,15 @@ class DatabaseManager:
                 continue
 
             base_name = os.path.splitext(filename)[0]
-            table_name = f"{base_name}_{table_suffix}"
-            new_table_names[filename] = table_name.lower()
+            table_name = self.get_case_sensitive_name(
+                f"{base_name}_{table_suffix}".lower()
+            )
+            new_table_names[filename] = table_name
 
             if not to_upload:
                 continue
 
-            if table_name.lower() in existing_tables:
+            if table_name in existing_tables:
                 action = self.io.get_user_input(
                     f"Table {table_name} already exists. Do you want to skip uploading again, so we can reuse the tables? (yes/no) (yes - skips upload, no - uploads again): "
                 )
@@ -88,9 +105,9 @@ class DatabaseManager:
     def find_relevant_tables(self, new_table_names: dict) -> List[str]:
         tables = self.get_table_names()
         new_tables = [new_table.lower() for new_table in new_table_names.values()]
-        relevant_tables = [
-            table.lower() for table in tables if table.lower() in new_tables
-        ]
+        relevant_tables = sorted(
+            [table.lower() for table in tables if table.lower() in new_tables]
+        )
         return relevant_tables
 
     def get_columns(self, table: str) -> List[str]:
@@ -117,7 +134,7 @@ class DatabaseManager:
         self, table: str, column: str, num_samples: int = 5
     ) -> List[str]:
         try:
-            query = f"SELECT {column} FROM {self.get_qualified_name(table)} where {column} is not null LIMIT {num_samples}"
+            query = f"SELECT {column} FROM {self.get_qualified_name(table.lower(), True)} where {column} is not null LIMIT {num_samples}"
             df: pd.DataFrame = self.client.query_sql_with_result(query)
             if df.empty:
                 return []
@@ -135,8 +152,7 @@ class DatabaseManager:
         try:
             columns = self.get_columns(table)
         except Exception as e:
-            logger.error(f"Error fetching columns for {table}: {e}")
-            return None, "back"
+            raise Exception(f"Error fetching columns for {table}: {e}")
 
         id_type_mapping = {"anon_id": "anonymous_id"}
         # Shortlist columns based on regex matches with id_types
@@ -175,7 +191,7 @@ class DatabaseManager:
         )
         shortlisted_id_types = ",".join(list(shortlisted_columns.keys()))
         applicable_id_types_input = self.io.get_user_input(
-            f"Enter the comma-separated list of id_types applicable to the `{table}` table: \n>",
+            f"Enter the comma-separated list of id_types applicable to the `{table}` table: \n",
             options=[shortlisted_id_types],
             default=shortlisted_id_types,
         )
@@ -226,7 +242,7 @@ class DatabaseManager:
                 # else:
                 #     default = None
                 user_input = self.io.get_user_input(
-                    f"Enter the column(s) to map the id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n> ",
+                    f"Enter the column(s) to map the id_type '{id_type}' in table `{table}`, or 'skip' to skip:\n",
                     default=default,
                     options=[default],
                 )

@@ -145,15 +145,16 @@ def assert_training_artefacts():
             ],
             "classification": True,
         },
-        {
-            "regex": "Material_training_Regression_model_.+",
-            "reports": [
-                "01-feature-importance-chart",
-                "02-residuals-chart",
-                "03-deciles-plot",
-            ],
-            "classification": False,
-        },
+        # TODO: Add back in when we have regression models
+        # {
+        #     "regex": "Material_training_Regression_model_.+",
+        #     "reports": [
+        #         "01-feature-importance-chart",
+        #         "02-residuals-chart",
+        #         "03-deciles-plot",
+        #     ],
+        #     "classification": False,
+        # },
     ]
     for model in models:
         material_directory = get_directory_name(model["regex"])

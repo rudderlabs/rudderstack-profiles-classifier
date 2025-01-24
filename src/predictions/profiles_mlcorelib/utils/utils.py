@@ -440,7 +440,9 @@ def subprocess_run(args):
     logger.get().debug(f"Subprocess Output:\n{indented_output}")
     if response.returncode != 0:
         logger.get().error(f"Error occurred. Exit code:{response.returncode}")
-        raise Exception(f"Subprocess Error: {response.stderr}")
+        raise Exception(
+            f"Subprocess Error: {response.stderr}\n\nSubprocess Output: \n{response.stdout}"
+        )
     return response
 
 

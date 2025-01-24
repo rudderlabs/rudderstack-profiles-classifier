@@ -7,9 +7,8 @@ from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
-
-from .tutorial import ProfileBuilder
 from .config import SAMPLE_DATA_DIR
+from .tutorial import ProfileBuilder
 
 
 class TutorialModel(BaseModelType):
@@ -82,7 +81,7 @@ def get_sample_data_path():
     """Returns the path to the data directory"""
     try:
         zip_file = resources.files("profiles_mlcorelib").joinpath(
-            "py_native", "profiles_tutorial", "sample_data.zip"
+            "py_native", "profiles_tutorial", f"{SAMPLE_DATA_DIR}.zip"
         )
         if not zip_file.is_file():
             return None

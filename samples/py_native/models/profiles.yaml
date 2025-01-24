@@ -14,7 +14,7 @@ models:
         predict_var: models/cohort/is_churned_7_days
         predict_window_days: 7
         eligible_users: '*'
-        max_row_count: 500000
+        max_row_count: 30000
         label_value: 1
         type: classification
         validity: day

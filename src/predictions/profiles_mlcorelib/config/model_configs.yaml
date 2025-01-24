@@ -11,7 +11,7 @@ data:
     - local
     - rudderstack-infra
     - native-warehouse
-  max_row_count: 500000
+  max_row_count: 30000
   recall_to_precision_importance: 1.0 # Importance of recall to precision. If 1.0, then recall and precision are equally important.
   new_materialisations_config:
     strategy: "auto" # (auto|manual) Strategy for generating new materials

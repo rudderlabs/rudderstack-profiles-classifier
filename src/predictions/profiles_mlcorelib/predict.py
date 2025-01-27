@@ -42,6 +42,7 @@ def _predict(
     site_config_path = utils.fetch_key_from_dict(runtime_info, "site_config_path", "")
 
     folder_path = os.path.dirname(model_path)
+    logger.get().info(f"Fetching train data artefacts from folder {folder_path}")
 
     connector = ConnectorFactory.create(creds, folder_path)
     whtService.set_connector(connector)

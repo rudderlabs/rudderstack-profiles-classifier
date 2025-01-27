@@ -94,20 +94,16 @@ class PropensityModel(BaseModelType):
         parent_folder: WhtFolder,
         model_name: str,
     ) -> None:
-        # ToDo: Uncomment and remove the ephemeral line for 0.7.2 release
-        # build_spec["materialization"] = {"output_type": "none"}
-        build_spec["materialization"] = {"output_type": "ephemeral"}
+        build_spec["materialization"] = {"output_type": "none"}
         super().__init__(build_spec, schema_version, pb_version)
         training_model_name = model_name + "_training"
         training_spec = self._get_training_spec()
         parent_folder.add_child_specs(
             training_model_name, "training_model", training_spec
         )
-        # training_model_ref = (
-        #     f"{parent_folder.folder_ref_from_level_root()}/{training_model_name}"
-        # )
-        # ToDo: Uncomment the prev line for 0.7.2 and remove below line
-        training_model_ref = "models/" + training_model_name
+        training_model_ref = (
+            f"{parent_folder.folder_ref_from_level_root()}/{training_model_name}"
+        )
         prediction_spec = self._get_prediction_spec(training_model_ref, training_spec)
         parent_folder.add_child_specs(
             model_name + "_prediction",

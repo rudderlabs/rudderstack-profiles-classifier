@@ -13,7 +13,6 @@ models:
       training:
         predict_var: models/cohort/is_churned_7_days
         predict_window_days: 7
-        eligible_users: '*'
         max_row_count: 30000
         label_value: 1
         type: classification
@@ -31,7 +30,6 @@ models:
             name: classification_churn_7_days
             description: description2
             is_feature: False
-        eligible_users: '*'
       inputs:
         - packages/feature_table/entity/user/max_timestamp_tracks
         - packages/feature_table/entity/user/max_timestamp_pages

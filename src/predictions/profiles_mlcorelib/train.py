@@ -320,7 +320,7 @@ def _train(
     )
     logger.get().debug("Training completed. Saving the artefacts")
 
-    logger.get().info("Saving train results to file")
+    logger.get().info(f"Saving train results to file {output_filename}")
     model_id = train_results["model_id"]
 
     training_dates_ = []

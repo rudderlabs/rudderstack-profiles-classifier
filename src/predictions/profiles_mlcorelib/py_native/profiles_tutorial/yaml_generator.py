@@ -50,7 +50,7 @@ class YamlGenerator:
                 "name": table_name,
                 "app_defaults": {
                     "table": mapping["full_table_name"],
-                    "occurred_at_col": "timestamp",
+                    "occurred_at_col": "event_timestamp",
                     "ids": [],
                 },
             }
@@ -103,6 +103,27 @@ class YamlGenerator:
                     return False
         return True
 
+    def remove_shopify_store_id(self):
+        with open(CONFIG_FILE_PATH, "r") as file:
+            pb_project = yaml.safe_load(file)
+        with open(INPUTS_FILE_PATH, "r") as file:
+            inputs = yaml.safe_load(file)
+        for id_type in pb_project["id_types"]:
+            if id_type["name"] == "shopify_store_id":
+                pb_project["id_types"].remove(id_type)
+        for entity in pb_project["entities"]:
+            for id_type in entity["id_types"]:
+                if id_type == "shopify_store_id":
+                    entity["id_types"].remove(id_type)
+        for input_table in inputs["inputs"]:
+            for id_info in input_table["app_defaults"]["ids"]:
+                if id_info["type"] == "shopify_store_id":
+                    input_table["app_defaults"]["ids"].remove(id_info)
+        with open(CONFIG_FILE_PATH, "w") as file:
+            yaml.dump(pb_project, file)
+        with open(INPUTS_FILE_PATH, "w") as file:
+            yaml.dump(inputs, file)
+
     def update_bad_anons_filter(self):
         regex_pattern = "(c8bc33a0-7cb7-47f9-b24f-73e077346142|f0ed91a9-e1a9-46a5-9257-d590f45612fe|cbe0ea73-4878-4892-ac82-b9ad42797000|f4690568-e9e7-4182-abc6-6ea2791daba3|b369d6f5-c17a-457c-ab86-5649c1b53883)"
         with open(CONFIG_FILE_PATH, "r") as file:
@@ -113,7 +134,54 @@ class YamlGenerator:
         with open(CONFIG_FILE_PATH, "w") as file:
             yaml.dump(pb_project, file)
 
-    def guide_id_type_input(self, entity_name):
+    def add_macros(self, macros: list[dict]):
+        with open(PROFILES_FILE_PATH, "r") as file:
+            profiles = yaml.safe_load(file)
+
+        profiles["macros"] = macros
+        with open(PROFILES_FILE_PATH, "w") as file:
+            yaml.dump(profiles, file)
+
+    def add_features(self, entity_name: str, features: list[dict]):
+        vars = []
+        for feature in features:
+            entity_var = {
+                "name": feature["name"],
+                "select": feature["select"],
+            }
+            if "from" in feature:
+                entity_var["from"] = feature["from"]
+            if "description" in feature:
+                entity_var["description"] = feature["description"]
+            if "window" in feature:
+                entity_var["window"] = feature["window"]
+            if "where" in feature:
+                entity_var["where"] = feature["where"]
+
+            vars.append({"entity_var": entity_var})
+
+        with open(PROFILES_FILE_PATH, "r") as file:
+            profiles = yaml.safe_load(file)
+
+        profiles["var_groups"] = [
+            {"name": f"{entity_name}_features", "entity_key": entity_name, "vars": vars}
+        ]
+        with open(PROFILES_FILE_PATH, "w") as file:
+            yaml.dump(profiles, file)
+
+    def add_feature_views(self, entity_name: str, using_ids: list[dict]):
+        with open(CONFIG_FILE_PATH, "r") as file:
+            pb_project = yaml.safe_load(file)
+
+        entities = pb_project["entities"]
+        for entity in entities:
+            if entity["name"] == entity_name:
+                entity["feature_views"] = {"using_ids": using_ids}
+
+        with open(CONFIG_FILE_PATH, "w") as file:
+            yaml.dump(pb_project, file)
+
+    def guide_id_type_input(self, entity_name) -> list[str]:
         about_id_types = {
             "anon_id": """
 RudderStack creates a cookie for each user when they visit your site.
@@ -146,6 +214,7 @@ But for the purposes of this tutorial, we will go ahead and bring it in to show 
 
             user_input = self.io.get_user_input(
                 f"\nLet's add '{expected_id_type}' as an id type for {entity_name}: ",
+                options=[expected_id_type],
             )
             selected_id_types.append(user_input)
 

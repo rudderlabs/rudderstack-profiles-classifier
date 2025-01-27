@@ -7,9 +7,8 @@ from profiles_rudderstack.model import BaseModelType
 from profiles_rudderstack.recipe import PyNativeRecipe
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.logger import Logger
-
-from .tutorial import ProfileBuilder
 from .config import SAMPLE_DATA_DIR
+from .tutorial import ProfileBuilder
 
 
 class TutorialModel(BaseModelType):
@@ -23,6 +22,10 @@ class TutorialModel(BaseModelType):
     }
 
     def __init__(self, build_spec: dict, schema_version: int, pb_version: str) -> None:
+        build_spec["materialization"] = {
+            "output_type": "shell",
+            "run_type": "interactive",
+        }
         super().__init__(build_spec, schema_version, pb_version)
 
     def get_material_recipe(self) -> PyNativeRecipe:
@@ -48,9 +51,8 @@ class TutorialRecipe(PyNativeRecipe):
         pass
 
     def execute(self, this: WhtMaterial):
-        if not os.path.exists(SAMPLE_DATA_DIR):
-            self.logger.info("unzipping sample data...")
-            unzip_sample_data(self.logger)
+        self.logger.info("unzipping sample data...")
+        unzip_sample_data(self.logger)
 
         profile_builder = ProfileBuilder(
             self.reader, self.build_spec.get("fast_mode", False)
@@ -79,7 +81,7 @@ def get_sample_data_path():
     """Returns the path to the data directory"""
     try:
         zip_file = resources.files("profiles_mlcorelib").joinpath(
-            "py_native", "profiles_tutorial", "sample_data.zip"
+            "py_native", "profiles_tutorial", f"{SAMPLE_DATA_DIR}.zip"
         )
         if not zip_file.is_file():
             return None

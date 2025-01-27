@@ -8,6 +8,7 @@ from typing import List
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
+from ..trainers.MLTrainer import MLTrainer
 from ..trainers.TrainerFactory import TrainerFactory
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
@@ -17,6 +18,7 @@ from ..utils import utils
 from ..utils.logger import logger
 from ..utils import constants
 from ..utils.S3Utils import S3Utils
+from ..connectors.Connector import Connector
 from ..connectors.ConnectorFactory import ConnectorFactory
 
 
@@ -96,17 +98,7 @@ def prepare_feature_table(
         feature_table_name = train_table_pair.feature_table_name
         label_table_name = train_table_pair.label_table_name
 
-        if trainer.eligible_users:
-            feature_table = connector.get_table(
-                feature_table_name, filter_condition=trainer.eligible_users
-            )
-        else:
-            default_user_shortlisting = (
-                f"{trainer.label_column} != {trainer.label_value}"
-            )
-            feature_table = connector.get_table(
-                feature_table_name, filter_condition=default_user_shortlisting
-            )
+        feature_table = connector.get_table(feature_table_name)
 
         feature_table = connector.select_relevant_columns(
             feature_table, input_columns + [trainer.entity_column]
@@ -135,8 +127,8 @@ def preprocess_and_train(
     pkl_model_file_name: str,
     **kwargs,
 ):
-    connector = kwargs.get("connector", None)
-    trainer = kwargs.get("trainer", None)
+    connector: Connector = kwargs.get("connector", None)
+    trainer: MLTrainer = kwargs.get("trainer", None)
     min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
     cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESHOLD
     train_config = merged_config["train"]
@@ -156,6 +148,10 @@ def preprocess_and_train(
         feature_table = connector.get_merged_table(
             feature_table, feature_table_instance
         )
+
+    feature_table = connector.get_eligible_users(
+        feature_table, input_column_types, trainer=trainer
+    )
 
     high_cardinal_features = connector.get_high_cardinal_features(
         feature_table,

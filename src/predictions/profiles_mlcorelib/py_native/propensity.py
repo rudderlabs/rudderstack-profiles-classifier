@@ -168,6 +168,10 @@ class PropensityModel(BaseModelType):
                 )
         if self.build_spec["prediction"].get("eligible_users", None) is not None:
             data["eligible_users"] = self.build_spec["prediction"]["eligible_users"]
+        else:
+            data["eligible_users"] = self.build_spec["training"].get(
+                "eligible_users", None
+            )
         spec = {
             "entity_key": self.build_spec["entity_key"],
             "training_model": training_model_ref,

@@ -315,6 +315,10 @@ class Connector(ABC):
         pass
 
     @abstractmethod
+    def get_eligible_users(self, feature_table, input_column_types, **kwargs):
+        pass
+
+    @abstractmethod
     def call_procedure(self, *args, **kwargs):
         pass
 

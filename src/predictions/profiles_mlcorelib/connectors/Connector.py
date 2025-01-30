@@ -314,9 +314,129 @@ class Connector(ABC):
     def run_query(self, query: str, **kwargs):
         pass
 
-    @abstractmethod
-    def get_eligible_users(self, feature_table, input_column_types, **kwargs):
-        pass
+    def get_default_eligible_users_condition(
+        self, train_table_pairs, input_columns, input_column_types, **kwargs
+    ):
+        trainer = kwargs.get("trainer", None)
+
+        best_recall = 0.0
+        buffer = 0.02
+        min_proportion = 0.05 + buffer
+        max_proportion = 0.95 - buffer
+        best_eligible_users_condition = None
+        select_table_queries = list()
+
+        entity_column = trainer.entity_column
+        label_column = trainer.label_column
+        label_value = trainer.label_value
+        booleantype_features: List[str] = input_column_types["booleantype"]
+
+        columns_to_sql_select = ", ".join(
+            [f"a.{col}" for col in input_columns if col != label_column]
+        )
+
+        for train_table_pair in train_table_pairs:
+            feature_table_name = train_table_pair.feature_table_name
+            label_table_name = train_table_pair.label_table_name
+
+            select_table_query = f"""
+                SELECT a.{entity_column}, {columns_to_sql_select}, b.{label_column}
+                FROM {feature_table_name} a
+                INNER JOIN
+                (
+                    SELECT {entity_column}, {label_column}
+                    FROM {label_table_name}
+                ) b
+                ON a.{entity_column}=b.{entity_column}
+            """
+            select_table_queries.append(select_table_query)
+
+        final_feature_table_query = """\n
+            UNION ALL\n""".join(
+            select_table_queries
+        )
+
+        # Query to get initial counts before filtering
+        total_counts_query = f"""
+            WITH complete_feature_table
+            AS
+            (
+                {final_feature_table_query}
+            )
+            SELECT
+                COUNT(*) as TOTAL_COUNT,
+                SUM(CASE WHEN {label_column} = {label_value} THEN 1 ELSE 0 END) as POSITIVE_COUNT
+            FROM complete_feature_table
+        """
+        result = self.run_query(total_counts_query)
+
+        number_of_rows = int(result[0].TOTAL_COUNT)
+        total_positives = int(result[0].POSITIVE_COUNT)
+
+        if total_positives == 0 or total_positives == number_of_rows:
+            logger.get().error(
+                "Label_column is required to be binary to fetch default eligible users for training."
+            )
+            raise Exception(
+                "Label_column is required to be binary to fetch default eligible users for training."
+            )
+
+        # For each boolean feature, trying both True and False values
+        for bool_feature in booleantype_features:
+            for bool_value in [True, False]:
+                # Query to get counts when filtered by the boolean condition
+                filtered_counts_query = f"""
+                    WITH filtered_data AS (
+                        SELECT *
+                        FROM (
+                            {final_feature_table_query}
+                        )
+                        WHERE {bool_feature} = {bool_value}
+                    )
+                    SELECT 
+                        COUNT(*) as FILTERED_TOTAL_COUNT,
+                        SUM(CASE WHEN {label_column} = {label_value} THEN 1 ELSE 0 END) as FILTERED_POSITIVE_COUNT
+                    FROM filtered_data
+                """
+
+                result = self.run_query(filtered_counts_query)
+                if not result or result[0].FILTERED_TOTAL_COUNT == 0:
+                    logger.get().info(
+                        f"No rows found for condition '{bool_feature} = {bool_value}' while filtering eligible users for training. Skipping..."
+                    )
+                    continue
+
+                filtered_total = int(result[0].FILTERED_TOTAL_COUNT)
+                filtered_positives = int(result[0].FILTERED_POSITIVE_COUNT)
+                filtered_negatives = filtered_total - filtered_positives
+
+                # Calculate proportions
+                positive_proportion = filtered_positives / filtered_total
+                negative_proportion = filtered_negatives / filtered_total
+                recall = filtered_positives / total_positives
+
+                # Check if proportions are balanced
+                is_balanced = (
+                    positive_proportion >= min_proportion
+                    and positive_proportion <= max_proportion
+                    and negative_proportion >= min_proportion
+                    and negative_proportion <= max_proportion
+                )
+
+                if is_balanced and recall > best_recall:
+                    best_recall = recall
+                    best_eligible_users_condition = f"{bool_feature} = {bool_value}"
+
+        if best_eligible_users_condition is None:
+            logger.get().info(
+                "No balanced subset found to filter eligible users for training. Using the entire dataset for training."
+            )
+        else:
+            logger.get().info(
+                f"Balanced subset found to filter eligible users for training: '{best_eligible_users_condition}'"
+            )
+
+        return best_eligible_users_condition
 
     @abstractmethod
     def call_procedure(self, *args, **kwargs):

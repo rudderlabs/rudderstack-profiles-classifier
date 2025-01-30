@@ -98,7 +98,9 @@ def prepare_feature_table(
         feature_table_name = train_table_pair.feature_table_name
         label_table_name = train_table_pair.label_table_name
 
-        feature_table = connector.get_table(feature_table_name)
+        feature_table = connector.get_table(
+            feature_table_name, filter_condition=trainer.eligible_users
+        )
 
         feature_table = connector.select_relevant_columns(
             feature_table, input_columns + [trainer.entity_column]
@@ -132,8 +134,14 @@ def preprocess_and_train(
     min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
     cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESHOLD
     train_config = merged_config["train"]
-
     feature_table = None
+
+    logger.get().info("Getting eligible users condition:")
+    if trainer.eligible_users is None:
+        trainer.eligible_users = connector.get_default_eligible_users_condition(
+            train_table_pairs, input_columns, input_column_types, trainer=trainer
+        )
+
     logger.get().info("Preparing training dataset using the past snapshot tables:")
     for train_table_pair in train_table_pairs:
         logger.get().info(
@@ -148,10 +156,6 @@ def preprocess_and_train(
         feature_table = connector.get_merged_table(
             feature_table, feature_table_instance
         )
-
-    feature_table = connector.get_eligible_users(
-        feature_table, input_column_types, trainer=trainer
-    )
 
     high_cardinal_features = connector.get_high_cardinal_features(
         feature_table,

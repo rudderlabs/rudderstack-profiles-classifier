@@ -14,7 +14,6 @@ from ..utils import utils
 from ..utils import constants
 from ..utils.logger import logger
 from ..wht.rudderPB import MATERIAL_PREFIX
-from ..trainers.MLTrainer import MLTrainer
 from .Connector import Connector
 from .wh.profiles_connector import ProfilesConnector
 

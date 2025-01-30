@@ -81,7 +81,7 @@ class RedshiftConnector(CommonWarehouseConnector):
                 return query_output
             else:
                 raise Exception(
-                    "No result set is present for given query. Please check the query."
+                    f"No result set is present for given query. Please check the query: {query}."
                 )
         else:
             return self._run_query(query)

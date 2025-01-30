@@ -141,6 +141,9 @@ def preprocess_and_train(
         trainer.eligible_users = connector.get_default_eligible_users_condition(
             train_table_pairs, input_columns, input_column_types, trainer=trainer
         )
+    logger.get().info(
+        f"Users for training are filtered using eligible users condition: {trainer.eligible_users}"
+    )
 
     logger.get().info("Preparing training dataset using the past snapshot tables:")
     for train_table_pair in train_table_pairs:

@@ -323,7 +323,7 @@ class Connector(ABC):
         buffer = 0.02
         min_proportion = 0.05 + buffer
         max_proportion = 0.95 - buffer
-        best_eligible_users_condition = None
+        best_eligible_users_condition = "*"
         select_table_queries = list()
 
         entity_column = trainer.entity_column
@@ -332,7 +332,7 @@ class Connector(ABC):
         booleantype_features: List[str] = input_column_types["booleantype"]
 
         columns_to_sql_select = ", ".join(
-            [f"a.{col}" for col in input_columns if col != label_column]
+            [f"a.{col}" for col in input_columns if col.lower() != label_column.lower()]
         )
 
         for train_table_pair in train_table_pairs:
@@ -398,7 +398,6 @@ class Connector(ABC):
                         SUM(CASE WHEN {label_column} = {label_value} THEN 1 ELSE 0 END) as FILTERED_POSITIVE_COUNT
                     FROM filtered_data
                 """
-
                 result = self.run_query(filtered_counts_query)
                 if not result or result[0].FILTERED_TOTAL_COUNT == 0:
                     logger.get().info(
@@ -427,7 +426,7 @@ class Connector(ABC):
                     best_recall = recall
                     best_eligible_users_condition = f"{bool_feature} = {bool_value}"
 
-        if best_eligible_users_condition is None:
+        if best_eligible_users_condition == "*":
             logger.get().info(
                 "No balanced subset found to filter eligible users for training. Using the entire dataset for training."
             )

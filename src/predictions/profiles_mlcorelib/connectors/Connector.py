@@ -331,10 +331,18 @@ class Connector(ABC):
         label_value = trainer.label_value
         booleantype_features: List[str] = input_column_types["booleantype"]
 
+        # Lambda to get case-insensitive column value from named tuple
+        get_column_value = lambda row, col: (
+            getattr(row, col.upper())
+            if hasattr(row, col.upper())
+            else getattr(row, col.lower())
+        )
+
         columns_to_sql_select = ", ".join(
             [f"a.{col}" for col in input_columns if col.lower() != label_column.lower()]
         )
 
+        # Query to create complete feature table
         for train_table_pair in train_table_pairs:
             feature_table_name = train_table_pair.feature_table_name
             label_table_name = train_table_pair.label_table_name
@@ -370,8 +378,8 @@ class Connector(ABC):
         """
         result = self.run_query(total_counts_query)
 
-        number_of_rows = int(result[0].TOTAL_COUNT)
-        total_positives = int(result[0].POSITIVE_COUNT)
+        number_of_rows = int(get_column_value(result[0], "TOTAL_COUNT"))
+        total_positives = int(get_column_value(result[0], "POSITIVE_COUNT"))
 
         if total_positives == 0 or total_positives == number_of_rows:
             logger.get().error(
@@ -399,14 +407,23 @@ class Connector(ABC):
                     FROM filtered_data
                 """
                 result = self.run_query(filtered_counts_query)
-                if not result or result[0].FILTERED_TOTAL_COUNT == 0:
+
+                if (
+                    not result
+                    or int(get_column_value(result[0], "FILTERED_TOTAL_COUNT")) == 0
+                ):
                     logger.get().info(
                         f"No rows found for condition '{bool_feature} = {bool_value}' while filtering eligible users for training. Skipping..."
                     )
                     continue
 
-                filtered_total = int(result[0].FILTERED_TOTAL_COUNT)
-                filtered_positives = int(result[0].FILTERED_POSITIVE_COUNT)
+                filtered_total = int(
+                    get_column_value(result[0], "FILTERED_TOTAL_COUNT")
+                )
+                filtered_positives = int(
+                    get_column_value(result[0], "FILTERED_POSITIVE_COUNT")
+                )
+
                 filtered_negatives = filtered_total - filtered_positives
 
                 # Calculate proportions

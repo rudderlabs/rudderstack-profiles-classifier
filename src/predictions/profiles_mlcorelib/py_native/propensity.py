@@ -141,7 +141,7 @@ class PropensityModel(BaseModelType):
         ]
         for key in preprocessing_keys:
             preprocessing[key] = training_params.get(key, None)
-        return {
+        spec = {
             "entity_key": self.build_spec["entity_key"],
             "materialization": self.build_spec.get("materialization", {}),
             "inputs": self.build_spec["inputs"],
@@ -151,6 +151,8 @@ class PropensityModel(BaseModelType):
             "validity_time": self.build_spec["training"].get("validity", None),
             "ml_config": {"data": data, "preprocessing": preprocessing},
         }
+        spec = self._convert_empty_str_to_none(spec)
+        return spec
 
     def _get_prediction_spec(self, training_model_ref: str, training_spec) -> dict:
         data = training_spec["ml_config"]["data"]
@@ -165,12 +167,10 @@ class PropensityModel(BaseModelType):
                         "description": output_columns[column].get("description", None),
                     }
                 )
-        if self.build_spec["prediction"].get("eligible_users", None) is not None:
+        if self.build_spec["prediction"].get("eligible_users") is not None:
             data["eligible_users"] = self.build_spec["prediction"]["eligible_users"]
         else:
-            data["eligible_users"] = self.build_spec["training"].get(
-                "eligible_users", None
-            )
+            data["eligible_users"] = self.build_spec["training"].get("eligible_users")
         spec = {
             "entity_key": self.build_spec["entity_key"],
             "training_model": training_model_ref,
@@ -188,7 +188,20 @@ class PropensityModel(BaseModelType):
         }
         if "ids" in self.build_spec:
             spec["ids"] = self.build_spec["ids"]
+        spec = self._convert_empty_str_to_none(spec)
         return spec
+
+    def _convert_empty_str_to_none(self, data):
+        if isinstance(data, dict):
+            return {
+                key: self._convert_empty_str_to_none(value)
+                for key, value in data.items()
+            }
+        elif isinstance(data, list):
+            return [self._convert_empty_str_to_none(item) for item in data]
+        elif isinstance(data, str) and data == "":
+            return None
+        return data
 
     def get_material_recipe(self) -> PyNativeRecipe:
         return NoOpRecipe()

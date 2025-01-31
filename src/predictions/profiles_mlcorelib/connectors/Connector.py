@@ -41,6 +41,17 @@ class Connector(ABC):
                 f"SQL model table {table_name} has duplicate values in entity column {entity_column}. Please make sure that the column {entity_column} in all SQL model has unique values only."
             )
 
+    def get_filtered_table(self, feature_table_name, filter_condition):
+        if filter_condition is None:
+            raise Exception(
+                "Eligible users condition is None. Please provide a valid condition."
+            )
+            raise Exception(
+                "Eligible users condition is None. Please provide a valid condition."
+            )
+        else:
+            return self.get_table(feature_table_name, filter_condition=filter_condition)
+
     def _create_get_table_query(self, table_name, **kwargs):
         filter_condition = kwargs.get("filter_condition", "")
         query = f"SELECT * FROM {self.schema}.{table_name}"

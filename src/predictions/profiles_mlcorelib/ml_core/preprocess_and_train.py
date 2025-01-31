@@ -92,14 +92,14 @@ def prepare_feature_table(
 ):
     """Combines Feature table and Label table pairs, while converting all timestamp cols
     to numeric for creating a single table with user features and label."""
-    connector = kwargs.get("connector", None)
-    trainer = kwargs.get("trainer", None)
+    connector: Connector = kwargs.get("connector", None)
+    trainer: MLTrainer = kwargs.get("trainer", None)
     try:
         feature_table_name = train_table_pair.feature_table_name
         label_table_name = train_table_pair.label_table_name
 
-        feature_table = connector.get_table(
-            feature_table_name, filter_condition=trainer.eligible_users
+        feature_table = connector.get_filtered_table(
+            feature_table_name, trainer.eligible_users
         )
 
         feature_table = connector.select_relevant_columns(
@@ -136,8 +136,10 @@ def preprocess_and_train(
     train_config = merged_config["train"]
     feature_table = None
 
-    logger.get().info("Getting eligible users condition:")
     if trainer.eligible_users is None:
+        logger.get().info(
+            "eligible_users flag not given. Trying to auto-select a condition to get subset of users for training the model."
+        )
         trainer.eligible_users = connector.get_default_eligible_users_condition(
             train_table_pairs, input_columns, input_column_types, trainer=trainer
         )

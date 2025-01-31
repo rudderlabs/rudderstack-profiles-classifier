@@ -5,6 +5,7 @@ from typing import Any, Iterable, List, Tuple, Union, Sequence, Optional, Dict, 
 
 from ..utils.logger import logger
 from ..utils import utils
+from ..utils import constants
 
 
 class Connector(ABC):
@@ -320,9 +321,14 @@ class Connector(ABC):
         trainer = kwargs.get("trainer", None)
 
         best_recall = 0.0
-        buffer = 0.02
-        min_proportion = 0.05 + buffer
-        max_proportion = 0.95 - buffer
+        min_proportion_limit = (
+            constants.CLASSIFIER_MIN_LABEL_PROPORTION
+            + constants.CLASSIFIER_LABEL_PROPORTION_BUFFER
+        )
+        max_proportion_limit = (
+            constants.CLASSIFIER_MAX_LABEL_PROPORTION
+            - constants.CLASSIFIER_LABEL_PROPORTION_BUFFER
+        )
         best_eligible_users_condition = "*"
         select_table_queries = list()
 
@@ -433,10 +439,10 @@ class Connector(ABC):
 
                 # Check if proportions are balanced
                 is_balanced = (
-                    positive_proportion >= min_proportion
-                    and positive_proportion <= max_proportion
-                    and negative_proportion >= min_proportion
-                    and negative_proportion <= max_proportion
+                    positive_proportion >= min_proportion_limit
+                    and positive_proportion <= max_proportion_limit
+                    and negative_proportion >= min_proportion_limit
+                    and negative_proportion <= max_proportion_limit
                 )
 
                 if is_balanced and recall > best_recall:

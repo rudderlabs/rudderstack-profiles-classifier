@@ -316,7 +316,11 @@ class TestGetMaterialNames(unittest.TestCase):
         # Assert the result
         self.assertEqual(dates, expected_date)
 
-    def test_generate_training_materials_with_only_feature_material(self):
+    @patch("random.randint")
+    def test_generate_training_materials_with_only_feature_material(self, mock_randint):
+        # Mock random.randint to return 0
+        mock_randint.return_value = 0
+
         # Set up the expected input and output
         input_materials = [
             TrainTablesInfo(
@@ -393,7 +397,11 @@ class TestGetMaterialNames(unittest.TestCase):
         self.assertEqual(materials, expected_materials)
 
     # Materializes feature and label data if no materialized data is found within the specified date range and retrieves material names and training dates
-    def test_materializes_data_if_not_found_within_date_range(self):
+    @patch("random.randint")
+    def test_materializes_data_if_not_found_within_date_range(self, mock_randint):
+        # Mock random.randint to return 0
+        mock_randint.return_value = 0
+
         # Set up the expected input and output
         input_materials = [
             TrainTablesInfo(

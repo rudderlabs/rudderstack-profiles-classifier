@@ -1,4 +1,5 @@
 import json
+import random
 from typing import List, Tuple
 from ..utils import utils
 from ..utils.constants import MATERIAL_DATE_FORMAT
@@ -34,6 +35,7 @@ class RudderPB:
             .replace(tzinfo=timezone.utc)
             .timestamp()
         )
+        features_valid_time_unix += random.randint(1, 1000)
         pb_args = [
             PB_PATH,
             "run",

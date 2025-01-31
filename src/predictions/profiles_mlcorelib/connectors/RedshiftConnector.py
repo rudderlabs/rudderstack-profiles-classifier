@@ -80,9 +80,7 @@ class RedshiftConnector(CommonWarehouseConnector):
                 query_output = [Row(*row) for row in row_outputs]
                 return query_output
             else:
-                raise Exception(
-                    f"No result set is present for given query. Please check the query: {query}."
-                )
+                raise Exception(f"Query returned no results: {query}")
         else:
             return self._run_query(query)
 

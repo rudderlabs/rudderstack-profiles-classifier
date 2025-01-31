@@ -44,17 +44,14 @@ var_groups:
           name: max_timestamp_tracks
           select: max(timestamp)
           from: inputs/rsTracks
-          is_feature: false
       - entity_var:
           name: max_timestamp_pages
           select: max(timestamp)
           from: inputs/rsPages
           description: The total value of products that are part of the last transaction.
-          is_feature: false
       - entity_var:
           name: max_timestamp_bw_tracks_pages
           select: CASE WHEN {{user.Var("max_timestamp_tracks")}}>={{user.Var("max_timestamp_pages")}} THEN {{user.Var("max_timestamp_tracks")}} ELSE {{user.Var("max_timestamp_pages")}} END
-          is_feature: false
       # LTV features
       - entity_var:
           name: n_orders_completed

@@ -630,6 +630,7 @@ def plot_top_k_feature_importance(
 
         model_class = model.__class__.__name__
         explainer_class = constants.EXPLAINER_MAP[model_class]
+        print(f"Model class: {model_class}")
         # Special handling for AdaboostClassifier
         if model_class == "AdaBoostClassifier":
             explainer = explainer_class(model.predict_proba, sample_data)

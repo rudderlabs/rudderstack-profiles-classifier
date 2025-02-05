@@ -630,16 +630,8 @@ def plot_top_k_feature_importance(
 
         model_class = model.__class__.__name__
         explainer_class = constants.EXPLAINER_MAP[model_class]
-
-        if model_class in ["AdaBoostClassifier", "GradientBoostingClassifier"]:
+        if model_class == "AdaBoostClassifier":
             explainer = explainer_class(model.predict_proba, sample_data)
-        elif model_class in [
-            "RandomForestRegressor",
-            "GradientBoostingRegressor",
-            "XGBRegressor",
-            "LGBMRegressor",
-        ]:
-            explainer = explainer_class(model.predict, sample_data)
         else:
             explainer = explainer_class(model, sample_data)
 

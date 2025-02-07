@@ -76,7 +76,7 @@ class ModelRecipe(PyNativeRecipe):
             else:
                 print("\nInvalid input. Exiting.")
                 break
-        print("\n\nAudit Completed Successfully.\n")
+        print("\n\nAudit Completed.\n")
 
     def select_id_stitcher_model(self, this: WhtMaterial):
         """

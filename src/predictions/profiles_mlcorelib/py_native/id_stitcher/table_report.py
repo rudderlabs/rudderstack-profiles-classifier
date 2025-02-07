@@ -89,7 +89,7 @@ class TableReport:
         SELECT DISTINCT id2_type FROM {self.db}.{self.schema}.{self.edges_table}
         """
         result = run_query(self.wh_client, query)
-        return [row for row in result["ID1_TYPE"]]
+        return [] if result.empty else [row for row in result["ID1_TYPE"]]
 
     def get_unique_id_count(self, id_type: str) -> int:
         query = f"""
@@ -377,6 +377,10 @@ class TableReport:
             "singleton_analysis": {},
         }
         node_types = self.get_node_types()
+        if not len(node_types):
+            raise ValueError(
+                f"ID Graph is empty. Ensure the edges table {self.edges_table} is populated and has distinct id types"
+            )
         self.analysis_results["node_types"] = node_types
         print(f"\tNode types: {node_types}")
         print("\tUnique IDs of each type and their counts:")

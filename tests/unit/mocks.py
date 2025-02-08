@@ -1,3 +1,6 @@
+from unittest.mock import Mock
+
+
 class MockModel:
     def __init__(
         self,
@@ -91,8 +94,17 @@ class MockProject:
 
 
 class MockCtx:
+    def __init__(self):
+        # Instead of a method, make it an object with db/schema/wh_type
+        self.client = Mock()
+        self.client.db = "test_db"
+        self.client.schema = "test_schema"
+        self.client.wh_type = "redshift"  # or snowflake, etc.
+
     def time_info(self):
         return ["2021-01-01", "2021-01-31"]
 
-    def client(self):
-        return None
+
+class MockWhtMaterial:
+    def __init__(self) -> None:
+        self.wht_ctx = MockCtx()

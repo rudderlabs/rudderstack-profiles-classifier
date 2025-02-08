@@ -2,14 +2,20 @@ import json
 from typing import Any, Dict, List
 from profiles_rudderstack.client import BaseClient
 from profiles_rudderstack.material import WhtMaterial, WhtModel
-
+from profiles_rudderstack.logger import Logger
 from .yaml_report import YamlReport
 from ..warehouse import run_query
+import uuid
 
 
 class TableReport:
     def __init__(
-        self, this: WhtMaterial, model: WhtModel, entity, yaml_report: YamlReport
+        self,
+        this: WhtMaterial,
+        model: WhtModel,
+        entity,
+        yaml_report: YamlReport,
+        logger: Logger,
     ):
         self.wh_client = this.wht_ctx.client
         self.db = this.wht_ctx.client.db
@@ -20,7 +26,34 @@ class TableReport:
         self.output_table = ""
         self.entity = entity
         self.analysis_results = {}
+        self.logger = logger
         self.yaml_report = yaml_report
+        self.incr_base_seqno = None  # Initialize incremental base seqno variable
+        self.edges_view = None  # Initialize view name variable
+
+    @staticmethod
+    def transform_row(row):
+        """
+        Attempts to parse row->metadata (JSON or dict)
+        and returns (material_objects, incr_base_seqno)
+        """
+        try:
+            if isinstance(row, str):
+                metadata = json.loads(row)
+            else:
+                metadata = row
+
+            material_objects = metadata.get("material_objects", [])
+            incr_base_seqno = (
+                metadata.get("dependency_context_metadata", {})
+                .get("incremental_base", {})
+                .get("seqno")
+            )
+            return material_objects, incr_base_seqno
+        except Exception as e:
+            raise Exception(
+                f"Unable to fetch material objects from the metadata of material registry table: {str(e)}"
+            )
 
     def get_table_names(self):
         model_hash = self.model.hash()
@@ -43,37 +76,34 @@ class TableReport:
             )
 
         query = f"""
-            select * from {self.db}.{self.schema}.MATERIAL_REGISTRY_4
-            where
-            model_ref = '{self.model.model_ref()}' and
-            model_hash = '{model_hash}' and
-            {filter_dict_subquery}
-            order by creation_ts desc
-            LIMIT 1;
-        """
+                SELECT * FROM {self.db}.{self.schema}.MATERIAL_REGISTRY_4
+                WHERE
+                  model_ref = '{self.model.model_ref()}' AND
+                  model_hash = '{model_hash}' AND
+                  {filter_dict_subquery}
+                ORDER BY end_ts DESC
+            """
+
         result = run_query(self.wh_client, query)
         if result.empty:
             raise ValueError(
                 f"no valid run found for the id stitcher model with hash {model_hash}"
             )
 
-        def transform_row(row):
-            # metadata in case of bigquery is not JSON
-            try:
-                row_json = json.loads(row)
-                return row_json.get("material_objects", [])
-            except:
-                try:
-                    return row.get("material_objects", [])
-                except:
-                    raise Exception(
-                        "Unable to fetch material objects from the metadata of material registry table."
-                    )
+        # Store the complete registry result for later use
+        self.registry_df = result
 
-        material_objects = result["METADATA"].apply(transform_row)
-        material_names = [object["material_name"] for object in material_objects[0]]
-        for name in material_names:
-            # An assumption is made here that only 3 type of objects exist
+        # Get the latest run details from the top record and transform metadata
+        transformed_data = result.iloc[0:1, :]["METADATA"].apply(
+            TableReport.transform_row
+        )
+        material_objects, incr_base_seqno = transformed_data.iloc[0]
+
+        # Store both the table names and the seqno from the latest run
+        self.incr_base_seqno = incr_base_seqno
+
+        for name in [obj["material_name"] for obj in material_objects]:
+            # An assumption is made here that only 3 types of objects exist:
             # 1. Edges table
             # 2. Stitcher table
             # 3. Mapping table
@@ -81,6 +111,16 @@ class TableReport:
                 self.edges_table = name
             elif not name.lower().endswith("mappings"):
                 self.output_table = name
+
+        # Create the edges view after we have the edges table
+        if self.edges_table:
+            self.edges_view = self.create_edges_view()
+            if self.edges_view != self.edges_table:
+                self.logger.warn(
+                    "Note: The edges data is compiled from multiple incremental tables. "
+                    "Some historical data might be missing due to table cleanup."
+                )
+                self.edges_table = self.edges_view
 
     def get_node_types(self):
         query = f"""
@@ -379,7 +419,7 @@ class TableReport:
         node_types = self.get_node_types()
         if not len(node_types):
             raise ValueError(
-                f"ID Graph is empty. Ensure the edges table {self.edges_table} is populated and has distinct id types"
+                f"ID Graph is empty. Ensure the edges table {self.edges_view} is populated and has distinct id types"
             )
         self.analysis_results["node_types"] = node_types
         print(f"\tNode types: {node_types}")
@@ -508,3 +548,111 @@ class TableReport:
         potential_issues = self.check_for_issues(node_types)
         self.analysis_results["potential_issues"] = potential_issues
         print(f"\n\nANALYSIS COMPLETE FOR ENTITY: {entity_key}\n\n")
+
+    def _get_incremental_edges_tables(self):
+        """
+        Gets a list of edges tables by tracing back through incremental dependencies.
+        Returns a list of table names ordered from oldest to most recent
+        (or just the current edges table if no incremental base).
+        """
+        # If there is no incremental base seqno, assume it's a full/batch run.
+        if self.incr_base_seqno is None:
+            return [self.edges_table]
+
+        collected_tables = []
+        visited_seqnos = set()
+        current_incr_base = self.incr_base_seqno
+
+        # Traverse the chain using the pre-fetched registry data
+        while current_incr_base is not None:
+            # Detect infinite loops in case of bad registry data
+            if current_incr_base in visited_seqnos:
+                self.logger.warn(
+                    f"Detected a loop in seq_no references at seq_no {current_incr_base} while building the complete edges view. Stopping to avoid infinite loop. Edges view may be partial"
+                )
+                break
+            visited_seqnos.add(current_incr_base)
+
+            # Instead of querying the warehouse, filter the in-memory registry DataFrame
+            row = self.registry_df[self.registry_df["SEQ_NO"] == current_incr_base]
+            if row.empty:
+                self.logger.warn(
+                    f"Could not find table with seqno {current_incr_base}. Some historical edges data might be missing due to cleanup."
+                )
+                break
+
+            try:
+                row_data = row.iloc[0]
+                metadata = row_data["METADATA"]
+                if isinstance(metadata, str):
+                    metadata = json.loads(metadata)
+
+                # Identify the parent's incremental base seqno for the next iteration
+                parent_incr_base = (
+                    metadata.get("dependency_context_metadata", {})
+                    .get("incremental_base", {})
+                    .get("seqno")
+                )
+
+                # From the current metadata, determine the parent's edges table name
+                material_objects = metadata.get("material_objects", [])
+                parent_edges_table = None
+                for obj in material_objects:
+                    if obj["material_name"].lower().endswith("edges"):
+                        parent_edges_table = obj["material_name"]
+                        break
+
+                if parent_edges_table:
+                    # Add the table only if it exists as per the in-memory metadata
+                    collected_tables.append(parent_edges_table)
+
+                current_incr_base = parent_incr_base
+
+            except Exception as e:
+                self.logger.warn(
+                    f"Error processing metadata for seq_no {current_incr_base}: {str(e)}. Some historical edges data might be missing."
+                )
+                break
+
+        # The original table is the "most recent" and should be appended at the end.
+        collected_tables.reverse()
+        collected_tables.append(self.edges_table)
+
+        return collected_tables
+
+    def create_edges_view(self) -> str:
+        """
+        Creates a temporary view combining all incremental edges tables.
+        The view will only persist for the current session and will not overwrite any existing objects.
+        Returns the name of the temporary view.
+        """
+        tables = self._get_incremental_edges_tables()
+
+        # If there's only one edges table, suggests that this is a full/batch run.
+        if len(tables) == 1:
+            return tables[0]
+
+        # Create union query from all the relevant tables
+        union_parts = []
+        for t in tables:
+            union_parts.append(f"SELECT * FROM {self.db}.{self.schema}.{t}")
+        union_query = " UNION ALL ".join(union_parts)
+
+        # Generate a unique temporary view name to guarantee no conflicts and ensure it's temporary.
+        temp_suffix = uuid.uuid4().hex[:8]  # unique 8-character hex suffix
+        temp_view_name = f"tmp_{self.edges_table}_full_view_{temp_suffix}"
+
+        # Create the temporary view so that it lives only for the current session.
+        create_view_query = f"""
+            CREATE TEMPORARY VIEW {temp_view_name} AS
+            {union_query}
+        """
+
+        try:
+            self.logger.info(
+                f"Creating temporary edges view: {temp_view_name} by joining multiple incremental edges tables: {tables}"
+            )
+            run_query(self.wh_client, create_view_query)
+            return temp_view_name
+        except Exception as e:
+            raise Exception(f"Failed to create temporary edges view: {str(e)}")

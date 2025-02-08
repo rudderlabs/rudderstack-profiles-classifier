@@ -136,7 +136,9 @@ class ModelRecipe(PyNativeRecipe):
             assert entity is not None, f"Entity not found in model {ids_model.name()}"
 
             yaml_report = YamlReport(edge_sources, entity)
-            table_report = TableReport(this, ids_model, entity, yaml_report)
+            table_report = TableReport(
+                this, ids_model, entity, yaml_report, self.logger
+            )
             cluster_report = ClusterReport(
                 self.reader, this, entity, table_report, self.logger
             )

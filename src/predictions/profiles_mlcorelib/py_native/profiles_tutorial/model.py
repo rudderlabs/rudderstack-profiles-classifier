@@ -1,5 +1,6 @@
 from typing import Tuple
 import os
+import uuid
 import zipfile
 import importlib.resources as resources
 
@@ -40,6 +41,7 @@ class TutorialRecipe(PyNativeRecipe):
         super().__init__()
         self.build_spec = build_spec
         self.logger = Logger("TutorialRecipe")
+        self.run_id = str(uuid.uuid4())
 
     def describe(self, this: WhtMaterial) -> Tuple[str, str]:
         return (
@@ -55,7 +57,7 @@ class TutorialRecipe(PyNativeRecipe):
         unzip_sample_data(self.logger)
 
         profile_builder = ProfileBuilder(
-            self.reader, self.build_spec.get("fast_mode", False)
+            self.reader, self.build_spec.get("fast_mode", False), self.run_id
         )
         profile_builder.run(this)
 

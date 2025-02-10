@@ -25,15 +25,20 @@ def get_pynative_output_folder():
             break
     if not seq_no_dir:
         raise Exception("seq_no directory not found")
+
     items = os.listdir(seq_no_dir)
-    directories = [
-        # This logic will fail if there are multiple sequence numbers
-        int(item)
+    dir_times = [
+        (item, os.path.getctime(os.path.join(seq_no_dir, item)))
         for item in items
         if os.path.isdir(os.path.join(seq_no_dir, item)) and item != "latest"
     ]
-    directories.sort()
-    return os.path.join(seq_no_dir, str(directories[0]), "run")
+
+    if not dir_times:
+        raise Exception("No sequence number directories found")
+
+    dir_times.sort(key=lambda x: x[1])
+    oldest_dir = dir_times[0][0]
+    return os.path.join(seq_no_dir, oldest_dir, "run")
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -135,7 +140,6 @@ def pb_cleanup_warehouse_tables(project_path, siteconfig_path):
 
 def assert_training_artefacts():
     output_folder = get_pynative_output_folder()
-    print(f"output_folder:========= {output_folder}")
     models = [
         {
             "regex": "Material_propensity_model_training_.+",
@@ -160,7 +164,6 @@ def assert_training_artefacts():
     ]
     for model in models:
         material_directory = get_directory_name(model["regex"])
-        print(f"material_directory:========= {material_directory}")
         training_file_path = os.path.join(
             output_folder, material_directory, "training_file"
         )

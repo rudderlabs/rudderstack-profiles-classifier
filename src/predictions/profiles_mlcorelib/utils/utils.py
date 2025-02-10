@@ -648,7 +648,7 @@ def plot_top_k_feature_importance(
         return None
 
     except Exception as e:
-        logger.get().error(f"Exception occured while plotting feature importance: {e}")
+        logger.get().error(f"Exception occured while plotting feature importance {e}")
 
 
 def fetch_staged_file(

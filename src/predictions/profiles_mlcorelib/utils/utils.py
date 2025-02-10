@@ -671,15 +671,10 @@ def plot_top_k_feature_importance(
                         )
                         continue
         else:
-            logger.get().error(
-                f"Unwanted model class is selected after training: {model_class}"
-            )
-            raise Exception(
-                f"Unwanted model class is selected after training: {model_class}"
-            )
+            logger.get().warning(f"Unexpected model selected by pycaret: {model_class}")
 
         if explainer is None or shap_values is None:
-            raise Exception(
+            logger.get().warning(
                 f"Could not find a working SHAP explainer for model class {model_class}"
             )
 

@@ -25,14 +25,24 @@ def get_pynative_output_folder():
             break
     if not seq_no_dir:
         raise Exception("seq_no directory not found")
+
     items = os.listdir(seq_no_dir)
-    directories = [
-        # This logic will fail if there are multiple sequence numbers
-        item
+
+    # Following logic holds because every single run we delete the outputs folder only during integration tests.
+    # So, in every new run, earliest seq_no is the pynative model run.
+    # This also is not true on local runs. This is true only for the github action runs.
+    dir_times = [
+        (item, os.path.getctime(os.path.join(seq_no_dir, item)))
         for item in items
         if os.path.isdir(os.path.join(seq_no_dir, item)) and item != "latest"
     ]
-    return os.path.join(seq_no_dir, directories[0], "run")
+
+    if not dir_times:
+        raise Exception("No sequence number directories found")
+
+    dir_times.sort(key=lambda x: x[1])
+    oldest_dir = dir_times[0][0]
+    return os.path.join(seq_no_dir, oldest_dir, "run")
 
 
 current_dir = os.path.dirname(os.path.abspath(__file__))

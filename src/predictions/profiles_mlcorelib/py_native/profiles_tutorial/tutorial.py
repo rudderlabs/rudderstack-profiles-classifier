@@ -5,6 +5,7 @@ import os
 import warnings
 import subprocess
 import pandas as pd
+from datetime import datetime
 
 from .io_handler import IOHandler
 from .database_manager import DatabaseManager
@@ -21,6 +22,7 @@ from .config import (
 )
 
 
+from profiles_mlcorelib.utils.tracking import Analytics
 from profiles_rudderstack.material import WhtMaterial
 from profiles_rudderstack.reader import Reader
 
@@ -33,12 +35,21 @@ logging.getLogger("snowflake.connector.network").setLevel(logging.ERROR)
 
 
 class ProfileBuilder:
-    def __init__(self, reader: Reader, fast_mode: bool):
+    def __init__(self, reader: Reader, fast_mode: bool, run_id: str):
         self.io = IOHandler(reader, fast_mode)
         self.yaml_generator = YamlGenerator(self.io)
         self.fast_mode = fast_mode
+        self.run_id = run_id
 
     def run(self, material: WhtMaterial):
+        analytics = Analytics()
+        analytics.show_consent_message(logger)
+        start_time = datetime.now()
+        analytics.track(
+            "model_run_start",
+            {"run_id": self.run_id, "model_type": "profiles_tutorial"},
+        )
+        run_completed = False
         self.db_manager = DatabaseManager(material, self.io, self.fast_mode)
         self.display_welcome_message()
         new_table_names = self.upload_sample_data()
@@ -52,6 +63,17 @@ class ProfileBuilder:
         # profiles.yaml
         self.build_id_stitcher_model(relevant_tables, entity_name, id_graph_model)
         self.pb_runs(entity_name, id_types, id_graph_model, target)
+        duration = (datetime.now() - start_time).total_seconds()
+        run_completed = True
+        analytics.track(
+            "model_run_end",
+            {
+                "run_id": self.run_id,
+                "model_type": "profiles_tutorial",
+                "duration_in_sec": duration,
+                "is_run_completed": run_completed,
+            },
+        )
 
     def pb_runs(
         self, entity_name, id_types: list[str], id_graph_model: str, target: str

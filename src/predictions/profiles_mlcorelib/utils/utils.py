@@ -629,14 +629,55 @@ def plot_top_k_feature_importance(
             sample_data[col] = sample_data[col].astype(float)
 
         model_class = model.__class__.__name__
-        explainer_class = constants.EXPLAINER_MAP[model_class]
-        # Special handling for AdaboostClassifier
-        if model_class == "AdaBoostClassifier":
-            explainer = explainer_class(model.predict_proba, sample_data)
-        else:
-            explainer = explainer_class(model, sample_data)
+        explainer = None
+        shap_values = None
 
-        shap_values = explainer(sample_data)
+        if model_class in constants.EXPLAINER_MAP:
+            explainer_class = constants.EXPLAINER_MAP[model_class]
+            try:
+                if model_class == "AdaBoostClassifier":
+                    explainer = explainer_class(model.predict_proba, sample_data)
+                else:
+                    explainer = explainer_class(model, sample_data)
+                shap_values = explainer(sample_data)
+            except Exception as e:
+                logger.get().warning(
+                    f"Failed to use mapped explainer for {model_class}: {e}"
+                )
+
+                explainer_classes = [
+                    shap.LinearExplainer,
+                    shap.KernelExplainer,
+                    shap.TreeExplainer,
+                ]
+                for explainer_class in explainer_classes:
+                    try:
+                        if hasattr(model, "predict_proba"):
+                            explainer = explainer_class(
+                                model.predict_proba, sample_data
+                            )
+                        elif hasattr(model, "predict"):
+                            explainer = explainer_class(model.predict, sample_data)
+                        else:
+                            explainer = explainer_class(model, sample_data)
+                        shap_values = explainer(sample_data)
+                        logger.get().info(
+                            f"Successfully used {explainer_class.__name__} for {model_class}"
+                        )
+                        break
+                    except Exception as e:
+                        logger.get().debug(
+                            f"Failed to use {explainer_class.__name__}: {e}"
+                        )
+                        continue
+        else:
+            logger.get().warning(f"Unexpected model selected by pycaret: {model_class}")
+
+        if explainer is None or shap_values is None:
+            logger.get().warning(
+                f"Could not find a working SHAP explainer for model class {model_class}"
+            )
+
         if len(shap_values.shape) == 3:
             shap_values = shap_values[:, :, 1]
 
@@ -648,7 +689,7 @@ def plot_top_k_feature_importance(
         return None
 
     except Exception as e:
-        logger.get().error(f"Exception occured while plotting feature importance {e}")
+        logger.get().error(f"Exception occurred while plotting feature importance {e}")
 
 
 def fetch_staged_file(

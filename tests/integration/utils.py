@@ -27,6 +27,10 @@ def get_pynative_output_folder():
         raise Exception("seq_no directory not found")
 
     items = os.listdir(seq_no_dir)
+
+    # Following logic holds because every single run we delete the outputs folder only during integration tests.
+    # So, in every new run, earliest seq_no is the pynative model run.
+    # This also is not true on local runs. This is true only for the github action runs.
     dir_times = [
         (item, os.path.getctime(os.path.join(seq_no_dir, item)))
         for item in items

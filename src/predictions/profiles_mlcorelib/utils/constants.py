@@ -71,15 +71,6 @@ EXPLAINER_MAP = {
     "RandomForestRegressor": shap.TreeExplainer,
     "XGBRegressor": shap.TreeExplainer,
     "AdaBoostRegressor": shap.TreeExplainer,
-    "LogisticRegression": shap.LinearExplainer,
-    "KNeighborsClassifier": shap.KernelExplainer,
-    "GaussianNB": shap.KernelExplainer,
-    "DecisionTreeClassifier": shap.TreeExplainer,
-    "LinearSVC": shap.LinearExplainer,
-    "SVC": shap.KernelExplainer,
-    "LinearDiscriminantAnalysis": shap.LinearExplainer,
-    "ExtraTreesClassifier": shap.TreeExplainer,
-    "LGBMClassifier": shap.TreeExplainer,
 }
 # Smart data preparation
 

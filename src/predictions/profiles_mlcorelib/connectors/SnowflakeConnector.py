@@ -103,10 +103,13 @@ class SnowflakeConnector(Connector):
     ) -> Union[List, snowflake.snowpark.DataFrame]:
         """Runs the given query on the snowpark session and returns a List with Named indices."""
         return_type = kwargs.get("return_type", "sequence")
-        query_run_obj = self.session.sql(query)
-        if return_type == "dataframe":
-            return query_run_obj
-        return query_run_obj.collect()
+        try:
+            query_run_obj = self.session.sql(query)
+            if return_type == "dataframe":
+                return query_run_obj
+            return query_run_obj.collect()
+        except Exception as e:
+            raise Exception(f"Couldn't run the query: {query}. Error: {str(e)}")
 
     def call_procedure(self, *args, **kwargs):
         """Calls the given procedure on the snowpark session and returns the results of the procedure call."""

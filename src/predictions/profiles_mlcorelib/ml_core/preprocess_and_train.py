@@ -8,6 +8,7 @@ from typing import List
 import warnings
 from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWarning
 
+from ..trainers.MLTrainer import MLTrainer
 from ..trainers.TrainerFactory import TrainerFactory
 
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
@@ -17,6 +18,7 @@ from ..utils import utils
 from ..utils.logger import logger
 from ..utils import constants
 from ..utils.S3Utils import S3Utils
+from ..connectors.Connector import Connector
 from ..connectors.ConnectorFactory import ConnectorFactory
 
 
@@ -90,23 +92,15 @@ def prepare_feature_table(
 ):
     """Combines Feature table and Label table pairs, while converting all timestamp cols
     to numeric for creating a single table with user features and label."""
-    connector = kwargs.get("connector", None)
-    trainer = kwargs.get("trainer", None)
+    connector: Connector = kwargs.get("connector", None)
+    trainer: MLTrainer = kwargs.get("trainer", None)
     try:
         feature_table_name = train_table_pair.feature_table_name
         label_table_name = train_table_pair.label_table_name
 
-        if trainer.eligible_users:
-            feature_table = connector.get_table(
-                feature_table_name, filter_condition=trainer.eligible_users
-            )
-        else:
-            default_user_shortlisting = (
-                f"{trainer.label_column} != {trainer.label_value}"
-            )
-            feature_table = connector.get_table(
-                feature_table_name, filter_condition=default_user_shortlisting
-            )
+        feature_table = connector.get_filtered_table(
+            feature_table_name, trainer.eligible_users
+        )
 
         feature_table = connector.select_relevant_columns(
             feature_table, input_columns + [trainer.entity_column]
@@ -135,13 +129,24 @@ def preprocess_and_train(
     pkl_model_file_name: str,
     **kwargs,
 ):
-    connector = kwargs.get("connector", None)
-    trainer = kwargs.get("trainer", None)
+    connector: Connector = kwargs.get("connector", None)
+    trainer: MLTrainer = kwargs.get("trainer", None)
     min_sample_for_training = constants.MIN_SAMPLES_FOR_TRAINING
     cardinal_feature_threshold = constants.CARDINAL_FEATURE_THRESHOLD
     train_config = merged_config["train"]
-
     feature_table = None
+
+    if trainer.eligible_users is None:
+        logger.get().info(
+            "eligible_users flag not given. Trying to auto-select a condition to get subset of users for training the model."
+        )
+        trainer.eligible_users = connector.get_default_eligible_users_condition(
+            train_table_pairs, input_columns, input_column_types, trainer=trainer
+        )
+    logger.get().info(
+        f"Users for training are filtered using eligible users condition: {trainer.eligible_users}"
+    )
+
     logger.get().info("Preparing training dataset using the past snapshot tables:")
     for train_table_pair in train_table_pairs:
         logger.get().info(

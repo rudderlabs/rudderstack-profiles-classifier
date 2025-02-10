@@ -23,6 +23,10 @@ models:
         - gross_amt_spent_in_past_90_days
         - days_since_last_seen
         - is_churned_7_days
+        - is_churned_30_days
+        - is_churned_60_days
+        - is_churned_90_days
+        - is_churned_120_days
         - has_seen_recently
         - last_seen_category
         - random_agg_event
@@ -71,6 +75,22 @@ var_groups:
           select: case when {{user.Var("days_since_last_seen")}} > 7 then 1 else 0 end
           description: it specifies if there is any activity observed in the last n days. It is dependent on days_since_last_seen
       # New boolean feature based on days_since_last_seen
+      - entity_var:
+          name: is_churned_30_days
+          select: case when {{user.Var("days_since_last_seen")}} > 30 then True else False end
+          description: it specifies if there is any activity observed in the last n days. It is dependent on days_since_last_seen
+      - entity_var:
+          name: is_churned_60_days
+          select: case when {{user.Var("days_since_last_seen")}} > 60 then True else False end
+          description: it specifies if there is any activity observed in the last n days. It is dependent on days_since_last_seen
+      - entity_var:
+          name: is_churned_90_days
+          select: case when {{user.Var("days_since_last_seen")}} > 90 then True else False end
+          description: it specifies if there is any activity observed in the last n days. It is dependent on days_since_last_seen
+      - entity_var:
+          name: is_churned_120_days
+          select: case when {{user.Var("days_since_last_seen")}} > 120 then True else False end
+          description: it specifies if there is any activity observed in the last n days. It is dependent on days_since_last_seen
       - entity_var:
           name: has_seen_recently
           select: "{{macro_has_seen_recently('{{user.Var(\"days_since_last_seen\")}}')}}"

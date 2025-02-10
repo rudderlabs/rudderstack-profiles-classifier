@@ -36,6 +36,7 @@ SF_LOCAL_STORAGE_DIR = "/tmp"
 rs_dtypes = '{"text": "character varying(65535)", "num": "float", "bool": "bool", "timestamp": "timestamp without time zone"}'
 CLASSIFIER_MIN_LABEL_PROPORTION = 0.05
 CLASSIFIER_MAX_LABEL_PROPORTION = 0.95
+CLASSIFIER_LABEL_PROPORTION_BUFFER = 0.05
 REGRESSOR_MIN_LABEL_DISTINCT_VALUES = 3
 TRAIN_JSON_RESULT_FILE = "train_results.json"
 K8S_WH_CREDS_KEY = "WAREHOUSE_CREDS"

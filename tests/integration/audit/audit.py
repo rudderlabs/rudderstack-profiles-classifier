@@ -6,6 +6,7 @@ from io import StringIO
 
 input_schema = "classifier_integration_test"
 creds = json.loads(os.environ["SITE_CONFIG"])
+rudderstack_access_token = os.environ["RUDDERSTACK_ACCESS_TOKEN"]
 
 if creds["type"] in ("snowflake", "redshift"):
     creds["schema"] = input_schema
@@ -16,7 +17,7 @@ else:
 
 project_directory = os.path.join("samples", "integration_test_project")
 siteconfig_path = os.path.join(project_directory, "siteconfig.yaml")
-create_site_config_file(creds, siteconfig_path)
+create_site_config_file(creds, siteconfig_path, rudderstack_access_token)
 
 
 def run_audit():

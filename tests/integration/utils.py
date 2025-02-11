@@ -78,12 +78,13 @@ entity_key = "user"
 material_registry_table_name = "MATERIAL_REGISTRY_4"
 
 
-def create_site_config_file(creds, siteconfig_path):
+def create_site_config_file(creds, siteconfig_path, rudderstack_access_token=None):
     json_data = {
         "connections": {
             connection_name: {"target": "test", "outputs": {"test": creds}}
         },
         "py_models": {"credentials_presets": None},
+        "rudderstack_access_token": rudderstack_access_token,
     }
     yaml_data = yaml.dump(json_data, default_flow_style=False)
     with open(siteconfig_path, "w") as file:

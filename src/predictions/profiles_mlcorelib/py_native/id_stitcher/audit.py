@@ -76,7 +76,7 @@ class ModelRecipe(PyNativeRecipe):
             else:
                 print("\nInvalid input. Exiting.")
                 break
-        print("\n\nAudit Completed Successfully.\n")
+        print("\n\nID Stitcher Audit Completed.\n")
 
     def select_id_stitcher_model(self, this: WhtMaterial):
         """
@@ -136,7 +136,9 @@ class ModelRecipe(PyNativeRecipe):
             assert entity is not None, f"Entity not found in model {ids_model.name()}"
 
             yaml_report = YamlReport(edge_sources, entity)
-            table_report = TableReport(this, ids_model, entity, yaml_report)
+            table_report = TableReport(
+                this, ids_model, entity, yaml_report, self.logger
+            )
             cluster_report = ClusterReport(
                 self.reader, this, entity, table_report, self.logger
             )

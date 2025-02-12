@@ -37,7 +37,7 @@
                     
                                 SELECT user_abc_id, {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} AS converted_date 
                                 FROM {{entity_var_table}} 
-                                WHERE {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} is not NULL and {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} != '' 
+                                WHERE {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} is not NULL 
                 ) AS conversion_tbl
                 JOIN 
                 (
@@ -121,7 +121,7 @@ last_touch_campaign_def_id,
                     
                                 SELECT user_abc_id, {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} AS converted_date, {{user.Var('first_invoice_amount').Model.DbObjectNamePrefix()}} AS conversion_value 
                                 FROM {{entity_var_table}} 
-                                WHERE {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} is not NULL and {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} != '' 
+                                WHERE {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} is not NULL 
                 ) AS conversion_tbl
                 JOIN 
                 (
@@ -214,7 +214,7 @@ CASE
                     
                                 SELECT user_abc_id, {{user.Var('subscription_start_date').Model.DbObjectNamePrefix()}} AS converted_date, {{user.Var('first_invoice_amount').Model.DbObjectNamePrefix()}} AS conversion_value 
                                 FROM {{entity_var_table}} 
-                                WHERE {{user.Var('subscription_start_date').Model.DbObjectNamePrefix()}} is not NULL and {{user.Var('subscription_start_date').Model.DbObjectNamePrefix()}} != '' 
+                                WHERE {{user.Var('subscription_start_date').Model.DbObjectNamePrefix()}} is not NULL 
                 ) AS conversion_tbl
                 JOIN 
                 (
@@ -418,6 +418,6 @@ last_touch_conversion_value AS last_touch_conversion_value,
         
                     {% endwith %}
                 {% endmacro %}
-                {% exec %} {{warehouse.CreateReplaceTableAs(this.Name(), selector_sql())}} {% endexec %}
+                {% exec %} {{warehouse.CreateReplaceTableAs(this, selector_sql())}} {% endexec %}
             {% endmacro %}
             {% exec %} {{warehouse.BeginEndBlock(begin_block())}} {% endexec %}

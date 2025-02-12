@@ -2,14 +2,19 @@ import json
 from typing import Any, Dict, List
 from profiles_rudderstack.client import BaseClient
 from profiles_rudderstack.material import WhtMaterial, WhtModel
-
+from profiles_rudderstack.logger import Logger
 from .yaml_report import YamlReport
 from ..warehouse import run_query
 
 
 class TableReport:
     def __init__(
-        self, this: WhtMaterial, model: WhtModel, entity, yaml_report: YamlReport
+        self,
+        this: WhtMaterial,
+        model: WhtModel,
+        entity,
+        yaml_report: YamlReport,
+        logger: Logger,
     ):
         self.wh_client = this.wht_ctx.client
         self.db = this.wht_ctx.client.db
@@ -21,26 +26,39 @@ class TableReport:
         self.entity = entity
         self.analysis_results = {}
         self.yaml_report = yaml_report
+        self.logger = logger
+
+    @staticmethod
+    def parse_id_stitcher_metadata(row):
+        if isinstance(row, str):
+            metadata = json.loads(row)
+        else:
+            metadata = row
+        incremental_base_seq_no = (
+            metadata.get("dependency_context_metadata", {})
+            .get("incremental_base", {})
+            .get("seqno")
+        )
+        if incremental_base_seq_no:
+            raise Exception(
+                "Audit is not supported on incremental runs. Do a full pb run using rebase_incremental flag and re-run the audit. Please refer to our docs for more details."
+            )
+        material_objects = metadata.get("material_objects", [])
+        return material_objects
 
     def get_table_names(self):
         model_hash = self.model.hash()
-
-        if self.wh_type == "snowflake":
-            filter_dict_subquery = """metadata:"complete":"status" = 2"""
-        elif self.wh_type == "redshift":
-            filter_dict_subquery = "metadata.complete.status::integer = 2"
-        elif self.wh_type == "bigquery":
-            filter_dict_subquery = (
-                "cast(json_extract_scalar(metadata, '$.complete.status') as int) = 2"
-            )
-        elif self.wh_type == "databricks":
-            filter_dict_subquery = (
-                "cast(get_json_object(metadata, '$.complete.status') as int) = 2"
-            )
-        else:
+        filter_dict_map = {
+            "snowflake": """metadata:"complete":"status" = 2""",
+            "redshift": "metadata.complete.status::integer = 2",
+            "bigquery": "cast(json_extract_scalar(metadata, '$.complete.status') as int) = 2",
+            "databricks": "cast(get_json_object(metadata, '$.complete.status') as int) = 2",
+        }
+        if self.wh_type not in filter_dict_map:
             raise Exception(
                 "Warehouses other than Snowflake, Redshift, BigQuery and Databricks are not supported yet."
             )
+        filter_dict_subquery = filter_dict_map[self.wh_type]
 
         query = f"""
             select * from {self.db}.{self.schema}.MATERIAL_REGISTRY_4
@@ -48,7 +66,7 @@ class TableReport:
             model_ref = '{self.model.model_ref()}' and
             model_hash = '{model_hash}' and
             {filter_dict_subquery}
-            order by creation_ts desc
+            order by end_ts desc
             LIMIT 1;
         """
         result = run_query(self.wh_client, query)
@@ -57,20 +75,9 @@ class TableReport:
                 f"no valid run found for the id stitcher model with hash {model_hash}"
             )
 
-        def transform_row(row):
-            # metadata in case of bigquery is not JSON
-            try:
-                row_json = json.loads(row)
-                return row_json.get("material_objects", [])
-            except:
-                try:
-                    return row.get("material_objects", [])
-                except:
-                    raise Exception(
-                        "Unable to fetch material objects from the metadata of material registry table."
-                    )
-
-        material_objects = result["METADATA"].apply(transform_row)
+        material_objects = result["METADATA"].apply(
+            TableReport.parse_id_stitcher_metadata
+        )
         material_names = [object["material_name"] for object in material_objects[0]]
         for name in material_names:
             # An assumption is made here that only 3 type of objects exist

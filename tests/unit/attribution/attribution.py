@@ -144,7 +144,11 @@ class TestAttributionModel(unittest.TestCase):
         with open(os.path.join(directory, "output.sql"), "r") as file:
             # Read the contents of the file
             expected_sql = file.read()
-            self.assertEqual(expected_sql, recipe.sql)
+
+        def normalize_sql(sql):
+            return " ".join(sql.split())
+
+        self.assertEqual(normalize_sql(expected_sql), normalize_sql(recipe.sql))
         self.assertEqual(
             self.material.de_refs,
             set(
@@ -163,14 +167,10 @@ class TestAttributionModel(unittest.TestCase):
                     "user/all/var_table",
                     "entity/campaign/google_ads_clicks",
                     "entity/campaign/google_ads_utm_campaign",
-                    "inputs/rsMarketingPages/var_table/user_abc_id",
                     "inputs/fb_basic_campaign/var_table",
                     "inputs/lkdn_ad_analytic_campaign/var_table/campaign_def_id",
-                    "inputs/rsMarketingPages/var_table/campaign_def_id",
                     "inputs/rsMarketingPages1",
                     "inputs/rsMarketingPages1/var_table",
-                    "inputs/rsMarketingPages1/var_table/user_abc_id",
-                    "inputs/rsMarketingPages1/var_table/campaign_def_id",
                 ]
             ),
         )

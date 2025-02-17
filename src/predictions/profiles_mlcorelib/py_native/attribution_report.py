@@ -697,7 +697,13 @@ class AttributionModelRecipe(PyNativeRecipe):
         )
 
         for dependency in self.inputs:
-            this.de_ref(dependency)
+            try:
+                this.de_ref(dependency)
+            except:
+                self.logger.warn(
+                    f"Not able to perform de_ref on dependency: {dependency}"
+                )
+                continue
 
         journey_query, set_jouney_ref = self._create_user_journey_cte(
             this,

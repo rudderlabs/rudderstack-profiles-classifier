@@ -6,6 +6,7 @@ from io import StringIO
 
 input_schema = "classifier_integration_test"
 creds = json.loads(os.environ["SITE_CONFIG"])
+rudderstack_access_token = os.environ["RUDDERSTACK_ACCESS_TOKEN"]
 
 if creds["type"] in ("snowflake", "redshift"):
     creds["schema"] = input_schema
@@ -16,7 +17,7 @@ else:
 
 project_directory = os.path.join("samples", "integration_test_project")
 siteconfig_path = os.path.join(project_directory, "siteconfig.yaml")
-create_site_config_file(creds, siteconfig_path)
+create_site_config_file(creds, siteconfig_path, rudderstack_access_token)
 
 
 def run_audit():
@@ -42,21 +43,17 @@ def run_audit():
         child.expect("Enter an ID to visualize.*skip.*", timeout=TIMEOUT)
         child.sendline("skip")
 
-        # TODO: Denying LLM consent for now. Uncomment the below code to test LLM once it's available.
-        child.expect("Do you consent to LLM usage?.*no.*", timeout=TIMEOUT)
-        child.sendline("no")
+        # give consent for LLM usage
+        child.expect("Do you consent to LLM usage?.*yes.*", timeout=TIMEOUT)
+        child.sendline("yes")
 
-        # # give consent for LLM usage
-        # child.expect("Do you consent to LLM usage?.*yes.*", timeout=TIMEOUT)
-        # child.sendline("yes")
+        # Wait for LLM interactive mode
+        child.expect("Enter your question.*", timeout=TIMEOUT)
+        child.sendline("how many uniques id_types are present?")
 
-        # # Wait for LLM interactive mode
-        # child.expect("Enter your question.*", timeout=TIMEOUT)
-        # child.sendline("how many uniques id_types are present?")
-
-        # # quit from LLM interactive mode
-        # child.expect("Enter your question.*quit.*", timeout=TIMEOUT)
-        # child.sendline("quit")
+        # quit from LLM interactive mode
+        child.expect("Enter your question.*quit.*", timeout=TIMEOUT)
+        child.sendline("quit")
 
         # Wait for completion
         child.expect("Audit Completed Successfully.", timeout=TIMEOUT)

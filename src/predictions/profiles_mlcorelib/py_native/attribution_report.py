@@ -542,6 +542,9 @@ class AttributionModelRecipe(PyNativeRecipe):
                 set_daily_campaign_details_ref = (
                     set_daily_campaign_details_ref
                     + f"{prefix}{counter} = this.DeRef('{campaign_info_granular['from']}/var_table') "
+                    if campaign_info_granular["from"]
+                    not in self.sql_models_with_main_id
+                    else f"{prefix}{counter} = this.DeRef('{campaign_info_granular['from']}') "
                 )
                 select_info = f"SELECT {campaign_id_column_name}, {campaign_info_granular['date']} AS date, {campaign_info_granular['select']} AS {key_behaviour}"
                 from_info = f"FROM {{{{{prefix}{counter}}}}}"
@@ -587,6 +590,8 @@ class AttributionModelRecipe(PyNativeRecipe):
             set_jouney_ref = (
                 set_jouney_ref
                 + f"{prefix}{counter} = this.DeRef('{journey_info['from']}/var_table') "
+                if journey_info["from"] not in self.sql_models_with_main_id
+                else f"{prefix}{counter} = this.DeRef('{journey_info['from']}') "
             )
             journey_info_timestamp = material.de_ref(
                 journey_info["from"]
@@ -628,31 +633,52 @@ class AttributionModelRecipe(PyNativeRecipe):
             column = touchpoint_mat.model.time_filtering_column()
             if not column:
                 raise Exception(f"occurred_at_col field not found in {tbl} yaml")
-            self.inputs.update(
-                (
-                    tbl,
-                    f"{tbl}/var_table",
-                )
-            )
 
             model_ids = touchpoint_mat.model.ids()
             unique_entities: set = {model_id.entity() for model_id in model_ids}
+            has_rudder_id: bool = any(
+                model_id.type() == "rudder_id" for model_id in model_ids
+            )
+            model_type = touchpoint_mat.model.model_type()
 
-            for entity in unique_entities & entity_column_mapping.keys():
-                model_ref = f"{tbl}/var_table/{entity_column_mapping[entity]}"
-                self.inputs.add(model_ref)
+            if model_type == "sql_template" and has_rudder_id:
+                self.inputs.add(tbl)
+                self.sql_models_with_main_id.add(tbl)
+            else:
+                for entity in unique_entities & entity_column_mapping.keys():
+                    model_ref = f"{tbl}/var_table/{entity_column_mapping[entity]}"
+                    self.inputs.add(model_ref)
+
+                self.inputs.update(
+                    (
+                        tbl,
+                        f"{tbl}/var_table",
+                    )
+                )
 
         for campaign_detail in campaign_details:
             for _, values in campaign_detail.items():
                 for obj in values:
                     tbl = obj["from"]
-                    self.inputs.update(
-                        (
-                            tbl,
-                            f"{tbl}/var_table",
-                            f"{tbl}/var_table/{self.campaign_id_column_name}",
-                        )
+                    campaign_detail_mat = this.de_ref(tbl)
+
+                    model_ids = campaign_detail_mat.model.ids()
+                    has_rudder_id: bool = any(
+                        model_id.type() == "rudder_id" for model_id in model_ids
                     )
+                    model_type = campaign_detail_mat.model.model_type()
+
+                    if model_type == "sql_template" and has_rudder_id:
+                        self.inputs.add(tbl)
+                        self.sql_models_with_main_id.add(tbl)
+                    else:
+                        self.inputs.update(
+                            (
+                                tbl,
+                                f"{tbl}/var_table",
+                                f"{tbl}/var_table/{self.campaign_id_column_name}",
+                            )
+                        )
 
         for var in campaign_vars:
             self.inputs.add(f"entity/{self.campaign_entity}/{var}")
@@ -692,18 +718,13 @@ class AttributionModelRecipe(PyNativeRecipe):
         )
 
         self.inputs = set()
+        self.sql_models_with_main_id = set()
         self._define_input_dependency(
             this, user_journeys, campaign_details, campaign_vars
         )
 
         for dependency in self.inputs:
-            try:
-                this.de_ref(dependency)
-            except:
-                self.logger.warn(
-                    f"Not able to perform de_ref on dependency: {dependency}"
-                )
-                continue
+            this.de_ref(dependency)
 
         journey_query, set_jouney_ref = self._create_user_journey_cte(
             this,

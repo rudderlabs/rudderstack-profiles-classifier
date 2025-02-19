@@ -27,3 +27,19 @@ models:
         - select: DEVICE_ID
           type: device_id
           entity: user
+
+  - name: rsRandomSQLModel
+    model_type: sql_template
+    model_spec:
+      validity_time: 24h # 1 day
+      occurred_at_col: timestamp
+      single_sql: |
+        {% with MarketingPages = this.DeRef("inputs/rsMarketingPages/var_table") %}
+            select *
+            from {{MarketingPages}}
+        {% endwith %}
+      ids:
+        - select: "user_main_id"
+          type: rudder_id
+          entity: user
+          to_default_stitcher: False

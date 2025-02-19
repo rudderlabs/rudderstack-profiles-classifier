@@ -8,7 +8,7 @@ class DummyModelID:
 
     def entity(self):
         return self._entity_value
-    
+
     def type(self):
         return self._id_type
 

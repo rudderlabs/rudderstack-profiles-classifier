@@ -80,6 +80,8 @@ models:
         touchpoints: # Defines the user journey sequence allowing us to evaluatel first, last and multi-touch models
           - from: models/rsRandomSQLModel
             where: timestamp > {{user.Var('first_order_date')}}
+          - from: inputs/rsMarketingPages
+            where: timestamp > {{user.Var('first_order_date')}}
         conversion_vars: # What are the activities, outcomes, etc. that we actually want to measure. You can define more than 1. You can also define a value in addition to the count.
           - name: sf_order
             timestamp: user.Var('first_order_date')

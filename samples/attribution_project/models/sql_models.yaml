@@ -34,9 +34,9 @@ models:
       validity_time: 24h # 1 day
       occurred_at_col: timestamp
       single_sql: |
-        {% with MarketingPages = this.DeRef("inputs/rsMarketingPages/var_table") %}
+        {% with MarketingPages1 = this.DeRef("inputs/rsMarketingPages/var_table/user_main_id") MarketingPages2 = this.DeRef("inputs/rsMarketingPages/var_table/campaign_profile_id") MarketingPages3 = this.DeRef("inputs/rsMarketingPages/var_table") %}
             select *
-            from {{MarketingPages}}
+            from {{MarketingPages3}}
         {% endwith %}
       ids:
         - select: "user_main_id"

@@ -2,7 +2,7 @@ from unittest.mock import Mock
 
 
 class DummyModelID:
-    def __init__(self, entity_value="dummy_entity", id_type="rudder_id") -> None:
+    def __init__(self, entity_value="dummy_entity", id_type="user_id") -> None:
         self._entity_value = entity_value
         self._id_type = id_type
 

@@ -639,9 +639,8 @@ class AttributionModelRecipe(PyNativeRecipe):
             has_rudder_id: bool = any(
                 model_id.type() == "rudder_id" for model_id in model_ids
             )
-            model_type = touchpoint_mat.model.model_type()
 
-            if model_type == "sql_template" and has_rudder_id:
+            if has_rudder_id:
                 self.inputs.add(tbl)
                 self.sql_models_with_main_id.add(tbl)
             else:
@@ -666,9 +665,8 @@ class AttributionModelRecipe(PyNativeRecipe):
                     has_rudder_id: bool = any(
                         model_id.type() == "rudder_id" for model_id in model_ids
                     )
-                    model_type = campaign_detail_mat.model.model_type()
 
-                    if model_type == "sql_template" and has_rudder_id:
+                    if has_rudder_id:
                         self.inputs.add(tbl)
                         self.sql_models_with_main_id.add(tbl)
                     else:

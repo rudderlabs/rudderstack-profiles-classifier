@@ -542,8 +542,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                 set_daily_campaign_details_ref = (
                     set_daily_campaign_details_ref
                     + f"{prefix}{counter} = this.DeRef('{campaign_info_granular['from']}/var_table') "
-                    if campaign_info_granular["from"]
-                    not in self.sql_models_with_main_id
+                    if campaign_info_granular["from"] not in self.models_with_main_ids
                     else f"{prefix}{counter} = this.DeRef('{campaign_info_granular['from']}') "
                 )
                 select_info = f"SELECT {campaign_id_column_name}, {campaign_info_granular['date']} AS date, {campaign_info_granular['select']} AS {key_behaviour}"
@@ -590,7 +589,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             set_jouney_ref = (
                 set_jouney_ref
                 + f"{prefix}{counter} = this.DeRef('{journey_info['from']}/var_table') "
-                if journey_info["from"] not in self.sql_models_with_main_id
+                if journey_info["from"] not in self.models_with_main_ids
                 else f"{prefix}{counter} = this.DeRef('{journey_info['from']}') "
             )
             journey_info_timestamp = material.de_ref(
@@ -642,7 +641,7 @@ class AttributionModelRecipe(PyNativeRecipe):
 
             if has_rudder_id:
                 self.inputs.add(tbl)
-                self.sql_models_with_main_id.add(tbl)
+                self.models_with_main_ids.add(tbl)
             else:
                 for entity in unique_entities & entity_column_mapping.keys():
                     model_ref = f"{tbl}/var_table/{entity_column_mapping[entity]}"
@@ -668,7 +667,7 @@ class AttributionModelRecipe(PyNativeRecipe):
 
                     if has_rudder_id:
                         self.inputs.add(tbl)
-                        self.sql_models_with_main_id.add(tbl)
+                        self.models_with_main_ids.add(tbl)
                     else:
                         self.inputs.update(
                             (
@@ -716,7 +715,7 @@ class AttributionModelRecipe(PyNativeRecipe):
         )
 
         self.inputs = set()
-        self.sql_models_with_main_id = set()
+        self.models_with_main_ids = set()
         self._define_input_dependency(
             this, user_journeys, campaign_details, campaign_vars
         )

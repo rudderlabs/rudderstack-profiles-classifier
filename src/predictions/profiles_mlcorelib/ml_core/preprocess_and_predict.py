@@ -5,7 +5,8 @@ import warnings
 import cachetools
 import numpy as np
 import pandas as pd
-from typing import Any
+from typing import Any, List, Dict, Generator, Tuple
+from tqdm import tqdm
 
 from snowflake.snowpark.types import *
 import snowflake.snowpark.functions as F
@@ -28,6 +29,79 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
+DEFAULT_BATCH_SIZE = 100  # Process 100 rows at a time by default
+
+
+def get_batch_iterator(
+    connector: Connector,
+    joined_input_table_name: str,
+    batch_size: int,
+    filter_condition: str = None,
+) -> Generator[pd.DataFrame, None, None]:
+    """
+    Creates a generator that yields batches of data from the input table.
+    For BigQuery and Redshift, this uses LIMIT and OFFSET to fetch data in batches.
+    """
+    count_query = f"SELECT COUNT(*) as count FROM {joined_input_table_name}"
+    if filter_condition:
+        count_query += f" WHERE {filter_condition}"
+
+    total_rows = connector.run_query(count_query)[0].count
+    logger.get().info(f"Total rows to process: {total_rows}")
+
+    for offset in range(0, total_rows, batch_size):
+        query = f"SELECT * FROM {joined_input_table_name}"
+        if filter_condition:
+            query += f" WHERE {filter_condition}"
+        query += f" LIMIT {batch_size} OFFSET {offset}"
+
+        batch_df = connector.run_query(query)
+        yield pd.DataFrame(batch_df)
+
+
+def process_batch(
+    batch_df: pd.DataFrame,
+    numeric_columns: List[str],
+    categorical_columns: List[str],
+    arraytype_columns: List[str],
+    booleantype_columns: List[str],
+    timestamp_columns: List[str],
+    ignore_features: List[str],
+    required_features_upper_case: set,
+    transformed_arraytype_columns: Dict[str, List[str]],
+    trainer: MLTrainer,
+    connector: Connector,
+    end_ts: str,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Process a single batch of data for preprocessing."""
+    logger.get().debug(f"Processing batch of size {len(batch_df)}")
+
+    # Transform arraytype columns
+    _, batch_df = connector.transform_arraytype_features(
+        batch_df,
+        arraytype_columns,
+        trainer.prep.top_k_array_categories,
+        predict_arraytype_features=transformed_arraytype_columns,
+    )
+
+    # Transform boolean columns
+    batch_df = connector.transform_booleantype_features(batch_df, booleantype_columns)
+
+    # Drop ignore features
+    predict_data = connector.drop_cols(batch_df, ignore_features)
+
+    # Select relevant columns
+    input_df = connector.select_relevant_columns(
+        predict_data, required_features_upper_case
+    )
+
+    # Add timestamp column
+    predict_data = connector.add_index_timestamp_colum_for_predict_data(
+        predict_data, trainer.index_timestamp, end_ts
+    )
+
+    return predict_data, input_df
+
 
 def preprocess_and_predict(
     creds,
@@ -39,12 +113,13 @@ def preprocess_and_predict(
     connector: Connector,
     trainer: MLTrainer,
     model_hash: str,
+    batch_size: int = DEFAULT_BATCH_SIZE,
 ):
     """
-    This function is responsible for preprocessing
-    and predicting on the data.
+    This function is responsible for preprocessing and predicting on the data.
+    For BigQuery and Redshift, it processes data in batches from the start
+    to handle large datasets efficiently.
     """
-
     connector.compute_udf_name(model_path)
 
     with open(model_path, "r") as f:
@@ -83,35 +158,6 @@ def preprocess_and_predict(
         inputs, input_columns, trainer.entity_column, joined_input_table_name
     )
 
-    logger.get().debug(
-        f"Pulling data from Table, created after merging the input tables - {joined_input_table_name}"
-    )
-    raw_data = connector.get_table(
-        joined_input_table_name, filter_condition=trainer.eligible_users
-    )
-
-    logger.get().debug(f"Transforming arraytype columns.")
-    _, raw_data = connector.transform_arraytype_features(
-        raw_data,
-        arraytype_columns,
-        trainer.prep.top_k_array_categories,
-        predict_arraytype_features=transformed_arraytype_columns,
-    )
-    raw_data = connector.transform_booleantype_features(raw_data, booleantype_columns)
-
-    logger.get().debug("Boolean Type Columns transformed to numeric")
-
-    predict_data = connector.drop_cols(raw_data, ignore_features)
-
-    input_df = connector.select_relevant_columns(
-        predict_data, required_features_upper_case
-    )
-    types = connector.generate_type_hint(input_df)
-
-    predict_data = connector.add_index_timestamp_colum_for_predict_data(
-        predict_data, trainer.index_timestamp, end_ts
-    )
-
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location"""
@@ -136,9 +182,32 @@ def preprocess_and_predict(
         df.columns = [x.upper() for x in df.columns]
         return trainer.predict(trained_model, df)
 
-    features = input_df.columns
-
     if creds["type"] == "snowflake":
+        # Existing Snowflake logic remains unchanged since it handles large datasets efficiently
+        logger.get().debug("Using Snowflake native processing")
+        raw_data = connector.get_table(
+            joined_input_table_name, filter_condition=trainer.eligible_users
+        )
+        _, raw_data = connector.transform_arraytype_features(
+            raw_data,
+            arraytype_columns,
+            trainer.prep.top_k_array_categories,
+            predict_arraytype_features=transformed_arraytype_columns,
+        )
+        raw_data = connector.transform_booleantype_features(
+            raw_data, booleantype_columns
+        )
+        predict_data = connector.drop_cols(raw_data, ignore_features)
+        input_df = connector.select_relevant_columns(
+            predict_data, required_features_upper_case
+        )
+        types = connector.generate_type_hint(input_df)
+        predict_data = connector.add_index_timestamp_colum_for_predict_data(
+            predict_data, trainer.index_timestamp, end_ts
+        )
+        features = input_df.columns
+
+        # Snowflake UDF setup
         udf_name = connector.udf_name
 
         pycaret_score_column = trainer.pred_output_df_columns["score"]
@@ -181,7 +250,33 @@ def preprocess_and_predict(
                 yield prediction_df
 
         prediction_udf = predict_scores
+
+        # Call prediction UDF
+        preds_with_percentile = connector.call_prediction_udf(
+            predict_data,
+            prediction_udf,
+            trainer.entity_column,
+            trainer.index_timestamp,
+            trainer.outputs.column_names.get("score"),
+            trainer.outputs.column_names.get("percentile"),
+            trainer.outputs.column_names.get("output_label_column"),
+            train_model_id,
+            input_df,
+            trainer.pred_output_df_columns,
+        )
+
+        logger.get().debug("Writing predictions to warehouse")
+        connector.write_table(
+            preds_with_percentile,
+            output_tablename,
+            write_mode="overwrite",
+            local=False,
+            if_exists="replace",
+            s3_config=s3_config,
+        )
+
     elif creds["type"] in ("redshift", "bigquery"):
+        logger.get().debug("Using batch processing for BigQuery/Redshift")
         local_folder = connector.get_local_dir()
 
         def predict_scores_rs(df: pd.DataFrame) -> pd.DataFrame:
@@ -189,30 +284,134 @@ def preprocess_and_predict(
             return predictions
 
         prediction_udf = predict_scores_rs
+        features = None  # Will be set in first batch
+        first_batch = True
 
-    logger.get().debug("Creating predictions on the feature data")
+        # Process data in batches from the start
+        batch_iterator = get_batch_iterator(
+            connector,
+            joined_input_table_name,
+            batch_size,
+            filter_condition=trainer.eligible_users,
+        )
 
-    preds_with_percentile = connector.call_prediction_udf(
-        predict_data,
-        prediction_udf,
-        trainer.entity_column,
-        trainer.index_timestamp,
-        trainer.outputs.column_names.get("score"),
-        trainer.outputs.column_names.get("percentile"),
-        trainer.outputs.column_names.get("output_label_column"),
-        train_model_id,
-        input_df,
-        trainer.pred_output_df_columns,
-    )
-    logger.get().debug("Writing predictions to warehouse")
-    connector.write_table(
-        preds_with_percentile,
-        output_tablename,
-        write_mode="overwrite",
-        local=False,
-        if_exists="replace",
-        s3_config=s3_config,
-    )
+        for batch_df in tqdm(batch_iterator, desc="Processing batches"):
+            # Process batch
+            batch_predict_data, batch_input_df = process_batch(
+                batch_df,
+                numeric_columns,
+                categorical_columns,
+                arraytype_columns,
+                booleantype_columns,
+                timestamp_columns,
+                ignore_features,
+                required_features_upper_case,
+                transformed_arraytype_columns,
+                trainer,
+                connector,
+                end_ts,
+            )
+
+            # Set features on first batch
+            if features is None:
+                features = batch_input_df.columns
+
+            # Get predictions
+            batch_predictions = predict_scores_rs(batch_input_df)
+
+            # Create batch result DataFrame
+            batch_result = pd.DataFrame()
+            batch_result[trainer.entity_column] = batch_predict_data[
+                trainer.entity_column
+            ]
+            batch_result[trainer.index_timestamp] = batch_predict_data[
+                trainer.index_timestamp
+            ]
+            batch_result["model_id"] = train_model_id
+
+            # Add predictions
+            batch_result[trainer.outputs.column_names.get("score")] = batch_predictions[
+                trainer.pred_output_df_columns["score"]
+            ]
+            if "label" in trainer.pred_output_df_columns:
+                batch_result[
+                    trainer.outputs.column_names.get("output_label_column")
+                ] = batch_predictions[trainer.pred_output_df_columns["label"]]
+
+            logger.get().debug("Writing predictions to warehouse")
+            if first_batch:
+                connector.write_table(
+                    batch_result,
+                    output_tablename,
+                    write_mode="overwrite",
+                    local=False,
+                    if_exists="replace",
+                    s3_config=s3_config,
+                )
+                first_batch = False
+            else:
+                columns = ", ".join(batch_result.columns)
+                values_list = []
+                for _, row in batch_result.iterrows():
+                    formatted_values = []
+                    for val in row:
+                        if isinstance(val, str):
+                            formatted_values.append(f"'{val}'")
+                        elif isinstance(
+                            val, (pd.Timestamp, datetime.datetime, datetime.date)
+                        ):
+                            formatted_values.append(f"TIMESTAMP '{val}'")
+                        elif isinstance(val, bool):
+                            formatted_values.append(str(val).upper())
+                        elif pd.isna(val) or val is None:
+                            formatted_values.append("NULL")
+                        else:
+                            formatted_values.append(str(val))
+
+                    row_values = f"({', '.join(formatted_values)})"
+                    values_list.append(row_values)
+
+                values_clause = ",\n    ".join(values_list)
+
+                insert_query = f"""INSERT INTO {output_tablename} ({columns})
+                VALUES 
+                    {values_clause}"""
+                connector.run_query(insert_query, response=False)
+
+            del (
+                batch_df,
+                batch_predict_data,
+                batch_input_df,
+                batch_predictions,
+                batch_result,
+            )
+
+        # Calculate percentiles using SQL directly in the warehouse
+        score_column = trainer.outputs.column_names.get("score")
+        percentile_column = trainer.outputs.column_names.get("percentile")
+        percentile_column_type = "FLOAT" if creds["type"] == "redshift" else "FLOAT64"
+
+        percentile_column_create_query = f"""
+        ALTER TABLE {output_tablename} 
+        ADD COLUMN {percentile_column} {percentile_column_type}
+        """
+
+        percentile_query = f"""
+        UPDATE {output_tablename} t1
+        SET {percentile_column} = ROUND(t2.percentile_rank * 100, 5)
+        FROM (
+            SELECT 
+                {trainer.entity_column},
+                PERCENT_RANK() OVER (ORDER BY {score_column}) as percentile_rank
+            FROM {output_tablename}
+        ) t2
+        WHERE t1.{trainer.entity_column} = t2.{trainer.entity_column}
+        """
+
+        for query in (percentile_column_create_query, percentile_query):
+            connector.run_query(query, response=False)
+
+        logger.get().info("Batch processing completed successfully")
 
     try:
         prev_prediction_table = connector.get_old_prediction_table(

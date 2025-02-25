@@ -360,7 +360,7 @@ def preprocess_and_predict(
                         elif isinstance(
                             val, (pd.Timestamp, datetime.datetime, datetime.date)
                         ):
-                            formatted_values.append(f"TIMESTAMP '{val}'")
+                            formatted_values.append(f"'{val}'")
                         elif isinstance(val, bool):
                             formatted_values.append(str(val).upper())
                         elif pd.isna(val) or val is None:

@@ -332,7 +332,7 @@ def preprocess_and_predict(
             # Add predictions
             batch_result[trainer.outputs.column_names.get("score")] = batch_predictions[
                 trainer.pred_output_df_columns["score"]
-            ]
+            ].round(5)
             if "label" in trainer.pred_output_df_columns:
                 batch_result[
                     trainer.outputs.column_names.get("output_label_column")

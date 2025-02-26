@@ -76,7 +76,6 @@ def process_batch(
     """Process a single batch of data for preprocessing."""
     logger.get().debug(f"Processing batch of size {len(batch_df)}")
 
-    # Transform arraytype columns
     _, batch_df = connector.transform_arraytype_features(
         batch_df,
         arraytype_columns,
@@ -84,18 +83,12 @@ def process_batch(
         predict_arraytype_features=transformed_arraytype_columns,
     )
 
-    # Transform boolean columns
     batch_df = connector.transform_booleantype_features(batch_df, booleantype_columns)
 
-    # Drop ignore features
-    predict_data = connector.drop_cols(batch_df, ignore_features)
+    input_df = connector.drop_cols(batch_df, ignore_features)
+    input_df = connector.select_relevant_columns(input_df, required_features_upper_case)
 
-    # Select relevant columns
-    input_df = connector.select_relevant_columns(
-        predict_data, required_features_upper_case
-    )
-
-    # Add timestamp column
+    predict_data = batch_df[trainer.entity_column]
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
         predict_data, trainer.index_timestamp, end_ts
     )
@@ -202,11 +195,13 @@ def preprocess_and_predict(
         raw_data = connector.transform_booleantype_features(
             raw_data, booleantype_columns
         )
-        predict_data = connector.drop_cols(raw_data, ignore_features)
+        input_df = connector.drop_cols(raw_data, ignore_features)
         input_df = connector.select_relevant_columns(
-            predict_data, required_features_upper_case
+            input_df, required_features_upper_case
         )
         types = connector.generate_type_hint(input_df)
+
+        predict_data = raw_data.select(trainer.entity_column)
         predict_data = connector.add_index_timestamp_colum_for_predict_data(
             predict_data, trainer.index_timestamp, end_ts
         )

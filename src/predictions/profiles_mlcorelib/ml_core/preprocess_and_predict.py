@@ -88,7 +88,7 @@ def process_batch(
     input_df = connector.drop_cols(batch_df, ignore_features)
     input_df = connector.select_relevant_columns(input_df, required_features_upper_case)
 
-    predict_data = batch_df[trainer.entity_column]
+    predict_data = batch_df[[trainer.entity_column]]
     predict_data = connector.add_index_timestamp_colum_for_predict_data(
         predict_data, trainer.index_timestamp, end_ts
     )
@@ -295,103 +295,113 @@ def preprocess_and_predict(
             filter_condition=trainer.eligible_users,
         )
 
-        for batch_df in tqdm(batch_iterator, desc="Processing batches"):
-            # Process batch
-            batch_predict_data, batch_input_df = process_batch(
-                batch_df,
-                numeric_columns,
-                categorical_columns,
-                arraytype_columns,
-                booleantype_columns,
-                timestamp_columns,
-                ignore_features,
-                required_features_upper_case,
-                transformed_arraytype_columns,
-                trainer,
-                connector,
-                end_ts,
-            )
-
-            # Set features on first batch
-            if features is None:
-                features = batch_input_df.columns
-
-            # Get predictions
-            batch_predictions = predict_scores_rs(batch_input_df)
-
-            # Create batch result DataFrame
-            batch_result = pd.DataFrame()
-            batch_result[trainer.entity_column] = batch_predict_data[
-                trainer.entity_column
-            ]
-            batch_result[trainer.index_timestamp] = batch_predict_data[
-                trainer.index_timestamp
-            ]
-            batch_result[model_id_column] = train_model_id
-
-            # Add predictions
-            batch_result[score_column] = batch_predictions[
-                trainer.pred_output_df_columns["score"]
-            ].round(5)
-            if "label" in trainer.pred_output_df_columns:
-                batch_result[output_column] = batch_predictions[
-                    trainer.pred_output_df_columns["label"]
-                ]
-
-            logger.get().debug("Writing predictions to warehouse")
-            if first_batch:
-                connector.write_table(
-                    batch_result,
-                    output_tablename,
-                    write_mode="overwrite",
-                    local=False,
-                    if_exists="replace",
-                    s3_config=s3_config,
+        try:
+            for batch_df in tqdm(batch_iterator, desc="Processing batches"):
+                # Process batch
+                batch_predict_data, batch_input_df = process_batch(
+                    batch_df,
+                    numeric_columns,
+                    categorical_columns,
+                    arraytype_columns,
+                    booleantype_columns,
+                    timestamp_columns,
+                    ignore_features,
+                    required_features_upper_case,
+                    transformed_arraytype_columns,
+                    trainer,
+                    connector,
+                    end_ts,
                 )
-                first_batch = False
-            else:
-                values_list = []
-                for _, row in batch_result.iterrows():
-                    row_values = f"('{row[trainer.entity_column]}', '{row[trainer.index_timestamp]}', '{row[model_id_column]}', {row[score_column]}, {row[output_column]})"
-                    values_list.append(row_values)
 
-                values_clause = ",\n    ".join(values_list)
+                # Set features on first batch
+                if features is None:
+                    features = batch_input_df.columns
 
-                insert_query = f"""INSERT INTO {output_tablename} ({trainer.entity_column}, {trainer.index_timestamp}, {model_id_column}, {score_column}, {output_column})
-                VALUES 
-                    {values_clause}"""
-                connector.run_query(insert_query, response=False)
+                # Get predictions
+                batch_predictions = predict_scores_rs(batch_input_df)
 
-            del (
-                batch_df,
-                batch_predict_data,
-                batch_input_df,
-                batch_predictions,
-                batch_result,
+                # Create batch result DataFrame
+                batch_result = pd.DataFrame()
+                batch_result[trainer.entity_column] = batch_predict_data[
+                    trainer.entity_column
+                ]
+                batch_result[trainer.index_timestamp] = batch_predict_data[
+                    trainer.index_timestamp
+                ]
+                batch_result[model_id_column] = train_model_id
+
+                # Add predictions
+                batch_result[score_column] = batch_predictions[
+                    trainer.pred_output_df_columns["score"]
+                ].round(5)
+                if "label" in trainer.pred_output_df_columns:
+                    batch_result[output_column] = batch_predictions[
+                        trainer.pred_output_df_columns["label"]
+                    ]
+
+                logger.get().debug("Writing predictions to warehouse")
+                if first_batch:
+                    connector.write_table(
+                        batch_result,
+                        output_tablename,
+                        write_mode="overwrite",
+                        local=False,
+                        if_exists="replace",
+                        s3_config=s3_config,
+                    )
+                    first_batch = False
+                else:
+                    values_list = []
+                    for _, row in batch_result.iterrows():
+                        row_values = f"('{row[trainer.entity_column]}', '{row[trainer.index_timestamp]}', '{row[model_id_column]}', {row[score_column]}, {row[output_column]})"
+                        values_list.append(row_values)
+
+                    values_clause = ",\n    ".join(values_list)
+
+                    insert_query = f"""INSERT INTO {output_tablename} ({trainer.entity_column}, {trainer.index_timestamp}, {model_id_column}, {score_column}, {output_column})
+                    VALUES 
+                        {values_clause}"""
+                    connector.run_query(insert_query, response=False)
+
+                del (
+                    batch_df,
+                    batch_predict_data,
+                    batch_input_df,
+                    batch_predictions,
+                    batch_result,
+                )
+
+            # Calculate percentiles using SQL directly in the warehouse
+            percentile_column_type = (
+                "FLOAT" if creds["type"] == "redshift" else "FLOAT64"
             )
 
-        # Calculate percentiles using SQL directly in the warehouse
-        percentile_column_type = "FLOAT" if creds["type"] == "redshift" else "FLOAT64"
+            percentile_column_create_query = f"""
+            ALTER TABLE {output_tablename} 
+            ADD COLUMN {percentile_column} {percentile_column_type}
+            """
 
-        percentile_column_create_query = f"""
-        ALTER TABLE {output_tablename} 
-        ADD COLUMN {percentile_column} {percentile_column_type}
-        """
+            percentile_query = f"""
+            UPDATE {output_tablename} t1
+            SET {percentile_column} = ROUND(t2.percentile_rank * 100, 5)
+            FROM (
+                SELECT 
+                    {trainer.entity_column},
+                    PERCENT_RANK() OVER (ORDER BY {score_column}) as percentile_rank
+                FROM {output_tablename}
+            ) t2
+            WHERE t1.{trainer.entity_column} = t2.{trainer.entity_column}
+            """
 
-        percentile_query = f"""
-        UPDATE {output_tablename} t1
-        SET {percentile_column} = ROUND(t2.percentile_rank * 100, 5)
-        FROM (
-            SELECT 
-                {trainer.entity_column},
-                PERCENT_RANK() OVER (ORDER BY {score_column}) as percentile_rank
-            FROM {output_tablename}
-        ) t2
-        WHERE t1.{trainer.entity_column} = t2.{trainer.entity_column}
-        """
+            for query in (percentile_column_create_query, percentile_query):
+                connector.run_query(query, response=False)
 
-        for query in (percentile_column_create_query, percentile_query):
-            connector.run_query(query, response=False)
+        except Exception as e:
+            drop_table_query = f"DROP TABLE IF EXISTS {output_tablename}"
+            connector.run_query(drop_table_query, response=False)
+
+            logger.get().error(f"Error while processing batch: {e}")
+            raise Exception(f"Error while processing batch: {e}")
 
         logger.get().info("Batch processing completed successfully")
 

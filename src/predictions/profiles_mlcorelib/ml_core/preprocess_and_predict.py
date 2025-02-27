@@ -30,7 +30,7 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
-DEFAULT_BATCH_SIZE = 1000
+DEFAULT_BATCH_SIZE = 10000
 
 
 def get_batch_iterator(
@@ -48,7 +48,10 @@ def get_batch_iterator(
         count_query += f" WHERE {filter_condition}"
 
     total_rows = connector.run_query(count_query)[0].count
-    logger.get().info(f"Total rows to process: {total_rows}")
+    total_batches = int(np.ceil(total_rows / batch_size))
+    logger.get().info(
+        f"Starting batch processing with {total_batches} batches (batch_size={batch_size})"
+    )
 
     for offset in range(0, total_rows, batch_size):
         query = f"SELECT * FROM {joined_input_table_name}"
@@ -57,7 +60,7 @@ def get_batch_iterator(
         query += f" LIMIT {batch_size} OFFSET {offset}"
 
         batch_df = connector.run_query(query)
-        yield pd.DataFrame(batch_df)
+        yield pd.DataFrame(batch_df), total_batches
 
 
 def process_batch(
@@ -287,14 +290,23 @@ def preprocess_and_predict(
         features = None  # Will be set in first batch
         first_batch = True
 
-        batch_iterator = get_batch_iterator(
+        batch_iterator, total_batches = get_batch_iterator(
             connector,
             joined_input_table_name,
             batch_size,
             filter_condition=trainer.eligible_users,
         )
 
+        log_frequency = max(1, total_batches // 10)  # Log every 10% of batches
+        current_batch = 0
         for batch_df in tqdm(batch_iterator, desc="Processing batches"):
+            current_batch += 1
+            if current_batch % log_frequency == 0:
+                progress_percentage = (current_batch / total_batches) * 100
+                logger.get().info(
+                    f"Processing batch {current_batch}/{total_batches} ({progress_percentage:.1f}% complete)"
+                )
+
             max_retries = 3
             retry_count = 0
             while retry_count < max_retries:

@@ -183,9 +183,12 @@ class CommonWarehouseConnector(Connector):
     def transform_booleantype_features(
         self, feature_df: pd.DataFrame, booleantype_features: List[str]
     ) -> pd.DataFrame:
+        """Transform boolean columns to float, handling NA/NULL values properly."""
         for boolean_column in booleantype_features:
-            feature_df[boolean_column] = feature_df[boolean_column].astype(float)
-
+            feature_df[boolean_column] = feature_df[boolean_column].fillna(np.nan)
+            feature_df[boolean_column] = pd.to_numeric(
+                feature_df[boolean_column], errors="coerce"
+            )
         return feature_df
 
     def get_merged_table(self, base_table, incoming_table):

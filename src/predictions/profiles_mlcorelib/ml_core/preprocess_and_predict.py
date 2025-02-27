@@ -53,14 +53,17 @@ def get_batch_iterator(
         f"Starting batch processing with {total_batches} batches (batch_size={batch_size})"
     )
 
-    for offset in range(0, total_rows, batch_size):
-        query = f"SELECT * FROM {joined_input_table_name}"
-        if filter_condition:
-            query += f" WHERE {filter_condition}"
-        query += f" LIMIT {batch_size} OFFSET {offset}"
+    def iterator():
+        for offset in range(0, total_rows, batch_size):
+            query = f"SELECT * FROM {joined_input_table_name}"
+            if filter_condition:
+                query += f" WHERE {filter_condition}"
+            query += f" LIMIT {batch_size} OFFSET {offset}"
 
-        batch_df = connector.run_query(query)
-        yield pd.DataFrame(batch_df), total_batches
+            batch_df = connector.run_query(query)
+            yield pd.DataFrame(batch_df)
+
+    return iterator(), total_batches
 
 
 def process_batch(

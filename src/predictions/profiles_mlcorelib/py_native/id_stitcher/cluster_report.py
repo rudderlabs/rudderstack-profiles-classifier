@@ -52,7 +52,6 @@ class ClusterReport:
         self.counter = 0
         self.logger = logger
         self.color_map = {}
-        self.cluster_specific_id_types = set()
 
     def get_edges_data(self, node_id: str) -> pd.DataFrame:
         cluster_query_template = """
@@ -186,11 +185,13 @@ class ClusterReport:
             return self._visualize_large_graph(G, file_path)
 
     def _visualize_small_graph(self, G: nx.Graph, file_path: str):
+        unique_existing_id_types = set()
         net = self._initialise_network()
         degrees, max_degree = self._pre_compute_graph_info(G)
 
         # Add nodes and edges for the visualization graph
         for node, attrs in G.nodes(data=True):
+            unique_existing_id_types.add(attrs["id_type"])
             color = self._get_node_color(attrs["id_type"], degrees[node], max_degree)
             net.add_node(
                 f"{node[0]}<br>{node[1]}",  # complex nodes can't be used as ids in pyvis but they can be used in networkx
@@ -240,10 +241,11 @@ class ClusterReport:
         )
 
         net.save_graph(file_path)
-        self._add_legend_to_file(file_path)
+        self._add_legend_to_file(unique_existing_id_types, file_path)
         return file_path
 
     def _visualize_large_graph(self, G: nx.Graph, file_path: str):
+        unique_existing_id_types = set()
         net = self._initialise_network()
         degrees, max_degree = self._pre_compute_graph_info(G)
 
@@ -267,6 +269,7 @@ class ClusterReport:
         print("Adding nodes...")
         for node, attrs in G.nodes(data=True):
             x, y = layout[node]
+            unique_existing_id_types.add(attrs["id_type"])
             color = self._get_node_color(attrs["id_type"], degrees[node], max_degree)
             size = 5 + (degrees[node] / max_degree) * 15  # Smaller node sizes
             net.add_node(
@@ -325,7 +328,7 @@ class ClusterReport:
         )
 
         net.save_graph(file_path)
-        self._add_legend_to_file(file_path)
+        self._add_legend_to_file(unique_existing_id_types, file_path)
         return file_path
 
     def _pre_compute_graph_info(self, G: nx.Graph):
@@ -345,7 +348,7 @@ class ClusterReport:
         )
         return net
 
-    def _add_legend_to_file(self, file_path):
+    def _add_legend_to_file(self, unique_existing_id_types, file_path):
         legend_items = [
             f"""
             <div style="display: flex; align-items: center; margin-bottom: 5px;">
@@ -355,7 +358,7 @@ class ClusterReport:
             </div>
             """
             for id_type, color in self.color_map.items()
-            if id_type in self.cluster_specific_id_types
+            if id_type in unique_existing_id_types
         ]
 
         legend_html = f"""
@@ -413,9 +416,6 @@ class ClusterReport:
             metrics, G = self._analyse_cluster(user_input)
             if metrics is None:
                 continue
-            self.cluster_specific_id_types = set(
-                nx.get_node_attributes(G, "id_type").values()
-            )
             cluster_summary = self.get_cluster_summary(metrics)
             self.counter += 1
             if metrics.get("num_nodes", 0) > 1000:

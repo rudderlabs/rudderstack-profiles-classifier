@@ -312,6 +312,7 @@ class PythonWHT:
 
         materialise_data = True
         for date in [feature_date, label_date]:
+            # ToDo: Check if we are honoring material registry table at this point. we are likely generating it even if the data exists on this date.
             if date is not None:
                 self.run(feature_package_path, date)
 

@@ -389,6 +389,11 @@ class ClusterReport:
         return f"rgba{rgb + (opacity,)}"
 
     def run(self):
+        if len(self.table_report.analysis_results["node_types"]) <= 1:
+            print(
+                "The ID stitcher has only a single ID type. Skipping cluster analysis."
+            )
+            return
         print(
             "You can explore specific clusters by entering an ID to see how the other ids are all connected and the cluster is formed."
         )

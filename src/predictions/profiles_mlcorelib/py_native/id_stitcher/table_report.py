@@ -507,7 +507,8 @@ class TableReport:
                 f"{id_type}: {count} nodes ({round(count/self.analysis_results['unique_id_counts'][id_type] * 100, 2)}%) not connected to any other ID type"
             )
 
-        # Check for potential issues
-        potential_issues = self.check_for_issues(node_types)
-        self.analysis_results["potential_issues"] = potential_issues
+        if len(node_types) > 1:
+            # Check for potential issues
+            potential_issues = self.check_for_issues(node_types)
+            self.analysis_results["potential_issues"] = potential_issues
         print(f"\n\nANALYSIS COMPLETE FOR ENTITY: {entity_key}\n\n")

@@ -1,3 +1,6 @@
+import os
+import sys
+import cachetools
 import pandas as pd
 from abc import ABC, abstractmethod
 from collections import OrderedDict
@@ -639,3 +642,38 @@ class Connector(ABC):
         self, prev_pred_ground_truth_table, score_column, label_column
     ):
         pass
+
+    @cachetools.cached(cache={})
+    def load_model(filename: str, trainer: Any):
+        """Loads the model from the given filename."""
+        import_dir = sys._xoptions.get("snowflake_import_directory")
+
+        if import_dir:
+            assert import_dir.startswith("/home/udf/")
+            filename = os.path.join(import_dir, filename)
+        else:
+            filename = os.path.join(local_folder, filename)
+
+        model = trainer.load_model(filename)
+        return model
+
+    def predict_helper(
+        self,
+        df: pd.DataFrame,
+        pkl_model_file_name: str,
+        features: List[str],
+        numeric_columns: List[str],
+        categorical_columns: List[str],
+        timestamp_columns: List[str],
+        trainer: Any,
+        local_folder: str = None,
+    ) -> Any:
+        """Helper function to make predictions using the loaded model."""
+        df.columns = features
+        df = utils.transform_null(
+            df, numeric_columns, categorical_columns, timestamp_columns
+        )
+
+        trained_model = self.load_model(pkl_model_file_name, trainer)
+        df.columns = [x.upper() for x in df.columns]
+        return trainer.predict(trained_model, df)

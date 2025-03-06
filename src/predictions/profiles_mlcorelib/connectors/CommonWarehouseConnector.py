@@ -8,7 +8,19 @@ import pandas as pd
 from pathlib import Path
 from abc import abstractmethod
 from datetime import datetime, timedelta
-from typing import Iterable, List, Tuple, Any, Union, Optional, Sequence, Dict
+from typing import (
+    Iterable,
+    List,
+    Tuple,
+    Any,
+    Union,
+    Optional,
+    Sequence,
+    Dict,
+    Generator,
+)
+import time
+from tqdm import tqdm
 
 from ..utils import utils
 from ..utils import constants
@@ -1066,3 +1078,218 @@ class CommonWarehouseConnector(Connector):
     @abstractmethod
     def fetch_create_metrics_table_query(self, metrics_df, table_name: str):
         pass
+
+    def execute_batch_predictions(
+        self,
+        trainer: Any,
+        env_setup: dict,
+        output_tablename: str,
+        s3_config: dict,
+        batch_size: int,
+    ) -> None:
+        """Executes predictions in batches for BigQuery/Redshift."""
+        features = None
+        first_batch = True
+        batch_iterator, total_batches = self.get_batch_iterator(
+            env_setup["joined_input_table_name"],
+            batch_size,
+            filter_condition=trainer.eligible_users,
+        )
+
+        log_frequency = max(1, total_batches // 10)  # Log every 10% of batches
+        current_batch = 0
+        local_folder = self.get_local_dir()
+        model_id_column = env_setup["model_id_column"]
+        score_column = env_setup["score_column"]
+        output_column = env_setup["output_column"]
+
+        def predict_scores_rs(df: pd.DataFrame) -> pd.DataFrame:
+            predictions = self.predict_helper(
+                df,
+                env_setup["pkl_model_file_name"],
+                features,
+                env_setup["numeric_columns"],
+                env_setup["categorical_columns"],
+                env_setup["timestamp_columns"],
+                trainer,
+                local_folder,
+            )
+            return predictions
+
+        for batch_df in tqdm(batch_iterator, desc="Processing batches"):
+            current_batch += 1
+            if current_batch % log_frequency == 0:
+                progress_percentage = (current_batch / total_batches) * 100
+                logger.get().info(
+                    f"Processing batch {current_batch}/{total_batches} ({progress_percentage:.1f}% complete)"
+                )
+
+            max_retries = 3
+            retry_count = 0
+            while retry_count < max_retries:
+                try:
+                    batch_predict_data, batch_input_df = self.process_batch(
+                        batch_df, env_setup, trainer, env_setup["end_ts"]
+                    )
+
+                    if features is None:
+                        features = batch_input_df.columns
+
+                    batch_predictions = predict_scores_rs(batch_input_df)
+
+                    batch_result = pd.DataFrame()
+                    batch_result[trainer.entity_column] = batch_predict_data[
+                        trainer.entity_column
+                    ]
+                    batch_result[trainer.index_timestamp] = batch_predict_data[
+                        trainer.index_timestamp
+                    ]
+                    batch_result[model_id_column] = env_setup["train_model_id"]
+                    batch_result[score_column] = batch_predictions[
+                        trainer.pred_output_df_columns["score"]
+                    ].round(5)
+                    if "label" in trainer.pred_output_df_columns:
+                        batch_result[output_column] = batch_predictions[
+                            trainer.pred_output_df_columns["label"]
+                        ]
+
+                    logger.get().debug("Writing predictions to warehouse")
+
+                    if first_batch:
+                        self.write_table(
+                            batch_result,
+                            output_tablename,
+                            write_mode="overwrite",
+                            local=False,
+                            if_exists="replace",
+                            s3_config=s3_config,
+                        )
+                        first_batch = False
+                    else:
+                        values_list = []
+                        for _, row in batch_result.iterrows():
+                            row_values = f"('{row[trainer.entity_column]}', '{row[trainer.index_timestamp]}', '{row[model_id_column]}', {row[score_column]}, {row[output_column]})"
+                            values_list.append(row_values)
+
+                        values_clause = ",\n    ".join(values_list)
+
+                        insert_query = f"""INSERT INTO {output_tablename} ({trainer.entity_column}, {trainer.index_timestamp}, {model_id_column}, {score_column}, {output_column})
+                        VALUES 
+                            {values_clause}"""
+                        self.run_query(insert_query, response=False)
+
+                    del (
+                        batch_df,
+                        batch_predict_data,
+                        batch_input_df,
+                        batch_predictions,
+                        batch_result,
+                    )
+                    break
+                except Exception as e:
+                    if retry_count < max_retries:
+                        retry_count += 1
+                        time.sleep(5)
+                        continue
+                    else:
+                        drop_table_query = f"DROP TABLE IF EXISTS {output_tablename}"
+                        self.run_query(drop_table_query, response=False)
+
+                        logger.get().error(f"Error while processing batch: {e}")
+                        raise Exception(f"Error while processing batch: {e}")
+
+    def process_batch(
+        self,
+        batch_df: pd.DataFrame,
+        env_setup: dict,
+        trainer: Any,
+        end_ts: str,
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Process a single batch of data for preprocessing."""
+        logger.get().debug(f"Processing batch of size {len(batch_df)}")
+
+        _, batch_df = self.transform_arraytype_features(
+            batch_df,
+            env_setup["arraytype_columns"],
+            trainer.prep.top_k_array_categories,
+            predict_arraytype_features=env_setup["transformed_arraytype_columns"],
+        )
+
+        batch_df = self.transform_booleantype_features(
+            batch_df, env_setup["booleantype_columns"]
+        )
+
+        input_df = self.drop_cols(batch_df, env_setup["ignore_features"])
+        input_df = self.select_relevant_columns(
+            input_df, env_setup["required_features_upper_case"]
+        )
+
+        predict_data = batch_df[[trainer.entity_column]]
+        predict_data = self.add_index_timestamp_colum_for_predict_data(
+            predict_data, trainer.index_timestamp, end_ts
+        )
+
+        return predict_data, input_df
+
+    def get_batch_iterator(
+        self,
+        joined_input_table_name: str,
+        batch_size: int,
+        filter_condition: str = None,
+    ) -> Tuple[Generator[pd.DataFrame, None, None], int]:
+        """
+        Creates a generator that yields batches of data from the input table.
+        For BigQuery and Redshift, this uses LIMIT and OFFSET to fetch data in batches.
+        """
+        count_query = f"SELECT COUNT(*) as count FROM {joined_input_table_name}"
+        if filter_condition:
+            count_query += f" WHERE {filter_condition}"
+
+        total_rows = self.run_query(count_query)[0].count
+        total_batches = int(np.ceil(total_rows / batch_size))
+        logger.get().info(
+            f"Starting batch processing with {total_batches} batches (batch_size={batch_size})"
+        )
+
+        def iterator():
+            for offset in range(0, total_rows, batch_size):
+                query = f"SELECT * FROM {joined_input_table_name}"
+                if filter_condition:
+                    query += f" WHERE {filter_condition}"
+                query += f" LIMIT {batch_size} OFFSET {offset}"
+
+                batch_df = self.run_query(query)
+                yield pd.DataFrame(batch_df)
+
+        return iterator(), total_batches
+
+    def calculate_percentiles(
+        self,
+        output_tablename: str,
+        trainer: Any,
+        score_column: str,
+        percentile_column: str,
+        warehouse_type: str,
+    ) -> None:
+        """Calculates percentiles for the predictions."""
+        percentile_column_type = "FLOAT" if warehouse_type == "redshift" else "FLOAT64"
+
+        percentile_column_create_query = f"""
+        ALTER TABLE {output_tablename} 
+        ADD COLUMN {percentile_column} {percentile_column_type}
+        """
+
+        percentile_query = f"""
+        UPDATE {output_tablename} t1
+        SET {percentile_column} = ROUND(t2.percentile_rank * 100, 5)
+        FROM (
+            SELECT 
+                {trainer.entity_column},
+                PERCENT_RANK() OVER (ORDER BY {score_column}) as percentile_rank
+            FROM {output_tablename}
+        ) t2
+        WHERE t1.{trainer.entity_column} = t2.{trainer.entity_column}
+        """
+
+        for query in (percentile_column_create_query, percentile_query):
+            self.run_query(query, response=False)

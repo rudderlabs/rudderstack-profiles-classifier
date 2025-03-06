@@ -5,6 +5,7 @@ import json
 import uuid
 import hashlib
 import shutil
+import numpy as np
 import pandas as pd
 from datetime import datetime
 
@@ -13,6 +14,7 @@ from typing import Any, Iterable, List, Union, Sequence, Dict
 
 import snowflake.snowpark
 import snowflake.snowpark.types as T
+from snowflake.snowpark.types import *
 import snowflake.snowpark.functions as F
 from snowflake.snowpark.window import Window
 from snowflake.snowpark.functions import col, to_date
@@ -63,7 +65,7 @@ class SnowflakeConnector(Connector):
             "timestamp": "TimestampType",
         }
         self.run_id = hashlib.md5(
-            f"{str(datetime.now())}_{uuid.uuid4()}".encode()
+            f"{str(datetime.datetime.now())}_{uuid.uuid4()}".encode()
         ).hexdigest()
         current_dir = os.path.dirname(os.path.abspath(__file__))
         train_script_dir = os.path.dirname(current_dir)
@@ -1326,3 +1328,89 @@ class SnowflakeConnector(Connector):
         if self.feature_table_name:
             self.run_query(f"drop table if exists {self.feature_table_name}")
         self.session.close()
+
+    def execute_snowflake_predictions(
+        self, trainer: Any, joined_input_table_name: str, env_setup: dict, end_ts: str
+    ) -> snowflake.snowpark.Table:
+        """Executes predictions using Snowflake's native processing."""
+        raw_data = self.get_table(
+            joined_input_table_name, filter_condition=trainer.eligible_users
+        )
+        _, raw_data = self.transform_arraytype_features(
+            raw_data,
+            env_setup["arraytype_columns"],
+            trainer.prep.top_k_array_categories,
+            predict_arraytype_features=env_setup["transformed_arraytype_columns"],
+        )
+        raw_data = self.transform_booleantype_features(
+            raw_data, env_setup["booleantype_columns"]
+        )
+        input_df = self.drop_cols(raw_data, env_setup["ignore_features"])
+        input_df = self.select_relevant_columns(
+            input_df, env_setup["required_features_upper_case"]
+        )
+
+        types = self.generate_type_hint(input_df)
+
+        predict_data = raw_data.select(trainer.entity_column)
+        predict_data = self.add_index_timestamp_colum_for_predict_data(
+            predict_data, trainer.index_timestamp, end_ts
+        )
+        features = input_df.columns
+
+        udf_name = self.udf_name
+
+        pycaret_score_column = trainer.pred_output_df_columns["score"]
+        pycaret_label_column = trainer.pred_output_df_columns.get(
+            "label", "prediction_score"
+        )  # To make up for the missing column in case of regression
+
+        @F.pandas_udtf(
+            session=self.session,
+            is_permanent=False,
+            replace=True,
+            stage_location=env_setup["stage_name"],
+            name=udf_name,
+            output_schema=PandasDataFrameType(
+                [FloatType(), FloatType()], [pycaret_score_column, pycaret_label_column]
+            ),
+            input_types=[PandasDataFrameType(types)],
+            input_names=features,
+            imports=[
+                f"{env_setup['stage_name']}/{env_setup['pkl_model_file_name']}.pkl"
+            ]
+            + self.delete_files,
+            packages=constants.SNOWFLAKE_TRAINING_PACKAGES + ["cachetools==4.2.2"],
+        )
+        class predict_scores:
+            def __init__(self, outer_obj):
+                self.outer_obj = outer_obj
+
+            def end_partition(self, df):
+                predictions = self.outer_obj.predict_helper(
+                    df,
+                    env_setup["pkl_model_file_name"],
+                    features,
+                    env_setup["numeric_columns"],
+                    env_setup["categorical_columns"],
+                    env_setup["timestamp_columns"],
+                    trainer,
+                )
+
+                prediction_df = pd.DataFrame()
+                prediction_df[pycaret_score_column] = predictions[pycaret_score_column]
+
+                # Check if 'label' is present in pred_output_df_columns
+                # Had to add a dummy label column in case of regression to the output dataframe as the UDTF expects the two columns in output
+                if "label" in trainer.pred_output_df_columns:
+                    prediction_df[pycaret_label_column] = predictions[
+                        pycaret_label_column
+                    ]
+                else:
+                    prediction_df[pycaret_label_column] = np.nan
+
+                yield prediction_df
+
+        prediction_udf = predict_scores(self)
+
+        return prediction_udf, predict_data, input_df

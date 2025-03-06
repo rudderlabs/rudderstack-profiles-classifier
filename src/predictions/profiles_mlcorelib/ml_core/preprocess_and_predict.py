@@ -29,11 +29,11 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
-DEFAULT_BATCH_SIZE = 10000
+DEFAULT_BATCH_SIZE = 100
 
 
 def setup_prediction_environment(
-    model_path: str, connector: Connector, trainer: MLTrainer
+    model_path: str, end_ts: Any, connector: Connector, trainer: MLTrainer
 ):
     """Sets up the prediction environment by loading model info and configuring necessary parameters."""
     connector.compute_udf_name(model_path)
@@ -66,6 +66,7 @@ def setup_prediction_environment(
         word: [item for item in numeric_columns if item.startswith(word)]
         for word in arraytype_columns
     }
+    end_ts = utils.parse_timestamp(end_ts)
 
     # No need to decide whether to create PyNativeWHT or PythonWHT since all the methods being called
     # here have the same implementation in both classes.
@@ -123,9 +124,8 @@ def preprocess_and_predict(
     batch_size: int = DEFAULT_BATCH_SIZE,
 ):
     """Main function to preprocess data and generate predictions."""
-    env_setup = setup_prediction_environment(model_path, connector, trainer)
-    end_ts = utils.parse_timestamp(end_ts)
-    joined_input_table_name = setup_joined_input_table(
+    env_setup = setup_prediction_environment(model_path, end_ts, connector, trainer)
+    env_setup["joined_input_table_name"] = setup_joined_input_table(
         connector, inputs, env_setup["input_columns"], trainer
     )
 
@@ -133,7 +133,7 @@ def preprocess_and_predict(
         logger.get().debug("Using Snowflake native processing")
         prediction_udf, predict_data, input_df = (
             connector.execute_snowflake_predictions(
-                trainer, joined_input_table_name, env_setup, end_ts
+                trainer, env_setup["joined_input_table_name"], env_setup, end_ts
             )
         )
 
@@ -189,7 +189,9 @@ def preprocess_and_predict(
         )
         prev_predictions = connector.get_table(prev_prediction_table)
 
-        label_table = trainer.prepare_label_table(connector, joined_input_table_name)
+        label_table = trainer.prepare_label_table(
+            connector, env_setup["joined_input_table_name"]
+        )
         prev_pred_ground_truth_table = connector.join_feature_table_label_table(
             prev_predictions, label_table, trainer.entity_column, "inner"
         )
@@ -217,7 +219,7 @@ def preprocess_and_predict(
                 "prediction_date": [prediction_date],
                 "label_date": [end_ts],
                 "prediction_table_name": [prev_prediction_table],
-                "label_table_name": [joined_input_table_name],
+                "label_table_name": [env_setup["joined_input_table_name"]],
                 "metrics": [metrics],
             }
         ).reset_index(drop=True)
@@ -251,7 +253,7 @@ def preprocess_and_predict(
         logger.get().error(f"Error while fetching previous prediction table: {e}")
 
     logger.get().debug("Closing the session")
-    connector.drop_joined_tables(table_list=[joined_input_table_name])
+    connector.drop_joined_tables(table_list=[env_setup["joined_input_table_name"]])
     connector.post_job_cleanup()
     logger.get().debug("Finished Predict job")
 

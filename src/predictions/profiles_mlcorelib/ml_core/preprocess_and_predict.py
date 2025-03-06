@@ -30,7 +30,7 @@ from numba.core.errors import NumbaDeprecationWarning, NumbaPendingDeprecationWa
 warnings.filterwarnings("ignore", category=NumbaDeprecationWarning)
 warnings.simplefilter("ignore", category=NumbaPendingDeprecationWarning)
 
-DEFAULT_BATCH_SIZE = 10000
+DEFAULT_BATCH_SIZE = 1000
 
 
 def get_batch_iterator(
@@ -124,6 +124,13 @@ def preprocess_and_predict(
         model_path, inputs, end_ts, connector, trainer
     )
 
+    pkl_model_file_name = pred_env["pkl_model_file_name"]
+    numeric_columns = pred_env["numeric_columns"]
+    categorical_columns = pred_env["categorical_columns"]
+    timestamp_columns = pred_env["timestamp_columns"]
+
+    features = [col.upper() for col in pred_env["required_features_upper_case"]]
+
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location"""
@@ -142,9 +149,9 @@ def preprocess_and_predict(
         df.columns = features
         df = utils.transform_null(
             df,
-            pred_env["numeric_columns"],
-            pred_env["categorical_columns"],
-            pred_env["timestamp_columns"],
+            numeric_columns,
+            categorical_columns,
+            timestamp_columns,
         )
 
         trained_model = load_model(pkl_model_file_name)
@@ -158,7 +165,6 @@ def preprocess_and_predict(
         )
 
         types = connector.generate_type_hint(input_df)
-        features = input_df.columns
 
         # Snowflake UDF setup
         udf_name = connector.udf_name
@@ -179,13 +185,13 @@ def preprocess_and_predict(
             ),
             input_types=[PandasDataFrameType(types)],
             input_names=features,
-            imports=[f"{pred_env['stage_name']}/{pred_env['pkl_model_file_name']}.pkl"]
+            imports=[f"{pred_env['stage_name']}/{pkl_model_file_name}.pkl"]
             + connector.delete_files,
             packages=constants.SNOWFLAKE_TRAINING_PACKAGES + ["cachetools==4.2.2"],
         )
         class predict_scores:
             def end_partition(self, df):
-                predictions = predict_helper(df, pred_env["pkl_model_file_name"])
+                predictions = predict_helper(df, pkl_model_file_name)
 
                 # Create a new DataFrame with the extracted column names
                 prediction_df = pd.DataFrame()
@@ -233,7 +239,7 @@ def preprocess_and_predict(
         local_folder = connector.get_local_dir()
 
         def predict_scores_rs(df: pd.DataFrame) -> pd.DataFrame:
-            predictions = predict_helper(df, pred_env["pkl_model_file_name"])
+            predictions = predict_helper(df, pkl_model_file_name)
             return predictions
 
         prediction_udf = predict_scores_rs
@@ -383,7 +389,6 @@ def execute_batch_predictions(
     connector: Connector,
     trainer: MLTrainer,
 ):
-    features = None  # Will be set in first batch
     first_batch = True
 
     end_ts = pred_env["end_ts"]
@@ -427,9 +432,6 @@ def execute_batch_predictions(
                     connector,
                     end_ts,
                 )
-
-                if features is None:
-                    features = batch_input_df.columns
 
                 batch_predictions = prediction_udf(batch_input_df)
 

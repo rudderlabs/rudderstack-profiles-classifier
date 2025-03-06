@@ -3,6 +3,7 @@ import json
 import time
 import logging
 import warnings
+import cachetools
 import pandas as pd
 from typing import Any, List, Dict, Generator, Tuple
 from tqdm import tqdm
@@ -65,7 +66,6 @@ def setup_prediction_environment(
         word: [item for item in numeric_columns if item.startswith(word)]
         for word in arraytype_columns
     }
-    end_ts = utils.parse_timestamp(end_ts)
 
     # No need to decide whether to create PyNativeWHT or PythonWHT since all the methods being called
     # here have the same implementation in both classes.
@@ -124,6 +124,7 @@ def preprocess_and_predict(
 ):
     """Main function to preprocess data and generate predictions."""
     env_setup = setup_prediction_environment(model_path, connector, trainer)
+    end_ts = utils.parse_timestamp(end_ts)
     joined_input_table_name = setup_joined_input_table(
         connector, inputs, env_setup["input_columns"], trainer
     )

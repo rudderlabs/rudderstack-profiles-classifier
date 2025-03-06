@@ -1381,7 +1381,7 @@ class SnowflakeConnector(Connector):
                 f"{env_setup['stage_name']}/{env_setup['pkl_model_file_name']}.pkl"
             ]
             + self.delete_files,
-            packages=constants.SNOWFLAKE_TRAINING_PACKAGES + ["cachetools==4.2.2"],
+            packages=constants.SNOWFLAKE_TRAINING_PACKAGES,
         )
         class predict_scores:
             def __init__(self, outer_obj):

@@ -111,6 +111,7 @@ SNOWFLAKE_TRAINING_PACKAGES = [
     "scikit-plot==0.3.7",
     "pycaret<=3.3.0",
     "cryptography==42.0.2",
+    "cachetools==4.2.2",
 ]
 
 

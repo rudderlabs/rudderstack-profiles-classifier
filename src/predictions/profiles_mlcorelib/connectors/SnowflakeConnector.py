@@ -125,8 +125,7 @@ class SnowflakeConnector(Connector):
                                     {query} ;
                                 """
         logger.get().info(
-            "Create table query for past material is ===============",
-            create_temp_table_query,
+            f"Create table query for past material is ==============={create_temp_table_query}"
         )
         self.run_query(create_temp_table_query, response=False)
 

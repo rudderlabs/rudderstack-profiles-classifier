@@ -129,8 +129,6 @@ def preprocess_and_predict(
     categorical_columns = pred_env["categorical_columns"]
     timestamp_columns = pred_env["timestamp_columns"]
 
-    features = [col.upper() for col in pred_env["required_features_upper_case"]]
-
     @cachetools.cached(cache={})
     def load_model(filename: str):
         """session.import adds the staged model file to an import directory. We load the model file from this location"""
@@ -165,6 +163,7 @@ def preprocess_and_predict(
         )
 
         types = connector.generate_type_hint(input_df)
+        features = input_df.columns
 
         # Snowflake UDF setup
         udf_name = connector.udf_name
@@ -389,6 +388,7 @@ def execute_batch_predictions(
     connector: Connector,
     trainer: MLTrainer,
 ):
+    features = None  # Will be set in first batch
     first_batch = True
 
     end_ts = pred_env["end_ts"]
@@ -432,6 +432,9 @@ def execute_batch_predictions(
                     connector,
                     end_ts,
                 )
+
+                if features is None:
+                    features = batch_input_df.columns
 
                 batch_predictions = prediction_udf(batch_input_df)
 

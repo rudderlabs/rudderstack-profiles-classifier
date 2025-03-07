@@ -271,7 +271,7 @@ def preprocess_and_predict(
             trainer.pred_output_df_columns,
         )
 
-        logger.get().debug("Writing predictions to warehouse")
+        logger.get().debug("Writing predictions to the warehouse")
         connector.write_table(
             preds_with_percentile,
             output_tablename,

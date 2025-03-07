@@ -129,6 +129,27 @@ models:
                 date: date 
                 select: sum(reach)
 
+  - name: campaign_performance_report_optional
+    model_type: attribution
+    model_spec:
+      entity_key: user
+      conversion:
+        touchpoints:
+          - from: models/rsRandomSQLModel
+            where: timestamp > {{user.Var('first_order_date')}}
+          - from: inputs/rsMarketingPages
+            where: timestamp > {{user.Var('first_order_date')}}
+        conversion_vars:
+          - name: sf_order
+            timestamp: user.Var('first_order_date')
+            value: user.Var('first_invoice_amount')
+          - name: sf_subscription
+            timestamp: user.Var('subscription_start_date')
+      campaign:
+        entity_key: campaign
+        campaign_start_date: campaign_start_date
+        campaign_end_date: campaign_end_date
+
 # Defining Features For Campaigns
 var_groups:
   - name: campaign_vars

@@ -120,48 +120,26 @@ def preprocess_and_predict(
     For BigQuery and Redshift, it processes data in batches from the start
     to handle large datasets efficiently.
     """
-    connector.compute_udf_name(model_path)
-
-    with open(model_path, "r") as f:
-        results = json.load(f)
-    train_model_id = results["model_info"]["model_id"]
-    stage_name = results["model_info"]["file_location"]["stage"]
-    pkl_model_file_name = results["model_info"]["file_location"]["file_name"]
-
-    score_column = trainer.outputs.column_names.get("score")
-    percentile_column = trainer.outputs.column_names.get("percentile")
-    output_column = trainer.outputs.column_names.get("output_label_column")
-    model_id_column = "model_id"
-
-    input_column_types = results["column_names"]["input_column_types"]
-    numeric_columns = results["column_names"]["input_column_types"]["numeric"]
-    categorical_columns = results["column_names"]["input_column_types"]["categorical"]
-    arraytype_columns = results["column_names"]["input_column_types"]["arraytype"]
-    timestamp_columns = results["column_names"]["input_column_types"]["timestamp"]
-    booleantype_columns = results["column_names"]["input_column_types"]["booleantype"]
-    ignore_features = results["column_names"]["ignore_features"]
-    required_features_upper_case = set(
-        [col.upper() for col in results["column_names"]["feature_table_column_types"]]
-    )
-
-    input_columns = utils.extract_unique_values(input_column_types)
-    transformed_arraytype_columns = {
-        word: [item for item in numeric_columns if item.startswith(word)]
-        for word in arraytype_columns
-    }
-    end_ts = utils.parse_timestamp(end_ts)
-
-    # No need to decide whether to create PyNativeWHT or PythonWHT since all the methods being called
-    # here have the same implementation in both classes.
-    whtService = PyNativeWHT(None, None, None)
-    whtService.set_connector(connector)
-
-    joined_input_table_name = (
-        f"prediction_joined_table_{utils.generate_random_string(5)}"
-    )
-    connector.join_input_tables(
-        inputs, input_columns, trainer.entity_column, joined_input_table_name
-    )
+    (
+        end_ts,
+        train_model_id,
+        stage_name,
+        pkl_model_file_name,
+        score_column,
+        percentile_column,
+        output_column,
+        model_id_column,
+        numeric_columns,
+        categorical_columns,
+        arraytype_columns,
+        timestamp_columns,
+        booleantype_columns,
+        ignore_features,
+        required_features_upper_case,
+        transformed_arraytype_columns,
+        whtService,
+        joined_input_table_name,
+    ) = setup_prediction_env(model_path, inputs, end_ts, connector, trainer)
 
     @cachetools.cached(cache={})
     def load_model(filename: str):
@@ -500,6 +478,72 @@ def preprocess_and_predict(
     connector.drop_joined_tables(table_list=[joined_input_table_name])
     connector.post_job_cleanup()
     logger.get().debug("Finished Predict job")
+
+
+def setup_prediction_env(model_path, inputs, end_ts, connector, trainer):
+    connector.compute_udf_name(model_path)
+
+    with open(model_path, "r") as f:
+        results = json.load(f)
+    train_model_id = results["model_info"]["model_id"]
+    stage_name = results["model_info"]["file_location"]["stage"]
+    pkl_model_file_name = results["model_info"]["file_location"]["file_name"]
+
+    score_column = trainer.outputs.column_names.get("score")
+    percentile_column = trainer.outputs.column_names.get("percentile")
+    output_column = trainer.outputs.column_names.get("output_label_column")
+    model_id_column = "model_id"
+
+    input_column_types = results["column_names"]["input_column_types"]
+    numeric_columns = results["column_names"]["input_column_types"]["numeric"]
+    categorical_columns = results["column_names"]["input_column_types"]["categorical"]
+    arraytype_columns = results["column_names"]["input_column_types"]["arraytype"]
+    timestamp_columns = results["column_names"]["input_column_types"]["timestamp"]
+    booleantype_columns = results["column_names"]["input_column_types"]["booleantype"]
+    ignore_features = results["column_names"]["ignore_features"]
+    required_features_upper_case = set(
+        [col.upper() for col in results["column_names"]["feature_table_column_types"]]
+    )
+
+    input_columns = utils.extract_unique_values(input_column_types)
+    transformed_arraytype_columns = {
+        word: [item for item in numeric_columns if item.startswith(word)]
+        for word in arraytype_columns
+    }
+    end_ts = utils.parse_timestamp(end_ts)
+
+    # No need to decide whether to create PyNativeWHT or PythonWHT since all the methods being called
+    # here have the same implementation in both classes.
+    whtService = PyNativeWHT(None, None, None)
+    whtService.set_connector(connector)
+
+    joined_input_table_name = (
+        f"prediction_joined_table_{utils.generate_random_string(5)}"
+    )
+    connector.join_input_tables(
+        inputs, input_columns, trainer.entity_column, joined_input_table_name
+    )
+
+    return (
+        end_ts,
+        train_model_id,
+        stage_name,
+        pkl_model_file_name,
+        score_column,
+        percentile_column,
+        output_column,
+        model_id_column,
+        numeric_columns,
+        categorical_columns,
+        arraytype_columns,
+        timestamp_columns,
+        booleantype_columns,
+        ignore_features,
+        required_features_upper_case,
+        transformed_arraytype_columns,
+        whtService,
+        joined_input_table_name,
+    )
 
 
 if __name__ == "__main__":

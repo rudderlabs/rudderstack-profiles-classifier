@@ -105,7 +105,7 @@ SNOWFLAKE_TRAINING_PACKAGES = [
     "numpy==1.23.1",
     "pandas==1.5.3",
     "hyperopt==0.2.7",
-    "shap==0.41.0",
+    "shap==0.46.0",
     "matplotlib==3.7.1",
     "seaborn==0.12.0",
     "scikit-plot==0.3.7",

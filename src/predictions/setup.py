@@ -13,7 +13,7 @@ install_requires = [
     "pyarrow>=14.0.2",
     "PyYAML>=6.0.1",
     "scikit_learn>=1.4.0,<=1.4.2",
-    "shap>=0.44.0",
+    "shap>=0.44.0, <0.47.0",
     "xgboost>=2.0.3",
     "redshift-connector>=2.0.918",
     "pandas-redshift>=2.0.5",

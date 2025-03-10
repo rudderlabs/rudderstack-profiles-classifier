@@ -95,8 +95,6 @@ class AttributionModel(BaseModelType):
                     ENTITY_KEY,
                     CAMPAIGN_START_DATE,
                     CAMPAIGN_END_DATE,
-                    CAMPAIGN_VARS,
-                    CAMPAIGN_DETAILS,
                 ],
                 "additionalProperties": False,
             },
@@ -112,8 +110,8 @@ class AttributionModel(BaseModelType):
         return AttributionModelRecipe(self.build_spec, Logger("attribution_model"))
 
     def validate(self) -> Tuple[bool, str]:
-        campaign_vars = self.build_spec[CAMPAIGN][CAMPAIGN_VARS]
-        campaign_details = self.build_spec[CAMPAIGN][CAMPAIGN_DETAILS]
+        campaign_vars = self.build_spec[CAMPAIGN].get(CAMPAIGN_VARS, list())
+        campaign_details = self.build_spec[CAMPAIGN].get(CAMPAIGN_DETAILS, list())
 
         campaign_details_keys = [next(iter(obj)) for obj in campaign_details]
         for val in campaign_details_keys:
@@ -493,10 +491,15 @@ class AttributionModelRecipe(PyNativeRecipe):
                 LEFT JOIN daily_{key_behaviour}_cte ON a.date = daily_{key_behaviour}_cte.date and a.{campaign_id_column_name} = daily_{key_behaviour}_cte.{campaign_id_column_name} """
             )
 
-        campaign_vars_cte = f"SELECT {campaign_id_column_name}, {', '.join(campaign_vars)} FROM {{{{campaign_var_table}}}}"
-        select_query = (
-            select_query
-            + f""" , {', '.join([f'campaign_var_cte.{var} as {var}' for var in campaign_vars])} """
+        campaign_vars_cte = (
+            f"SELECT {campaign_id_column_name}"
+            + (f", {', '.join(campaign_vars)}" if campaign_vars else "")
+            + f" FROM {{{{campaign_var_table}}}}"
+        )
+        select_query = select_query + (
+            f""" , {', '.join([f'campaign_var_cte.{var} as {var}' for var in campaign_vars])} """
+            if campaign_vars
+            else ""
         )
         from_query = (
             from_query
@@ -686,7 +689,8 @@ class AttributionModelRecipe(PyNativeRecipe):
     def register_dependencies(self, this: WhtMaterial):
         user_journeys = self.config[CONVERSION][TOUCHPOINTS]
         conversion_vars = self.config[CONVERSION][CONVERSION_VARS]
-        campaign_details = self.config[CAMPAIGN][CAMPAIGN_DETAILS]
+        campaign_vars = self.config[CAMPAIGN].get(CAMPAIGN_VARS, list())
+        campaign_details = self.config[CAMPAIGN].get(CAMPAIGN_DETAILS, list())
         self.has_cost = False
         for campaign in campaign_details:
             if "cost" in campaign.keys():
@@ -698,7 +702,6 @@ class AttributionModelRecipe(PyNativeRecipe):
                 f"Campaign cost details are missing in {this.model.name()} model. "
                 f"So RoAS, CAC will not be calculated."
             )
-        campaign_vars = self.config[CAMPAIGN][CAMPAIGN_VARS]
 
         self.conversion_entity = self.config[ENTITY_KEY]
         self.campaign_entity = self.config[CAMPAIGN][ENTITY_KEY]
@@ -834,20 +837,28 @@ class AttributionModelRecipe(PyNativeRecipe):
             end_time,
         )
 
-        query_template = f"""
+        query_template = (
+            f"""
             {{% macro begin_block() %}}
                 {{% macro selector_sql() %}}
                     {{% with entity_var_table = {self.input_material_template} campaign_var_table = {self.campaign_var_template} {set_jouney_ref} {set_daily_campaign_details_ref} %}}
                     WITH {index_cte_query}
                         , {multiconversion_cte_query}
                         , {journey_cte_query}
-                        , {daily_campaign_details_query}
+                        """
+            + (
+                f", {daily_campaign_details_query}"
+                if daily_campaign_details_query
+                else ""
+            )
+            + f"""
                         {selector_sql}
                     {{% endwith %}}
                 {{% endmacro %}}
                 {{% exec %}} {{{{warehouse.CreateReplaceTableAs(this, selector_sql())}}}} {{% endexec %}}
             {{% endmacro %}}
             {{% exec %}} {{{{warehouse.BeginEndBlock(begin_block())}}}} {{% endexec %}}"""
+        )
 
         self.sql = this.execute_text_template(query_template)
         return

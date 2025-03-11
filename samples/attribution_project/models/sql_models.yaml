@@ -18,13 +18,13 @@ models:
 
         {% endwith %}
       ids:
-        - select: cast_as_str(ANONYMOUS_ID)
+        - select: "{{cast_as_str('ANONYMOUS_ID')}}"
           type: anonymous_id
           entity: user
-        - select: cast_as_str(SHOPIFY_CUSTOMER_ID)
+        - select: "{{cast_as_str('SHOPIFY_CUSTOMER_ID')}}"
           type: shopify_customer_id
           entity: user
-        - select: cast_as_str(DEVICE_ID)
+        - select: "{{cast_as_str('DEVICE_ID')}}"
           type: device_id
           entity: user
 

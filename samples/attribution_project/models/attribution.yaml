@@ -4,7 +4,7 @@ inputs:
       table: google_ads.campaign_stats
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: cast_as_str(id)
+        - select: "{{cast_as_str('id')}}"
           type: campaign_id
           entity: campaign
   - name: ga_campaign_history
@@ -12,7 +12,7 @@ inputs:
       table: google_ads.campaign_history
       occurred_at_col: UPDATED_AT
       ids:
-        - select: cast_as_str(id)
+        - select: "{{cast_as_str('id')}}"
           type: campaign_id
           entity: campaign
   - name: fb_campaign_history
@@ -20,7 +20,7 @@ inputs:
       table: facebook_ads.campaign_history
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: cast_as_str(id)
+        - select: "{{cast_as_str('id')}}"
           type: campaign_id
           entity: campaign
   - name: fb_basic_campaign
@@ -28,7 +28,7 @@ inputs:
       table: facebook_ads.basic_campaign
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: cast_as_str(campaign_id)
+        - select: "{{cast_as_str('campaign_id')}}"
           type: campaign_id
           entity: campaign
         - select: lower(campaign_name)
@@ -39,7 +39,7 @@ inputs:
       table: facebook_ads.ad_conversion
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: cast_as_str(ad_id)
+        - select: "{{cast_as_str('ad_id')}}"
           type: ad_id
           entity: campaign
   - name: lkdn_campaign_history
@@ -47,7 +47,7 @@ inputs:
       table: linkedin_ads.campaign_history
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: cast_as_str(id)
+        - select: "{{cast_as_str('id')}}"
           type: campaign_id
           entity: campaign
   - name: lkdn_ad_analytic_campaign
@@ -55,7 +55,7 @@ inputs:
       table: linkedin_ads.ad_analytics_by_campaign
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: cast_as_str(campaign_id)
+        - select: "{{cast_as_str('campaign_id')}}"
           type: campaign_id
           entity: campaign
 

@@ -4,7 +4,7 @@ inputs:
       table: google_ads.campaign_stats
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: id
+        - select: cast_as_str(id)
           type: campaign_id
           entity: campaign
   - name: ga_campaign_history
@@ -12,7 +12,7 @@ inputs:
       table: google_ads.campaign_history
       occurred_at_col: UPDATED_AT
       ids:
-        - select: id
+        - select: cast_as_str(id)
           type: campaign_id
           entity: campaign
   - name: fb_campaign_history
@@ -20,7 +20,7 @@ inputs:
       table: facebook_ads.campaign_history
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: id
+        - select: cast_as_str(id)
           type: campaign_id
           entity: campaign
   - name: fb_basic_campaign
@@ -28,7 +28,7 @@ inputs:
       table: facebook_ads.basic_campaign
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: campaign_id
+        - select: cast_as_str(campaign_id)
           type: campaign_id
           entity: campaign
         - select: lower(campaign_name)
@@ -39,7 +39,7 @@ inputs:
       table: facebook_ads.ad_conversion
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: ad_id
+        - select: cast_as_str(ad_id)
           type: ad_id
           entity: campaign
   - name: lkdn_campaign_history
@@ -47,7 +47,7 @@ inputs:
       table: linkedin_ads.campaign_history
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: id
+        - select: cast_as_str(id)
           type: campaign_id
           entity: campaign
   - name: lkdn_ad_analytic_campaign
@@ -55,7 +55,7 @@ inputs:
       table: linkedin_ads.ad_analytics_by_campaign
       occurred_at_col: _FIVETRAN_SYNCED
       ids:
-        - select: campaign_id
+        - select: cast_as_str(campaign_id)
           type: campaign_id
           entity: campaign
 
@@ -161,18 +161,18 @@ var_groups:
           select: least(coalesce({{campaign.Var('google_ads_campaign_start')}}, '2100-12-31'), coalesce({{campaign.Var('fb_ads_campaign_start')}}, '2100-12-31'), coalesce({{campaign.Var('lkdn_ads_campaign_start')}}, '2100-12-31'))
       - entity_var:
           name: campaign_start_date
-          select: case when {{campaign.Var('campaign_start_date_')}} = '2100-12-31' then dateadd('days', -90, current_date) else {{campaign.Var('campaign_start_date_')}}::date end
+          select: case when {{campaign.Var('campaign_start_date_')}} = '2100-12-31' then current_date else cast({{campaign.Var('campaign_start_date_')}} as date) end
       - entity_var:
           name: campaign_end_date_
           description: End date of the campaign across all sources
           select: greatest(coalesce({{campaign.Var('google_ads_campaign_end')}}, '1900-01-01'), coalesce({{campaign.Var('fb_ads_campaign_end')}}, '1900-01-01'), coalesce({{campaign.Var('lkdn_ads_campaign_end')}}, '1900-01-01'))
       - entity_var:
           name: campaign_end_date
-          select: case when {{campaign.Var('campaign_end_date_')}} = '1900-01-01' then current_date else {{campaign.Var('campaign_end_date_')}}::date end
+          select: case when {{campaign.Var('campaign_end_date_')}} = '1900-01-01' then current_date else cast({{campaign.Var('campaign_end_date_')}} as date) end
       - entity_var:
           name: google_ads_campaign_start
           description:
-          select: first_value(start_date)
+          select: first_value(cast(start_date as date))
           from: inputs/ga_campaign_history
           window:
             order_by:
@@ -180,7 +180,7 @@ var_groups:
       - entity_var:
           name: google_ads_campaign_end
           description:
-          select: first_value(end_date)
+          select: first_value(cast(end_date as date))
           from: inputs/ga_campaign_history
           window:
             order_by:
@@ -194,12 +194,12 @@ var_groups:
       - entity_var:
           name: fb_ads_campaign_start
           description:
-          select: min(start_time) # could not find a start date
+          select: min(cast(start_time as date)) # could not find a start date
           from: inputs/fb_campaign_history
       - entity_var:
           name: fb_ads_campaign_end
           description:
-          select: max(start_time) # could not find a start date
+          select: max(cast(start_time as date)) # could not find a start date
           from: inputs/fb_campaign_history
       - entity_var:
           name: fb_ads_impressions
@@ -222,10 +222,10 @@ var_groups:
       - entity_var:
           name: lkdn_ads_campaign_start
           description:
-          select: min(run_schedule_start) # could not find a start date
+          select: min(cast(run_schedule_start as date)) # could not find a start date
           from: inputs/lkdn_campaign_history
       - entity_var:
           name: lkdn_ads_campaign_end
           description:
-          select: max(run_schedule_start) # could not find a start date
+          select: max(cast(run_schedule_start as date)) # could not find a start date
           from: inputs/lkdn_campaign_history

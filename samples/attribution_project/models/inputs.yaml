@@ -7,7 +7,7 @@ inputs:
         - select: lower(USER_ID)
           type: email
           entity: user
-        - select: DEVICE_ID
+        - select: cast_as_str(DEVICE_ID)
           type: device_id
           entity: user
   - name: rsSubServiceRenewal
@@ -15,13 +15,13 @@ inputs:
       table: BACKEND_SUBSCRIPTION_SERVICE.SUBSCRIPTION_RENEWAL
       occurred_at_col: timestamp
       ids:
-        - select: DEVICE_ID
+        - select: cast_as_str(DEVICE_ID)
           type: device_id
           entity: user
-        - select: ANONYMOUS_ID
+        - select: cast_as_str(ANONYMOUS_ID)
           type: anonymous_id
           entity: user
-        - select: SHOPIFY_CUSTOMER_ID
+        - select: cast_as_str(SHOPIFY_CUSTOMER_ID)
           type: shopify_customer_id
           entity: user
   - name: rsSubServiceStart
@@ -29,13 +29,13 @@ inputs:
       table: BACKEND_SUBSCRIPTION_SERVICE.SUBSCRIPTION_START
       occurred_at_col: timestamp
       ids:
-        - select: ANONYMOUS_ID
+        - select: cast_as_str(ANONYMOUS_ID)
           type: anonymous_id
           entity: user
-        - select: SHOPIFY_CUSTOMER_ID
+        - select: cast_as_str(SHOPIFY_CUSTOMER_ID)
           type: shopify_customer_id
           entity: user
-        - select: DEVICE_ID
+        - select: cast_as_str(DEVICE_ID)
           type: device_id
           entity: user
   - name: rsSubServiceUpgrade
@@ -43,13 +43,13 @@ inputs:
       table: BACKEND_SUBSCRIPTION_SERVICE.SUBSCRIPTION_UPGRADE
       occurred_at_col: timestamp
       ids:
-        - select: SHOPIFY_CUSTOMER_ID
+        - select: cast_as_str(SHOPIFY_CUSTOMER_ID)
           type: shopify_customer_id
           entity: user
-        - select: DEVICE_ID
+        - select: cast_as_str(DEVICE_ID)
           type: device_id
           entity: user
-        - select: ANONYMOUS_ID
+        - select: cast_as_str(ANONYMOUS_ID)
           type: anonymous_id
           entity: user
   - name: rsIOSAccountCreated
@@ -57,7 +57,7 @@ inputs:
       table: IOS_APP.ACCOUNT_CREATED
       occurred_at_col: timestamp
       ids:
-        - select: DEVICE_ID
+        - select: cast_as_str(DEVICE_ID)
           type: device_id
           entity: user
         - select: lower(USER_ID)
@@ -68,7 +68,7 @@ inputs:
       table: MARKETING_WEBSITE.IDENTIFIES
       occurred_at_col: timestamp
       ids:
-        - select: ANONYMOUS_ID
+        - select: cast_as_str(ANONYMOUS_ID)
           type: anonymous_id
           entity: user
         - select: lower(EMAIL)
@@ -82,10 +82,10 @@ inputs:
       table: MARKETING_WEBSITE.PAGES
       occurred_at_col: timestamp
       ids:
-        - select: ANONYMOUS_ID
+        - select: cast_as_str(ANONYMOUS_ID)
           type: anonymous_id
           entity: user
-        - select: UTM_CAMPAIGN
+        - select: cast_as_str(UTM_CAMPAIGN)
           type: utm_campaign
           entity: campaign
   - name: rsShopifyOrderCompleted
@@ -96,14 +96,14 @@ inputs:
         - select: lower(EMAIL)
           type: email
           entity: user
-        - select: DEVICE_ID
+        - select: cast_as_str(DEVICE_ID)
           type: device_id
           entity: user
-        - select: SHOPIFY_CUSTOMER_ID
+        - select: cast_as_str(SHOPIFY_CUSTOMER_ID)
           type: shopify_customer_id
           entity: user
         # WE SHOULD IGNORE THIS ANONYMOUS ID AFTER FIRST RUN OF ID GRAPH
-        - select: ANONYMOUS_ID
+        - select: cast_as_str(ANONYMOUS_ID)
           type: anonymous_id
           entity: user
   - name: rsAndroidAccountUpdated

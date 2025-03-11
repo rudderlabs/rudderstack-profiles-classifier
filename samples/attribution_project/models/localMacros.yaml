@@ -18,3 +18,13 @@ macros:
     value: "array_size( parse_json({{column_name}}) )"
   - name: frame_clause
     value: "frame_condition = 'rows between unbounded preceding and unbounded following'"
+
+  - name: cast_as_str
+    inputs:
+      - column
+    value: "
+      {% if warehouse.DatabaseType() == \"redshift\" %}
+        cast({{column}} as varchar)
+      {% else %}
+        cast({{column}} as string)
+      {% endif %}"

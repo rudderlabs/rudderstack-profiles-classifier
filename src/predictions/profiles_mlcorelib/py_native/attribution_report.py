@@ -145,7 +145,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             query = f"""
                     {{% exec %}}
                         {{% with entity_var_table = {self.input_material_template} %}}
-                            SELECT {self.entity_id_column_name}, {self._get_datediff_str("day", timestamp_column, "CURRENT_DATE")} AS days_since_conversion
+                            SELECT {self.entity_id_column_name}, {self._get_datediff_str("day", f"{{{{{timestamp_column}}}}}", "CURRENT_DATE")} AS days_since_conversion
                             FROM {{{{entity_var_table}}}}
                             WHERE {{{{{timestamp_column}}}}} IS NOT NULL;
                         {{% endwith %}}

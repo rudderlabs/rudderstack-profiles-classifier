@@ -30,7 +30,7 @@ var_groups:
       - entity_var:
           name: subscription_start_date
           description: Subscription start date
-          select: min(INVOICE_DATE::date)
+          select: min(cast(INVOICE_DATE as date))
           from: models/sqlSubscriptionDetails
       - entity_var:
           name: subscription_invoice_total
@@ -48,7 +48,7 @@ var_groups:
           is_feature: false
       - entity_var:
           name: first_order_date
-          select: min(INVOICE_DATE::date)
+          select: min(cast(INVOICE_DATE as date))
           from: models/sqlSubscriptionDetails
           description: date of first order per user
           is_feature: false

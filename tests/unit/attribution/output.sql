@@ -3,13 +3,13 @@
                 {% macro selector_sql() %}
                     {% with entity_var_table = this.DeRef(makePath(user.Var('first_order_date').Model.GetVarTableRef())) campaign_var_table = this.DeRef('entity/campaign/var_table') Table1 = this.DeRef('inputs/rsMarketingPages/var_table') Table2 = this.DeRef('inputs/rsMarketingPages1/var_table')  impressions_source1 = this.DeRef('inputs/ga_campaign_stats/var_table') impressions_source2 = this.DeRef('inputs/lkdn_ad_analytic_campaign/var_table') impressions_source3 = this.DeRef('inputs/fb_basic_campaign/var_table') clicks_source1 = this.DeRef('inputs/ga_campaign_stats/var_table')  %}
                     WITH 
-                                RECURSIVE date_range(date) AS (
-                                        SELECT DATE '2000-01-01' AS date
-                                        UNION ALL
-                                        SELECT (date + INTERVAL '1 day')::DATE
-                                        FROM date_range
-                                        WHERE date < CURRENT_DATE
-                                ),
+                                
+                                date_range AS (
+                                        SELECT date
+                                        FROM
+                                            UNNEST(GENERATE_DATE_ARRAY(DATE('2000-01-01'), CURRENT_DATE())) AS date
+                                )
+            ,
                                 CAMPAIGN_INFO AS (
                                         SELECT campaign_def_id,  DATE(campaign_start_date) as start_date, DATE(campaign_end_date) as end_date 
                                         FROM {{campaign_var_table}}
@@ -37,32 +37,32 @@
                     
                                 SELECT user_abc_id, {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} AS converted_date 
                                 FROM {{entity_var_table}} 
-                                WHERE {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} is not NULL 
+                                WHERE {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} is not NULL
                 ) AS conversion_tbl
                 JOIN 
                 (
                      
                                  
                                 SELECT a.user_abc_id, a.campaign_def_id, a.timestamp_mock AS timestamp 
-                                FROM {{Table1}} a JOIN {{entity_var_table}} ON a.user_abc_id = {{entity_var_table}}.user_abc_id 
+                                FROM {{Table1}} a JOIN {{entity_var_table}} b ON a.user_abc_id = b.user_abc_id 
                                 WHERE (a.campaign_def_id is not NULL) AND ( 4 < {{user.Var('first_invoice_amount')}} ) 
                                 UNION ALL  
                                 SELECT a.user_abc_id, a.campaign_def_id, a.timestamp_mock AS timestamp 
                                 FROM {{Table2}} a  
                                 WHERE (a.campaign_def_id is not NULL) AND ( 4 < first_invoice_amount1 )
                 ) AS journey
-                ON conversion_tbl.user_abc_id = journey.user_abc_id AND journey.timestamp <= conversion_tbl.converted_date
+                ON conversion_tbl.user_abc_id = journey.user_abc_id AND DATE(journey.timestamp) <= conversion_tbl.converted_date
             ), 
             sf_order_user_view AS (
                 SELECT 
                     user_abc_id,
                     CASE 
-                WHEN DATEDIFF(day, first_touch_timestamp, converted_date) <= 60 THEN DATE(first_touch_timestamp) 
+                WHEN DATE_DIFF(converted_date, first_touch_timestamp, day) <= 60 THEN DATE(first_touch_timestamp) 
                 ELSE NULL 
             END AS first_touch_date,
 first_touch_campaign_def_id,
 CASE 
-                WHEN DATEDIFF(day, last_touch_timestamp, converted_date) <= 60 THEN DATE(last_touch_timestamp) 
+                WHEN DATE_DIFF(converted_date, last_touch_timestamp, day) <= 60 THEN DATE(last_touch_timestamp) 
                 ELSE NULL 
             END AS last_touch_date,
 last_touch_campaign_def_id,
@@ -121,41 +121,41 @@ last_touch_campaign_def_id,
                     
                                 SELECT user_abc_id, {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} AS converted_date, {{user.Var('first_invoice_amount').Model.DbObjectNamePrefix()}} AS conversion_value 
                                 FROM {{entity_var_table}} 
-                                WHERE {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} is not NULL 
+                                WHERE {{user.Var('first_order_date').Model.DbObjectNamePrefix()}} is not NULL
                 ) AS conversion_tbl
                 JOIN 
                 (
                      
                                  
                                 SELECT a.user_abc_id, a.campaign_def_id, a.timestamp_mock AS timestamp 
-                                FROM {{Table1}} a JOIN {{entity_var_table}} ON a.user_abc_id = {{entity_var_table}}.user_abc_id 
+                                FROM {{Table1}} a JOIN {{entity_var_table}} b ON a.user_abc_id = b.user_abc_id 
                                 WHERE (a.campaign_def_id is not NULL) AND ( 4 < {{user.Var('first_invoice_amount')}} ) 
                                 UNION ALL  
                                 SELECT a.user_abc_id, a.campaign_def_id, a.timestamp_mock AS timestamp 
                                 FROM {{Table2}} a  
                                 WHERE (a.campaign_def_id is not NULL) AND ( 4 < first_invoice_amount1 )
                 ) AS journey
-                ON conversion_tbl.user_abc_id = journey.user_abc_id AND journey.timestamp <= conversion_tbl.converted_date
+                ON conversion_tbl.user_abc_id = journey.user_abc_id AND DATE(journey.timestamp) <= conversion_tbl.converted_date
             ), 
             sf_order1_user_view AS (
                 SELECT 
                     user_abc_id,
                     CASE 
-                WHEN DATEDIFF(hour, first_touch_timestamp, converted_date) <= 60 THEN DATE(first_touch_timestamp) 
+                WHEN DATE_DIFF(converted_date, first_touch_timestamp, hour) <= 60 THEN DATE(first_touch_timestamp) 
                 ELSE NULL 
             END AS first_touch_date,
 first_touch_campaign_def_id,
 CASE 
-                WHEN DATEDIFF(hour, first_touch_timestamp, converted_date) <= 60 THEN first_touch_conversion_value 
+                WHEN DATE_DIFF(converted_date, first_touch_timestamp, hour) <= 60 THEN first_touch_conversion_value 
                 ELSE NULL 
             END AS first_touch_conversion_value,
 CASE 
-                WHEN DATEDIFF(hour, last_touch_timestamp, converted_date) <= 60 THEN DATE(last_touch_timestamp) 
+                WHEN DATE_DIFF(converted_date, last_touch_timestamp, hour) <= 60 THEN DATE(last_touch_timestamp) 
                 ELSE NULL 
             END AS last_touch_date,
 last_touch_campaign_def_id,
 CASE 
-                WHEN DATEDIFF(hour, last_touch_timestamp, converted_date) <= 60 THEN last_touch_conversion_value 
+                WHEN DATE_DIFF(converted_date, last_touch_timestamp, hour) <= 60 THEN last_touch_conversion_value 
                 ELSE NULL 
             END AS last_touch_conversion_value,
                     converted_date
@@ -214,21 +214,21 @@ CASE
                     
                                 SELECT user_abc_id, {{user.Var('subscription_start_date').Model.DbObjectNamePrefix()}} AS converted_date, {{user.Var('first_invoice_amount').Model.DbObjectNamePrefix()}} AS conversion_value 
                                 FROM {{entity_var_table}} 
-                                WHERE {{user.Var('subscription_start_date').Model.DbObjectNamePrefix()}} is not NULL 
+                                WHERE {{user.Var('subscription_start_date').Model.DbObjectNamePrefix()}} is not NULL
                 ) AS conversion_tbl
                 JOIN 
                 (
                      
                                  
                                 SELECT a.user_abc_id, a.campaign_def_id, a.timestamp_mock AS timestamp 
-                                FROM {{Table1}} a JOIN {{entity_var_table}} ON a.user_abc_id = {{entity_var_table}}.user_abc_id 
+                                FROM {{Table1}} a JOIN {{entity_var_table}} b ON a.user_abc_id = b.user_abc_id 
                                 WHERE (a.campaign_def_id is not NULL) AND ( 4 < {{user.Var('first_invoice_amount')}} ) 
                                 UNION ALL  
                                 SELECT a.user_abc_id, a.campaign_def_id, a.timestamp_mock AS timestamp 
                                 FROM {{Table2}} a  
                                 WHERE (a.campaign_def_id is not NULL) AND ( 4 < first_invoice_amount1 )
                 ) AS journey
-                ON conversion_tbl.user_abc_id = journey.user_abc_id AND journey.timestamp <= conversion_tbl.converted_date
+                ON conversion_tbl.user_abc_id = journey.user_abc_id AND DATE(journey.timestamp) <= conversion_tbl.converted_date
             ), 
             sf_subscription_user_view AS (
                 SELECT 
@@ -288,7 +288,7 @@ last_touch_conversion_value AS last_touch_conversion_value,
                                             
                                  
                                 SELECT a.user_abc_id, a.campaign_def_id, a.timestamp_mock AS timestamp 
-                                FROM {{Table1}} a JOIN {{entity_var_table}} ON a.user_abc_id = {{entity_var_table}}.user_abc_id 
+                                FROM {{Table1}} a JOIN {{entity_var_table}} b ON a.user_abc_id = b.user_abc_id 
                                 WHERE (a.campaign_def_id is not NULL) AND ( 4 < {{user.Var('first_invoice_amount')}} ) 
                                 UNION ALL  
                                 SELECT a.user_abc_id, a.campaign_def_id, a.timestamp_mock AS timestamp 
@@ -303,17 +303,17 @@ last_touch_conversion_value AS last_touch_conversion_value,
                                     (SELECT campaign_def_id, date, SUM(impressions) AS impressions 
                                      FROM (
                                     
-                                    SELECT campaign_def_id, date AS date, sum(impressions) AS impressions
+                                    SELECT campaign_def_id, CAST(date AS date) AS date, sum(impressions) AS impressions
                                     FROM {{impressions_source1}}
                                     GROUP BY campaign_def_id, date
                                     
                                      UNION ALL 
-                                    SELECT campaign_def_id, day AS date, sum(impressions) AS impressions
+                                    SELECT campaign_def_id, CAST(day AS date) AS date, sum(impressions) AS impressions
                                     FROM {{impressions_source2}}
                                     GROUP BY campaign_def_id, day
                                     
                                      UNION ALL 
-                                    SELECT campaign_def_id, date AS date, sum(impressions) AS impressions
+                                    SELECT campaign_def_id, CAST(date AS date) AS date, sum(impressions) AS impressions
                                     FROM {{impressions_source3}}
                                     GROUP BY campaign_def_id, date
                                     )
@@ -323,7 +323,7 @@ last_touch_conversion_value AS last_touch_conversion_value,
                                     (SELECT campaign_def_id, date, SUM(clicks) AS clicks 
                                      FROM (
                                     
-                                    SELECT campaign_def_id, date AS date, sum(clicks) AS clicks
+                                    SELECT campaign_def_id, CAST(date AS date) AS date, sum(clicks) AS clicks
                                     FROM {{clicks_source1}}
                                     GROUP BY campaign_def_id, date
                                     )
@@ -333,7 +333,7 @@ last_touch_conversion_value AS last_touch_conversion_value,
                 SELECT 
                     user_main_id,
                     'sf_order' AS conversion_type,
-                    DATEDIFF(day, first_touch_date, converted_date) AS conversion_days,
+                    DATE_DIFF(converted_date, first_touch_date, day) AS conversion_days,
                     sf_order_user_view.first_touch_date as date,
                     sf_order_user_view.first_touch_campaign_def_id as campaign_def_id
                 FROM sf_order_user_view
@@ -341,7 +341,7 @@ last_touch_conversion_value AS last_touch_conversion_value,
                 SELECT 
                     user_main_id,
                     'sf_order1' AS conversion_type,
-                    DATEDIFF(day, first_touch_date, converted_date) AS conversion_days,
+                    DATE_DIFF(converted_date, first_touch_date, day) AS conversion_days,
                     sf_order1_user_view.first_touch_date as date,
                     sf_order1_user_view.first_touch_campaign_def_id as campaign_def_id
                 FROM sf_order1_user_view
@@ -349,7 +349,7 @@ last_touch_conversion_value AS last_touch_conversion_value,
                 SELECT 
                     user_main_id,
                     'sf_subscription' AS conversion_type,
-                    DATEDIFF(day, first_touch_date, converted_date) AS conversion_days,
+                    DATE_DIFF(converted_date, first_touch_date, day) AS conversion_days,
                     sf_subscription_user_view.first_touch_date as date,
                     sf_subscription_user_view.first_touch_campaign_def_id as campaign_def_id
                 FROM sf_subscription_user_view

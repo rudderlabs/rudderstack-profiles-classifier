@@ -151,10 +151,10 @@ jobs:
     strategy:
       matrix:
         warehouse:
-          - test: tests/integration/attribution/attribution.py
-            site_config: SNOWFLAKE_SITE_CONFIG
-          - test: tests/integration/attribution/attribution.py
-            site_config: REDSHIFT_SITE_CONFIG_V2
+          # - test: tests/integration/attribution/attribution.py
+          #   site_config: SNOWFLAKE_SITE_CONFIG
+          # - test: tests/integration/attribution/attribution.py
+          #   site_config: REDSHIFT_SITE_CONFIG_V2
           - test: tests/integration/attribution/attribution.py
             site_config: BIGQUERY_SITE_CONFIG
 

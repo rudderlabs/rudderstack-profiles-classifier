@@ -131,6 +131,12 @@ class AttributionModelRecipe(PyNativeRecipe):
     def describe(self, this: WhtMaterial):
         return self.sql, ".sql"
 
+    def _get_datediff_str(self, interval_granularity, date1, date2):
+        if self.wh_type == "bigquery":
+            return f"DATE_DIFF({date2}, {date1}, {interval_granularity})"
+        else:
+            return f"DATEDIFF({interval_granularity}, {date1}, {date2})"
+
     def _validate_conversion_timestamp_column_type(
         self, this: WhtMaterial, conversion_vars: List[Dict]
     ):
@@ -139,7 +145,7 @@ class AttributionModelRecipe(PyNativeRecipe):
             query = f"""
                     {{% exec %}}
                         {{% with entity_var_table = {self.input_material_template} %}}
-                            SELECT {self.entity_id_column_name}, DATEDIFF(day, {{{{{timestamp_column}}}}}, GETDATE()) AS days_since_conversion
+                            SELECT {self.entity_id_column_name}, {self._get_datediff_str("day", timestamp_column, "CURRENT_DATE")} AS days_since_conversion
                             FROM {{{{entity_var_table}}}}
                             WHERE {{{{{timestamp_column}}}}} IS NOT NULL;
                         {{% endwith %}}
@@ -161,7 +167,7 @@ class AttributionModelRecipe(PyNativeRecipe):
     ):
         if conversion_flag:
             return f"""CASE 
-                WHEN DATEDIFF({conversion_granularity}, {field}_timestamp, converted_date) <= {conversion_window} THEN DATE({field}_timestamp) 
+                WHEN {self._get_datediff_str(conversion_granularity, f"{field}_timestamp", "converted_date")} <= {conversion_window} THEN DATE({field}_timestamp) 
                 ELSE NULL 
             END AS {field}_date"""
         else:
@@ -177,7 +183,7 @@ class AttributionModelRecipe(PyNativeRecipe):
     ):
         if conversion_flag and value_flag:
             return f"""CASE 
-                WHEN DATEDIFF({conversion_granularity}, {field}_timestamp, converted_date) <= {conversion_window} THEN {field}_conversion_value 
+                WHEN {self._get_datediff_str(conversion_granularity, f"{field}_timestamp", "converted_date")} <= {conversion_window} THEN {field}_conversion_value 
                 ELSE NULL 
             END AS {field}_conversion_value"""
         elif value_flag:
@@ -255,7 +261,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                 (
                     {journey_query}
                 ) AS journey
-                ON conversion_tbl.{entity_id_column_name} = journey.{entity_id_column_name} AND journey.timestamp <= conversion_tbl.converted_date
+                ON conversion_tbl.{entity_id_column_name} = journey.{entity_id_column_name} AND DATE(journey.timestamp) <= conversion_tbl.converted_date
             ), 
             {conversion_name}_user_view AS (
                 SELECT 
@@ -349,17 +355,34 @@ class AttributionModelRecipe(PyNativeRecipe):
                                 """
         return journey_cte_query
 
-    def _get_index_cte(
-        self, campaign_id_column_name, campaign_start_date, campaign_end_date
-    ):
-        index_cte_query = f"""
+    def _get_date_range_cte(self):
+        date_range_cte_query = ""
+        if self.wh_type == "bigquery":
+            date_range_cte_query = f"""
+                                date_range AS (
+                                        SELECT date
+                                        FROM
+                                            UNNEST(GENERATE_DATE_ARRAY(DATE('2000-01-01'), CURRENT_DATE())) AS date
+                                )
+            """
+        else:
+            date_range_cte_query = f"""
                                 RECURSIVE date_range(date) AS (
                                         SELECT DATE '2000-01-01' AS date
                                         UNION ALL
                                         SELECT (date + INTERVAL '1 day')::DATE
                                         FROM date_range
                                         WHERE date < CURRENT_DATE
-                                ),
+                                )
+            """
+        return date_range_cte_query
+
+    def _get_index_cte(
+        self, campaign_id_column_name, campaign_start_date, campaign_end_date
+    ):
+        date_range_cte_query = self._get_date_range_cte()
+        index_cte_query = f"""
+                                {date_range_cte_query},
                                 CAMPAIGN_INFO AS (
                                         SELECT {campaign_id_column_name},  DATE({campaign_start_date}) as start_date, DATE({campaign_end_date}) as end_date 
                                         FROM {{{{campaign_var_table}}}}
@@ -417,7 +440,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                 SELECT 
                     user_main_id,
                     '{table}' AS conversion_type,
-                    DATEDIFF(day, first_touch_date, converted_date) AS conversion_days,
+                    {self._get_datediff_str("day", "first_touch_date", "converted_date")} AS conversion_days,
                     {table}_user_view.first_touch_date as date,
                     {table}_user_view.first_touch_{campaign_id_column_name} as {campaign_id_column_name}
                 FROM {table}_user_view
@@ -548,7 +571,7 @@ class AttributionModelRecipe(PyNativeRecipe):
                     if campaign_info_granular["from"] not in self.models_with_main_ids
                     else f"{prefix}{counter} = this.DeRef('{campaign_info_granular['from']}') "
                 )
-                select_info = f"SELECT {campaign_id_column_name}, {campaign_info_granular['date']} AS date, {campaign_info_granular['select']} AS {key_behaviour}"
+                select_info = f"SELECT {campaign_id_column_name}, CAST({campaign_info_granular['date']} AS date) AS date, {campaign_info_granular['select']} AS {key_behaviour}"
                 from_info = f"FROM {{{{{prefix}{counter}}}}}"
                 group_by_info = f"GROUP BY {campaign_id_column_name}, {campaign_info_granular['date']}"
                 daily_campaign_details_query_temp = f"""{daily_campaign_details_query_temp}
@@ -604,7 +627,7 @@ class AttributionModelRecipe(PyNativeRecipe):
 
             if "where" in journey_info:
                 if ".Var" in journey_info["where"]:
-                    join_info = f"JOIN {{{{entity_var_table}}}} ON a.{entity_id_column_name} = {{{{entity_var_table}}}}.{entity_id_column_name}"
+                    join_info = f"JOIN {{{{entity_var_table}}}} b ON a.{entity_id_column_name} = b.{entity_id_column_name}"
                 else:
                     join_info = ""
 
@@ -691,6 +714,9 @@ class AttributionModelRecipe(PyNativeRecipe):
         conversion_vars = self.config[CONVERSION][CONVERSION_VARS]
         campaign_vars = self.config[CAMPAIGN].get(CAMPAIGN_VARS, list())
         campaign_details = self.config[CAMPAIGN].get(CAMPAIGN_DETAILS, list())
+        self.wh_type = "bigquery"  # Following lines are not picking the warehouse type from the project because of null ctx in first iter. Hardcoding for testing.
+        # self.wh_type = this.wht_ctx.client.wh_type
+        # self.wh_type = this.base_wht_project.warehouse_credentials()["type"]
         self.has_cost = False
         for campaign in campaign_details:
             if "cost" in campaign.keys():
